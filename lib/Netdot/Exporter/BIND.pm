@@ -85,6 +85,17 @@ sub generate_configs {
 	@zones = Zone->retrieve_all();
     }
     
+    my $remotedir = Netdot->config->get('BIND_REMOTE_DIR') 
+	|| $self->throw_user('BIND_REMOTE_DIR not defined in config file!');
+    
+    my $sshserver = Netdot->config->get('BIND_SSH_SERVER') 
+	|| $self->throw_user('BIND_SSH_SERVER not defined in config file!');
+
+    my $reloadcmd = Netdot->config->get('BIND_RELOAD_CMD') 
+	|| $self->throw_user('BIND_RELOAD_CMD not defined in config file!');
+
+    my $changes = 0;
+
     foreach my $zone ( @zones ){
 	eval {
 	    Netdot::Model->do_transaction(sub{
@@ -97,6 +108,9 @@ sub generate_configs {
 			    $record->update({pending=>0});
 			}
 			$logger->info("Zone ".$zone->name." written to file: $path");
+
+			system ("/usr/bin/scp $path $sshserver:$remotedir");
+			$changes++;
 		    }
 		}else{
 		    $logger->debug("Exporter::BIND::generate_configs: ".$zone->name.
@@ -106,6 +120,15 @@ sub generate_configs {
 	};
 	$logger->error($@) if $@;
     }
+
+    if ($changes > 0) {
+	open (FOO, "/usr/bin/ssh $sshserver '$reloadcmd' |");
+	while (<FOO>) {
+	    chomp;
+	    $logger->info( $_ );
+	}
+	close (FOO);
+    }        
 }
 
 ############################################################################
