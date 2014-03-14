@@ -210,7 +210,8 @@ sub _get_v6_nd_from_cli {
 	chomp($line);
 	# Lines look like this:
 	# 1   fe80::8271:1fff:fe63:ec91               2104 8071.1f63.ec91 REACH  0    1/4   1
-	if ( $line =~ /^\d+\s+($IPV6)\s+\d+\s+($CISCO_MAC)\s+\S+\s+\d+\s+(\S+)/o ) {
+	# 1000fe80::8271:1fff:fe63:ec91               2104 8071.1f63.ec91 REACH  0    1/4   1
+	if ( $line =~ /^....\s*($IPV6)\s+\d+\s+($CISCO_MAC)\s+\S+\s+\d+\s+(\S+)/o ) {
 	    $ip    = $1;
 	    $mac   = $2;
 	    $iname = $3;
@@ -329,7 +330,7 @@ sub _reduce_iname{
     my ($self, $name) = @_;
     return unless $name;
     $name =~ s/^.*Ethernet//;
-    $name =~ s/-.*$//; # Fix LACPa
+    $name =~ s/-.*$//; # Fix LACP
     $name =~ s/\*.*$//; # Fix LACP
     return $name;
 }
