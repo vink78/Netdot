@@ -150,80 +150,60 @@ if ( $submit eq 'Edit' ) {
     my (@headers, @rows);
     my $showeditbuttons;
 
-     if ( @tablefields ) {
-	 
-	 push(@headers, "Name");
-	 foreach my $field ( @tablefields ) {
-	     my $mcol = $table->meta_data->get_column($field);
-	     push(@headers, $mcol->tag);
-	 }
-	 
-	 if ( $selectall ) {
-	     my $hid = "<input type=\"hidden\" name=\"selectall_ids\" value=\"$selectall_ids\">";
+    if ( @tablefields ) {
+
+	push(@headers, "Name");
+	foreach my $field ( @tablefields ) {
+	    my $mcol = $table->meta_data->get_column($field);
+	    push(@headers, $mcol->tag);
+	}
+
+	# @trows is used to sort entries
+	my @trows;
+
+	foreach my $obj ( @{$objs{$table}} ) {
+	    my @row = ();
+	    push( @row, $obj->get_label );
+	    foreach my $field ( @tablefields ) {
+		my %tmp = $ui->form_field(object=>$obj, column=>$field, edit=>1);
+		push( @row, $tmp{'value'} );    
+	    }
+	    push( @trows, \@row );
+	}
+
+	@rows = sort {$a->[0] cmp $b->[0]} @trows; # Sort rows alphabetically
 	     
-	     my @row1 = ();
-	     push( @row1, 'Apply to all '.$numobjs.' records'.$hid );
-	     foreach my $field ( @tablefields ) {
-		 my %tmp = $ui->form_field(table=>$table, column=>$field, edit=>1);
-		 push( @row1, $tmp{'value'} );    
-	     }
-	     push( @rows, \@row1 );
-	     
-	     my @row2 = ();
-	     push( @row2, '<div style="font-size:8pt;">Note: The values you set here will be<br>
-				applied to <b>all</b> '.$numobjs.' records, even if<br>
-				the value is blank. If you do not want to<br>
-				modify a field, go back and uncheck it.' );
-	     for( my $i=0; $i<scalar(@tablefields); $i++ ) {
-		 push( @row2, "&nbsp;" );
-	     }
-	     push( @rows, \@row2 );
-	     
-	 } else {
-	     
-	     foreach my $obj ( @{$objs{$table}} ) {
-		 my @row = ();
-		 push( @row, $obj->get_label );
-		 foreach my $field ( @tablefields ) {
-		     my %tmp = $ui->form_field(object=>$obj, column=>$field, edit=>1);
-		     push( @row, $tmp{'value'} );    
-		 }
-		 push( @rows, \@row );
-	     }
-	     
-	     my @emptyrow = ();
-	     for( my $i=0; $i<(@tablefields)+1; $i++ ) {
-		 push( @emptyrow, "&nbsp;" );
-	     }
-	     push( @rows, \@emptyrow );
-	     
-	     my @row2 = ();
-	     push( @row2, 'Apply to all above' );
-	     foreach my $field ( @tablefields ) {
-		 push( @row2, '<input type="checkbox" name="applytoall_'.$field.'">' );
-	     }
-	     push( @row2, '&nbsp;' );
-	     push( @rows, \@row2 );
-	     
-	     my @row1 = ();
-	     push( @row1, '&nbsp;' );
-	     foreach my $field ( @tablefields ) {
-		 my %tmp = $ui->form_field(table=>$table, column=>$field, edit=>1);
-		 push( @row1, $tmp{'value'} );    
-	     }
-	     push( @row1, '&nbsp;' );
-	     push( @rows, \@row1 );
-	     
-	 }
-	 
-	 $showeditbuttons = 1;
-     } else {
-	 push( @headers, "Error" );
-	 my @row;
-	 push( @row, 'Go back and choose at least 1 field to edit' );
-	 push( @rows, \@row );
-	 $showeditbuttons = 0;
-     }
+	my @emptyrow = ();
+	for( my $i=0; $i<(@tablefields)+1; $i++ ) {
+	    push( @emptyrow, "&nbsp;" );
+	}
+	push( @rows, \@emptyrow );
+
+	my @row2 = ();
+	push( @row2, 'Apply to all above' );
+	foreach my $field ( @tablefields ) {
+	    push( @row2, '<input type="checkbox" name="applytoall_'.$field.'">' );
+	}
+	push( @row2, '&nbsp;' );
+	push( @rows, \@row2 );
+
+	my @row1 = ();
+	push( @row1, '&nbsp;' );
+	foreach my $field ( @tablefields ) {
+	    my %tmp = $ui->form_field(table=>$table, column=>$field, edit=>1);
+	    push( @row1, $tmp{'value'} );    
+	}
+	push( @row1, '&nbsp;' );
+	push( @rows, \@row1 );
+
+	$showeditbuttons = 1;
+    } else {
+	push( @headers, "Error" );
+	my @row;
+	push( @row, 'Go back and choose at least 1 field to edit' );
+	push( @rows, \@row );
+	$showeditbuttons = 0;
+    }
 
 </%perl>
     <div class="containeroutside">
