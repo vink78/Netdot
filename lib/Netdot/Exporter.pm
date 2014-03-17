@@ -14,6 +14,7 @@ my %types = (
     'Sysmon'    => 'Netdot::Exporter::Sysmon',
     'Rancid'    => 'Netdot::Exporter::Rancid',
     'BIND'      => 'Netdot::Exporter::BIND',
+    'NAMED'     => 'Netdot::Exporter::NAMED',
     'DHCPD'     => 'Netdot::Exporter::DHCPD',
     'Smokeping' => 'Netdot::Exporter::Smokeping',
     );
