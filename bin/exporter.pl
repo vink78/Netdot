@@ -14,7 +14,7 @@ my $USAGE = <<EOF;
          [ -d|--debug ] [ -h|--help ]
 
     Available types:  Nagios, Sysmon, Rancid, Smokeping, BIND, NAMED,
-                      DHCPD
+                      DHCPD, RFC952
 
     BIND exporter Options:
        zones  - Comma-separated list of zone names.  If not 

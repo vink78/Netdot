@@ -17,6 +17,7 @@ my %types = (
     'NAMED'     => 'Netdot::Exporter::NAMED',
     'DHCPD'     => 'Netdot::Exporter::DHCPD',
     'Smokeping' => 'Netdot::Exporter::Smokeping',
+    'RFC952'    => 'Netdot::Exporter::RFC952',
     );
 
 =head1 NAME
