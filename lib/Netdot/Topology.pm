@@ -538,6 +538,13 @@ sub get_dp_links {
 			}
 		    }
 		    unless ( $rem_int ){
+			if ( ($rem_port =~ /^ethernet(\d+\/\d+\/\d+)$/i) || ($rem_port =~ /^ethernet(\d+\/\d+)$/i) || ($rem_port =~ /^ethernet(\d+)$/i) ){
+			    $rem_port = "'".'%Ethernet'.$1."'";
+			}
+			# Try name first, then number, then description (if it is unique)
+			$rem_int = Interface->search_like(device=>$rem_dev, name=>$rem_port)->first;
+		    }
+		    unless ( $rem_int ){
 		    	# If interface name has a slot/sub-slot number
 		    	# (helps finding stuff like Gi2/7)
 			if ( $rem_port =~ /^([a-z]{2})[a-z]*([0-9\/.]+)$/io ){

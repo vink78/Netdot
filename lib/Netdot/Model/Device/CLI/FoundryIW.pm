@@ -175,6 +175,7 @@ sub _get_arp_from_cli {
 	    $logger->debug(sub{"Device::FoundryIW::_get_arp_from_cli: Missing information: $line" });
 	    next;
 	}
+	next if ($ip eq '0.0.0.0'); # Do not use this address
 	$cache{$iname}{$ip} = $mac;
     }
     return $self->_validate_arp(\%cache, 4);
@@ -280,11 +281,12 @@ sub _get_fwt_from_cli {
 	    $mac   = $1;
 	    $iname = $2;
 	    $vlan  = $3;
-	}elsif ( $line =~ /^(\w{4}\.\w{4}\.\w{4})\s+(\d+)\s+\S+\s+(\d+)\s+/ ) { # Turboiron 24X Syntax
+	}elsif ( $line =~ /^(\w{4}\.\w{4}\.\w{4})\s+(\S+)\s+\S+\s+(\d+)\s+/ ) { # Turboiron 24X/ICX7750 Syntax
 	    # Output look like this:
 	    # MAC-Address     Port           Type         VLAN 
 	    # d89e.3fb9.1107  24             Dynamic      144  
 	    # 0022.41fc.3713  24             Dynamic      135  
+	    # 90b9.31e4.9a9d  1/1/1          Dynamic      144
 	    $mac   = $1;
 	    $iname = $2;
 	    $vlan  = $3;

@@ -1128,9 +1128,9 @@ sub get_snmp_info {
     ################################################################
     # IPv4 addresses and masks 
     #
-    if ($dev{model} =~ /ICX6(4|6)50/) {
+    if ($dev{model} =~ /ICX\d\d50/) {
         foreach my $iid ( keys %{$dev{interface}} ) {
-            if ($dev{interface}{$iid}{name} eq 'Management') {
+            if (lc $dev{interface}{$iid}{name} eq 'management') {
                 $dev{interface}{2049} = delete $dev{interface}{$iid};
                 $dev{interface}{2049}{number} = 2049;
             }
