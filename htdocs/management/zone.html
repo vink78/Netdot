@@ -17,6 +17,7 @@ $edit => undef
 $submit => undef
 $bulk_import_data => undef
 $import_overwrite => undef
+$update_ptrs      => undef
 </%args>
 %
 %
@@ -43,8 +44,10 @@ if ( $submit ){
 	# Do this atomically
 	eval {
 	    Netdot::Model->do_transaction(sub{
-		$o->import_records(text=>$bulk_import_data, overwrite=>$import_overwrite)
-					  });
+		$o->import_records(text        => $bulk_import_data, 
+				   overwrite   => $import_overwrite,
+				   update_ptrs => $update_ptrs,
+		    )});
 	};
 	if ( my $e = $@ ){
 	    $m->comp('/generic/error.mhtml', error=>$e);
@@ -160,7 +163,9 @@ if ( $submit ){
       <div class="containerheadright">
 %     if ( $manager && $manager->can($user, 'edit', $o) ){
           <a href="host.html?action=new&zone=<% $id %>">[add]</a> 
-          <a href="zone.html?id=<% $id %>&view=bulk_import">[import]</a>
+%     }
+%     if ( $manager && $manager->can($user, 'access_admin_section', 'zone.html:bulk') ){
+         <a href="zone.html?id=<% $id %>&view=bulk_import">[import]</a>
 %     }
 %     if ( $view eq 'records' ){
           &nbsp;
@@ -233,6 +238,7 @@ if ( $view eq 'records' || $edit eq 'records' ){
 <!-- Show Bulk Import Interface -->
 
 % if ( $view eq 'bulk_import' ){
+%   if ( $manager && $manager->can($user, 'access_admin_section', 'zone.html:bulk') ){
     <p>
     <div align="center">
     <form action="zone.html" method="POST">
@@ -242,10 +248,13 @@ if ( $view eq 'records' || $edit eq 'records' ){
 	<p>
 	Overwrite existing records of same name <input type="checkbox" name="import_overwrite">
 	<p>
+	Update PTRs <input type="checkbox" name="update_ptrs">
+	<p>
 	<input type="submit" name="submit" value="Import">
         <input type="button" name="cancel_button" value="cancel" onClick="history.go(-1);">
     </form>
     </div>
+%   }
 % }
 
 % }

@@ -35,26 +35,33 @@ if ( $schema_version eq '1.0.1' ){
     &upg_102_103();
     &upg_103_104();
     &upg_104_105();
+    &upg_105_106();
     
 }elsif ( $schema_version eq '1.0.2' ){
     
     &upg_102_103();
     &upg_103_104();
     &upg_104_105();
+    &upg_105_106();
     
 }elsif ( $schema_version eq '1.0.3' ){
     
     &upg_103_104();
     &upg_104_105();
+    &upg_105_106();
 
 }elsif ( $schema_version eq '1.0.4' ){
     
     &upg_104_105();
+    &upg_105_106();
+    
+}elsif ( $schema_version eq '1.0.5' ){
+    
+    &upg_105_106();
     
 }else{
     die "Unsupported version for this upgrade: $schema_version\n";
 }
-
 
 &processdata(\@statements);
 &dbdisconnect();
@@ -312,4 +319,9 @@ sub upg_104_105 {
   
     push @statements, "UPDATE schemainfo SET version='1.0.5' WHERE id=1;";
 
+}
+
+#########################################################################
+sub upg_105_106 {
+    push @statements, "UPDATE schemainfo SET version='1.0.6' WHERE id=1;",
 }

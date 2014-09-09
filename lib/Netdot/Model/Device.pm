@@ -69,7 +69,7 @@ my %MFIELDS = (
 my @SMETHODS = qw( 
    hasCDP e_descr i_type i_alias i_speed i_up 
    i_up_admin i_duplex i_duplex_admin 
-   ip_index ip_netmask i_mac
+   ip_index ip_netmask i_mac ip_table
    i_vlan_membership qb_v_name v_name v_state
 );
 
@@ -1141,7 +1141,16 @@ sub get_snmp_info {
     if ( !defined($hashes{'ip_index'}) || !(keys %{ $hashes{'ip_index'} }) ){
 	$hashes{'ip_index'} = $sinfo->ip_index();
     }
-    while ( my($ip,$iid) = each %{ $hashes{'ip_index'} } ){
+    if ( !defined($hashes{'ip_table'}) || !(keys %{ $hashes{'ip_table'} }) ){
+	   $hashes{'ip_table'} = $sinfo->ip_table();
+    }
+    while ( my($ipt,$iid) = each %{ $hashes{'ip_index'} } ){
+        my $ip;
+        if ($iid > 150000000) { #nx-os has id > 150000000
+            $ip=$hashes{'ip_table'}{$ipt};
+        } else {
+            $ip=$ipt;
+        }
  	next unless (defined $dev{interface}{$iid});
 	next if &_check_if_status_down(\%dev, $iid);
 	next if Ipblock->is_loopback($ip);
@@ -2959,7 +2968,7 @@ sub info_update {
     unless ( ref($info) eq 'HASH' ){
 	$self->throw_fatal("Model::Device::info_update: Invalid SNMP data structure");
     }
-    
+
     # Pretend works by turning off autocommit in the DB handle and rolling back
     # all changes at the end
     if ( $argv{pretend} ){
@@ -2968,7 +2977,7 @@ sub info_update {
             $self->throw_fatal("Model::Device::info_update: Unable to set AutoCommit off");
         }
     }
-    
+
     # Data that will be passed to the update method
     my %devtmp;
 
@@ -2978,7 +2987,7 @@ sub info_update {
                             sysdescription syslocation os collect_arp collect_fwt ) ){
 	$devtmp{$field} = $info->{$field} if exists $info->{$field};
     }
-    
+
     ##############################################################
     if ( my $ipb = $self->_assign_snmp_target($info) ){
 	$devtmp{snmp_target} = $ipb;
@@ -2986,16 +2995,16 @@ sub info_update {
 
     ##############################################################
     # Asset
-    my %asset_args = (
-	physaddr      => $self->_assign_base_mac($info) || undef,
-	reserved_for  => "", # needs to be cleared when device gets installed
-	);
+    my %asset_args;
+    my $base_mac = $self->_assign_base_mac($info);
+    $asset_args{physaddr} = $base_mac if defined $base_mac;
+    $asset_args{reserved_for}  = ""; # needs to be cleared when device gets installed
 
     # Make sure S/N contains something
     if (defined $info->{serial_number} && $info->{serial_number} =~ /\S+/ ){
 	$asset_args{serial_number} = $info->{serial_number};
     }
-    
+
     # Search for an asset based on either serial number or base MAC
     # If two different assets are found, we will have to pick one and
     # delete the other, as this leads to errors
@@ -3003,7 +3012,7 @@ sub info_update {
 	if $asset_args{serial_number};
     my $asset_phy = Asset->search(physaddr=>$asset_args{physaddr})->first
 	if $asset_args{physaddr};
-    
+
     my $asset;
     if ( $asset_sn && $asset_phy ){
 	if ($asset_sn->id != $asset_phy->id ){
@@ -3037,24 +3046,26 @@ sub info_update {
 	$asset_args{product_id} = $dev_product->id;
 	$asset = Asset->insert(\%asset_args);
     }else{
-	$dev_product = $self->_assign_product($info);	
+	$dev_product = $self->_assign_product($info);
     }
     $devtmp{asset_id} = $asset->id if $asset;
-    
+
 
     ##############################################################
     # Things to do only when creating the device
     if ( $argv{device_is_new} ){
-	
+
 	$devtmp{snmp_version} = $info->{snmp_version} if exists $info->{snmp_version};
-	
+
 	if ( $asset && $asset->product_id  ){
 	    my $val = $self->_assign_device_monitored($asset->product_id);
 	    $devtmp{monitored}    = $val;
 	    $devtmp{snmp_polling} = $val;
-	    $devtmp{snmp_target}->update({monitored => $val});
+	    if ( my $st = $devtmp{snmp_target} ){
+		$st->update({monitored => $val});
+	    }
 	}
-	
+
 	if ( my $g = $self->_assign_monitor_config_group($info) ){
 	    $devtmp{monitor_config}       = 1;
 	    $devtmp{monitor_config_group} = $g;
@@ -3064,7 +3075,7 @@ sub info_update {
     ##############################################################
     # Spanning Tree
     $self->_update_stp_info($info, \%devtmp);
-    
+
     ##############################################################
     # Modules
     $self->_update_modules(
@@ -3722,9 +3733,11 @@ sub get_bgp_peers {
 	@peers = grep { $_->asnumber eq $argv{as} } $self->bgppeers;	
     }elsif ( $argv{type} ){
 	if ( $argv{type} eq "internal" ){
-	    @peers = grep { defined $_->entity && $_->entity->asnumber == $self->bgplocalas->number } $self->bgppeers;
+	    @peers = grep { defined $_->entity && defined $self->bgplocalas &&
+			      $_->entity->asnumber == $self->bgplocalas->number } $self->bgppeers;
 	}elsif ( $argv{type} eq "external" ){
-	    @peers = grep { defined $_->entity && $_->entity->asnumber != $self->bgplocalas->number } $self->bgppeers;
+	    @peers = grep { defined $_->entity && defined $self->bgplocalas &&
+			      $_->entity->asnumber != $self->bgplocalas->number } $self->bgppeers;
 	}elsif ( $argv{type} eq "all" ){
 	    @peers = $self->bgppeers();
 	}else{
@@ -4907,7 +4920,7 @@ sub _get_arp_from_snmp {
     # atPhysAddress is used.
     my $use_shortcut = 1;
     my @paddr_keys = keys %$at_paddr;
-    if ( $paddr_keys[0] && $paddr_keys[0] =~ /^(\d+)(\.1)?\.($IPV4)$/ ){
+    if ( $paddr_keys[0] && $paddr_keys[0] =~ /^(\d+)(\.1|\.4)?\.($IPV4)$/ ){
 	my $idx = $1;
 	if ( !exists $devints{$idx} ){
 	    $use_shortcut = 0;
@@ -4920,7 +4933,7 @@ sub _get_arp_from_snmp {
 	my ($ip, $idx, $mac);
 	$mac = $at_paddr->{$key};
 	if ( $use_shortcut ){
-	    if ( $key =~ /^(\d+)(\.1)?\.($IPV4)$/ ){
+	    if ( $key =~ /^(\d+)(\.1|\.4)?\.($IPV4)$/ ){
 		$idx = $1;
 		$ip  = $3;
 	    }else{
@@ -5614,23 +5627,28 @@ sub _munge_speed_high {
 # Arguments
 #   snmp info hashref
 # Returns
-#   PhysAddr object
+#   PhysAddr object if successful, undef otherwise
 #
 sub _assign_base_mac {
     my ($self, $info) = @_;
-    
+
     my $host = $self->fqdn;
-    my $address = delete $info->{physaddr}; 
+    my $address = delete $info->{physaddr};
     if ( $address && ($address = PhysAddr->validate($address)) ) {
 	# OK
     }else{
-	$logger->debug(sub{"$host did not return base MAC. Using first available interface MAC."});
+	$logger->debug(sub{"$host does not provide a valid base MAC.".
+			     " Using first available interface MAC."});
 	foreach my $iid ( sort { $a <=> $b}  keys %{$info->{interface}} ){
 	    if ( my $addr = $info->{interface}->{$iid}->{physaddr} ){
 		next unless ($address = PhysAddr->validate($addr));
 		last;
 	    }
 	}
+    }
+    unless ( $address ){
+	$logger->debug("$host: No suitable MAC address found");
+	return;
     }
     # Look it up
     my $mac;
@@ -6091,7 +6109,7 @@ sub _update_interfaces {
 	if ( ($ifs_old && !$ifs_new) || ($ifs_new && ($ifs_new < $ifs_old) &&
 					 ($ifs_new / $ifs_old) <= $int_thold) ){
 	    $logger->warn(sprintf("%s: new/old interface ratio: %.2f is below INT_COUNT_THRESHOLD".
-				  "Skipping interface update. Re-discover manually if needed.",
+				  " Skipping interface update. Re-discover manually if needed.",
 				  $host, $ifs_new/$ifs_old));
 	    return;
 	}
@@ -6286,7 +6304,7 @@ sub _update_interfaces {
 	}
 
 	# Don't delete snmp_target address unless updating via UI
-	if ( $ENV{REMOTE_USER} eq 'netdot' &&
+	if ( $ENV{REMOTE_USER} eq 'netdot' && $self->snmp_target && 
 	     $self->snmp_target->id == $obj->id ){
 	    $logger->debug(sub{sprintf("%s: IP %s is snmp target. Skipping delete",
 				       $host, $obj->address)});

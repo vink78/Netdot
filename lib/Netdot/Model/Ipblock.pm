@@ -790,7 +790,7 @@ sub reserve_first_n {
  Arguments: 
     IP address and (optional) prefix length
  Returns:   
-    Ipblock object or 0 if not found
+    Ipblock object or undef if not found
   Examples:
     my $ip = Ipblock->get_covering_block(address=>$address, prefix=>$prefix);
 
@@ -1403,7 +1403,7 @@ sub matches_v6 {
   Returns: 
     Ipblock object
   Examples:
-    my $ipb = Ipblock->objectify($zonestr);
+    my $ipb = Ipblock->objectify($thing);
 
 =cut
 
@@ -1630,7 +1630,7 @@ sub update {
 
     # Only rebuild the tree if address/prefix have changed
     if ( !$no_update_tree && ($self->address ne $bak{address} || $self->prefix ne $bak{prefix}) ){
-	$self->_update_tree(old_addr=>$bak{address}, old_prefix=>$bak{prefix});
+	$self->_update_tree(changed=>1);
     }
 
     # Now check for rules
@@ -1664,11 +1664,18 @@ sub update {
     # Update PTR records if needed
     if ( $self->address ne $bak{address} ){
 	my $name = RRPTR->get_name(ipblock=>$self);
+	# If address changed it might belong to another reverse zone.
+	my $reverse_zone = $self->reverse_zone();
 	foreach my $pr ( $self->ptr_records ){
 	    my $rr = $pr->rr;
-	    my $domain = $rr->zone->name;
-	    $name =~ s/\.$domain\.?$//i;
-	    $rr->update({name=>$name});
+	    if ( defined $reverse_zone ) {
+		my $domain = $reverse_zone->name;
+		$name =~ s/\.$domain\.?$//i;
+		$rr->update({name=>$name, zone=>$reverse_zone});
+	    }else{
+		# If there's no reverse zone, the RR has no purpose
+		$rr->delete();
+	    }
 	}
     }
 
@@ -2912,7 +2919,7 @@ sub get_addresses_by {
     WHERE     ipblock.parent=$id
       AND     ipblock.status=ipblockstatus.id ";
     if ( ($self->version == 6) && ($self->config->get('IPV6_HIDE_DISCOVERED')) ) {
-       $query.=" AND     ipblockstatus.name != \"Discovered\" ";
+       $query.=" AND ipblockstatus.name != 'Discovered' ";
     }
     $query .= "GROUP BY ipblock.id 
     ORDER BY  $sort2field{$sort}";
@@ -3206,7 +3213,7 @@ sub _build_tree_mem {
 #   Non-address blocks trigger a full tree rebuild
 #
 #   Arguments:
-#     None
+#     changed (bool) Either address or prefix length changed
 #   Returns:
 #     True
 #   Examples:
@@ -3234,11 +3241,10 @@ sub _update_tree{
     }else{
 	# This is a non-address block
 	# This block's address and/or prefix were changed
-        if ( $argv{old_addr} || $argv{old_prefix} ) {
+        if ( $argv{changed} ) {
 	    $logger->debug("Ipblock::_update_tree: ". $self->get_label .
 			   " changed address and/or prefix. Rebuilding.");
 	    $class->build_tree($version);
-	    $class->_tree_save(version=>$self->version, tree=>$tree);
 	    return 1;
         }
 	# At this point we can assume that the block is new
@@ -3502,6 +3508,7 @@ sub _tree_save {
     unless ( $cache = DataCache->find_or_create({name=>$name}) ){
 	$class->throw_fatal("Could not find or create cache entry for IP tree: $name");
     }
+    $frozen= APR::Base64::encode($frozen);
     $cache->update({data=>$frozen, tstamp=>time});
     $logger->debug("Ipblock::_tree_save: Saved $name");
     return 1;
@@ -3536,7 +3543,8 @@ sub _tree_get {
     for ( 1..2 ){
 	my $cache = DataCache->search(name=>$name)->first;
 	if ( defined $cache && (time - $cache->tstamp) < $TTL ){ 
-	    $tree = thaw $cache->data;
+	    my $data = APR::Base64::decode($cache->data); 
+	    $tree = thaw $data;
 	    $logger->debug("Ipblock::_tree_get: $name thawed from cache");
 	    my $tree_class = ref($tree);
 	    if ( $tree_class =~ /^Net::Patricia/o ){
