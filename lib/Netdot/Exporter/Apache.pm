@@ -6,6 +6,7 @@ use strict;
 use Data::Dumper;
 
 my $logger = Netdot->log->get_logger('Netdot::Exporter');
+my $dbh = Netdot::Model->db_Main();
 
 =head1 NAME
 
@@ -67,11 +68,12 @@ sub generate_configs {
     my ($self) = @_;
 
     # Get TXT info
-    my $txtq = $self->{_dbh}->selectall_arrayref("
+    my $txtq = $dbh->selectall_arrayref("
               SELECT SUBSTRING(rrtxt.txtdata, 3) AS url, rr.name AS record, zone.name AS domain
               FROM rrtxt, rr, zone
               WHERE rrtxt.txtdata LIKE 'R=%' AND rr.id=rrtxt.rr AND rr.zone=zone.id
              ");
+
     foreach my $row ( @$txtq ) {
 	my ($url, $rec, $domain) = @$row;
 	my $site = $rec.'.'.$domain;
@@ -80,11 +82,12 @@ sub generate_configs {
 	push(@{$txt{$url}}, lc $site);
 
 	# Check for aliases
-	my $ctxtq = $self->{_dbh}->selectall_arrayref("
+	my $ctxtq = $dbh->selectall_arrayref("
                    SELECT rr.name, zone.name
                    FROM rrcname, rr, zone
                    WHERE cname = '$site' AND rrcname.rr=rr.id AND zone.id=rr.zone
                   ");
+
 	foreach my $rowc ( @$ctxtq ) {
 	    my ($recc, $domainc) = @$rowc;
 	    my $sitec = $recc.'.'.$domainc;
