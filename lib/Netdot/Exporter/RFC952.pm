@@ -177,7 +177,7 @@ sub generate_configs {
 		    }
 		}
 	    }
-	    $self->print_domain(domain=>$domain, ns=>\@dns, default=>$default, extra=>\@extra) if ($domain ne 'lan' && $domain ne 'chuv');
+	    $self->print_domain(domain=>$domain, ns=>\@dns, default=>$default, extra=>\@extra);
 
 	    if ($zone eq $defzone) {
 		my $netq = $dbh->selectall_arrayref("
