@@ -84,10 +84,10 @@ sub generate_configs {
     }else{
 	@zones = Zone->retrieve_all();
     }
-    
+ 
     my $remotedir = Netdot->config->get('BIND_REMOTE_DIR') 
 	|| $self->throw_user('BIND_REMOTE_DIR not defined in config file!');
-    
+ 
     my $sshserver = Netdot->config->get('BIND_SSH_SERVER') 
 	|| $self->throw_user('BIND_SSH_SERVER not defined in config file!');
 
@@ -97,22 +97,24 @@ sub generate_configs {
     my $changes = 0;
 
     foreach my $zone ( @zones ){
+	next unless $zone->active;
 	eval {
+	    my @pending = HostAudit->search(zone=>$zone->name, pending=>1);
 	    Netdot::Model->do_transaction(sub{
-		if ( HostAudit->search(zone=>$zone->name, pending=>1) || $argv{force} ){
-		    if ( $zone->active ){
-			my $path = $self->print_zone_to_file(zone=>$zone, nopriv=>$argv{nopriv});
-			my @pending = HostAudit->search(zone=>$zone->name, pending=>1);
-			foreach my $record ( @pending ){
-			    # Un-mark audit records as pending
-			    $record->update({pending=>0});
-			}
-			$logger->info("Zone ".$zone->name." written to file: $path");
-
-			system ("/usr/bin/scp $path $sshserver:$remotedir");
-			$changes++;
+		if ( @pending || $argv{force} ){
+		    my $path = $self->print_zone_to_file(zone=>$zone, nopriv=>$argv{nopriv});
+		    # Need to query again because the above method updates the serial
+		    # which creates another hostaudit record
+		    @pending = HostAudit->search(zone=>$zone->name, pending=>1);
+		    foreach my $record ( @pending ){
+			# Un-mark audit records as pending
+			$record->update({pending=>0});
 		    }
-		}else{
+		    $logger->info("Zone ".$zone->name." written to file: $path");
+
+		    system ("/usr/bin/scp $path $sshserver:$remotedir");
+		    $changes++;
+		} else {
 		    $logger->debug("Exporter::BIND::generate_configs: ".$zone->name.
 				   ": No pending changes.  Use -f to force.");
 		}
