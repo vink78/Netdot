@@ -1127,18 +1127,26 @@ sub get_snmp_info {
 	return 0;
     }
     
-    ################################################################
-    # IPv4 addresses and masks 
-    #
-    if ($dev{model} =~ /ICX\d\d50/) {
+    if ($dev{model} =~ /ICX6\d50/) {
         foreach my $iid ( keys %{$dev{interface}} ) {
             if (lc $dev{interface}{$iid}{name} eq 'management') {
                 $dev{interface}{2049} = delete $dev{interface}{$iid};
                 $dev{interface}{2049}{number} = 2049;
             }
         }
+    } elsif ($dev{model} =~ /ICX7\d50/) {
+        foreach my $iid ( keys %{$dev{interface}} ) {
+            if (lc $dev{interface}{$iid}{name} eq 'management') {
+                $dev{interface}{49} = delete $dev{interface}{$iid};
+                $dev{interface}{49}{number} = 49;
+            }
+        }
     }
 
+
+    ################################################################
+    # IPv4 addresses and masks 
+    #
     # This table is critical, so if we didn't get anything, ask again
     if ( !defined($hashes{'ip_index'}) || !(keys %{ $hashes{'ip_index'} }) ){
 	$hashes{'ip_index'} = $sinfo->ip_index();
