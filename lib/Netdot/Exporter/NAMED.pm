@@ -8,6 +8,8 @@ use List::MoreUtils qw(uniq);
 
 my $logger = Netdot->log->get_logger('Netdot::Exporter');
 
+my $dbh = Netdot::Model->db_Main();
+
 =head1 NAME
 
 Netdot::Exporter::NAMED - Read relevant info from Netdot and build relevant named.conf
@@ -81,7 +83,7 @@ sub generate_configs {
 	# GET Zones
 	my %zone_info;
 	my %master_info;
-	my $zoneq = $self->{_dbh}->selectall_arrayref("SELECT id, name, mname FROM zone WHERE active=1 ORDER BY name");
+	my $zoneq = $dbh->selectall_arrayref("SELECT id, name, mname FROM zone WHERE active=1 ORDER BY name");
 	foreach my $row ( @$zoneq ) {
 		my ($id, $name, $master) = @$row;
 
@@ -95,7 +97,7 @@ sub generate_configs {
 	foreach my $zone ( keys %zone_info ) {
 		my $id = $zone_info{$zone}{id};
 
-		my $nsq = $self->{_dbh}->selectall_arrayref("SELECT aip.version, aip.address, rrns.nsdname
+		my $nsq = $dbh->selectall_arrayref("SELECT aip.version, aip.address, rrns.nsdname
 			FROM zone, rr
 			LEFT OUTER JOIN (ipblock aip, rraddr) ON (rr.id=rraddr.rr AND aip.id=rraddr.ipblock)
 			LEFT OUTER JOIN rrns ON rr.id=rrns.rr

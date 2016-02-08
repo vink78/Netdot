@@ -7,6 +7,9 @@ use Data::Dumper;
 
 my $logger = Netdot->log->get_logger('Netdot::Exporter');
 
+my $dbh = Netdot::Model->db_Main();
+
+
 =head1 NAME
 
 Netdot::Exporter::RFC952 - Read relevant info from Netdot and build a RFC952
@@ -68,7 +71,7 @@ sub generate_configs {
     my ($self) = @_;
 
     # Get Entity info
-    my $enq = $self->{_dbh}->selectall_arrayref("
+    my $enq = $dbh->selectall_arrayref("
               SELECT id, aliases
               FROM   entity
               WHERE  aliases IS NOT NULL
@@ -80,7 +83,7 @@ sub generate_configs {
 
     # Get Site info
     my %site_info;
-    my $siteq = $self->{_dbh}->selectall_arrayref("
+    my $siteq = $dbh->selectall_arrayref("
                 SELECT sitesubnet.subnet, site.name
                 FROM   site, sitesubnet
                 WHERE  site.id = sitesubnet.site
@@ -92,7 +95,7 @@ sub generate_configs {
 
     # Get Subnet info
     my %subnet_info;
-    my $subnetq = $self->{_dbh}->selectall_arrayref("
+    my $subnetq = $dbh->selectall_arrayref("
                   SELECT   id, inet_ntoa(address) AS `subnet`, prefix, used_by as `ub`, description
                   FROM     ipblock
                   WHERE    version=4
@@ -108,7 +111,7 @@ sub generate_configs {
 
     # Get IP info
     my %ip_info;
-    my $ipq = $self->{_dbh}->selectall_arrayref("
+    my $ipq = $dbh->selectall_arrayref("
               SELECT   id, address, inet_ntoa(address) AS `ip4`, status, parent as subnet, used_by as `ub`, description
               FROM     ipblock
               WHERE    parent>0
@@ -174,10 +177,10 @@ sub generate_configs {
 		    }
 		}
 	    }
-	    $self->print_domain(domain=>$domain, ns=>\@dns, default=>$default, extra=>\@extra);
+	    $self->print_domain(domain=>$domain, ns=>\@dns, default=>$default, extra=>\@extra) if ($domain ne 'lan' && $domain ne 'chuv');
 
 	    if ($zone eq $defzone) {
-		my $netq = $self->{_dbh}->selectall_arrayref("
+		my $netq = $dbh->selectall_arrayref("
                 SELECT   id, address, prefix, description as `desc`
                 FROM     ipblock
                 WHERE    parent IS NULL
@@ -185,7 +188,7 @@ sub generate_configs {
                      AND version=4
                 ORDER BY address
                ");
-		my $activeq = $self->{_dbh}->selectall_arrayref("
+		my $activeq = $dbh->selectall_arrayref("
                 SELECT DISTINCT parent
                 FROM            ipblock
                 WHERE           parent IS NOT NULL
