@@ -379,13 +379,14 @@ sub search_like {
     }elsif ( exists $argv{product} ){
 	my $dbh = $class->db_Main;
 	my $p_bind = defined($argv{product})? "= $argv{product}" : 'IS NULL';
-	my $crit;
+	my $crit = '';
 	if ( exists $argv{site} ){
 	    my $s_bind = defined($argv{site})? "= ".$dbh->quote($argv{site}) : 'IS NULL';
-	    $crit = " AND d.site $s_bind";
-	}elsif ( exists $argv{os} ){
+	    $crit .= " AND d.site $s_bind";
+	}
+	if ( exists $argv{os} ){
 	    my $o_bind = defined($argv{os})? "= ".$dbh->quote($argv{os}) : 'IS NULL';
-	    $crit = " AND d.os $o_bind";
+	    $crit .= " AND d.os $o_bind";
 	}
 	my @objs;
 	my $rows = Netdot::Model->raw_sql("
