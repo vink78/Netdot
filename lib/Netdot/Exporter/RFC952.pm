@@ -184,7 +184,7 @@ sub generate_configs {
                 SELECT   id, address, prefix, description as `desc`
                 FROM     ipblock
                 WHERE    parent IS NULL
-                     AND (status=1 OR status=5)
+                     AND asn IS NOT NULL
                      AND version=4
                 ORDER BY address
                ");
@@ -206,19 +206,18 @@ sub generate_configs {
 		    my $base = NetAddr::IP->new( $address )->addr();
 		    my $subnet = NetAddr::IP->new( "$base/$prefix" );
 
-		    if ($address < 2130706432) { # Class A
-			# my @obj = $ip->split(8);
-			# Skip
-		    } elsif ($address < 3221225472) { # Class B
-			foreach my $ip ( $subnet->split(16) ) {
-			    my $netbase = $ip->addr();
-			    $self->print_net(subnet=>$netbase, active=>$active{$id}, description=>$desc);
-			}
-		    } elsif ($address < 3758096384) { # Class C
-			foreach my $ip ( $subnet->split(24) ) {
-			    my $netbase = $ip->addr();
-			    $self->print_net(subnet=>$netbase, active=>$active{$id}, description=>$desc);
-			}
+		    my $split = $prefix;
+		    if ($prefix < 9) { # Class A
+			$split = 8;
+		    } elsif ($prefix < 17) { # Class B
+			$split = 16;
+		    } elsif ($prefix < 25) { # Class C
+			$split = 24;
+		    }
+
+		    foreach my $ip ( $subnet->split( $split ) ) {
+			my $netbase = $ip->addr();
+			$self->print_net(subnet=>$netbase, active=>$active{$id}, description=>$desc);
 		    }
 		}
 	    }
