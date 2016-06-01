@@ -623,7 +623,7 @@ sub find_edge_port {
                                    AND    fte.interface=i.id 
                                    AND    fte.fwtable=ft.id
                                    AND    ft.tstamp=?
-                                   AND    i.neighbor IS NULL');
+                                   AND    (i.neighbor IS NULL OR i.neighbor IN (SELECT id FROM interface WHERE name=\'eth0\'))');
     
 	$sth->execute($self->id, $self->last_seen);
 	$rows = $sth->fetchall_arrayref;
