@@ -39,7 +39,7 @@ $bind_no_priv   => undef
 use Netdot::Exporter;
 my $DEBUG = 0;
 print '%ARGS is  <pre>', Dumper(%ARGS), '</pre><br>' if $DEBUG;
-my @types = qw /BIND NAMED DHCPD Nagios Sysmon Rancid Smokeping/;
+my @types = qw /BIND NAMED RFC952 DHCPD Nagios Sysmon Rancid Smokeping/;
 my $logstr;
 my $manager = $ui->get_permission_manager($r);
 </%init>
