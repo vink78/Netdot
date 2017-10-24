@@ -542,6 +542,14 @@ sub get_dp_links {
 			}
 		    }
 		    unless ( $rem_int ){
+			# Brocade VDX Fix
+			if ($rem_port =~ /^(Ten|Forty)?GigabitEthernet \d\/(\d+\/\d+)$/) {
+			    $rem_port = "'$1GigabitEthernet $2'";
+			}
+			# Try name first, then number, then description (if it is unique)
+			$rem_int = Interface->search_like(device=>$rem_dev, name=>$rem_port)->first;
+		    }
+		    unless ( $rem_int ){
 		    	# If interface name has a slot/sub-slot number
 		    	# (helps finding stuff like Gi2/7)
 			if ( $rem_port =~ /^([a-z]{2})[a-z]*([0-9\/.]+)$/io ){
