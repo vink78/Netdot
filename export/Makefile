@@ -3,7 +3,7 @@ include $(SRCROOT)/etc/utility-Makefile
 #
 # makefile for export/
 #
-NDIR = docs nagios sysmon rancid cacti ethers smokeping bind named dhcpd rfc952
+NDIR = docs nagios sysmon rancid cacti ethers smokeping bind named dhcpd rfc952 unilstat
 
 FILES := `find . -type f |egrep -v '\.svn|Makefile' |sed -e 's/\.\///'`
 
