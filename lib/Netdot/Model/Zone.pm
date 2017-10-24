@@ -218,8 +218,8 @@ sub insert {
 	# Some defaults
 	my %state = (
 	    name        => $argv->{name},
-	    mname       => $argv->{mname}       || 'localhost',
-	    rname       => $argv->{rname}       || "hostmaster.".$argv->{name},
+	    mname       => $argv->{mname}       || $class->config->get('DEFAULT_HOSTMASTER'),
+	    rname       => $argv->{rname}       || $class->config->get('DEFAULT_MAILBOX'),
 	    refresh     => $argv->{refresh}     || $class->config->get('DEFAULT_DNSREFRESH'),
 	    retry       => $argv->{retry}       || $class->config->get('DEFAULT_DNSRETRY'),
 	    expire      => $argv->{expire}      || $class->config->get('DEFAULT_DNSEXPIRE'),
