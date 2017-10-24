@@ -1,0 +1,152 @@
+<%doc>
+Rapport IP par Batiment
+</%doc>
+<%attr>
+title   => 'Liste Verte' 
+section => 'Reports'
+</%attr>
+<%args>
+$type => 'Verte';
+$sort => 'host';
+</%args>
+<%init>
+my $DEBUG  = 0;
+my $ubsql  = "SELECT id, name FROM entity";
+my $rsql   = "SELECT record.*, rraddr.ipblock, ipblock.address, ipblock.used_by, subnet.used_by FROM (SELECT rr.id, rr.name AS host, zone.name AS domain, rr.info FROM `rr`, `zone` WHERE rr.info like 'Liste $type%' AND rr.zone=zone.id) AS record LEFT JOIN rraddr ON rraddr.rr=record.id LEFT JOIN ipblock ON rraddr.ipblock=ipblock.id  LEFT JOIN ipblock AS subnet ON ipblock.parent=subnet.id ORDER BY record.host, record.domain";
+my $rcsql  = "SELECT record.*, rraddr.ipblock, ipblock.address, ipblock.used_by, subnet.used_by FROM (SELECT rr1.id, rr2.id AS cid, rr1.cname FROM (SELECT rr.id, rr.name AS host, zone.name AS domain, rr.info, rrcname.cname FROM `rr`, `zone`, `rrcname` WHERE rr.info like 'Liste $type%' AND rr.zone=zone.id AND rr.id=rrcname.rr) AS rr1 LEFT JOIN (SELECT rr.id, concat (rr.name,'.', zone.name) AS hostname FROM rr, zone WHERE rr.zone=zone.id) AS rr2 ON rr1.cname = rr2.hostname) AS record LEFT JOIN rraddr ON rraddr.rr=record.cid LEFT JOIN ipblock ON rraddr.ipblock=ipblock.id  LEFT JOIN ipblock AS subnet ON ipblock.parent=subnet.id";
+</%init>
+
+<%perl>
+my (@headers, @rows, @srows) = ();
+
+my $resub = Netdot::Model->raw_sql( $ubsql )->{rows};
+
+my %ub;
+foreach my $r ( @$resub ) {
+	$ub{$r->[0]} = $r->[1];
+}
+
+my $resc = Netdot::Model->raw_sql( $rcsql )->{rows};
+
+my %cname;
+foreach my $r ( @$resc ) {
+	$cname{$r->[0]}{'cid'}   = $r->[1]; 
+	$cname{$r->[0]}{'cname'} = $r->[2]; 
+	$cname{$r->[0]}{'ipblock'} = $r->[3]; 
+	$cname{$r->[0]}{'address'} = $r->[4]; 
+	$cname{$r->[0]}{'ub'} = $r->[5]; 
+	$cname{$r->[0]}{'ub'} = $r->[6] if (!defined $r->[5]); 
+}
+
+my $res = Netdot::Model->raw_sql( $rsql )->{rows};
+
+@headers = ( '<a href="security_report.html?sort=host">Host</a>', '<a href="security_report.html?sort=ip">IP Address</a>', 'UB', '<a href="security_report.html?sort=list">List</a>', '<a href="security_report.html?sort=contact">Contact</a>', '<a href="security_report.html?sort=date">Date</a>', );
+
+foreach my $r ( @$res ) {
+	my @row = ();
+
+	my $ubid = $r->[6];
+	$ubid = $r->[7] if (!defined $r->[6]);
+	my $hostname = $r->[1].'.'.$r->[2];
+	my $url1 = '/netdot/management/ip.html?id='.$r->[4];
+	my $url2 = '/netdot/management/host.html?table=RR&id='.$r->[0];
+        my $nip = NetAddr::IP->new( $r->[5] );
+	my @info = split /\n/, $r->[3];
+
+	if (defined $cname{$r->[0]}) {
+		$hostname .= ' -> '.$cname{$r->[0]}{'cname'};
+		$url1 = '/netdot/management/ip.html?id='.$cname{$r->[0]}{'ipblock'};
+		$ubid = $cname{$r->[0]}{'ub'};
+		$nip = NetAddr::IP->new( $cname{$r->[0]}{'address'} );
+	}
+
+	my $url3 = '/netdot/contacts/view.html?table=Entity&id='.$ubid;
+
+	push ( @row, '<a href="'.$url2.'">'.$hostname.'</a>' );
+
+	push ( @row, '<a href="'.$url1.'">'.$nip->short.'</a>' );
+
+	push ( @row, '<a href="'.$url3.'">'.$ub{$ubid}.'</a>' );
+
+	# Liste
+	my $i = 0;
+	foreach (@info) {
+		if (/^(Liste.*)$/) {
+			$i++;
+			push ( @row, $1 );
+		}
+	}
+	push ( @row, '' ) if ($i == 0);
+
+	# Responsable
+	$i = 0;
+	foreach (@info) {
+		if (/^Responsable:\s+(.*)$/) {
+			$i++;
+			push ( @row, $1 );
+		}
+	}
+	push ( @row, '' ) if ($i == 0);
+
+	# Date
+	$i = 0;
+	foreach (@info) {
+		if (/^Date:\s+(.*)$/) {
+			$i++;
+			push ( @row, $1 );
+		}
+	}
+	push ( @row, '' ) if ($i == 0);
+
+	push( @rows, \@row );
+}
+# 'Host', 'IP Address', 'UB', 'List', 'Contact', 'Date',
+
+sub _sort_date {
+	my ($a, $b) = @_;
+	my ($c, $d) = ('', '');
+	my @aa = split /\./, $a;
+	my @bb = split /\./, $b;
+	
+	$c = join '', reverse @aa;
+	$d = join '', reverse @bb;
+
+	return $c <=> $d;
+}
+
+sub _sort_ip {
+	my ($a, $b) = @_;
+	my ($c, $d) = ('', '');
+	if ($a =~ />(\d+)\.(\d+)\.(\d+)\.(\d+)</) {
+		$c = (($1*256+$2)*256+$3)*256+$4;
+	}
+	if ($b =~ />(\d+)\.(\d+)\.(\d+)\.(\d+)</) {
+		$d = (($1*256+$2)*256+$3)*256+$4;
+	}
+
+	return $c <=> $d;
+}
+
+if ($sort eq 'ip') {
+	@srows = sort { _sort_ip($a->[1], $b->[1]) } @rows;
+} elsif ($sort eq 'list') {
+	@srows = sort { $a->[3] cmp $b->[3] } @rows;
+} elsif ($sort eq 'contact') {
+	@srows = sort { $a->[4] cmp $b->[4] } @rows;
+} elsif ($sort eq 'date') {
+	@srows = sort { _sort_date($a->[5], $b->[5]) } @rows;
+} else {
+	@srows = @rows;
+}
+</%perl>
+
+<div class="container">
+  <div class="containerhead">Rapport Liste Verte</div>
+    <div class="containerbody">
+    <strong>Liste <% $type %></strong><br/>
+<p>
+<& /generic/data_table.mhtml, field_headers=>\@headers, data=>\@srows, style=>['', '', 'text-align: right', 'text-align: right'] &>
+</p>
+</div>
+</div>
+</div>

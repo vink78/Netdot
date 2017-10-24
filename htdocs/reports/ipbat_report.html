@@ -1,0 +1,92 @@
+<%doc>
+Rapport IP par Batiment
+</%doc>
+<%attr>
+title   => 'IP par Batiment' 
+section => 'Reports'
+</%attr>
+<%args>
+$site => '';
+</%args>
+<%init>
+my $DEBUG      = 0;
+my $rsql = "SELECT DISTINCT site.id, site.name FROM `site`, `sitesubnet` WHERE site.id=sitesubnet.site ORDER BY site.name";
+</%init>
+
+<div class="container">
+  <div class="containerhead">Rapport IP par Batiments</div>
+    <div class="containerbody">
+    <strong>Batiment:</strong><br/>
+    <form name="ipbat_form" action="ipbat_report.html" method="get">
+      <select name="site">
+<%perl>
+my $res = Netdot::Model->raw_sql( $rsql )->{rows};
+my ($name) = ('');
+
+foreach my $r ( @$res ) {
+	my $selected = '';
+	$selected = ' selected' if ($r->[0] == $site);
+	$name     = $r->[1] if ($r->[0] == $site);
+	printf "<option value=\"%s\"%s>%s</option>\n", $r->[0], $selected, $r->[1];
+}
+
+</%perl>
+      </select>
+      <input type="Submit" Value="display"/>
+    </form>
+    </div>
+  </div>
+</div>
+
+<%perl>
+my (@headers, @rows) = ();
+
+if ($site > 0) {
+my $rsql = "SELECT ipblock.id, ipblock.address, ipblock.used_by AS ub1, pblock.used_by AS ub2, rrptr.rr, rrptr.ptrdname FROM sitesubnet, ipblock, ipblock AS pblock, rrptr WHERE sitesubnet.site=$site and ipblock.parent=sitesubnet.subnet AND (ipblock.status=3 OR ipblock.status=6) AND ipblock.id=rrptr.ipblock AND ipblock.parent=pblock.id ORDER BY ipblock.address";
+
+my $rsqlub = "SELECT id, name FROM entity ORDER BY id";
+my $resub = Netdot::Model->raw_sql( $rsqlub )->{rows};
+my %ub;
+foreach my $r ( @$resub ) {
+	my $id = $r->[0];
+	$ub{$id} = $r->[1];
+}
+
+@headers = ( 'IP Address', 'Host', 'UB', );
+
+my $res = Netdot::Model->raw_sql( $rsql )->{rows};
+foreach my $r ( @$res ) {
+	my @row = ();
+
+	my $nip = NetAddr::IP->new( $r->[1] );
+	my $url1 = '/netdot/management/ip.html?id='.$r->[0];
+        if (defined $nip) {
+                push ( @row, '<a href="'.$url1.'">'.$nip->short.'</a>' );
+        } else {
+                push ( @row, '&nbsp;' );
+        }
+
+	my $url2 = '/netdot/management/host.html?table=RR&id='.$r->[4];
+	push ( @row, '<a href="'.$url2.'">'.$r->[5].'</a>' );
+
+	my $ubid = $r->[2];
+	$ubid = $r->[3] if ($ubid == 0);
+	my $url3 = '/netdot/contacts/view.html?table=Entity&id='.$ubid;
+	push ( @row, '<a href="'.$url3.'">' . $ub{ $ubid } . '</a>' );
+
+	push( @rows, \@row );
+}
+</%perl>
+
+<div class="container">
+<div class="containerhead">Batiment <% $name %></div>
+<div class="containerbody">
+<p>
+<& /generic/data_table.mhtml, field_headers=>\@headers, data=>\@rows, style=>['', '', 'text-align: right', 'text-align: right'] &>
+</p>
+</div>
+</div>
+</div>
+<%perl>
+}
+</%perl>

@@ -10,5 +10,23 @@ section => 'Reports'
 
 <%init>
 my $DEBUG      = 0;
+my $cpu_values = $ui->config->get('DEFAULT_HINFO_CPU_VALUES');
 </%init>
 
+<div class="container">
+  <div class="containerhead">Custom Reports</div>
+    <div class="containerbody">
+    <strong>IP Addresses by Entity:</strong><br/>
+    <ul>
+      <li><a href="used_by_report.html">IPv4</a></li>
+      <li><a href="used_by_report.html?version=6">IPv6</a></li>
+    </ul>
+    <strong>Hosts by HINFO CPU Values</strong><br/>
+    <ul>
+%	foreach (keys %$cpu_values ) {
+      <li><a href="hinfo_report.html?cpu=<% $_ %>"><% $cpu_values->{$_} %></a></li>
+%	}
+    </ul>
+    </div>
+  </div>
+</div>

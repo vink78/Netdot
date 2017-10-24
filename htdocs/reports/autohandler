@@ -54,6 +54,10 @@ my $page = $user->getAttribute("$PAGE_ATTRIBUTE");
 		{ section => 'TOPOLOGY',  title => 'Topology Graph' },
 		{ section => 'POLLSTATS', title => 'Polling Stats' },
 		{ section => 'DATABASE',  title => 'Database Reports' },
+		{ section => 'CUSTOM',    title => 'UNIL Reports' },
+		{ section => 'DEVARP',    title => 'Device + ARP + FWT' },
+		{ section => 'IPBAT',     title => 'IP par Batiment' },
+		{ section => 'SECURITY',  title => 'Liste Verte' },
 	    ]
         };
     </%init>
@@ -125,7 +129,21 @@ if ( $page eq "POLLSTATS" ) {
     $m->comp('topology_graph.html');
 
 }elsif ($page eq "CUSTOM") { 
-  
+
+    $m->comp('reports_custom.html');
+
+}elsif ($page eq "DEVARP" && $m->request_comp->name ne "devarp_report.html" ) {
+
+    $m->comp('devarp_report.html');
+
+}elsif ($page eq "IPBAT" && $m->request_comp->name ne "ipbat_report.html" ) {
+
+    $m->comp('ipbat_report.html');
+
+}elsif ( $page eq "SECURITY" && $m->request_comp->name ne "security_report.html" ) {
+
+    $m->comp('security_report.html');
+
 }
 
 if ( $m->fetch_next ){
