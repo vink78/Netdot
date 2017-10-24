@@ -1,0 +1,54 @@
+<%doc>
+Usage Report
+ 
+</%doc>
+
+<%attr>
+title   => 'IP Address Usage Report' 
+section => 'Reports'
+</%attr>
+<%args>
+$version => '4';
+</%args>
+<%init>
+my $rsql = 'SELECT entity.id, entity.name, table1.total FROM (SELECT if (child.used_by>0, child.used_by, parent.used_by) as owner, count(child.address) AS total FROM ipblock AS child, ipblock AS parent WHERE (child.status=6 OR child.status=3) AND child.parent = parent.id AND child.version='.$version.' GROUP BY owner) AS table1, entity WHERE table1.owner=entity.id ORDER BY table1.total DESC';
+</%init>
+<%perl>
+my (@headers, @rows) = ();
+
+@headers = ( 'Entity', 'Count', '%', );
+
+my $res = Netdot::Model->raw_sql( $rsql )->{rows};
+
+my $total = 0.0;
+
+foreach my $r ( @$res ) {
+	$total += $r->[2] / 100.0;
+}
+
+foreach my $r ( @$res ) {
+	my @row = ();
+	my $url = '/netdot/contacts/view.html?table=Entity&id='.$r->[0];
+	push ( @row, '<a href="'.$url.'">'.$r->[1].'</a>' );
+	push ( @row, $r->[2] );
+	push ( @row, sprintf("%.1f", $r->[2]/$total) . " %" );
+	push( @rows, \@row );
+}
+
+my @row = ();
+push( @row, "<strong>Total</strong>" );
+push( @row, "<strong>".($total*100)."</strong>" );
+push( @row, "<strong>100%</strong>" );
+push( @rows, \@row );
+
+</%perl>
+
+<div class="container">
+<div class="containerhead">IP Addresses by Entity for IPv<% $version %></div>
+<div class="containerbody">
+<p>
+<& /generic/data_table.mhtml, field_headers=>\@headers, data=>\@rows, style=>['', '', 'text-align: right', 'text-align: right'] &>
+</p>
+</div>
+</div>
+</div>

@@ -1,0 +1,58 @@
+<%doc>
+HINFO Report
+ 
+</%doc>
+
+<%attr>
+title   => 'HINFO per CPU Report' 
+section => 'Reports'
+</%attr>
+<%args>
+$cpu => 'NONE';
+</%args>
+<%init>
+my $rsql = "SELECT rr.id, rr.name, zone.name, ipblock.address, ipblock.id FROM rrhinfo,rr,zone,rraddr,ipblock WHERE rrhinfo.cpu='$cpu' AND rrhinfo.rr = rr.id AND rr.zone=zone.id AND rraddr.rr = rr.id AND rraddr.ipblock=ipblock.id ORDER BY zone.id, rr.name";
+</%init>
+<%perl>
+my (@headers, @rows) = ();
+
+@headers = ( 'Hostname', 'IP', );
+
+my $res = Netdot::Model->raw_sql( $rsql )->{rows};
+
+my $total = 0;
+
+foreach my $r ( @$res ) {
+	$total++;
+}
+
+foreach my $r ( @$res ) {
+	my @row = ();
+	my $url1 = '/netdot/management/host.html?table=RR&id='.$r->[0];
+	my $url2 = '/netdot/management/ip.html?id='.$r->[4];
+	push ( @row, '<a href="'.$url1.'">'.$r->[1].'.'.$r->[2].'</a>' );
+	my $nip = NetAddr::IP->new( $r->[3] );
+	if (defined $nip) {
+		push ( @row, '<a href="'.$url2.'">'.$nip->short.'</a>' );
+	} else {
+		push ( @row, '&nbsp;' );
+	}
+	push( @rows, \@row );
+}
+
+my @row = ();
+push( @row, "<strong>Total</strong>" );
+push( @row, "<strong>$total</strong>" );
+push( @rows, \@row );
+
+</%perl>
+
+<div class="container">
+<div class="containerhead">Hosts by HINFO for CPU=<% $cpu %></div>
+<div class="containerbody">
+<p>
+<& /generic/data_table.mhtml, field_headers=>\@headers, data=>\@rows, style=>['', '', 'text-align: right', 'text-align: right'] &>
+</p>
+</div>
+</div>
+</div>
