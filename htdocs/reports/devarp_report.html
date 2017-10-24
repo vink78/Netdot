@@ -1,0 +1,91 @@
+<%doc>
+Device + ARP + FWT Report
+</%doc>
+<%attr>
+title   => 'Device + ARP + FWT Report' 
+section => 'Reports'
+</%attr>
+<%args>
+$fwtable => '';
+</%args>
+<%init>
+my $DEBUG      = 0;
+my $rsql = "SELECT concat(rr.name, '.', zone.name), device.sysname, max(fwtable.id) as fwtable FROM rr, zone, device, fwtable WHERE fwtable.device=device.id AND rr.id=device.name AND rr.zone=zone.id group by device.sysname";
+</%init>
+
+<div class="container">
+  <div class="containerhead">Device ARP+FWT Reports</div>
+    <div class="containerbody">
+    <strong>Device:</strong><br/>
+    <form name="devarp_form" action="devarp_report.html" method="get">
+      <select name="fwtable">
+<%perl>
+my $res = Netdot::Model->raw_sql( $rsql )->{rows};
+
+foreach my $r ( @$res ) {
+	my $selected = '';
+	$selected = ' selected' if ($r->[2] == $fwtable);
+	printf "<option value=\"%s\"%s>%s</option>\n", $r->[2], $selected, $r->[0];
+}
+
+</%perl>
+      </select>
+      <input type="Submit" Value="display"/>
+    </form>
+    </div>
+  </div>
+</div>
+
+<%perl>
+my ($host, $date) = ('', '');
+my (@headers, @rows) = ();
+
+if ($fwtable > 0) {
+my $rsql = "SELECT fwt.interface, fwt.mac, fwt.physaddr, arp.ipaddr, arp.address, arp.rr, arp.ptr  FROM (SELECT CAST(interface.number AS SIGNED) AS number, interface.name AS interface, physaddr.id AS physaddr, physaddr.address AS mac FROM fwtableentry, physaddr, interface  WHERE fwtableentry.fwtable=$fwtable AND physaddr.id=fwtableentry.physaddr AND interface.id=fwtableentry.interface AND interface.neighbor IS NULL) AS fwt LEFT JOIN (SELECT arpcacheentry.physaddr, arpcacheentry.ipaddr, ipblock.address, rrptr.rr, rrptr.ptrdname AS ptr FROM (SELECT max(id) AS id FROM arpcache GROUP BY device) AS arpcache, arpcacheentry, ipblock, rrptr WHERE arpcache.id=arpcacheentry.arpcache AND ipblock.id=arpcacheentry.ipaddr AND rrptr.ipblock=ipblock.id) AS arp ON fwt.physaddr=arp.physaddr ORDER BY fwt.number";
+
+my $rsql2 = "SELECT CONCAT(rr.name, '.', zone.name), fwtable.tstamp from fwtable, device, rr, zone WHERE fwtable.id=$fwtable AND fwtable.device=device.id AND device.name=rr.id AND rr.zone=zone.id";
+
+@headers = ( 'Interface', 'MAC Address', 'IP Address', 'Host', );
+
+
+my $res2 = Netdot::Model->raw_sql( $rsql2 )->{rows};
+foreach my $r ( @$res2 ) {
+	$host = $r->[0];
+	$date = $r->[1];
+}
+
+my $res = Netdot::Model->raw_sql( $rsql )->{rows};
+foreach my $r ( @$res ) {
+	my @row = ();
+
+	push ( @row, $r->[0] );
+
+	my $url3 = '/netdot/management/mac.html?id='.$r->[2];
+	push ( @row, '<a href="'.$url3.'">'.$r->[1].'</a>' );
+
+	my $nip = NetAddr::IP->new( $r->[4] );
+	my $url1 = '/netdot/management/ip.html?id='.$r->[3];
+        if (defined $nip) {
+                push ( @row, '<a href="'.$url1.'">'.$nip->short.'</a>' );
+        } else {
+                push ( @row, '&nbsp;' );
+        }
+
+	my $url2 = '/netdot/management/host.html?table=RR&id='.$r->[5];
+	push ( @row, '<a href="'.$url2.'">'.$r->[6].'</a>' );
+	push( @rows, \@row );
+}
+</%perl>
+
+<div class="container">
+<div class="containerhead">IP+ARP For device <% $host %>, date <% $date %></div>
+<div class="containerbody">
+<p>
+<& /generic/data_table.mhtml, field_headers=>\@headers, data=>\@rows, style=>['', '', 'text-align: right', 'text-align: right'] &>
+</p>
+</div>
+</div>
+</div>
+<%perl>
+}
+</%perl>
