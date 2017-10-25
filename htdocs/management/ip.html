@@ -775,7 +775,6 @@ if (!$edit){
 	    <input type="hidden" name="_action" value="ADD_A_RECORD">
             Name: <input type="text" name="new_a_name" value="">
 	    <select name="new_a_zone">
-            <option value=""> - select - </option>
 %	    foreach my $zone ( @zone_list ){
                 <option value="<% $zone->id %>"><% $zone->get_label %></option>
 %	    }
@@ -912,7 +911,7 @@ if ( $edit ){
     <div class="containerheadleft"><strong>Custom Attributes</strong></div>
     <div class="containerheadright">
 %     if ( @attributes ) {
-        <a href="ip.html?id=<% $o %>&view=Attributes&editattr=1">[edit]</a>
+        <a href="ip.html?id=<% $o %>&editattr=1">[edit]</a>
 %     }
 %   if ( $manager && $manager->can($user, 'edit', $o) ){
         <a href="edit.html?table=IpblockAttr&ipblock=<% $o %>">[add]</a>
@@ -1729,7 +1728,7 @@ if ( $_action eq 'VIEW_ADD_RIGHTS' ){
     <div class="containerheadleft"><strong>Custom Attributes</strong></div>
     <div class="containerheadright">
 %     if ( @attributes ) {
-        <a href="ip.html?id=<% $o %>&view=Attributes&editattr=1">[edit]</a>
+        <a href="ip.html?id=<% $o %>&editattr=1">[edit]</a>
 %     }
 %   if ( $manager && $manager->can($user, 'edit', $o) ){
         <a href="edit.html?table=IpblockAttr&ipblock=<% $o %>">[add]</a>
