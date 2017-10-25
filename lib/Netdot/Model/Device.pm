@@ -620,8 +620,22 @@ sub insert {
     if ( my $dbdev = $class->search(name=>$devtmp{name})->first ){
 	$logger->debug(sprintf("Device::insert: Device %s already exists in DB as %s",
 			       $argv->{name}, $dbdev->fqdn));
+	if ($dbdev->fqdn =~ /^ap-/ && $devtmp{snmp_ip}) {
+	    # Update SNMP Target
+	    my $ip = $devtmp{snmp_ip};
+	    my $ipb = Ipblock->search(address=>$ip)->first || Ipblock->insert({address=>$ip});
+	    my $oldip = $dbdev->{snmp_target};
+	    $ipb->update({monitored=>1});
+	    $dbdev->update({snmp_target=>$ipb, snmp_down=>0, snmp_conn_attempts=>0});
+
+	    # Clean old record
+	    $oldip->delete if ($oldip ne $ipb);
+	}
 	return $dbdev;
     }
+
+    # Remove unneed element
+    delete $devtmp{snmp_ip} if ($devtmp{snmp_ip});
 
     $class->_validate_args(\%devtmp);
     my $self = $class->SUPER::insert( \%devtmp );
@@ -1622,6 +1636,7 @@ sub discover {
 	}
 	# Insert the new Device
 	$devtmp{name} = $newname;
+	$devtmp{snmp_ip} = $name;
 	$logger->info(sprintf("Inserting new Device: %s", $name));
 	$dev = $class->insert(\%devtmp);
 	$device_is_new = 1;
@@ -3900,7 +3915,7 @@ sub do_auto_dns {
 
     my $host = $self->fqdn;
 
-    unless ( $self->auto_dns ){
+    unless ( $self->auto_dns || $host =~ /^ap-/ ){
 	$logger->debug(sub{sprintf("Auto DNS is disabled for device %s.".
 				   " Skipping.", $host)});
 	return;
@@ -6414,6 +6429,24 @@ sub _update_interfaces {
 	    next;
 	}
 
+#	Unil Add-on
+#	if ( $host =~ /^ap-/ && $self->snmp_target->id == $obj->id) {
+#	    if ( $self->snmp_target ) {
+#		# Update
+#		print Dumper($info);
+#		my $ipb = Ipblock->search(address=>$ip)->first || Ipblock->insert({address=>$ip});
+#	        $ipb->update({status=>"Static", monitored=>1});
+#       	$obj->update({snmp_target=>$ipb});
+#	    }
+#
+#	    # Disconnect the IP from the interface (do not delete)
+#	    $logger->info(sprintf("%s: IP %s no longer exists.  Removing.",
+#				  $host, $obj->address));
+#
+#	    $obj->update({interface=>undef});
+#	    next;
+#	}
+
 	# Skip snmp_target address unless updating via UI
 	if ( $ENV{REMOTE_USER} eq 'netdot' && $self->snmp_target && 
 	     $self->snmp_target->id == $obj->id ){
@@ -6428,6 +6461,12 @@ sub _update_interfaces {
 	$obj->update({interface=>undef});
     }
     
+    ##############################################################
+    # Update A records for each AP
+    if ($info->{sysname} =~ /^ap-/ ) {
+	$self->do_auto_dns();
+    }
+ 
     1;
 }
 

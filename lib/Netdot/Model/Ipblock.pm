@@ -2157,7 +2157,8 @@ sub update_a_records {
 			   $self->address);
     } 
 
-    unless ( $self->interface->auto_dns ){
+    my $label = $self->interface->get_label;
+    unless ( $self->interface->auto_dns || $label =~ / \[br0\]/i ){
 	$logger->debug(sprintf("Interface %s configured for no auto DNS", 
 			      $self->interface->get_label));
 	return;
@@ -2237,7 +2238,7 @@ sub update_a_records {
 	    my $rr = $ar->rr;
 
 	    # User might not want this updated
-	    if ( $rr->auto_update ){
+	    if ( $rr->auto_update || $name =~ /^ap-/i ){
 
 		# If this is the only IP, or the snmp_target IP, make sure that it uses 
 		# the same record that the device uses as its main name
@@ -2250,6 +2251,18 @@ sub update_a_records {
 			RRADDR->insert({rr=>$device->name, ipblock=>$self});
 			$logger->info(sprintf("%s: Updated DNS A record for main device IP %s: %s", 
 					      $host, $self->address, $device->name->name));
+		    } elsif ($name ne $self->interface->device->name->name) {
+			# Check if the name already exists
+			my $other;
+			if ( $other = RR->search(name=>$name, zone=>$zone)->first ){
+			    # Ooops
+			    $logger->info(sprintf("DUP/ERROR: %s: Updated DNS A record for main device IP %s: %s",
+					$host, $self->address, $name));
+			} else {
+			    $logger->info(sprintf("OK: %s: Updated DNS A record for main device IP %s: %s",
+					$host, $self->address, $name));
+			    $rr->update({name=>$name});
+			}
 		    }
 		}else{
 		    # We won't update the RR for the IP that the 
