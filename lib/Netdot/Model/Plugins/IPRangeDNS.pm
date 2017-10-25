@@ -86,7 +86,11 @@ sub generate_records {
 	if ( $version == 4 ){
 	    $name = $ipb->address;
 	    $name =~ s/\./-/g;
-
+# Begin: UNIL Plugin
+	    $name =~ s/130-223-/-/g;
+	    $name =~ s/10-50-/-sw/g;
+	    $name =~ s/10-70-/-ap/g;
+# End: UNIL Plugin
 	}elsif ( $version == 6 ){
 	    $name = $ipb->full_address;
 	    $name =~ s/:/-/g;
