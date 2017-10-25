@@ -1,0 +1,101 @@
+<%doc>
+
+-- Export to BIND --
+
+</%doc>
+%
+<%attr>
+title => 'Export to BIND' 
+</%attr>
+%
+%
+%#######################################################################
+%#
+%# Args section
+%#
+%#######################################################################
+<%args>
+@config_types   => undef
+$user           => $ui->get_current_user($r)
+$submit         => undef
+$showheader     => 1
+$hideheader     => undef
+</%args>
+%
+%
+%
+%#######################################################################
+%#
+%# INIT section
+%#
+%#######################################################################
+%
+<%init>
+use Netdot::Exporter;
+my $DEBUG = 0;
+print '%ARGS is  <pre>', Dumper(%ARGS), '</pre><br>' if $DEBUG;
+my $logstr;
+</%init>
+
+<div id="sectiontools" <% $hideheader %>>
+<div class="container">
+    <div class="containerhead">
+        Export BIND configurations from Netdot
+    </div>
+    <div class="containerbody" id="tasks">
+<%perl>
+my (@zones);
+my $ao = $ui->get_allowed_objects($r, $user);
+print '<pre>', Dumper($ao), '<pre>' if $DEBUG;
+if ( exists $ao->{Zone} ){
+    foreach my $id ( keys %{$ao->{Zone}} ){
+        if ( my $zone = Zone->retrieve($id) ){
+            push @zones, $zone;
+        }else{
+            delete $ao->{Zone}->{$id};
+        }
+    }
+}
+
+if ( @zones ){
+    my $logger = Netdot->log->get_logger('Netdot::Exporter');
+    if ( $logstr = Log::Log4perl::appender_by_name('export.html') ){
+	Log::Log4perl->eradicate_appender('export.html');
+    }
+    $logstr = Netdot::Util::Log->new_appender('String', name=>'export.html');
+    $logger->add_appender($logstr);
+
+    my %args;
+    $args{nopriv}   = 1;
+
+    eval {
+	my $exporter = Netdot::Exporter->new(type=>'BIND');
+	$exporter->generate_configs(%args);
+    };
+    if ( my $e = $@ ){
+	$m->comp('/generic/error.mhtml', error=>$e);
+    }
+
+    my $log = $logstr->string() ;
+    if ( $log ){
+	print "<p><br>";
+	print "<strong>Exporter Output:</strong> <br>";
+	print "<p><pre>";
+	print "$log";
+	print "</pre> <br />";
+    }
+} else {
+    print "<p><strong>You did not have right to export zones</strong></p>";
+}
+</%perl>
+ 
+    </div> <!-- close containerbody -->
+</div> <!-- close container -->
+</div> <!-- close sectiontools -->
+
+
+<%cleanup>
+    if ( defined $logstr ){
+        Log::Log4perl->eradicate_appender('export.html')
+    }
+</%cleanup>
