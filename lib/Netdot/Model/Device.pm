@@ -3015,7 +3015,7 @@ sub info_update {
 
     ##############################################################
     # Fill in some basic device info
-    foreach my $field ( qw( community layers ipforwarding sysname 
+    foreach my $field ( qw( community layers ipforwarding sysname extension
                             sysdescription syslocation os collect_arp collect_fwt ) ){
 	$devtmp{$field} = $info->{$field} if exists $info->{$field};
     }
