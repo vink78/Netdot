@@ -1,4 +1,4 @@
-package Netdot::Model::Plugins::DeviceIpNamesByInt;
+package Netdot::Model::Plugins::DeviceIpNamesUNIL;
 
 use base 'Netdot::Model';
 use warnings;
@@ -23,7 +23,7 @@ my $logger = Netdot->log->get_logger('Netdot::Model::Device');
 
 =head1 NAME
 
-Netdot::Model::Plugins::DeviceIpNamesByInt;
+Netdot::Model::Plugins::DeviceIpNamesUNIL;
 
 =head1 DESCRIPTION
 
@@ -35,8 +35,8 @@ Netdot::Model::Plugins::DeviceIpNamesByInt;
 
 =head1 SYNOPSIS
 
-    Netdot::Model::Plugins::DeviceIpNamesByInt->new();
-    my $name = Netdot::Model::Plugins::DeviceIpNamesByInt->get_name($ipblock);
+    Netdot::Model::Plugins::DeviceIpNamesUNIL->new();
+    my $name = Netdot::Model::Plugins::DeviceIpNamesUNIL->get_name($ipblock);
 
 =head1 METHODS
 
@@ -76,24 +76,29 @@ sub get_name {
     my $ipaddr = $ip->address;
 
     if ( $ip->parent && $ip->address_numeric == $ip->parent->address_numeric + 1 ){
-	$logger->debug("Plugins::DeviceIpNamesByInt::get_name: $ipaddr is first in its subnet");
+	$logger->debug("Plugins::DeviceIpNamesUNIL::get_name: $ipaddr is first in its subnet");
 	if ( $ip->parent->vlan ){
 	    # Make the name reflect the vlan number
 	    my $vlan = $ip->parent->vlan;
 	    $name = 'vl-'.$vlan->vid."-gw";
 	}else{
-	    $name = $self->get_name_from_interface($ip);
+	    $name = $self->get_name_from_sysname($ip);
 	}
     }else{
-	$name = $self->get_name_from_interface($ip);
+	$name = $self->get_name_from_sysname($ip);
     }
-    $logger->debug("Plugins::DeviceIpNamesByInt::get_name: $ipaddr: Generated name: $name");
+    if (!( defined $name) || ($name eq '') ) {
+	$name = lc $ip->interface->device->name->name;
+	$logger->info("Plugins::DeviceIpNamesUNIL::get_name: $ipaddr name is null. Using '$name' as fallback");
+    }
+    $logger->debug("Plugins::DeviceIpNamesUNIL::get_name: $ipaddr: Generated name: $name");
+
     return $name;
 }
 
 ############################################################################
 
-=head2 get_name_from_interface
+=head2 get_name_from_sysname
 
   Arguments:
     Ipblock object
@@ -102,56 +107,28 @@ sub get_name {
     
 =cut
 
-sub get_name_from_interface {
+sub get_name_from_sysname {
     my ($self, $ip) = @_;
     my $ipaddr = $ip->address;
-    my $name = $ip->interface->name;
-    return unless $name;
-    $logger->debug("Plugins::DeviceIpNamesByInt::get_name_from_interface: $ipaddr: Using Interface name");
-    
-    foreach my $pat ( sort keys %ABBR ){
-	my $conv = $ABBR{$pat};
-	if ( $name =~ /^$pat/ ){
-	    $logger->debug("Plugins::DeviceIpNamesByInt::get_name_from_interface: $ipaddr: $name matches: $pat");
-	    if ( $conv eq '$1' ){
-		$conv = $1;
-	    }
-	    $name =~ s/$pat/$conv/i;
-	    last;
-	}
-    }
-    # Make sub-interface number resemble a sub-domain
-    if ( $name =~ s/\.(\d+)$// ){
-	$name = $1.'.'.$name;
-    }elsif ( $name =~ s/:(\d+)$// ){
-	$name = $1.'.'.$name;
-    }
-    $name = lc( $name );
-    # Remove quotes
-    $name =~ s/\'//g;
-    # Substitute invalid DNS chars with dashes
-    $name =~ s/[^a-z0-9\.]/-/og;
-    # Only one dash "-" in a row
-    $name =~ s/[-]+/-/og;
-    # Remove dashes from start and end
-    $name =~ s/^-+|-+$//og;
-    # No dash before dot
-    $name =~ s/-\./\./g;
-    
-    # Append device name
-    my $devname = $ip->interface->device->sysname;
+    my $name = lc $ip->interface->device->sysname;
 
-    return $devname.'-'.$name;
+    if ($name =~ /^(\S+)/) {
+	$logger->debug("Plugins::DeviceIpNamesUNIL::get_name_from_sysname: $ipaddr: Using sysname");
+
+	return $1;
+    }
+
+    return;
 }
 
 
 =head1 AUTHORS
 
-Carlos Vicente, C<< <cvicente at ns.uoregon.edu> >>
+Vincent Magnin, C<< <vincent.magnin at unil.ch> >>
 
 =head1 COPYRIGHT & LICENSE
 
-Copyright 2012 University of Oregon, all rights reserved.
+Copyright 2016 University of Lausanne, all rights reserved.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

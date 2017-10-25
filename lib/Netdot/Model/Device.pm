@@ -1129,18 +1129,18 @@ sub get_snmp_info {
 	return 0;
     }
 
+    # Fix bug on pre 8.0 ICX series 
     if ($dev{model} =~ /ICX6\d50/) {
-	foreach my $iid ( keys %{$dev{interface}} ) {
-	    if (lc $dev{interface}{$iid}{name} eq 'management') {
-		$dev{interface}{2049} = delete $dev{interface}{$iid};
-		$dev{interface}{2049}{number} = 2049;
-	    }
-	}
-    } elsif ($dev{model} =~ /ICX7\d50/) {
-	foreach my $iid ( keys %{$dev{interface}} ) {
-	    if (lc $dev{interface}{$iid}{name} eq 'management') {
-		$dev{interface}{49} = delete $dev{interface}{$iid};
-		$dev{interface}{49}{number} = 49;
+	if ($dev{os} =~ /^(\d+)\./) {
+	    my $version = int($1);
+
+	    if (int($1) < 8) {
+		foreach my $iid ( keys %{$dev{interface}} ) {
+		    if (lc $dev{interface}{$iid}{name} eq 'management') {
+			$dev{interface}{2049} = delete $dev{interface}{$iid};
+			$dev{interface}{2049}{number} = 2049;
+		    }
+		}
 	    }
 	}
     }
