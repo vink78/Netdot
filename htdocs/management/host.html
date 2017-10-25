@@ -926,7 +926,7 @@ foreach my $o ( values %rrs ) {
     #####################################################################################################
     #RRNAPTR
 
-    if ( !$o->a_records && !$o->ptr_records && !$o->ns_records ){
+    if ( !$o->ptr_records ){
 	print '<div class="container" style="margin-left:10px">';
 	print '<div class="containerheadleft"><b>Name Authority Pointer '.
 	    $ui->table_descr_link('RRNAPTR', '(NAPTR)').'</b></div>';
