@@ -542,9 +542,17 @@ sub get_dp_links {
 			}
 		    }
 		    unless ( $rem_int ){
+			# Foundry Fix
+			if ( ($rem_port =~ /^ethernet(\d+\/\d+\/\d+)$/i) || ($rem_port =~ /^ethernet(\d+\/\d+)$/i) || ($rem_port =~ /^ethernet(\d+)$/i) ){
+			    $rem_port = "'".'%Ethernet'.$1."'";
+			}
 			# Brocade VDX Fix
 			if ($rem_port =~ /^(Ten|Forty)?GigabitEthernet \d\/(\d+\/\d+)$/) {
 			    $rem_port = "'$1GigabitEthernet $2'";
+			}
+			# Ruckus fix
+			if ($rem_port =~ /^($MAC)$/) {
+			    $rem_port = "'eth0'";
 			}
 			# Try name first, then number, then description (if it is unique)
 			$rem_int = Interface->search_like(device=>$rem_dev, name=>$rem_port)->first;

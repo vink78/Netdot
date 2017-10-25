@@ -805,6 +805,8 @@ sub get_snmp_info {
     $dev{sysname}        = $sinfo->name();
     $dev{router_id}      = $sinfo->root_ip();
     $dev{sysdescription} = $sinfo->description();
+    $dev{extension}      = $sinfo->extension()
+	 if ($dev{sysdescription} eq 'Avaya Phone');
     $dev{syscontact}     = $sinfo->contact();
     if ( $hashes{'e_descr'} ){
 	my $first_idx ;
@@ -1126,7 +1128,23 @@ sub get_snmp_info {
 		      ($dev->{interface}{$iid}{admin_status} eq 'down') );
 	return 0;
     }
-    
+
+    if ($dev{model} =~ /ICX6\d50/) {
+	foreach my $iid ( keys %{$dev{interface}} ) {
+	    if (lc $dev{interface}{$iid}{name} eq 'management') {
+		$dev{interface}{2049} = delete $dev{interface}{$iid};
+		$dev{interface}{2049}{number} = 2049;
+	    }
+	}
+    } elsif ($dev{model} =~ /ICX7\d50/) {
+	foreach my $iid ( keys %{$dev{interface}} ) {
+	    if (lc $dev{interface}{$iid}{name} eq 'management') {
+		$dev{interface}{49} = delete $dev{interface}{$iid};
+		$dev{interface}{49}{number} = 49;
+	    }
+	}
+    }
+
     ################################################################
     # IPv4 addresses and masks 
     #
@@ -2997,7 +3015,7 @@ sub info_update {
 
     ##############################################################
     # Fill in some basic device info
-    foreach my $field ( qw( community layers ipforwarding sysname 
+    foreach my $field ( qw( community layers ipforwarding sysname extension
                             sysdescription syslocation os collect_arp collect_fwt ) ){
 	$devtmp{$field} = $info->{$field} if exists $info->{$field};
     }

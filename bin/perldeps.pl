@@ -118,7 +118,7 @@ if ( $action eq 'test' ){
 		    if ( $rh_rel eq '5' ){
 			$epel_rel = '5-4';
 		    }elsif ( $rh_rel eq '6' ){
-			$epel_rel = '6-6';
+			$epel_rel = '6-8';
 		    }else{
 			die "Unknown release: $rh_rel\n";
 		    }
