@@ -5,18 +5,17 @@
 PREFIX=/usr/local/netdot
 
 # Every hour rediscover devices and topology
-0 * * * * root $PREFIX/bin/updatedevices.pl -DIFAT
+#0 * * * * root /sbin/pidof -s -x updatedevices.pl || $PREFIX/bin/updatedevices.pl -DIFAT
 
 # If you have a large number of devices and the above is too
 # aggressive, split the load using the following two jobs intead:
 
 # Retrieve forwarding tables and ARP caches
-#0 1-11,13-16,18-23 * * * root $PREFIX/bin/updatedevices.pl -DFA
+0 * * * * root /sbin/pidof -s -x updatedevices.pl || $PREFIX/bin/updatedevices.pl -DFA
 # Twice a day, rediscover devices and topology (in addition to above)
-#0 12,17 * * * root $PREFIX/bin/updatedevices.pl -DIFAT
-
-# Once a day, generate DNS records for interface IPs
-30 7 * * * root $PREFIX/bin/updatedevices.pl -DN
+45 7,18 * * * root /sbin/pidof -s -x updatedevices.pl || $PREFIX/bin/updatedevices.pl -T -c r_public
+50 7,18 * * * root /sbin/pidof -s -x updatedevices.pl || $PREFIX/bin/updatedevices.pl -T -c a_public
+20 7,18 * * * root /sbin/pidof -s -x updatedevices.pl || $PREFIX/bin/updatedevices.pl -DIT
 
 # Update whole-network topology graphs
 45 0 * * * root $PREFIX/bin/build_topo_graph.pl -f $PREFIX/htdocs/img/graphs/whole_network_no_vlans.png
@@ -24,12 +23,15 @@ PREFIX=/usr/local/netdot
 50 0 * * * root $PREFIX/bin/build_topo_graph.pl -v -f $PREFIX/htdocs/img/graphs/whole_network_with_vlans.png
 
 # Rotate forwarding tables and arp caches once a week.  Keep 7 days of backups
- 45 3 * * 0 root $PREFIX/bin/prune_db.pl -F -A -d 7 -r
+45 3 * * 0 root $PREFIX/bin/prune_db.pl -F -A -d 7 -r
 
 # Once a week, remove MAC and IP addresses older than 3 months
 # NOTE: ONLY ENABLE THIS IF YOU ARE SURE OF WHAT IT DOES
-# 45 4 * * 0 root $PREFIX/bin/prune_db.pl -M -I -d 90
+45 4 * * 0 root $PREFIX/bin/prune_db.pl -M -d 90
 
 # Remove audit records older than 3 months
-40 4 * * 0 root $PREFIX/bin/prune_db.pl --audit --hostaudit -d 90
+40 4 * * 0 root $PREFIX/bin/prune_db.pl --audit --hostaudit -d 400
 
+# Keep a weekly database for tracking purpose
+30 3 * * 0 root $PREFIX/bin/ether_ip_port.pl $PREFIX/export/ethers/
+30 14 * * 2 root $PREFIX/bin/ether_ip_port.pl $PREFIX/export/ethers/
