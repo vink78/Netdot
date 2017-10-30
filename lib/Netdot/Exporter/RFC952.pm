@@ -178,7 +178,7 @@ sub generate_configs {
 		    }
 		}
 	    }
-	    $self->print_domain(domain=>$domain, ns=>\@dns, default=>$default, extra=>\@extra) if ($domain ne 'lan' && $domain ne 'chuv');
+	    $self->print_domain(domain=>$domain, ns=>\@dns, default=>$default, extra=>\@extra) if ($domain ne 'lan');
 
 	    if ($zone eq $defzone) {
 		my $netq = $dbh->selectall_arrayref("
@@ -287,24 +287,7 @@ sub generate_configs {
 		    }
 
 		    $cpu = 'dhcp' if ($status == 3);
-		    $os   = ''     if ($status == 3);
-		    my $devs = undef; #Device->search(name=>$ip);
-		    if ($devs) {
-			my $asset = $devs->first->asset_id;
-			my $pr;
-			if ( $pr = $asset->product_id ){
-			    $cpu = lc $pr->type->name;
-			    $cpu = 'ap' if ($cpu eq 'access point');
-			    $cpu = 'fw' if ($cpu eq 'firewall');
-			    $cpu = 'phone' if ($cpu eq 'ip phone');
-			    $os = lc $pr->manufacturer->name;
-			    $os = 'brcd' if ($os eq 'brocade');
-			    $os = 'rkus' if ($os eq 'ruckus');
-			    $os = 'jun' if ($os eq 'juniper networks');
-			    $os = 'iw' if ($os eq 'foundry');
-			    $os = 'palo' if ($os eq 'paloalto');
-			}
-		    }
+		    $os  = ''     if ($status == 3);
 
 		    $self->print_host(ip=>$ip, name=>\@name, protocol=>$protocol, ub=>$ub, cpu=>$cpu, os=>$os);
 		}
@@ -446,8 +429,6 @@ sub print_host {
 
     my $comment = "";
     $comment  = ";;;;"    if ($active ne 'true');
-    $os = '' if ($os eq 'ruckus' | $os eq 'jun');
-    $os = 'brcd' if ($os eq 'nos');
     $protocol = '' if ($name[0] eq 'hec' || $name[0] eq 'bud' || $name[0] eq 'fef' || $name[0] eq 'idheap');
 
     print $out $comment."HOST:$ip:".join(',', @name).":$cpu:$os:$protocol:$ub:\n";
