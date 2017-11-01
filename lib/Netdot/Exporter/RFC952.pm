@@ -38,7 +38,7 @@ sub new{
     my ($class, %argv) = @_;
     my $self = {};
 
-    foreach my $key ( qw /RFC952_DIR RFC952_FILE DEFAULT_DNSDOMAIN RFC952_SCP_TARGET RFC952_SITENAME/ ){
+    foreach my $key ( qw /RFC952_DIR RFC952_FILE DEFAULT_DNSDOMAIN RFC952_SCP_TARGET RFC952_SITENAME Git_RFC952_DIR/ ){
 	$self->{$key} = Netdot->config->get($key);
     }
      
@@ -300,7 +300,7 @@ sub generate_configs {
     $logger->info("Netdot::Exporter::RFC952: Configuration written to file: ".$self->{filename});
     system ("/usr/bin/scp ".$self->{filename}.' '.$self->{RFC952_SCP_TARGET});
     system ('/usr/bin/scp '.$self->{filename}.' reseau\@prdres:scripts/');
-    system ('/bin/cp '.$self->{filename}.' /home/reseau/dns/');
+    system ('/bin/cp '.$self->{filename}.' '.$self->{Git_RFC952_DIR}.'/');
 
     open (FOO, "/usr/bin/ssh reseau\@hns 'sudo /var/named/netdot/bin/update_named -i -u' |");
     while (<FOO>) {

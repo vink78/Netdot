@@ -52,6 +52,9 @@ sub new{
     $self->{DEFAULT_DNSDOMAIN} = Netdot->config->get('DEFAULT_DNSDOMAIN')
 	|| $class->throw_user("Netdot::Exporter::NAMED: DEFAULT_DNSDOMAIN not defined");
 
+    $self->{gitdir} = Netdot->config->get('Git_NAMED_DIR')
+	|| $self->throw_user('Git_NAMED_DIR not defined in config file!');
+
     # Open output file for writing
     $self->{master}  = "$dir/named.master.conf";
     $self->{slave}   = "$dir/named.";
@@ -152,7 +155,7 @@ sub generate_configs {
 		$logger->info("Netdot::Exporter::NAMED: Configuration written to file: ".$file);
 		close($self->{out});
 		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR});
-		system ("/bin/cp $file /home/reseau/dns/");
+		system ('/bin/cp '.$file.' '.$self->{gitdir}.'/');
 	}
 
 	# Slave Master File
