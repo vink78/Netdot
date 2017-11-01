@@ -97,7 +97,7 @@ sub generate_configs {
     my $gitdir = Netdot->config->get('Git_BIND_DIR')
 	|| $self->throw_user('Git_BIND_DIR not defined in config file!');
 
-    my $changes = 0;
+    my @changes = ();
 
     foreach my $zone ( @zones ){
 	next unless $zone->active;
@@ -116,8 +116,8 @@ sub generate_configs {
 		    $logger->info("Zone ".$zone->name." written to file: $path");
 
 		    system ("/usr/bin/scp $path $sshserver:$remotedir");
-		    system ("/bin/cp $path /home/reseau/dns/zone/");
-		    $changes++;
+		    system ('/bin/cp '.$path.' '.$gitdir.'/');
+		    push @changes, $zone->name;
 		}else{
 		    $logger->debug("Exporter::BIND::generate_configs: ".$zone->name.
 				   ": No pending changes.  Use -f to force.");
@@ -127,7 +127,7 @@ sub generate_configs {
 	$logger->error($@) if $@;
     }
 
-    if ($changes > 0) {
+    if (@changes) {
 	open (FOO, "/usr/bin/ssh $sshserver '$reloadcmd' |");
 	while (<FOO>) {
 	    chomp;
