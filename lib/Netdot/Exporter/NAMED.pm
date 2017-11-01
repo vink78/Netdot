@@ -52,6 +52,9 @@ sub new{
     $self->{DEFAULT_DNSDOMAIN} = Netdot->config->get('DEFAULT_DNSDOMAIN')
 	|| $class->throw_user("Netdot::Exporter::NAMED: DEFAULT_DNSDOMAIN not defined");
 
+    $self->{gitdir} = Netdot->config->get('Git_NAMED_DIR')
+	|| $self->throw_user('Git_NAMED_DIR not defined in config file!');
+
     # Open output file for writing
     $self->{master}  = "$dir/named.master.conf";
     $self->{slave}   = "$dir/named.";

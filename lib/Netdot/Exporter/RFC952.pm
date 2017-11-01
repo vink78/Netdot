@@ -38,7 +38,7 @@ sub new{
     my ($class, %argv) = @_;
     my $self = {};
 
-    foreach my $key ( qw /RFC952_DIR RFC952_FILE DEFAULT_DNSDOMAIN RFC952_SCP_TARGET RFC952_SITENAME/ ){
+    foreach my $key ( qw /RFC952_DIR RFC952_FILE DEFAULT_DNSDOMAIN RFC952_SCP_TARGET RFC952_SITENAME Git_RFC952_DIR/ ){
 	$self->{$key} = Netdot->config->get($key);
     }
      

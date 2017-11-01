@@ -55,9 +55,9 @@ sub new{
 
 sub generate_configs {
     my ($self, %argv) = @_;
-    
+
     my @zones;
-    
+
     if ( $argv{zones} ){
 	unless ( ref($argv{zones}) eq 'ARRAY' ){
 	    $self->throw_fatal("zones argument must be arrayref!");
@@ -93,6 +93,9 @@ sub generate_configs {
 
     my $reloadcmd = Netdot->config->get('BIND_RELOAD_CMD')
 	|| $self->throw_user('BIND_RELOAD_CMD not defined in config file!');
+
+    my $gitdir = Netdot->config->get('Git_BIND_DIR')
+	|| $self->throw_user('Git_BIND_DIR not defined in config file!');
 
     my $changes = 0;
 
