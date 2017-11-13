@@ -262,11 +262,12 @@ $last_item = ( ($offset + $per_page) < $total )? $offset + $per_page : $total;
 %        }
 %     }
 
-      <table border="0" cellspacing="0" cellpadding="0" class="tablebackground">
+      <table id="result" class="display" cellspacing="0" width="100%">
 
 %     #####################################################################
 %     # Header row
-      <tr class="rowtitle2">
+      <thead>
+      <tr>
 %
 %     foreach my $c ( @orderbrief ) {
 %          my $tag = $table->meta_data->get_column($c)->tag;
@@ -281,6 +282,8 @@ $last_item = ( ($offset + $per_page) < $total )? $offset + $per_page : $total;
           <th align="center">Select</th>
 %     }
       </tr>
+      </thead>
+      <tbody>
 %     ####################################################################
 %     # Loop around the window of items that we are showing in this page
 %     ####################################################################
@@ -295,7 +298,7 @@ $last_item = ( ($offset + $per_page) < $total )? $offset + $per_page : $total;
 %         my $first_column = 1;
 %         $ci = ($ci + 1) % 2;
 
-          <tr class="<% $cssitem{$ci} %>">
+          <tr>
 %
 %         ####################################################################
 %         # Get the column order and process each item.
@@ -353,11 +356,12 @@ $last_item = ( ($offset + $per_page) < $total )? $offset + $per_page : $total;
       </tr>
 % } # end while
 % ####################################################################
-
+      </tbody>
 % ## Last row
 % if( $withedit ) {
 %     my $selectall_ids = join ',', map { $objindex{$_}{id} } keys %objindex;
-      <tr class="rowtitle">
+      <tfoot>
+      <tr>
 %         for( my $i=0; $i<($numcols-2); $i++ ) {
               <td>&nbsp;</td>
 %         }
@@ -369,6 +373,7 @@ $last_item = ( ($offset + $per_page) < $total )? $offset + $per_page : $total;
 	      <input type="checkbox" name="selectall" id="selectall">
           </td>
       </tr>
+      </tfoot>
 % }
 % ## Empty row
       <tr class="rowtitle">
