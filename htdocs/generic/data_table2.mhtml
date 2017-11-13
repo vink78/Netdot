@@ -33,34 +33,16 @@ $subclass      => "";
 
 <table border="0" width="100%" cellspacing="0" class="sortable">
   <tr>
-% if ( @style ){
 %     for (my $i=0; $i < scalar @field_headers; $i++) {
-          <th class="formtabletitle" style="<% $style[$i] %>"><% $field_headers[$i] %></th>
+          <th style="<% $style[$i] %>"><% $field_headers[$i] %></th>
 %     }
-% }else{
-%     foreach (@field_headers) {
-          <th class="formtabletitle"><% $_ %></th>
-%     }
-% }
   </tr>
 
 % my $i = 0;
-% my $toggle = 1;
 % foreach my $row ( @data ) {
-%    ($toggle %= 2) += 1;
      <tr>
-%    if ( @style ){
-%        for (my $j=0; $j < scalar @$row; $j++) {
-             <td class="datatabler<% $toggle.$subclass %>" style="<% $style[$j] %>" sorttable_customkey="<% $row->[$j][0] %>"><% $row->[$j][1] %></td>
-%        }
-%    }elsif ( @rowstyle ){
-%        foreach (@$row) {
-             <td class="datatabler<% $toggle.$subclass %>" style="<% $rowstyle[$i] %>"><% $_ %></td>
-%       }
-%    }else{
-%        foreach (@$row) {
-             <td class="datatabler<% $toggle.$subclass %>"><% $_ %></td>
-%       }
+%    for (my $j=0; $j < scalar @$row; $j++) {
+          <td style="<% $style[$j] %>" sorttable_customkey="<% $row->[$j][0] %>"><% $row->[$j][1] %></td>
 %    }
 %    $i++;
      </tr>

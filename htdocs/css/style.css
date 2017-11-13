@@ -58,6 +58,13 @@ table.tablebackground {
     background-color: #ffffee; 
 }
 
+table.sortable thead th td {
+/*  background-color: #ddeedd; */
+  background-color: #aaccaa;
+  text-align: left;
+  font-weight: bold;
+}
+
 table.sortable tbody tr:nth-child(2n) td {
   background-color: #f0f7e9;
   color: #000000;
