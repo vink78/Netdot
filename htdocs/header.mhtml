@@ -54,7 +54,7 @@ $ui->get_allowed_objects($r, $user) if $user;
 % }
 </head>
 % my $js_prefix = $r->dir_config('NetdotPath') . "java_script";
-% for my $script ( qw(dynamic_list select jsrsClient toggle datechooser datatables.min) ) {
+% for my $script ( qw(jquery-3.2.1 dynamic_list select jsrsClient toggle datechooser datatables.min) ) {
 <script language="JavaScript" src="<% $js_prefix %>/<% $script %>.js"></script>
 % }
 <body<% $onload %>>
