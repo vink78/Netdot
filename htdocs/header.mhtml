@@ -45,6 +45,7 @@ $ui->get_allowed_objects($r, $user) if $user;
   -->
   <link rel="StyleSheet" href="<% $r->dir_config('NetdotPath') %>css/style.css" type="text/css" />
   <link rel="StyleSheet" href="<% $r->dir_config('NetdotPath') %>css/datechooser.css" type="text/css" />
+  <link rel="StyleSheet" href="<% $r->dir_config('NetdotPath') %>css/datatables.min.css" type="text/css" />
   <link rel="Shortcut Icon" href="<% $r->dir_config('NetdotPath') %>img/favicon.ico" type="image/x-icon" />
   <title>Netdot @ <% $servername %>: <% $title %></title>
 %
@@ -53,7 +54,7 @@ $ui->get_allowed_objects($r, $user) if $user;
 % }
 </head>
 % my $js_prefix = $r->dir_config('NetdotPath') . "java_script";
-% for my $script ( qw(dynamic_list select jsrsClient toggle datechooser) ) {
+% for my $script ( qw(dynamic_list select jsrsClient toggle datechooser datatables.min) ) {
 <script language="JavaScript" src="<% $js_prefix %>/<% $script %>.js"></script>
 % }
 <body<% $onload %>>
