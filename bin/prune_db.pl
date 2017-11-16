@@ -31,6 +31,7 @@ my $usage = <<EOF;
     -A, --arp                      ARP caches
     -M, --macs                     MAC addresses
     -I, --ips                      IP addresses
+    -6, --ipv6                     IPv6 discovered addresses
     -R, --rr                       DNS Resource Records
     -a, --audit                    Audit records
     -t, --hostaudit                Host Audit records
@@ -50,6 +51,7 @@ my $result = GetOptions(
     "A|arp"           => \$self{ARP},
     "M|macs"          => \$self{MACS},
     "I|ips"           => \$self{IPS},
+    "6|ipv6"          => \$self{IPV6},
     "R|rr"            => \$self{RR},
     "a|audit"         => \$self{AUDIT},
     "t|hostaudit"     => \$self{HOSTAUDIT},
@@ -72,8 +74,8 @@ if ( !$result ){
 }
 
 unless  ( $self{FWT} || $self{ARP} || $self{MACS} || 
-	  $self{IPS} || $self{RR} || $self{HOSTAUDIT} || 
-          $self{AUDIT} || $self{INTERFACES} ){
+	  $self{IPS} || $self{IPV6} || $self{RR} ||
+	  $self{HOSTAUDIT} || $self{AUDIT} || $self{INTERFACES} ){
     print $usage;
     die "Error: Missing required args\n";
 }
@@ -119,6 +121,29 @@ if ( $self{IPS} ){
     my $q = $dbh->prepare("SELECT ipblock.id 
                            FROM   ipblock, ipblockstatus
                            WHERE  ipblockstatus.name='Discovered'
+                             AND  ipblock.status=ipblockstatus.id
+                             AND  ipblock.last_seen < ?");
+    $q->execute($sqldate);
+    while ( my $id = $q->fetchrow_array() ) {
+	if ( my $ip = Ipblock->retrieve($id) ){
+	    $logger->debug(sprintf("Deleting IP %s", $ip->address));
+	    unless ( $self{PRETEND} ){
+		$ip->delete() ;
+		$rows_deleted{ipblock}++;
+	    }
+	}
+    }
+}
+
+if ( $self{IPV6} ){
+    ###########################################################################################
+    # Delete 'Discovered' IPv6 addresses
+    # Note: This will also delete AAAA records, ArpCache entries, DhcpScopes, etc.
+    my $q = $dbh->prepare("SELECT ipblock.id 
+                           FROM   ipblock, ipblockstatus
+                           WHERE  ipblockstatus.name='Discovered'
+                             AND  ipblock.version=6
+                             AND  ipblock.prefix=128
                              AND  ipblock.status=ipblockstatus.id
                              AND  ipblock.last_seen < ?");
     $q->execute($sqldate);
