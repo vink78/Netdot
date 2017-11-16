@@ -30,6 +30,7 @@ my $usage = <<EOF;
     -F, --fwt                      Forwarding Tables
     -A, --arp                      ARP caches
     -M, --macs                     MAC addresses
+    -O, --old-macs                 Old MAC addresses
     -I, --ips                      IP addresses
     -6, --ipv6                     IPv6 discovered addresses
     -R, --rr                       DNS Resource Records
@@ -50,6 +51,7 @@ my $result = GetOptions(
     "F|fwt"           => \$self{FWT},
     "A|arp"           => \$self{ARP},
     "M|macs"          => \$self{MACS},
+    "O|old-macs"      => \$self{OLDMACS},
     "I|ips"           => \$self{IPS},
     "6|ipv6"          => \$self{IPV6},
     "R|rr"            => \$self{RR},
@@ -73,7 +75,7 @@ if ( !$result ){
     die "Error: Problem with cmdline args\n";
 }
 
-unless  ( $self{FWT} || $self{ARP} || $self{MACS} || 
+unless  ( $self{FWT} || $self{ARP} || $self{MACS} || $self{OLDMACS} ||
 	  $self{IPS} || $self{IPV6} || $self{RR} ||
 	  $self{HOSTAUDIT} || $self{AUDIT} || $self{INTERFACES} ){
     print $usage;
@@ -114,6 +116,29 @@ if ( $self{MACS} ){
 	}
     }
 }
+
+if ( $self{OLDMACS} ){
+    ###########################################################################################
+    # Delete MAC addresses
+    # Note: This will only delete MAC addresses which are note related to asset or interface
+    my $q = $dbh->prepare("SELECT    physaddr.id
+                           FROM      physaddr
+                           LEFT JOIN asset ON asset.physaddr=physaddr.id
+                           LEFT JOIN interface ON interface.physaddr=physaddr.id
+                           WHERE     asset.physaddr IS NULL AND interface.physaddr IS NULL
+                             AND     physaddr.last_seen< ?");
+    $q->execute($sqldate);
+    while ( my $id = $q->fetchrow_array()) {
+	my $mac = PhysAddr->retrieve($id);
+	$logger->debug(sprintf("Deleting PhysAddr %s", $mac->address));
+	unless ( $self{PRETEND} ){
+	    my $q2 = $dbh->prepare("DELETE FROM physaddr WHERE id= ?");
+	    $q2->execute($id);
+	    $rows_deleted{physaddr}++;
+	}
+    }
+}
+
 if ( $self{IPS} ){
     ###########################################################################################
     # Delete 'Discovered' IP addresses
