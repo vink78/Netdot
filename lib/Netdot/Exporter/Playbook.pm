@@ -56,6 +56,50 @@ sub new{
 sub generate_configs {
     my ($self, %argv) = @_;
 
+    # Generate liste verte playbook
+    $self->liste_verte();
+}
+
+sub liste_verte {
+    my ($self, %argv) = @_;
+
+    my $q = $dbh->selectall_arrayref("
+	      SELECT
+		rr.id, rr.name, zone.name, rr.info
+              FROM
+		rr, zone
+	      WHERE
+		rr.info like 'Liste %' AND rr.zone=zone.id
+	      ");
+
+    my %list_info;
+    foreach my $row ( @$q ) {
+	my ($id, $host, $domain, $row_info) = @$row;
+	my @info = split /\n/, $row_info;
+
+	# list lookup
+	my $list = '';
+	my $i = 0;
+        foreach (@info) {
+	    if (/^(Liste.*)$/) {
+		$i++;
+		$list = $1;
+	    }
+	}
+
+	if ($list ne '') {
+	    push @{ $list_info{$list} }, $host.'.'.$domain;
+	}
+    }
+
+    my $out = $self->open_and_lock('/usr/local/netdot/export/pb/group_vars/all/liste_verte.yml');
+    print $out "---\n";
+    foreach my $list (keys %list_info) {
+	$list =~ s/\s/_/g;
+	print $out "$list:\n";
+    }
+
+    close($out);
 }
 
 =head1 AUTHOR
