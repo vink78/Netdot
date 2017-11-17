@@ -58,7 +58,7 @@ table.tablebackground {
     background-color: #ffffee; 
 }
 
-table.sortable thead tr td {
+table.sortable thead tr th {
 /*  background-color: #ddeedd; */
   background-color: #aaccaa;
   text-align: left;
