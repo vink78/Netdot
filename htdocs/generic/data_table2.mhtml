@@ -1,0 +1,51 @@
+<%doc>
+
+Displays a table for showing rows of data 
+
+example data:
+--------------------------------------------------------
+| Address      | Status | Name                         |
+--------------------------------------------------------
+| 192.168.56.5 | Static | vlan56-5.mydomain.com         |
+| 192.168.56.5 | Static | vlan56-5.mydomain.com         |
+| 192.168.56.5 | Static | vlan56-5.mydomain.com         |
+| 192.168.56.5 | Static | vlan56-5.mydomain.com         |
+--------------------------------------------------------
+
+Arguments:  
+    field_headers  -  array of captions to show on the top row
+    data           -  array of array references to show in the rows
+    subclass       -  use class "datatabler1_subclass" in the stylesheet
+    rowstyle       -  array of style parameters for all columns in a row (any css)
+    style          -  array of style parameters for columns (any css).  Overrides rowstyle.
+</%doc>
+
+<%args>
+@field_headers => undef;
+@data          => ();
+$subclass      => "";
+@style         => ();
+@rowstyle      => ();
+</%args>
+
+% if( $subclass ) { $subclass = '_'.$subclass; }
+
+
+<table border="0" width="100%" cellspacing="0" class="sortable">
+  <tr>
+%     for (my $i=0; $i < scalar @field_headers; $i++) {
+          <th style="<% $style[$i] %>"><% $field_headers[$i] %></th>
+%     }
+  </tr>
+
+% my $i = 0;
+% foreach my $row ( @data ) {
+     <tr>
+%    for (my $j=0; $j < scalar @$row; $j++) {
+          <td style="<% $style[$j] %>" sorttable_customkey="<% $row->[$j][0] %>"><% $row->[$j][1] %></td>
+%    }
+%    $i++;
+     </tr>
+% }
+
+</table>

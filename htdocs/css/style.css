@@ -58,6 +58,21 @@ table.tablebackground {
     background-color: #ffffee; 
 }
 
+table.sortable thead tr td {
+/*  background-color: #ddeedd; */
+  background-color: #aaccaa;
+  text-align: left;
+  font-weight: bold;
+}
+
+table.sortable tbody tr:nth-child(2n) td {
+  background-color: #f0f7e9;
+  color: #000000;
+}
+table.sortable tbody tr:nth-child(2n+1) td {
+  background: #ffffee;
+  color: #000000;
+}
 
 tr {
     text-align: left;
@@ -94,7 +109,7 @@ td.center {
 td.delimiter { 
     width: 1px;
 }
-    
+
 th {
     font-size:13px;
     font-weight:bold;
