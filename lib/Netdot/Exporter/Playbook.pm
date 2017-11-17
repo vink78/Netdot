@@ -8,6 +8,9 @@ use Data::Dumper;
 
 my $logger = Netdot->log->get_logger('Netdot::Exporter');
 
+my $dbh = Netdot::Model->db_Main();
+
+
 =head1 NAME
 
 Netdot::Exporter::Playbook - Read relevant info from Netdot and commit changes
@@ -87,18 +90,31 @@ sub liste_verte {
 	    }
 	}
 
-	if ($list ne '') {
-	    push @{ $list_info{$list} }, $host.'.'.$domain;
+	if ($list ne '' && $list !~ /\*/) {
+	    $list =~ s/\s/_/g;
+	    if ($list eq 'Liste_Verte_80/443') {
+		$list = 'Liste_WebVert';
+	    }
+
+	    if ($host ne '@') {
+		push @{ $list_info{$list} }, $host.'.'.$domain;
+	    } else {
+		push @{ $list_info{$list} }, $domain;
+	    }
 	}
     }
 
     my $out = $self->open_and_lock('/usr/local/netdot/export/pb/group_vars/all/liste_verte.yml');
     print $out "---\n";
-    foreach my $list (keys %list_info) {
-	$list =~ s/\s/_/g;
+    foreach my $list (sort keys %list_info) {
 	print $out "$list:\n";
+	foreach my $host (sort @{$list_info{$list}}) {
+	    my $key = join '_', split /\./, $host;
+	    print $out "   $key:\n";
+	    print $out "     dns: '$host'\n";
+	}
     }
-
+    print $out "\n\n";
     close($out);
 }
 
