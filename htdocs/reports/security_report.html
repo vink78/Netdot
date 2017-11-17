@@ -40,7 +40,7 @@ foreach my $r ( @$resc ) {
 
 my $res = Netdot::Model->raw_sql( $rsql )->{rows};
 
-@headers = ( '<a href="security_report.html?sort=host">Host</a>', '<a href="security_report.html?sort=ip">IP Address</a>', 'UB', '<a href="security_report.html?sort=list">List</a>', '<a href="security_report.html?sort=contact">Contact</a>', '<a href="security_report.html?sort=date">Date</a>', );
+@headers = ( 'Host', 'IP Address', 'UB', 'List', 'Contact', 'Date', );
 
 foreach my $r ( @$res ) {
 	my @row = ();
@@ -62,82 +62,53 @@ foreach my $r ( @$res ) {
 
 	my $url3 = '/netdot/contacts/view.html?table=Entity&id='.$ubid;
 
-	push ( @row, '<a href="'.$url2.'">'.$hostname.'</a>' );
+	push ( @row, [$hostname, '<a href="'.$url2.'">'.$hostname.'</a>'] );
+	my $nipstr = $nip->numeric;
+	push ( @row, [$nipstr, '<a href="'.$url1.'">'.$nip->short.'</a>'] );
 
-	push ( @row, '<a href="'.$url1.'">'.$nip->short.'</a>' );
-
-	push ( @row, '<a href="'.$url3.'">'.$ub{$ubid}.'</a>' );
+	push ( @row, [$ub{$ubid}, '<a href="'.$url3.'">'.$ub{$ubid}.'</a>'] );
 
 	# Liste
 	my $i = 0;
 	foreach (@info) {
 		if (/^(Liste.*)$/) {
 			$i++;
-			push ( @row, $1 );
+			push ( @row, [$1, $1] );
 		}
 	}
-	push ( @row, '' ) if ($i == 0);
+	push ( @row, ['', ''] ) if ($i == 0);
 
 	# Responsable
 	$i = 0;
 	foreach (@info) {
 		if (/^Responsable:\s+(.*)$/) {
 			$i++;
-			push ( @row, $1 );
+			push ( @row, [$1, $1] );
 		}
 	}
-	push ( @row, '' ) if ($i == 0);
+	push ( @row, ['', ''] ) if ($i == 0);
 
 	# Date
 	$i = 0;
 	foreach (@info) {
 		if (/^Date:\s+(.*)$/) {
 			$i++;
-			push ( @row, $1 );
+			push ( @row, [_date_row($1), $1] );
 		}
 	}
-	push ( @row, '' ) if ($i == 0);
+	push ( @row, ['', ''] ) if ($i == 0);
 
 	push( @rows, \@row );
 }
 # 'Host', 'IP Address', 'UB', 'List', 'Contact', 'Date',
 
-sub _sort_date {
-	my ($a, $b) = @_;
-	my ($c, $d) = ('', '');
+sub _date_row {
+	my ($a) = @_;
 	my @aa = split /\./, $a;
-	my @bb = split /\./, $b;
 	
-	$c = join '', reverse @aa;
-	$d = join '', reverse @bb;
-
-	return $c <=> $d;
+	return join '', reverse @aa;
 }
 
-sub _sort_ip {
-	my ($a, $b) = @_;
-	my ($c, $d) = ('', '');
-	if ($a =~ />(\d+)\.(\d+)\.(\d+)\.(\d+)</) {
-		$c = (($1*256+$2)*256+$3)*256+$4;
-	}
-	if ($b =~ />(\d+)\.(\d+)\.(\d+)\.(\d+)</) {
-		$d = (($1*256+$2)*256+$3)*256+$4;
-	}
-
-	return $c <=> $d;
-}
-
-if ($sort eq 'ip') {
-	@srows = sort { _sort_ip($a->[1], $b->[1]) } @rows;
-} elsif ($sort eq 'list') {
-	@srows = sort { $a->[3] cmp $b->[3] } @rows;
-} elsif ($sort eq 'contact') {
-	@srows = sort { $a->[4] cmp $b->[4] } @rows;
-} elsif ($sort eq 'date') {
-	@srows = sort { _sort_date($a->[5], $b->[5]) } @rows;
-} else {
-	@srows = @rows;
-}
 </%perl>
 
 <div class="container">
@@ -145,7 +116,7 @@ if ($sort eq 'ip') {
     <div class="containerbody">
     <strong>Liste <% $type %></strong><br/>
 <p>
-<& /generic/data_table.mhtml, field_headers=>\@headers, data=>\@srows, style=>['', '', 'text-align: right', 'text-align: right'] &>
+<& /generic/data_table2.mhtml, field_headers=>\@headers, data=>\@rows, style=>['', '', 'text-align: right', 'text-align: right'] &>
 </p>
 </div>
 </div>
