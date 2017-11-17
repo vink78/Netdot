@@ -41,39 +41,69 @@ my ($host, $date) = ('', '');
 my (@headers, @rows) = ();
 
 if ($fwtable > 0) {
-my $rsql = "SELECT fwt.interface, fwt.mac, fwt.physaddr, arp.ipaddr, arp.address, arp.rr, arp.ptr  FROM (SELECT CAST(interface.number AS SIGNED) AS number, interface.name AS interface, physaddr.id AS physaddr, physaddr.address AS mac FROM fwtableentry, physaddr, interface  WHERE fwtableentry.fwtable=$fwtable AND physaddr.id=fwtableentry.physaddr AND interface.id=fwtableentry.interface AND interface.neighbor IS NULL) AS fwt LEFT JOIN (SELECT arpcacheentry.physaddr, arpcacheentry.ipaddr, ipblock.address, rrptr.rr, rrptr.ptrdname AS ptr FROM (SELECT max(id) AS id FROM arpcache GROUP BY device) AS arpcache, arpcacheentry, ipblock, rrptr WHERE arpcache.id=arpcacheentry.arpcache AND ipblock.id=arpcacheentry.ipaddr AND rrptr.ipblock=ipblock.id) AS arp ON fwt.physaddr=arp.physaddr ORDER BY fwt.number";
+my $rsql = "
+SELECT fwtableentry.interface, fwtableentry.physaddr, arp.ipaddr
+FROM fwtableentry
+JOIN interface ON interface.id=fwtableentry.interface
+LEFT JOIN
+  (SELECT ace.physaddr,ace.ipaddr,max(tstamp) as tstamp FROM arpcacheentry ace
+   JOIN arpcache ac ON ac.id=ace.arpcache
+   WHERE ac.tstamp >= timestampadd(hour,-48,now())
+   GROUP BY ace.physaddr,ace.ipaddr
+  ) AS arp ON arp.physaddr=fwtableentry.physaddr
+WHERE fwtableentry.fwtable=$fwtable AND interface.neighbor IS NULL
+ORDER BY CAST(interface.number AS SIGNED), fwtableentry.physaddr
+";
 
-my $rsql2 = "SELECT CONCAT(rr.name, '.', zone.name), fwtable.tstamp from fwtable, device, rr, zone WHERE fwtable.id=$fwtable AND fwtable.device=device.id AND device.name=rr.id AND rr.zone=zone.id";
+my $rsql2 = "
+SELECT CONCAT(rr.name, '.', zone.name), fwtable.tstamp
+FROM fwtable, device, rr, zone
+WHERE fwtable.id=$fwtable AND fwtable.device=device.id AND device.name=rr.id AND rr.zone=zone.id
+";
 
 @headers = ( 'Interface', 'MAC Address', 'IP Address', 'Host', );
 
-
 my $res2 = Netdot::Model->raw_sql( $rsql2 )->{rows};
 foreach my $r ( @$res2 ) {
-	$host = $r->[0];
-	$date = $r->[1];
+    $host = $r->[0];
+    $date = $r->[1];
 }
 
 my $res = Netdot::Model->raw_sql( $rsql )->{rows};
 foreach my $r ( @$res ) {
-	my @row = ();
+    my @row = ();
 
-	push ( @row, $r->[0] );
+    # Interface
+    my $iface = Interface->retrieve($r->[0]);
+    push ( @row, [$iface->number, '<a href="/netdot/management/interface.html?id='.$iface.'">'.$iface->name.'</a>'] );
 
-	my $url3 = '/netdot/management/mac.html?id='.$r->[2];
-	push ( @row, '<a href="'.$url3.'">'.$r->[1].'</a>' );
+    # MAC Address
+    my $eth = PhysAddr->retrieve($r->[1]);
+    push ( @row, [$eth->address, '<a href="/netdot/management/mac.html?id='.$eth.'">'.$eth->address.'</a>'] );
 
-	my $nip = NetAddr::IP->new( $r->[4] );
-	my $url1 = '/netdot/management/ip.html?id='.$r->[3];
-        if (defined $nip) {
-                push ( @row, '<a href="'.$url1.'">'.$nip->short.'</a>' );
-        } else {
-                push ( @row, '&nbsp;' );
-        }
+    if ($r->[2] ne '') {
+	# IP Address
+	my $ipb = Ipblock->retrieve($r->[2]);
+	push ( @row, [$ipb->address_numeric, '<a href="/netdot/management/ip.html?id='.$ipb.'">'.$ipb->address.'</a>'] );
 
-	my $url2 = '/netdot/management/host.html?table=RR&id='.$r->[5];
-	push ( @row, '<a href="'.$url2.'">'.$r->[6].'</a>' );
-	push( @rows, \@row );
+	# Host
+	my @host;
+	my $rr = '';
+	foreach my $ar ( $ipb->a_records ) {
+	    $rr = $ar->rr;
+	    push (@host, '<a href="/netdot/management/host.html?table=RR&id='.$rr.'">'.$rr->get_label.'</a>');
+	}
+	if ($rr != '') {
+	    push ( @row, [$rr->get_label, join (', ', @host)] );
+	} else {
+	    push ( @row, ['', '&nbsp;'] );
+	}
+    } else {
+	push ( @row, ['', '&nbsp;'] );
+	push ( @row, ['', '&nbsp;'] );
+    }
+
+    push( @rows, \@row );
 }
 </%perl>
 
@@ -81,7 +111,7 @@ foreach my $r ( @$res ) {
 <div class="containerhead">IP+ARP For device <% $host %>, date <% $date %></div>
 <div class="containerbody">
 <p>
-<& /generic/data_table.mhtml, field_headers=>\@headers, data=>\@rows, style=>['', '', 'text-align: right', 'text-align: right'] &>
+<& /generic/data_table2.mhtml, field_headers=>\@headers, data=>\@rows, style=>['', '', 'text-align: right', 'text-align: right'] &>
 </p>
 </div>
 </div>
