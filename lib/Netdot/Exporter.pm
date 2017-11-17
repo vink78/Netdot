@@ -16,6 +16,7 @@ my %types = (
     'BIND'      => 'Netdot::Exporter::BIND',
     'NAMED'     => 'Netdot::Exporter::NAMED',
     'GIT'       => 'Netdot::Exporter::GIT',
+    'PLAYBOOK'  => 'Netdot::Exporter::Playbook',
     'DHCPD'     => 'Netdot::Exporter::DHCPD',
     'Smokeping' => 'Netdot::Exporter::Smokeping',
     'RFC952'    => 'Netdot::Exporter::RFC952',
