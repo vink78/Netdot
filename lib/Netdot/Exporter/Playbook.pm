@@ -39,6 +39,10 @@ sub new{
     my ($class, %argv) = @_;
     my $self = {};
 
+    foreach my $key ( qw /DEFAULT_DNSDOMAIN Playbook_DIR/ ){
+	$self->{$key} = Netdot->config->get($key);
+    }
+
     bless $self, $class;
     return $self;
 }
@@ -104,18 +108,23 @@ sub liste_verte {
 	}
     }
 
-    my $out = $self->open_and_lock('/usr/local/netdot/export/pb/group_vars/all/liste_verte.yml');
+    my $file = $self->{Playbook_DIR}.'/group_vars/all/liste_verte.yml';
+    my $out = $self->open_and_lock($file);
     print $out "---\n";
     foreach my $list (sort keys %list_info) {
 	print $out "$list:\n";
 	foreach my $host (sort @{$list_info{$list}}) {
-	    my $key = join '_', split /\./, $host;
+	    my $key = $host;
+	    $key =~ s/^(.+)\.$self->{DEFAULT_DNSDOMAIN}/$1/g;
+	    $key = join '_', split /\./, $key; 
 	    print $out "   $key:\n";
 	    print $out "     dns: '$host'\n";
 	}
     }
     print $out "\n\n";
     close($out);
+
+    $logger->info("Netdot::Exporter::Playbook: Liste Verte playbook written to file: ".$file);
 }
 
 =head1 AUTHOR
