@@ -65,6 +65,42 @@ sub generate_configs {
 
     # Generate liste verte playbook
     $self->liste_verte();
+
+    # Generate vlan_list.yml
+    $self->vlan_list();
+}
+
+sub vlan_list {
+    my ($self, %argv) = @_;
+
+    my @mgmt = (500, 501, 502, 503, 504, 505, 564, 565);
+
+    my $file = $self->{Playbook_DIR}.'/group_vars/all/vlan_list.yml';
+    my $out = $self->open_and_lock($file);
+    print $out "---\n";
+    print $out "vlan_list:\n";
+
+    my $q = $dbh->selectall_arrayref("
+              SELECT
+                vid, name
+              FROM
+                vlan
+              ORDER BY
+                vid
+	      ");
+
+    foreach my $row ( @$q ) {
+	my ($vid, $name) = @$row;
+
+	print $out "   $vid:\n";
+	print $out "     name: '$name'\n";
+	print $out "     is_mgmt_vlan: True\n"
+	  if ( grep( /^$vid$/, @mgmt ) );
+    }
+    print $out "\n\n";
+    close($out);
+
+    $logger->info("Netdot::Exporter::Playbook: Vlan List playbook written to file: ".$file);
 }
 
 sub liste_verte {
