@@ -116,30 +116,34 @@ sub liste_verte {
 	      ");
 
     my %list_info;
+    my %date;
+    my %owner;
     foreach my $row ( @$q ) {
 	my ($id, $host, $domain, $row_info) = @$row;
 	my @info = split /\n/, $row_info;
 
-	# list lookup
-	my $list = '';
-	my $i = 0;
-        foreach (@info) {
-	    if (/^(Liste.*)$/) {
-		$i++;
-		$list = $1;
-	    }
+	# Build Hotsname
+	my $hostname = $host.'.'.$domain;
+	if ($host eq '@') {
+	    $hostname = $domain;
 	}
 
-	if ($list ne '' && $list !~ /\*/) {
-	    $list =~ s/\s/_/g;
-	    if ($list eq 'Liste_Verte_80/443') {
-		$list = 'Liste_WebVert';
-	    }
+	# list lookup
+        foreach (@info) {
+	    if (/^(Liste.*)$/) {
+		my $list = $1;
+		$list =~ s/\s/_/g;
+		$list = 'Liste_WebVert'
+		   if ($list eq 'Liste_Verte_80/443');
 
-	    if ($host ne '@') {
-		push @{ $list_info{$list} }, $host.'.'.$domain;
-	    } else {
-		push @{ $list_info{$list} }, $domain;
+		push @{ $list_info{$list} }, $hostname
+		   if ($list !~ /\*/);
+	    }
+	    if (/^Date: (.+)$/) {
+		$date{$hostname} = $1;
+	    }
+	    if (/^Responsable: (.+)$/) {
+		$owner{$hostname} = $1;
 	    }
 	}
     }
@@ -155,6 +159,10 @@ sub liste_verte {
 	    $key = join '_', split /\./, $key; 
 	    print $out "   $key:\n";
 	    print $out "     dns: '$host'\n";
+	    print $out "     date: '$date{$host}'\n"
+	       if (defined $date{$host});
+	    print $out "     owner: '$owner{$host}'\n"
+	       if (defined $owner{$host});
 	}
     }
     print $out "\n\n";
