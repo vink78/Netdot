@@ -174,169 +174,6 @@ sub search {
     return $class->SUPER::search(%argv, $opts);
 }
 
-############################################################################
-
-=head2 search_address_live
-    
-    Query relevant devices for ARP and FWT entries in order to locate 
-    a particular address in the netwrok.
-
-  Arguments: 
-    mac     - MAC address (required unless ip is given)
-    ip      - IP address (required unless mac is given)
-    vlan    - VLAN id (optional but useful)
-  Returns: 
-    Hashref with following keys:
-    edge - Edge port interface id
-    arp  - Hashref with key=interface, value=hashref with key=ip, value=mac
-    fwt  - Hashref with key=interface, value=number of macs
-  Examples:
-    my $info = Device->search_address_live(mac=>'DEADDEADBEEF', vlan=60);
-
-=cut
-
-sub search_address_live {
-    my ($class, %argv) = @_;
-    $class->isa_class_method('search_address_live');
-    $class->throw_fatal("Device::search_address_live: Cannot proceed without a MAC or IP")
-	unless ( $argv{mac} || $argv{ip} );
-
-    my (@fwt_devs, @arp_devs);
-    my ($vlan, $subnet);
-    my %results;
-
-    if ( $argv{vlan} ){
-	$vlan = Vlan->search(vid=>$argv{vlan})->first;
-	$class->throw_user("Cannot find VLAN id $argv{vlan}\n")
-	    unless $vlan;
-    }
-
-    if ( $argv{ip} ){
-	my $ipblock = Ipblock->search(address=>$argv{ip})->first;
-	if ( $ipblock ){
-	    if ( $ipblock->is_address ){
-		$subnet = $ipblock->parent;
-	    }else{
-		$subnet = $ipblock;
-	    }
-	    if ( !$vlan ){
-		$vlan = $subnet->vlan if $subnet->vlan;
-	    }
-	    @arp_devs = @{$subnet->get_devices()};
-	}else{
-	    $subnet = Ipblock->get_covering_block(address=>$argv{ip});
-	    if ( $subnet ){
-		if ( !$vlan ){
-		    $vlan = $subnet->vlan if ( $subnet && $subnet->vlan );
-		}
-		@arp_devs = @{$subnet->get_devices()};
-	    }
-	}
-    }
-
-    if ( $vlan ){
-	my @ivlans = $vlan->interfaces;
-	my %fwt_devs;
-	foreach my $iface ( map { $_->interface } @ivlans ){
-	    $fwt_devs{$iface->device->id} = $iface->device;
-	}
-	@fwt_devs = values %fwt_devs;
-	
-	if ( !@arp_devs && !$subnet ){
-	    foreach my $subnet  ( $vlan->subnets ){
-		@arp_devs = @{$subnet->get_devices()};
-	    }
-	}
-    }else{
-	if ( $subnet && !@fwt_devs ){
-	    @fwt_devs = @{$subnet->get_devices()};
-	}else{
-	    $class->throw_user("Device::search_address_live: ".
-			       "Cannot proceed without VLAN or IP information\n");
-	}
-    }
-
-    my (@fwts);
-    my %routerports;
-    foreach my $dev ( @arp_devs ){
-	my $cache;
-	$dev->_netdot_rebless();
-	eval {
-	    $cache = $class->_exec_timeout($dev->fqdn, sub{ return $dev->get_arp() });
-	};
-	$logger->debug($@) if $@;
-	if ( $cache ){
-	    foreach my $intid ( keys %$cache ){
-		foreach my $ip ( keys %{$cache->{$intid}} ){
-		    next if ( $argv{ip} && ($ip ne $argv{ip}) );
-		    my $mac = $cache->{$intid}->{$ip};
-		    next if ( $argv{mac} && ($mac ne $argv{mac}) );
-		    # We now have a mac address if we didn't have it yet
-		    unless ( $argv{mac} ){
-			$argv{mac} = $mac;
-		    }
-		    # Keep record of all the interfaces where this ip was seen
-		    $routerports{$intid}{$ip} = $mac;
-		    $results{mac} = $mac;
-		    $results{ip}  = $ip;
-		}
-	    }
-	}
-	# Do not query all the routers unless needed.
-	if ( %routerports ){
-	    $results{routerports} = \%routerports;
-	    last;
-	}
-    }
-
-    # If we do not have a MAC at this point, there's no point in getting FWTs
-    if ( $argv{mac} ){
-	$results{mac} = $argv{mac};
-	foreach my $dev ( @fwt_devs ){
-	    my $fwt;
-	    my %args;
-	    $args{vlan} = $vlan->vid if ( $vlan );
-	    eval {
-		$fwt = $class->_exec_timeout($dev->fqdn, sub{ return $dev->get_fwt(%args) } );
-	    };
-	    $logger->debug($@) if $@;
-	    push @fwts, $fwt if $fwt;
-	}
-	
-	my %switchports;
-	foreach my $fwt ( @fwts ){
-	    foreach my $intid ( keys %{$fwt} ){
-		foreach my $mac ( keys %{$fwt->{$intid}} ){
-		    next if ( $mac ne $argv{mac} );
-		    # Keep record of all the interfaces where it was seen
-		    # How many MACs were on that interface is essential to 
-		    # determine the edge port
-		    $switchports{$intid} = scalar(keys %{$fwt->{$intid}});
-		}
-	    }
-	}
-	$results{switchports} = \%switchports if %switchports;
-
-	# Now look for the port with the least addresses
-	my @ordered = sort { $switchports{$a} <=> $switchports{$b} } keys %switchports;
-	$results{edge} = $ordered[0] if $ordered[0];
-    }
-    
-    if ( %results ){
-	if ( $results{mac} ){
-	    if ( my $vendor = PhysAddr->vendor($results{mac}) ){
-		$results{vendor} = $vendor;
-	    }
-	}
-	if ( $results{ip} ){
-	    if ( my $name = Netdot->dns->resolve_ip($results{ip}) ){
-		$results{dns} = $name;
-	    }
-	}
-	return \%results;
-    }
-}
-
 
 ############################################################################
 
@@ -2681,58 +2518,8 @@ sub update_bgp_peering {
     my $host = $self->fqdn;
     my $p; # bgppeering object
     
-    # Check if we have basic Entity info
-    my $entity;
-    if ( $peer->{asname}  || $peer->{orgname} || $peer->{asnumber} ){
-	
-	my $entityname = $peer->{orgname} || $peer->{asname};
-	$entityname .= " ($peer->{asnumber})" if $peer->{asnumber};
-	
-	# Check if Entity exists (notice it's an OR search)
-	my @where;
-	push @where, { asnumber => $peer->{asnumber} } if $peer->{asnumber};
-	push @where, { asname   => $peer->{asname}   } if $peer->{asname};
-	push @where, { name     => $entityname       };
-	
-	if ( $entity = Entity->search_where(\@where)->first ){
-	    # Update AS stuff
-	    $entity->update({asname   => $peer->{asname},
-			     asnumber => $peer->{asnumber}});
-	}else{
-	    # Doesn't exist. Create Entity
-	    # Build Entity info
-	    my %etmp = ( name     => $entityname,
-			 asname   => $peer->{asname},
-			 asnumber => $peer->{asnumber},
-		);
-	    
-	    $logger->info(sprintf("%s: Peer Entity %s not found. Inserting", 
-				  $host, $entityname ));
-	    
-	    $entity = Entity->insert( \%etmp );
-	    $logger->info(sprintf("%s: Created Peer Entity %s.", $host, $entityname));
-	}
-	
-	# Make sure Entity has role "peer"
-	if ( my $type = (EntityType->search(name => "Peer"))[0] ){
-	    my %eroletmp = ( entity => $entity, type => $type );
-	    my $erole;
-	    if ( $erole = EntityRole->search(%eroletmp)->first ){
-		$logger->debug(sub{ sprintf("%s: Entity %s already has 'Peer' role", 
-					    $host, $entityname )});
-	    }else{
-		EntityRole->insert(\%eroletmp);
-		$logger->info(sprintf("%s: Added 'Peer' role to Entity %s", 
-				      $host, $entityname ));
-	    }
-	}
-	
-    }else{
-	$logger->warn( sprintf("%s: Missing peer info. Cannot associate peering %s with an entity", 
-			       $host, $peer->{address}) );
-	$entity = Entity->search(name=>"Unknown")->first;
-    }
-    
+    my $entity = $self->_get_bgp_peer_entity($peer);
+
     # Create a hash with the peering's info for update or insert
     my %pstate = (device      => $self,
 		  entity      => $entity,
@@ -3952,6 +3739,64 @@ sub do_auto_dns {
 	}
     }
     1;
+}
+
+################################################################################
+=head2 get_connected_devices - Query DB for connected devices on a switch
+
+    Arguments
+      None
+    Returns
+      Hashref
+    Example:
+      my $connected = $device->get_connected_devices()
+=cut
+
+
+sub get_connected_devices {
+    my ($self, %argv) = @_;
+    $self->isa_object_method('get_connected_devices');
+    my $id = $self->id;
+
+    my $sql = <<EOF;
+    SELECT interface.id, physaddr.id, physaddr.address,
+           ipblock.id, ipblock.address, ipblock.version, rr.id, rr.name, zone.name
+    FROM fwtableentry
+    JOIN interface ON interface.id=fwtableentry.interface
+    JOIN physaddr ON physaddr.id=fwtableentry.physaddr
+    LEFT JOIN
+      (SELECT ace.physaddr,ace.ipaddr,max(tstamp) as tstamp FROM arpcacheentry ace
+       JOIN arpcache ac ON ac.id=ace.arpcache
+       WHERE ac.tstamp >= timestampadd(hour,-8,now())
+       GROUP BY ace.physaddr,ace.ipaddr
+      ) AS arp ON arp.physaddr=physaddr.id
+    LEFT JOIN ipblock ON ipblock.id=arp.ipaddr
+    LEFT JOIN (rraddr, rr, zone) ON rraddr.ipblock=ipblock.id AND
+              rraddr.rr=rr.id AND rr.zone=zone.id
+    WHERE fwtableentry.fwtable=(
+       SELECT MAX(fwtable.id) from fwtable, device
+       WHERE fwtable.device=$id
+     ) AND interface.neighbor IS NULL
+    ORDER BY CAST(interface.number AS SIGNED), physaddr.address;
+EOF
+
+   my %ret;
+   my $res = Netdot::Model->raw_sql($sql)->{rows};
+    foreach my $r ( @$res ) {
+	my ($iid, $macid, $ipid) = ($r->[0], $r->[1], $r->[3]);
+	my $mac = PhysAddr->format_address(address=>$r->[2]);
+	$ret{$iid}{$macid}{mac} = $mac;
+	if ($ipid){
+	    my $ipaddr = Ipblock->int2ip($r->[4], $r->[5]);
+	    $ret{$iid}{$macid}{ip}{$ipid}{address} = $ipaddr;
+	    if ($r->[6]){
+		$ret{$iid}{$macid}{ip}{$ipid}{rrid} = $r->[6];
+		my $fqdn = join('.', ($r->[7], $r->[8]));
+		$ret{$iid}{$macid}{ip}{$ipid}{fqdn} = $fqdn;
+	    }
+	}
+    }
+    return \%ret;
 }
 
 
@@ -6634,6 +6479,69 @@ sub _netdot_rebless {
 	    return $self;
 	}
     }
+}
+
+############################################################################
+
+=head2 _get_bgp_peer_entity - Find or create Entity for BGP peer
+
+  Arguments:
+    peer - Hashref containing Peer SNMP info:
+      address
+      asname
+      asnumber
+      orgname
+      bgppeerid
+    old_peerings - Hash ref containing old peering objects
+  Returns:
+    Entity object
+
+=cut
+
+sub _get_bgp_peer_entity {
+    my ($self, $peer) = @_;
+
+    my $host = $self->fqdn;
+
+    # Check if we have basic Entity info
+    my $entity;
+    unless ( ($peer->{asname}  || $peer->{orgname}) && $peer->{asnumber} ){
+	$logger->warn(sprintf("%s: Missing peer info. Cannot associate peering %s with an entity",
+			      $host, $peer->{address}));
+	$entity = Entity->find_or_create({name=>"Unknown"});
+	return $entity;
+    }
+    my $entityname = $peer->{asname} || $peer->{orgname};
+    $entityname .= " ($peer->{asnumber})";
+
+    my $e;
+    if ($e = Entity->search(asnumber=>$peer->{asnumber})->first){
+	$entity = $e;
+    }elsif ($e = Entity->search(name=>$entityname)->first){
+	# Since $entityname has the asnumber in it, this is weird
+	# but we should probably update the asnumber in the DB
+	$entity = $e;
+	$entity->update({asnumber=>$peer->{asnumber}});
+    }else{
+	# Doesn't exist. Create Entity
+	# Build Entity info
+	my %etmp = ( name     => $entityname,
+		     asname   => $peer->{asname},
+		     asnumber => $peer->{asnumber},
+	    );
+
+	$logger->info(sprintf("%s: Peer Entity %s not found. Inserting", 
+			      $host, $entityname ));
+
+	$entity = Entity->insert( \%etmp );
+	$logger->info(sprintf("%s: Created Peer Entity %s.", $host, $entityname));
+    }
+
+    # Make sure Entity has role "peer"
+    if ( my $type = EntityType->search(name=>"Peer")->first ){
+	EntityRole->find_or_create({entity => $entity, type => $type});
+    }
+    return $entity;
 }
     
 ############################################################################

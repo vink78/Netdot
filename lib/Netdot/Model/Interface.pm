@@ -665,9 +665,6 @@ sub update_ip {
 	    $self->throw_fatal("Model::Interface::update_ip: Invalid subnet: $subnet");
 	}
 
-	$logger->debug(sprintf("%s: Adding or updating subnet %s/%d", 
-			       $label, $subnetaddr, $subnetprefix));
-	
 	# Make sure we compare the same formatting
 	my $subnet_netaddr = Ipblock->netaddr(address=>$subnetaddr, prefix=>$subnetprefix);
 	my $address_netaddr = Ipblock->netaddr(address=>$address);
@@ -680,52 +677,67 @@ sub update_ip {
 	    # If we have a VLAN, make the relationship
 	    $iargs{vlan} = $args{vlan} if defined $args{vlan};
 	    
-	    if ( my $subnetobj = Ipblock->search(address => $subnetaddr, 
-						 version => $version,
-						 prefix  => $subnetprefix)->first ){
+	    if ( my $block = Ipblock->search(address => $subnetaddr, 
+					     version => $version,
+					     prefix  => $subnetprefix)->first ){
 		
 		$logger->debug(sub{ sprintf("%s: Block %s already exists", 
-					    $label, $subnetobj->get_label)} );
-		
-		# Skip validation for speed, since the block already exists
-		$iargs{validate} = 0;
+					    $label, $block->get_label)} );
 		
 		# Add description from interface if not set
 		$iargs{description} = $self->description 
-		    if ( !defined $subnetobj->description || $subnetobj->description eq "" );
+		    if ( !defined $block->description || $block->description eq "" );
 
 		$iargs{last_seen} = $self->timestamp;
 
-		$subnetobj->update(\%iargs); # Makes sure that the status is set to subnet
-		
-	    }else{
-		$logger->debug(sub{ sprintf("Subnet %s/%s does not exist.  Inserting.", 
-					    $subnetaddr, $subnetprefix) });
-		
-		$iargs{address}     = $subnet_netaddr->addr;
-		$iargs{prefix}      = $subnet_netaddr->masklen;
-		$iargs{version}     = $version;
-		$iargs{description} = $self->description;
-		$iargs{first_seen}  = $self->timestamp;
-		$iargs{last_seen}   = $iargs{first_seen};
-		
-		# Check if subnet should inherit device info
-		if ( $args{subs_inherit} ){
-		    $iargs{owner}   = $self->device->owner;
-		    $iargs{used_by} = $self->device->used_by;
-		}
-		
 		# Ipblock validation might throw an exception
-		my $newblock;
-		eval {
-		    $newblock = Ipblock->insert(\%iargs);
+		eval{
+		    $block->update(\%iargs);
 		};
 		if ( my $e = $@ ){
-		    $logger->error(sprintf("%s: Could not insert Subnet %s/%s: %s", 
-					   $label, $subnet_netaddr->addr, $subnet_netaddr->masklen, $e));
+		    $logger->warn(sprintf("%s: Could not update block %s: %s",
+					  $label, $block->get_label, $e));
 		}else{
-		    $logger->info(sprintf("%s: Created Subnet %s/%s", 
-					  $label, $subnetaddr, $subnetprefix));
+		    $logger->debug(sprintf("%s: Updated Subnet %s",
+					   $label, $block->get_label));
+		}
+	    }else{
+		if ($self->config->get('IGNORE_ORPHAN_SUBNETS') && 
+		    !Ipblock->get_covering_block(address=>$subnetaddr,
+						 prefix=>$subnetprefix)){
+
+		    $logger->debug(sub{ sprintf("Ignoring orphan subnet: %s/%s.",
+						$subnetaddr, $subnetprefix) });
+		}else{
+
+		    $logger->debug(sub{ sprintf("Inserting new subnet: %s/%s",
+						$subnetaddr, $subnetprefix) });
+
+		    $iargs{address}     = $subnet_netaddr->addr;
+		    $iargs{prefix}      = $subnet_netaddr->masklen;
+		    $iargs{version}     = $version;
+		    $iargs{description} = $self->description;
+		    $iargs{first_seen}  = $self->timestamp;
+		    $iargs{last_seen}   = $iargs{first_seen};
+
+		    # Check if subnet should inherit device info
+		    if ( $args{subs_inherit} ){
+			$iargs{owner}   = $self->device->owner;
+			$iargs{used_by} = $self->device->used_by;
+		    }
+
+		    # Ipblock validation might throw an exception
+		    my $newblock;
+		    eval {
+			$newblock = Ipblock->insert(\%iargs);
+		    };
+		    if ( my $e = $@ ){
+			$logger->error(sprintf("%s: Could not insert Subnet %s/%s: %s",
+					       $label, $subnet_netaddr->addr, $subnet_netaddr->masklen, $e));
+		    }else{
+			$logger->info(sprintf("%s: Created Subnet %s/%s",
+					      $label, $subnetaddr, $subnetprefix));
+		    }
 		}
 	    }
 	}
