@@ -79,15 +79,15 @@ sub generate_configs {
     my $gitkey = Netdot->config->get('Git_PRIVATE_KEY')
 	|| $self->throw_user('Git_PRIVATE_KEY not defined in config file!');
 
-    system ("cd $gitdir; git checkout $branch"); 
-    open (FOO, "cd $gitdir; git commit -a --author='$author' -m '$commit' |");
-    while (<FOO>) {
-	chomp;
-	$logger->info( encode_entities($_) );
+    foreach my $dir (@{$gitdir}) {
+	system ("cd $dir; git checkout $branch"); 
+	open (FOO, "cd $dir; git commit -a --author='$author' -m '$commit' |");
+	while (<FOO>) {
+	    chomp;
+	    $logger->info( encode_entities($_) );
+	}
+	close (FOO);
     }
-    close (FOO);
-
-    #$r->run( push => '-a' );
 }
 
 =head1 AUTHOR
