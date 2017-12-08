@@ -169,7 +169,7 @@ sub generate_configs {
 
 		$logger->info("Netdot::Exporter::NAMED: Configuration written to file: ".$file);
 		close($self->{out});
-		#system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR});
+		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR});
 		system ('/bin/cp '.$file.' '.$self->{gitdir}.'/');
 	}
 
@@ -201,8 +201,8 @@ sub generate_configs {
 		$logger->info("Netdot::Exporter::NAMED: Configuration written to file: ".$file);
 		close($self->{out});
 
-		#system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR});
-		system ("/bin/cp $file ".$self->{gitdir}.'/i');
+		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR});
+		system ("/bin/cp $file ".$self->{gitdir}.'/');
 	}
 }
 
