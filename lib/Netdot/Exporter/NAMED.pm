@@ -86,13 +86,23 @@ sub generate_configs {
 	# GET Zones
 	my %zone_info;
 	my %master_info;
-	my $zoneq = $dbh->selectall_arrayref("SELECT id, name, mname FROM zone WHERE active=1 ORDER BY name");
+	my $zoneq = $dbh->selectall_arrayref("SELECT id, name, mname, info FROM zone WHERE active=1 ORDER BY name");
 	foreach my $row ( @$zoneq ) {
-		my ($id, $name, $master) = @$row;
+		my ($id, $name, $master, $info) = @$row;
 
 		$zone_info{$name}{id}     = $id;
 		$zone_info{$name}{master} = $master;
 		$zone_info{$name}{ns}     = [];
+		$zone_info{$name}{dnssec} = '';
+
+		if (defined $info && $info ne '') {
+		    foreach (split /\n/, $info) {
+			if (/^DNSSEC: (.*)$/) {
+			    $zone_info{$name}{dnssec} = lc($1);
+			}
+		    }
+		}
+		
 		push (@{ $master_info{$master} }, $name);
 	}
 
@@ -149,12 +159,17 @@ sub generate_configs {
 			push (@dns, 'none') if (@dns == 0);
 			push (@dns, '');
 
-			$self->print_domain(type=>$type, domain=>$zone, ns=>\@dns);
+			my $dnssec = $zone_info{$zone}{dnssec};
+
+			$self->print_domain(type=>$type, domain=>$zone, ns=>\@dns, dnssec=>$dnssec)
+			    if ($type eq 'master');
+			$self->print_domain(type=>$type, domain=>$zone, ns=>\@dns)
+			    if ($type ne 'master');
 		}
 
 		$logger->info("Netdot::Exporter::NAMED: Configuration written to file: ".$file);
 		close($self->{out});
-		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR});
+		#system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR});
 		system ('/bin/cp '.$file.' '.$self->{gitdir}.'/');
 	}
 
@@ -186,8 +201,8 @@ sub generate_configs {
 		$logger->info("Netdot::Exporter::NAMED: Configuration written to file: ".$file);
 		close($self->{out});
 
-		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR});
-		system ("/bin/cp $file /home/reseau/dns/");
+		#system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR});
+		system ("/bin/cp $file ".$self->{gitdir}.'/i');
 	}
 }
 
@@ -213,40 +228,49 @@ sub print_header {
 
 #####################################################################################
 sub print_domain {
-	my ($self, %argv) = @_;
+    my ($self, %argv) = @_;
 
-	my $type        = $argv{type};
-	my $domain	= $argv{domain};
-	my $export	= $argv{export};
-	my @ns		= @{$argv{ns}};
+    my $type        = $argv{type};
+    my $domain	= $argv{domain};
+    my $dnssec	= $argv{dnssec};
+    my $export	= $argv{export};
+    my @ns		= @{$argv{ns}};
 
-	my $out		= $self->{out};
+    my $out		= $self->{out};
 
-	if ($type eq 'master') {
+    if ($type eq 'master') {
 # Master
-		print $out "zone \"$domain\" in {\n";
-		print $out "\ttype master;\n";
-		print $out "\tfile \"netdot/zone/$domain\";\n";
-		print $out "\tallow-transfer { ".join('; ', uniq @ns)."};\n";
-		print $out "\talso-notify { ".join('; ', uniq @ns)."};\n";
-		print $out "};\n";
+	print $out "zone \"$domain\" in {\n";
+	print $out "\ttype master;\n";
+	print $out "\tfile \"netdot/zone/$domain\";\n";
+	print $out "\tallow-transfer { ".join('; ', uniq @ns)."};\n";
+	print $out "\talso-notify { ".join('; ', uniq @ns)."};\n";
+	if ($dnssec eq 'inline') {
+	    print $out "\n\t# look for dnssec keys here:\n";
+	    print $out "#\tkey-directory \"/var/named/netdot/keys\";\n\n";
+	    print $out "\t# publish and activate dnssec keys:\n";
+	    print $out "#\tauto-dnssec maintain;\n\n";
+	    print $out "\t# use inline signing:\n";
+	    print $out "#\tinline-signing yes;\n";
 	}
-	if ($type eq 'slave') {
+	print $out "};\n";
+    }
+    if ($type eq 'slave') {
 # Slave
-		print $out "zone \"$domain\" in {\n";
-		print $out "\ttype slave;\n";
-		print $out "\tfile \"slaves/$domain\";\n";
-		print $out "\tallow-transfer { ".join('; ', uniq @ns)."};\n";
-		print $out "\tmasters { " . $self->{NAMED_IP_MASTER} . "; };\n";
-		print $out "};\n";
-	}
-	if ($type eq 'forward') {
+	print $out "zone \"$domain\" in {\n";
+	print $out "\ttype slave;\n";
+	print $out "\tfile \"slaves/$domain\";\n";
+	print $out "\tallow-transfer { ".join('; ', uniq @ns)."};\n";
+	print $out "\tmasters { " . $self->{NAMED_IP_MASTER} . "; };\n";
+	print $out "};\n";
+    }
+    if ($type eq 'forward') {
 # Forward
-		print $out "zone \"$domain\" in {\n";
-		print $out "\ttype forward;\n";
-		print $out "\tforwarders { ".join('; ', uniq @ns)."};\n";
-		print $out "};\n";
-	}
+	print $out "zone \"$domain\" in {\n";
+	print $out "\ttype forward;\n";
+	print $out "\tforwarders { ".join('; ', uniq @ns)."};\n";
+	print $out "};\n";
+    }
 }
 
 =head1 AUTHOR
