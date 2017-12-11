@@ -247,11 +247,11 @@ sub print_domain {
 	print $out "\talso-notify { ".join('; ', uniq @ns)."};\n";
 	if ($dnssec eq 'inline') {
 	    print $out "\n\t# look for dnssec keys here:\n";
-	    print $out "#\tkey-directory \"/var/named/netdot/keys\";\n\n";
+	    print $out "\tkey-directory \"/var/named/netdot/keys\";\n\n";
 	    print $out "\t# publish and activate dnssec keys:\n";
-	    print $out "#\tauto-dnssec maintain;\n\n";
+	    print $out "\tauto-dnssec maintain;\n\n";
 	    print $out "\t# use inline signing:\n";
-	    print $out "#\tinline-signing yes;\n";
+	    print $out "\tinline-signing yes;\n";
 	}
 	print $out "};\n";
     }
