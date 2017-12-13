@@ -89,6 +89,7 @@ sub generate_records {
 # Begin: UNIL Plugin
 	    $name =~ s/130-223-/-/g;
 	    $name =~ s/10-50-/-sw/g;
+	    $name =~ s/10-69-/-/g;
 	    $name =~ s/10-70-/-ap/g;
 # End: UNIL Plugin
 	}elsif ( $version == 6 ){
