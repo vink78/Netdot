@@ -158,6 +158,7 @@ sub _get_arp_from_cli {
     # # Get additional ARP Tables for VRF 'vrf1' and 'vrf2':
     @output = (@output, $self->_cli_cmd(%$args, host=>$host, cmd=>'show arp vrf backend | nomore', personality=>'brocade'));
     @output = (@output, $self->_cli_cmd(%$args, host=>$host, cmd=>'show arp vrf secubat | nomore', personality=>'brocade'));
+    @output = (@output, $self->_cli_cmd(%$args, host=>$host, cmd=>'show arp vrf unicom | nomore', personality=>'brocade'));
 
     my %cache;
     # Lines look like this:
@@ -265,7 +266,7 @@ sub _get_fwt_from_cli {
     
     foreach my $line ( @output ) {
 	chomp($line);
-	if ( $line =~ /^(\d+)\s+($CISCO_MAC)\s+Dynamic\s+\S+\s+Po\s+(\d+)/ ) { # VDX Syntax
+	if ( $line =~ /^(\d+)\s+($CISCO_MAC)\s+(Dynamic|Static)\s+\S+\s+Po\s+(\d+)/ ) { # VDX Syntax
 	    # Output look like this:
 	    # VlanId   Mac-address       Type     State        Ports
 	    # 4        02e0.5200.251e    System   Active       XX 1/X/X
@@ -273,7 +274,7 @@ sub _get_fwt_from_cli {
 	    $vlan  = $1; 
 	    $mac   = $2;
 #	    $iname = '0/'.$3;
-	    $iname = 'Port-channel '.$3;
+	    $iname = 'Port-channel '.$4;
 	}elsif ( $line =~ /^(\d+)\s+($CISCO_MAC)\s+System\s+\S+\s+/ ) { # Exclude System
 	    next;
 	}else{
