@@ -19,6 +19,44 @@ Provides common functions for CLI access
 =cut
 
 ############################################################################
+# Get API login token from config file
+#
+# Arguments: 
+#   host
+# Returns:
+#   hashref
+#
+sub _get_api_token {
+    my ($self, %argv) = @_;
+
+    my $config_item = 'DEVICE_API_KEYS';
+    my $host = $argv{host};
+    my $api_conf = Netdot->config->get($config_item);
+    unless ( ref($api_conf) eq 'ARRAY' ){
+	$self->throw_user("Device::CLI::_get_api_token: config $config_item must be an array reference.");
+    }
+    unless ( @$api_conf ){
+	$self->throw_user("Device::CLI::_get_api_token: config $config_item is empty");
+    }
+
+    my $match = 0;
+    foreach my $token ( @$api_conf ){
+	my $pattern = $token->{pattern};
+	if ( $host =~ /$pattern/ ){
+	    $match = 1;
+	    my %args;
+	    $args{token}      = $token->{token};
+	    $args{transport}  = $token->{transport} || 'HTTPS';
+	    $args{timeout}    = $token->{timeout}   || '30';
+	    return \%args;
+	}
+    }   
+    if ( !$match ){
+	$self->throw_user("Device::CLI::_get_api_token: $host did not match any patterns in configured credentials.")
+    }
+}
+
+############################################################################
 # Get CLI login credentials from config file
 #
 # Arguments: 
