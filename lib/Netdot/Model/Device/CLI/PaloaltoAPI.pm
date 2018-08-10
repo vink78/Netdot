@@ -4,8 +4,6 @@ use base 'Netdot::Model::Device::CLI';
 use warnings;
 use strict;
 use URI::Escape;
-use LWP::UserAgent;  
-use HTTP::Request;
 use XML::LibXML; 
 
 my $logger = Netdot->log->get_logger('Netdot::Model::Device');
@@ -113,40 +111,28 @@ sub get_fwt {
     return $fwt;
 }
 
-sub _api_cmd {
+sub _api_palo {
     my ($self, %argv) = @_;
-    $self->isa_object_method('_api_cmd');
+    $self->isa_object_method('_api_palo');
 
-    my $URL = $argv{url};
+    my $host = $argv{host};
+    my $key = $argv{token};
+    my $cmd = uri_escape($argv{cmd});
 
-    my $ua = LWP::UserAgent->new();
-    $ua->ssl_opts(verify_hostname => 0);
-    $ua->ssl_opts(SSL_verify_mode => 0x00);
-
-    my $header = HTTP::Request->new(GET => $URL);  
-    my $request = HTTP::Request->new('GET', $URL, $header);  
-    my $response = $ua->request($request);  
-
-    my $ret;
-    if ($response->is_success){  
-	$ret = $response->content;
-    } elsif ($response->is_error) {
-	print "Error:$URL\n";  
-	print $response->error_as_HTML;  
-    }
-
-    return $ret;
+    return $self->_api_url(url=>"https://$host/api/?type=op&key=$key&cmd=$cmd");
 }
 
+
+
 ############################################################################
-#_get_arp_from_cli - Fetch ARP tables via CLI
+#_get_arp_from_api - Fetch ARP tables via CLI
 #    
 #   Arguments:
 #     host
 #   Returns:
 #     Hash ref.
 #   Examples:
-#     $self->_get_arp_from_cli(host=>'foo');
+#     $self->_get_arp_from_api(host=>'foo');
 #
 sub _get_arp_from_api {
     my ($self, %argv) = @_;
@@ -156,9 +142,7 @@ sub _get_arp_from_api {
     my $args = $self->_get_api_token(host=>$host);
     return unless ref($args) eq 'HASH';
 
-    my $key = $args->{'token'};
-
-    my $output = $self->_api_cmd(%$args, url=>"https://$host/api/?type=op&key=$key&cmd=".uri_escape("<show><arp><entry name='all'/></arp></show>"));
+    my $output = $self->_api_palo(%$args, host=>$host, cmd=>"<show><arp><entry name='all'/></arp></show>");
 
     my %cache;
     my $parser = XML::LibXML->new();
@@ -180,14 +164,14 @@ sub _get_arp_from_api {
 }
 
 ############################################################################
-#_get_v6_nd_from_cli - Fetch ARP tables via CLI
+#_get_v6_nd_from_api - Fetch ARP tables via CLI
 #    
 #   Arguments:
 #     host
 #   Returns:
 #     Hash ref.
 #   Examples:
-#     $self->_get_v6_nd_from_cli(host=>'foo');
+#     $self->_get_v6_nd_from_api(host=>'foo');
 #
 sub _get_v6_nd_from_api {
     my ($self, %argv) = @_;
@@ -197,9 +181,7 @@ sub _get_v6_nd_from_api {
     my $args = $self->_get_api_token(host=>$host);
     return unless ref($args) eq 'HASH';
 
-    my $key = $args->{'token'};
-
-    my $output = $self->_api_cmd(%$args, url=>"https://$host/api/?type=op&key=$key&cmd=".uri_escape("<show><neighbor><interface><entry name='all'/></interface></neighbor></show>"));
+    my $output = $self->_api_palo(%$args, host=>$host, cmd=>"<show><neighbor><interface><entry name='all'/></interface></neighbor></show>");
 
     my %cache;
     my $parser = XML::LibXML->new();

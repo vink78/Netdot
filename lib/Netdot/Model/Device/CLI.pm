@@ -4,6 +4,8 @@ use base 'Netdot::Model::Device';
 use warnings;
 use strict;
 use Net::Appliance::Session;
+use LWP::UserAgent;
+use HTTP::Request;
 
 my $logger = Netdot->log->get_logger('Netdot::Model::Device');
 
@@ -94,6 +96,38 @@ sub _get_credentials {
     if ( !$match ){
 	$self->throw_user("Device::CLI::_get_credentials: $host did not match any patterns in configured credentials.")
     }
+}
+
+############################################################################
+# Issue API URL Call
+#
+# Arguments:
+#   Hash with the following keys:
+#   - url
+# Returns:
+#   string
+#
+sub _api_url {
+    my ($self, %argv) = @_;
+    $self->isa_object_method('_api_url');
+    my $URL = $argv{'url'};
+
+    my $ua = LWP::UserAgent->new();
+    $ua->ssl_opts(verify_hostname => 0);
+    $ua->ssl_opts(SSL_verify_mode => 0x00);
+
+    my $header = HTTP::Request->new(GET => $URL);
+    my $request = HTTP::Request->new('GET', $URL, $header);
+    my $response = $ua->request($request);
+
+    my $ret;
+    if ($response->is_success){
+        $ret = $response->content;
+    } elsif ($response->is_error) {
+	$self->throw_user("Device::CLI::_api_url: $URL: ".$response->error_as_HTML);
+    }
+
+    return $ret;
 }
 
 ############################################################################
