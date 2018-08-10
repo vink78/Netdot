@@ -89,6 +89,16 @@ sub generate_records {
 # Begin: UNIL Plugin
 	    $name =~ s/130-223-/-/g;
 	    $name =~ s/10-50-/-sw/g;
+#	    if ($name =~ /^(.*)10-8-(\d+)-(\d+)(.*)$/) {
+#		$name = $1.'-'.((int($2)-36)*256+int($3)).$4;
+#	    }
+	    if ($name =~ /^(.*)10-68-(\d+)-(\d+)(.*)$/) {
+		$name = $1.'-'.(int($2)*256+int($3)).$4;
+	    }
+#	    if ($name =~ /^(.*)10-71-(\d+)-(\d+)(.*)$/) {
+#		$name = $1.'-'.((int($2)-32)*256+int($3)).$4;
+#	    }
+
 	    $name =~ s/10-70-/-ap/g;
 # End: UNIL Plugin
 	}elsif ( $version == 6 ){

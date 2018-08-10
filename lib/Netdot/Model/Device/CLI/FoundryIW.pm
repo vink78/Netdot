@@ -158,6 +158,7 @@ sub _get_arp_from_cli {
     # # Get additional ARP Tables for VRF 'vrf1' and 'vrf2':
     @output = (@output, $self->_cli_cmd(%$args, host=>$host, cmd=>'show arp vrf main', personality=>'foundry'));
     @output = (@output, $self->_cli_cmd(%$args, host=>$host, cmd=>'show arp vrf secubat', personality=>'foundry'));
+    @output = (@output, $self->_cli_cmd(%$args, host=>$host, cmd=>'show arp vrf unicom', personality=>'foundry'));
 
     my %cache;
     # Lines look like this:
