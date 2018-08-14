@@ -4,6 +4,8 @@ use base 'Netdot::Model::Device';
 use warnings;
 use strict;
 use Net::Appliance::Session;
+use LWP::UserAgent;
+use HTTP::Request;
 
 my $logger = Netdot->log->get_logger('Netdot::Model::Device');
 
@@ -17,6 +19,44 @@ Provides common functions for CLI access
 
 =head1 CLASS METHODS
 =cut
+
+############################################################################
+# Get API login token from config file
+#
+# Arguments:
+#   host
+# Returns:
+#   hashref
+#
+sub _get_api_token {
+    my ($self, %argv) = @_;
+
+    my $config_item = 'DEVICE_API_KEYS';
+    my $host = $argv{host};
+    my $api_conf = Netdot->config->get($config_item);
+    unless ( ref($api_conf) eq 'ARRAY' ){
+	$self->throw_user("Device::CLI::_get_api_token: config $config_item must be an array reference.");
+    }
+    unless ( @$api_conf ){
+	$self->throw_user("Device::CLI::_get_api_token: config $config_item is empty");
+    }
+
+    my $match = 0;
+    foreach my $token ( @$api_conf ){
+	my $pattern = $token->{pattern};
+	if ( $host =~ /$pattern/ ){
+	    $match = 1;
+	    my %args;
+	    $args{token}      = $token->{token};
+	    $args{transport}  = $token->{transport} || 'HTTPS';
+	    $args{timeout}    = $token->{timeout}   || '30';
+	    return \%args;
+	}
+    }
+    if ( !$match ){
+	$self->throw_user("Device::CLI::_get_api_token: $host did not match any patterns in configured credentials.")
+    }
+}
 
 ############################################################################
 # Get CLI login credentials from config file
@@ -56,6 +96,43 @@ sub _get_credentials {
     if ( !$match ){
 	$self->throw_user("Device::CLI::_get_credentials: $host did not match any patterns in configured credentials.")
     }
+}
+
+############################################################################
+# Issue API URL Call
+#
+# Arguments:
+#   Hash with the following keys:
+#   - method (optionnal)
+#   - url
+#   - header (optionnal)
+#
+# Returns:
+#   string
+#
+sub _api_url {
+    my ($self, %argv) = @_;
+    $self->isa_object_method('_api_url');
+
+    my $METHOD = $argv{'method'} || 'GET';
+    my $URL    = $argv{'url'};
+    my $HEADER = $argv{'header'} || [];
+
+    my $ua = LWP::UserAgent->new();
+    $ua->ssl_opts(verify_hostname => 0);
+    $ua->ssl_opts(SSL_verify_mode => 0x00);
+
+    my $request = HTTP::Request->new($METHOD, $URL, $HEADER);
+    my $response = $ua->request($request);
+
+    my $ret;
+    if ($response->is_success){
+	$ret = $response->content;
+    } elsif ($response->is_error) {
+	$self->throw_user("Device::CLI::_api_url: $URL: ".$response->error_as_HTML);
+    }
+
+    return $ret;
 }
 
 ############################################################################
