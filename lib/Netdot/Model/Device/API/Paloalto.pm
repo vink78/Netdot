@@ -1,6 +1,6 @@
-package Netdot::Model::Device::CLI::PaloaltoAPI;
+package Netdot::Model::Device::API::Paloalto;
 
-use base 'Netdot::Model::Device::CLI';
+use base 'Netdot::Model::Device::API';
 use warnings;
 use strict;
 use URI::Escape;
@@ -10,13 +10,12 @@ my $logger = Netdot->log->get_logger('Netdot::Model::Device');
 
 =head1 NAME
 
-Netdot::Model::Device::CLI::PaloaltoAPI - Paloalto API Class
+Netdot::Model::Device::API::Paloalto - Paloalto API Class
 
 =head1 SYNOPSIS
 
  Overrides certain methods from the Device class. More Specifically, methods in 
- this class try to obtain ARP/ND caches via XML API
- instead of via SNMP.
+ this class try to obtain ARP/ND caches via XML API.
 
 =head1 INSTANCE METHODS
 =cut
@@ -39,12 +38,12 @@ sub get_arp {
     my $host = $self->fqdn;
 
     unless ( $self->collect_arp ){
-	$logger->debug(sub{"Device::PaloaltoAPI::_get_arp: $host excluded ".
+	$logger->debug(sub{"Device::API::Paloalto::_get_arp: $host excluded ".
 			       "from ARP collection. Skipping"});
 	return;
     }
     if ( $self->is_in_downtime ){
-	$logger->debug(sub{"Device::PaloaltoAPI::_get_arp: $host in downtime. ".
+	$logger->debug(sub{"Device::API::Paloalto::_get_arp: $host in downtime. ".
 			       "Skipping"});
 	return;
     }
@@ -64,7 +63,7 @@ sub get_arp {
     my $end = time;
     $logger->info(sub{ sprintf("$host: ARP cache fetched. %s entries in %s", 
 			       $arp_count, $self->sec2dhms($end-$start) ) });
-    
+
 
     if ( $self->config->get('GET_IPV6_ND') ){
 	### v6 ND
@@ -106,7 +105,25 @@ sub get_fwt {
     my $host = $self->fqdn;
     my $fwt = {};
 
-    $logger->debug(sub{ sprintf("$host: FWT is not supported via Paloalto API") } );
+    unless ( $self->collect_fwt ){
+	$logger->debug(sub{"Device::API::Paloalto::get_fwt: $host excluded from FWT collection. Skipping"});
+	return;
+    }
+    if ( $self->is_in_downtime ){
+	$logger->debug(sub{"Device::API::Paloalto::get_fwt: $host in downtime. Skipping"});
+	return;
+    }
+
+    my $start = time;
+    my $fwt_count = 0;
+
+    $fwt = $self->_get_fwt_from_api(host=>$host);
+
+    map { $fwt_count+= scalar(keys %{$fwt->{$_}}) } keys %$fwt;
+
+    my $end = time;
+    $logger->debug(sub{ sprintf("$host: FWT fetched. %s entries in %s",
+	$fwt_count, $self->sec2dhms($end-$start) ) });
 
     return $fwt;
 }
@@ -122,11 +139,9 @@ sub _api_palo {
     return $self->_api_url(url=>"https://$host/api/?type=op&key=$key&cmd=$cmd");
 }
 
-
-
 ############################################################################
-#_get_arp_from_api - Fetch ARP tables via CLI
-#    
+# _get_arp_from_api - Fetch ARP tables via XML API
+#
 #   Arguments:
 #     host
 #   Returns:
@@ -150,10 +165,10 @@ sub _get_arp_from_api {
 
     # Read XML
     foreach my $entry ( $dom->findnodes('//entry') ) {
-	my ($iname, $ip, $mac, $intid);
+	my ($iname, $ip, $mac);
 	
 	$ip    = $entry->findvalue('./ip');
-        $mac   = $entry->findvalue('./mac');
+	$mac   = $entry->findvalue('./mac');
 	$iname = $entry->findvalue('./interface');
 
 	next if ($ip eq '0.0.0.0'); # Do not use this address
@@ -164,8 +179,8 @@ sub _get_arp_from_api {
 }
 
 ############################################################################
-#_get_v6_nd_from_api - Fetch ARP tables via CLI
-#    
+# _get_v6_nd_from_api - Fetch ARP tables via XML API
+#
 #   Arguments:
 #     host
 #   Returns:
@@ -189,10 +204,10 @@ sub _get_v6_nd_from_api {
 
     # Read XML
     foreach my $entry ( $dom->findnodes('//entry') ) {
-	my ($iname, $ip, $mac, $intid);
-	
+	my ($iname, $ip, $mac);
+
 	$ip    = $entry->findvalue('./ip');
-        $mac   = $entry->findvalue('./mac');
+	$mac   = $entry->findvalue('./mac');
 	$iname = $entry->findvalue('./interface');
 
 	next if ($ip eq '::'); # Do not use this address
@@ -200,6 +215,63 @@ sub _get_v6_nd_from_api {
     }
 
     return $self->_validate_arp(\%cache, 6);
+}
+
+############################################################################
+# _get_fwt_from_api - Fetch FWT tables via XML API
+#
+#   Arguments:
+#     host
+#   Returns:
+#     Hash ref.
+#   Examples:
+#     $self->_get_fwt_from_api(host=>'foo');
+#
+sub _get_fwt_from_api {
+    my ($self, %argv) = @_;
+    $self->isa_object_method('_get_fwt_from_api');
+
+    my $host = $argv{host};
+    my $args = $self->_get_api_token(host=>$host);
+    return unless ref($args) eq 'HASH';
+
+    my $output = $self->_api_palo(%$args, host=>$host, cmd=>"<show><mac>all</mac></show>");
+
+    # MAP interface names to IDs
+    my %int_names;
+    foreach my $int ( $self->interfaces ){
+	my $name = $self->_reduce_iname($int->name);
+	$int_names{$name} = $int->id;
+    }
+
+    my %fwt;
+    my $parser = XML::LibXML->new();
+    my $dom = XML::LibXML->load_xml(string => $output);
+
+    # Read XML
+    foreach my $entry ( $dom->findnodes('//entry') ) {
+	my ($iname, $intid, $mac);
+
+	$mac   = $entry->findvalue('./mac');
+	$iname = $entry->findvalue('./interface');
+	$intid = $int_names{$iname};
+
+	eval {
+	    $mac = PhysAddr->validate($mac);
+	};
+	if ( my $e = $@ ){
+	    $logger->debug(sub{"Device::API::Paloalto::_get_fwt_from_api: ".
+		"$host: Invalid MAC: $e" });
+	    next;
+	}
+
+	# Store in hash
+	$fwt{$intid}{$mac} = 1;
+	$logger->debug(sub{"Device::API::Paloalto::_get_fwt_from_api: ".
+		"$host: $iname -> $mac" });
+    }
+
+    return \%fwt;
 }
 
 ############################################################################
