@@ -1,131 +1,97 @@
-package Netdot::Model::Device::CLI;
+package Netdot::Model::Device::API;
 
 use base 'Netdot::Model::Device';
 use warnings;
 use strict;
-use Net::Appliance::Session;
+use LWP::UserAgent;
+use HTTP::Request;
 
 my $logger = Netdot->log->get_logger('Netdot::Model::Device');
 
 =head1 NAME
 
-Netdot::Model::Device::CLI - Base class to deal with Device CLI interaction
+Netdot::Model::Device::API - Base class to deal with Device API interaction
 
 =head1 SYNOPSIS
 
-Provides common functions for CLI access
+Provides common functions for API access
 
 =head1 CLASS METHODS
 =cut
 
 ############################################################################
-# Get CLI login credentials from config file
+# Get API login token from config file
 #
-# Arguments: 
+# Arguments:
 #   host
 # Returns:
 #   hashref
 #
-sub _get_credentials {
+sub _get_api_token {
     my ($self, %argv) = @_;
 
-    my $config_item = 'DEVICE_CLI_CREDENTIALS';
+    my $config_item = 'DEVICE_API_KEYS';
     my $host = $argv{host};
-    my $cli_cred_conf = Netdot->config->get($config_item);
-    unless ( ref($cli_cred_conf) eq 'ARRAY' ){
-	$self->throw_user("Device::CLI::_get_credentials: config $config_item must be an array reference.");
+    my $api_conf = Netdot->config->get($config_item);
+    unless ( ref($api_conf) eq 'ARRAY' ){
+	$self->throw_user("Device::API::_get_api_token: config $config_item must be an array reference.");
     }
-    unless ( @$cli_cred_conf ){
-	$self->throw_user("Device::CLI::_get_credentials: config $config_item is empty");
+    unless ( @$api_conf ){
+	$self->throw_user("Device::API::_get_api_token: config $config_item is empty");
     }
 
     my $match = 0;
-    foreach my $cred ( @$cli_cred_conf ){
-	my $pattern = $cred->{pattern};
+    foreach my $token ( @$api_conf ){
+	my $pattern = $token->{pattern};
 	if ( $host =~ /$pattern/ ){
 	    $match = 1;
 	    my %args;
-	    $args{login}      = $cred->{login};
-	    $args{password}   = $cred->{password};
-	    $args{privileged} = $cred->{privileged};
-	    $args{transport}  = $cred->{transport} || 'SSH';
-	    $args{timeout}    = $cred->{timeout}   || '30';
+	    $args{token}      = $token->{token};
+	    $args{transport}  = $token->{transport} || 'HTTPS';
+	    $args{timeout}    = $token->{timeout}   || '30';
 	    return \%args;
 	}
-    }   
+    }
     if ( !$match ){
-	$self->throw_user("Device::CLI::_get_credentials: $host did not match any patterns in configured credentials.")
+	$self->throw_user("Device::API::_get_api_token: $host did not match any patterns in configured credentials.")
     }
 }
 
 ############################################################################
-# Issue CLI command
+# Issue API URL Call
 #
 # Arguments:
 #   Hash with the following keys:
-#   login
-#   password
-#   privileged
-#   transport
-#   timeout
-#   host 
-#   personality
-#   cmd
-# Returns:
-#   array
+#   - method (optionnal)
+#   - url
+#   - header (optionnal)
 #
-sub _cli_cmd {
+# Returns:
+#   string
+#
+sub _api_url {
     my ($self, %argv) = @_;
-    my ($login, $password, $privileged, $transport, $timeout, $host, $personality, $cmd) = 
-	@argv{'login', 'password', 'privileged', 'transport', 'timeout', 'host', 'personality', 'cmd'};
-    
-    $self->throw_user("Device::CLI::_cli_cmd: $host: Missing required parameters: login, password, cmd")
-	unless ( $login && $password && $cmd );
-    
-    $personality ||= 'ios';
+    $self->isa_object_method('_api_url');
 
-    my %sess_args = (
-	host              => $host,
-	transport         => $transport,
-	personality       => $personality,
-	connect_options   => {
-	    shkc => 0,
-	    opts => [
-		'-o', "ConnectTimeout=$timeout",
-		'-o', 'CheckHostIP=no',
-		],
-	},
-	);
+    my $METHOD = $argv{'method'} || 'GET';
+    my $URL    = $argv{'url'};
+    my $HEADER = $argv{'header'} || [];
 
-    # this is broken for some reason. Need to debug
-    # $sess_args{privileged_paging} = 1 if ($personality eq 'pixos');
-    # when fixed, remove terminal pager commands below
+    my $ua = LWP::UserAgent->new();
+    $ua->ssl_opts(verify_hostname => 0);
+    $ua->ssl_opts(SSL_verify_mode => 0x00);
 
-    my @output;
-    eval {
-	$logger->debug(sub{"$host: issuing CLI command: '$cmd' over $transport"});
-	my $s = Net::Appliance::Session->new(\%sess_args);
+    my $request = HTTP::Request->new($METHOD, $URL, $HEADER);
+    my $response = $ua->request($request);
 
-	$s->nci->transport->ors("\r\n") if ($personality eq 'foundry');                                        
-
-#       Uncomment this to debug session exchanges	
-#	$s->set_global_log_at('debug');
-	
-	$s->connect({username  => $login, 
-		     password  => $password,
-		    });
-	
-	$s->begin_privileged({password=>$privileged}) if ( $privileged );
-	$s->cmd('terminal pager 0') if ( $personality eq 'pixos' );
-	@output = $s->cmd($cmd, {timeout=>$timeout});
-	$s->cmd('terminal pager 36') if ( $personality eq 'pixos' );
-	$s->end_privileged if ( $privileged );
-	$s->close;
-    };
-    if ( my $e = $@ ){
-	$self->throw_user("Device::CLI::_get_arp_from_cli: $host: $e");
+    my $ret;
+    if ($response->is_success){
+	$ret = $response->content;
+    } elsif ($response->is_error) {
+	$self->throw_user("Device::API::_api_url: $URL: ".$response->error_as_HTML);
     }
-    return @output;
+
+    return $ret;
 }
 
 ############################################################################
@@ -144,7 +110,7 @@ sub _validate_arp {
     my($self, $cache, $version) = @_;
     $self->isa_object_method('_validate_arp');
 
-    $self->throw_fatal("Device::CLI::_validate_arp: Missing required arguments")
+    $self->throw_fatal("Device::API::_validate_arp: Missing required arguments")
 	unless ($cache && $version);
 
     my $host = $self->fqdn();
@@ -176,7 +142,7 @@ sub _validate_arp {
 	}
     }
     if ( $ign_non_subnet ){
-	$logger->warn("Device::CLI::_validate_arp: We have no subnet information. ".
+	$logger->warn("Device::API::_validate_arp: We have no subnet information. ".
 		      "ARP validation will fail except for link-local addresses")
 	    unless %devsubnets;
     }
@@ -186,7 +152,7 @@ sub _validate_arp {
 	my $iname = $self->_reduce_iname($key);
 	my $intid = $int_names{$iname};
 	unless ( $intid ) {
-	    $logger->warn("Device::CLI::_validate_arp: $host: Could not match $iname ".
+	    $logger->warn("Device::API::_validate_arp: $host: Could not match $iname ".
 			  "to any interface name");
 	    next;
 	}
@@ -200,7 +166,7 @@ sub _validate_arp {
 		$mac = PhysAddr->validate($mac);
 	    };
 	    if ( my $e = $@ ){
-		$logger->debug(sub{"Device::CLI::_validate_arp: $host: Invalid MAC: $e" });
+		$logger->debug(sub{"Device::API::_validate_arp: $host: Invalid MAC: $e" });
 		next;
 	    }
 	    if ( $ign_non_subnet ){
@@ -212,7 +178,7 @@ sub _validate_arp {
 		}
 		my $nip;
 		unless ( $nip = NetAddr::IP->new($ip) ){
-		    $logger->error("Device::CLI::_validate_arp: Cannot create NetAddr::IP object from $ip");
+		    $logger->error("Device::API::_validate_arp: Cannot create NetAddr::IP object from $ip");
 		    next;
 		}
 		foreach my $nsub ( @{$devsubnets{$intid}} ){
@@ -220,13 +186,13 @@ sub _validate_arp {
 			$valid{$intid}{$ip} = $mac;
 			last;
 		    }else{
-			$logger->debug(sub{"Device::CLI::_validate_arp: $host: $ip not within $nsub" });
+			$logger->debug(sub{"Device::API::_validate_arp: $host: $ip not within $nsub" });
 		    }
 		}
 	    }else{
 		$valid{$intid}{$ip} = $mac;
 	    }
-	    $logger->debug(sub{"Device::CLI::_validate_arp: $host: valid: $iname -> $ip -> $mac" });
+	    $logger->debug(sub{"Device::API::_validate_arp: $host: valid: $iname -> $ip -> $mac" });
 	}
     }
     return \%valid;

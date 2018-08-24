@@ -6418,7 +6418,18 @@ sub _netdot_rebless {
 	$logger->debug("Device::_netdot_rebless: $host: Unknown SysObjectID $oid");
 	return;
     }
- 
+
+    my %OID2CLASSMAPAPI = %{ $self->config->get('FETCH_DEVICE_INFO_VIA_API') };
+    foreach my $pat ( keys %OID2CLASSMAPAPI ){
+	if ( $obj =~ /$pat/ ){
+	    my $subclass = $OID2CLASSMAPAPI{$pat};
+	    $new_class .= "::API::$subclass";
+	    $logger->debug("Device::_netdot_rebless: $host: changed class to $new_class");
+	    bless $self, $new_class;
+	    return $self;
+	}
+    }
+
     my %OID2CLASSMAP = %{ $self->config->get('FETCH_DEVICE_INFO_VIA_CLI') };
     foreach my $pat ( keys %OID2CLASSMAP ){
 	if ( $obj =~ /$pat/ ){

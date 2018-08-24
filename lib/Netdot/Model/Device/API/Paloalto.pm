@@ -1,6 +1,6 @@
-package Netdot::Model::Device::CLI::PaloaltoAPI;
+package Netdot::Model::Device::API::Paloalto;
 
-use base 'Netdot::Model::Device::CLI';
+use base 'Netdot::Model::Device::API';
 use warnings;
 use strict;
 use URI::Escape;
@@ -10,13 +10,12 @@ my $logger = Netdot->log->get_logger('Netdot::Model::Device');
 
 =head1 NAME
 
-Netdot::Model::Device::CLI::PaloaltoAPI - Paloalto API Class
+Netdot::Model::Device::API::Paloalto - Paloalto API Class
 
 =head1 SYNOPSIS
 
  Overrides certain methods from the Device class. More Specifically, methods in 
- this class try to obtain ARP/ND caches via XML API
- instead of via SNMP.
+ this class try to obtain ARP/ND caches via XML API.
 
 =head1 INSTANCE METHODS
 =cut
@@ -39,12 +38,12 @@ sub get_arp {
     my $host = $self->fqdn;
 
     unless ( $self->collect_arp ){
-	$logger->debug(sub{"Device::PaloaltoAPI::_get_arp: $host excluded ".
+	$logger->debug(sub{"Device::API::Paloalto::_get_arp: $host excluded ".
 			       "from ARP collection. Skipping"});
 	return;
     }
     if ( $self->is_in_downtime ){
-	$logger->debug(sub{"Device::PaloaltoAPI::_get_arp: $host in downtime. ".
+	$logger->debug(sub{"Device::API::Paloalto::_get_arp: $host in downtime. ".
 			       "Skipping"});
 	return;
     }
@@ -107,11 +106,11 @@ sub get_fwt {
     my $fwt = {};
 
     unless ( $self->collect_fwt ){
-	$logger->debug(sub{"Device::PaloaltoAPI::get_fwt: $host excluded from FWT collection. Skipping"});
+	$logger->debug(sub{"Device::API::Paloalto::get_fwt: $host excluded from FWT collection. Skipping"});
 	return;
     }
     if ( $self->is_in_downtime ){
-	$logger->debug(sub{"Device::PaloaltoAPI::get_fwt: $host in downtime. Skipping"});
+	$logger->debug(sub{"Device::API::Paloalto::get_fwt: $host in downtime. Skipping"});
 	return;
     }
 
@@ -261,14 +260,14 @@ sub _get_fwt_from_api {
 	    $mac = PhysAddr->validate($mac);
 	};
 	if ( my $e = $@ ){
-	    $logger->debug(sub{"Device::CLI::PaloaltoAPI::_get_fwt_from_api: ".
+	    $logger->debug(sub{"Device::API::Paloalto::_get_fwt_from_api: ".
 		"$host: Invalid MAC: $e" });
 	    next;
 	}
 
 	# Store in hash
 	$fwt{$intid}{$mac} = 1;
-	$logger->debug(sub{"Device::CLI::PaloaltoAPI::_get_fwt_from_api: ".
+	$logger->debug(sub{"Device::API::Paloalto::_get_fwt_from_api: ".
 		"$host: $iname -> $mac" });
     }
 
