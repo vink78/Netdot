@@ -1,21 +1,22 @@
-package Netdot::Model::Device::API::Paloalto;
+package Netdot::Model::Device::API::Cumulus;
 
 use base 'Netdot::Model::Device::API';
 use warnings;
 use strict;
-use URI::Escape;
-use XML::LibXML; 
+use JSON;
+use MIME::Base64 qw(encode_base64);
 
 my $logger = Netdot->log->get_logger('Netdot::Model::Device');
+my $json_obj = new JSON;
 
 =head1 NAME
 
-Netdot::Model::Device::API::Paloalto - Paloalto API Class
+Netdot::Model::Device::API::Cumulus - Cumulus API Class
 
 =head1 SYNOPSIS
 
  Overrides certain methods from the Device class. More Specifically, methods in 
- this class try to obtain ARP/ND caches via XML API.
+ this class try to obtain ARP/ND caches via JSON API.
 
 =head1 INSTANCE METHODS
 =cut
@@ -38,12 +39,12 @@ sub get_arp {
     my $host = $self->fqdn;
 
     unless ( $self->collect_arp ){
-	$logger->debug(sub{"Device::API::Paloalto::_get_arp: $host excluded ".
+	$logger->debug(sub{"Device::API::Cumulus::_get_arp: $host excluded ".
 			       "from ARP collection. Skipping"});
 	return;
     }
     if ( $self->is_in_downtime ){
-	$logger->debug(sub{"Device::API::Paloalto::_get_arp: $host in downtime. ".
+	$logger->debug(sub{"Device::API::Cumulus::_get_arp: $host in downtime. ".
 			       "Skipping"});
 	return;
     }
@@ -106,11 +107,11 @@ sub get_fwt {
     my $fwt = {};
 
     unless ( $self->collect_fwt ){
-	$logger->debug(sub{"Device::API::Paloalto::get_fwt: $host excluded from FWT collection. Skipping"});
+	$logger->debug(sub{"Device::API::Cumulus::get_fwt: $host excluded from FWT collection. Skipping"});
 	return;
     }
     if ( $self->is_in_downtime ){
-	$logger->debug(sub{"Device::API::Paloalto::get_fwt: $host in downtime. Skipping"});
+	$logger->debug(sub{"Device::API::Cumulus::get_fwt: $host in downtime. Skipping"});
 	return;
     }
 
@@ -128,19 +129,23 @@ sub get_fwt {
     return $fwt;
 }
 
-sub _api_palo {
+sub _api_cumulus {
     my ($self, %argv) = @_;
-    $self->isa_object_method('_api_palo');
+    $self->isa_object_method('_api_cumulus');
 
     my $host = $argv{host};
-    my $key = $argv{token};
-    my $cmd = uri_escape($argv{cmd});
+    my $login = $argv{login};
+    my $password = $argv{password};
+    my $cmd = '{"cmd": "'.$argv{cmd}.'"}';
+    my %header;
+    $header{'Content-Type'} = 'application/json';
+    $header{'Authorization'} = 'Basic '.encode_base64($login.':'.$password, '');
 
-    return $self->_api_url(url=>"https://$host/api/?type=op&key=$key&cmd=$cmd");
+    return $json_obj->decode($self->_api_url(method=>'POST', url=>"https://$host:8080/nclu/v1/rpc", content=>$cmd, header=>\%header));
 }
 
 ############################################################################
-# _get_arp_from_api - Fetch ARP tables via XML API
+# _get_arp_from_api - Fetch ARP tables via JSON API
 #
 #   Arguments:
 #     host
@@ -157,29 +162,34 @@ sub _get_arp_from_api {
     my $args = $self->_get_credentials(host=>$host);
     return unless ref($args) eq 'HASH';
 
-    my $output = $self->_api_palo(%$args, host=>$host, cmd=>"<show><arp><entry name='all'/></arp></show>");
-
+    my $output = $self->_api_cumulus(%$args, host=>$host, cmd=>"show evpn arp-cache vni all json");
     my %cache;
-    my $parser = XML::LibXML->new();
-    my $dom = XML::LibXML->load_xml(string => $output);
 
-    # Read XML
-    foreach my $entry ( $dom->findnodes('//entry') ) {
-	my ($iname, $ip, $mac);
-	
-	$ip    = $entry->findvalue('./ip');
-	$mac   = $entry->findvalue('./mac');
-	$iname = $entry->findvalue('./interface');
+    # MAP interface names to IDs
+    my %int_names;
+    foreach my $int ( $self->interfaces ){
+	my $name = $self->_reduce_iname($int->name);
+	$int_names{$name} = $int->id;
+    }
 
-	next if ($ip eq '0.0.0.0'); # Do not use this address
-	$cache{$iname}{$ip} = $mac;
+    # Read JSON
+    foreach my $vlan (keys %$output) {
+	foreach my $entry (keys %{$output->{$vlan}}) {
+	    next if ($entry eq 'numArpNd');
+	    next unless ($entry =~ /^\d+.\d+.\d+.\d+$/);
+	    next unless ($output->{$vlan}->{$entry});
+	    next unless ($output->{$vlan}->{$entry}->{'type'});
+	    next unless ($output->{$vlan}->{$entry}->{'type'} eq 'local');
+
+	    $cache{"vlan$vlan"}{$entry} = $output->{$vlan}->{$entry}->{'mac'};
+	}
     }
 
     return $self->_validate_arp(\%cache, 4);
 }
 
 ############################################################################
-# _get_v6_nd_from_api - Fetch ARP tables via XML API
+# _get_v6_nd_from_api - Fetch IPv6 ND tables via JSON API
 #
 #   Arguments:
 #     host
@@ -196,29 +206,34 @@ sub _get_v6_nd_from_api {
     my $args = $self->_get_credentials(host=>$host);
     return unless ref($args) eq 'HASH';
 
-    my $output = $self->_api_palo(%$args, host=>$host, cmd=>"<show><neighbor><interface><entry name='all'/></interface></neighbor></show>");
-
+    my $output = $self->_api_cumulus(%$args, host=>$host, cmd=>"show evpn arp-cache vni all json");
     my %cache;
-    my $parser = XML::LibXML->new();
-    my $dom = XML::LibXML->load_xml(string => $output);
 
-    # Read XML
-    foreach my $entry ( $dom->findnodes('//entry') ) {
-	my ($iname, $ip, $mac);
+    # MAP interface names to IDs
+    my %int_names;
+    foreach my $int ( $self->interfaces ){
+	my $name = $self->_reduce_iname($int->name);
+	$int_names{$name} = $int->id;
+    }
 
-	$ip    = $entry->findvalue('./ip');
-	$mac   = $entry->findvalue('./mac');
-	$iname = $entry->findvalue('./interface');
+    # Read JSON
+    foreach my $vlan (keys %$output) {
+	foreach my $entry (keys %{$output->{$vlan}}) {
+	    next if ($entry eq 'numArpNd');
+	    next unless ($entry =~ /^.*:.*:.*$/);
+	    next unless ($output->{$vlan}->{$entry});
+	    next unless ($output->{$vlan}->{$entry}->{'type'});
+	    next unless ($output->{$vlan}->{$entry}->{'type'} eq 'local');
 
-	next if ($ip eq '::'); # Do not use this address
-	$cache{$iname}{$ip} = $mac;
+	    $cache{"vlan$vlan"}{$entry} = $output->{$vlan}->{$entry}->{'mac'};
+	}
     }
 
     return $self->_validate_arp(\%cache, 6);
 }
 
 ############################################################################
-# _get_fwt_from_api - Fetch FWT tables via XML API
+# _get_fwt_from_api - Fetch FWT tables via JSON API
 #
 #   Arguments:
 #     host
@@ -235,7 +250,7 @@ sub _get_fwt_from_api {
     my $args = $self->_get_credentials(host=>$host);
     return unless ref($args) eq 'HASH';
 
-    my $output = $self->_api_palo(%$args, host=>$host, cmd=>"<show><mac>all</mac></show>");
+    my $output = $self->_api_cumulus(%$args, host=>$host, cmd=>"show bridge macs json");
 
     # MAP interface names to IDs
     my %int_names;
@@ -245,30 +260,31 @@ sub _get_fwt_from_api {
     }
 
     my %fwt;
-    my $parser = XML::LibXML->new();
-    my $dom = XML::LibXML->load_xml(string => $output);
 
-    # Read XML
-    foreach my $entry ( $dom->findnodes('//entry') ) {
+    # Read JSON
+    foreach my $entry ( @{$output} ) {
 	my ($iname, $intid, $mac);
 
-	$mac   = $entry->findvalue('./mac');
-	$iname = $entry->findvalue('./interface');
+	$mac   = $entry->{'mac'};
+	$iname = $entry->{'dev'};
+
+	next unless (defined $int_names{$iname});
 	$intid = $int_names{$iname};
 
 	eval {
 	    $mac = PhysAddr->validate($mac);
 	};
 	if ( my $e = $@ ){
-	    $logger->debug(sub{"Device::API::Paloalto::_get_fwt_from_api: ".
+	    $logger->debug(sub{"Device::API::Cumulus::_get_fwt_from_api: ".
 		"$host: Invalid MAC: $e" });
 	    next;
 	}
 
 	# Store in hash
 	$fwt{$intid}{$mac} = 1;
-	$logger->debug(sub{"Device::API::Paloalto::_get_fwt_from_api: ".
-		"$host: $iname -> $mac" });
+
+	$logger->debug(sub{"Device::API::Cumulus::_get_fwt_from_api: ".
+	    "$host: $iname -> $mac" });
     }
 
     return \%fwt;
@@ -287,6 +303,8 @@ sub _reduce_iname{
     my ($self, $name) = @_;
     return unless $name;
     $name =~ s/ //;
+    $name =~ s/Intel Corporation 82579LM Gigabit Network Connection/eth0/;
+
     return $name;
 }
 
