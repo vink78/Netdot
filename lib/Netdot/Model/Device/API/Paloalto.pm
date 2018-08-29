@@ -154,7 +154,7 @@ sub _get_arp_from_api {
     $self->isa_object_method('_get_arp_from_api');
 
     my $host = $argv{host};
-    my $args = $self->_get_api_token(host=>$host);
+    my $args = $self->_get_credentials(host=>$host);
     return unless ref($args) eq 'HASH';
 
     my $output = $self->_api_palo(%$args, host=>$host, cmd=>"<show><arp><entry name='all'/></arp></show>");
@@ -193,7 +193,7 @@ sub _get_v6_nd_from_api {
     $self->isa_object_method('_get_v6_nd_from_api');
 
     my $host = $argv{host};
-    my $args = $self->_get_api_token(host=>$host);
+    my $args = $self->_get_credentials(host=>$host);
     return unless ref($args) eq 'HASH';
 
     my $output = $self->_api_palo(%$args, host=>$host, cmd=>"<show><neighbor><interface><entry name='all'/></interface></neighbor></show>");
@@ -232,7 +232,7 @@ sub _get_fwt_from_api {
     $self->isa_object_method('_get_fwt_from_api');
 
     my $host = $argv{host};
-    my $args = $self->_get_api_token(host=>$host);
+    my $args = $self->_get_credentials(host=>$host);
     return unless ref($args) eq 'HASH';
 
     my $output = $self->_api_palo(%$args, host=>$host, cmd=>"<show><mac>all</mac></show>");
