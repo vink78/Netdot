@@ -5,6 +5,7 @@ use warnings;
 use strict;
 use HTML::Entities;
 use Data::Dumper;
+use NetAddr::IP;
 
 my $logger = Netdot->log->get_logger('Netdot::Exporter');
 
@@ -74,6 +75,7 @@ sub vlan_list {
     my ($self, %argv) = @_;
 
     my @mgmt = (500, 501, 502, 503, 504, 505, 564, 565);
+    my %subnet;
 
     my $file = $self->{Playbook_DIR}.'/group_vars/all/vlan_list.yml';
     my $out = $self->open_and_lock($file);
@@ -81,8 +83,23 @@ sub vlan_list {
     print $out "vlan_list:\n";
 
     my $q = $dbh->selectall_arrayref("
+              SELECT vlan, address, prefix, version
+              FROM ipblock
+              WHERE status=5
+              ORDER BY address
+	      ");
+
+    foreach my $row ( @$q ) {
+	my ($nid, $addr, $prefix, $version) = @$row;
+	my $ip = NetAddr::IP->new($addr);
+
+	push (@{$subnet{$nid}}, $ip->short."/$prefix")
+	    if (defined $nid);
+    }
+
+    $q = $dbh->selectall_arrayref("
               SELECT
-                vid, name
+                vid, name, id
               FROM
                 vlan
               ORDER BY
@@ -90,10 +107,19 @@ sub vlan_list {
 	      ");
 
     foreach my $row ( @$q ) {
-	my ($vid, $name) = @$row;
+	my ($vid, $name, $nid) = @$row;
 
 	print $out "   $vid:\n";
-	print $out "     name: '$name'\n";
+	print $out "     name: '$name'\n"
+	    if (defined $name);
+
+	if (defined $subnet{$nid}) {
+	    print $out "     subnet:\n";
+	    foreach my $ip (@{$subnet{$nid}}) {
+		print $out "      - $ip\n";
+	    }
+	}
+
 	print $out "     is_mgmt_vlan: True\n"
 	  if ( grep( /^$vid$/, @mgmt ) );
     }
@@ -106,6 +132,15 @@ sub vlan_list {
 sub liste_verte {
     my ($self, %argv) = @_;
 
+    my $q0 = $dbh->selectall_arrayref("
+               SELECT
+                 rraddr.rr, ipblock.address, ipblock.version
+               FROM
+                 rraddr, ipblock
+               WHERE
+                 ipblock.id=rraddr.ipblock 
+              ");
+
     my $q = $dbh->selectall_arrayref("
 	      SELECT
 		rr.id, rr.name, zone.name, rr.info
@@ -115,9 +150,18 @@ sub liste_verte {
 		rr.info like 'Liste %' AND rr.zone=zone.id
 	      ");
 
+    my %rrip;
+    foreach my $row ( @$q0 ) {
+	my ($rr, $addr, $version) = @$row;
+	my $ip = NetAddr::IP->new($addr);
+
+	push (@{$rrip{$rr}}, $ip->short);
+    }
+
     my %list_info;
     my %date;
     my %owner;
+    my %ipv;
     foreach my $row ( @$q ) {
 	my ($id, $host, $domain, $row_info) = @$row;
 	my @info = split /\n/, $row_info;
@@ -145,6 +189,8 @@ sub liste_verte {
 	    if (/^Responsable: (.+)$/) {
 		$owner{$hostname} = $1;
 	    }
+	    $ipv{$hostname} = $rrip{$id}
+		if (defined $rrip{$id});
 	}
     }
 
@@ -159,10 +205,16 @@ sub liste_verte {
 	    $key = join '_', split /\./, $key; 
 	    print $out "   $key:\n";
 	    print $out "     dns: '$host'\n";
+	    if (defined $ipv{$host}) {
+		print $out "     ip:\n";
+		foreach my $ip (@{$ipv{$host}}) {
+		    print $out "      - $ip\n";
+		}
+	    }
 	    print $out "     date: '$date{$host}'\n"
-	       if (defined $date{$host});
+		if (defined $date{$host});
 	    print $out "     owner: '$owner{$host}'\n"
-	       if (defined $owner{$host});
+		if (defined $owner{$host});
 	}
     }
     print $out "\n\n";
