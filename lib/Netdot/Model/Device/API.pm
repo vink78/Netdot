@@ -5,6 +5,7 @@ use warnings;
 use strict;
 use LWP::UserAgent;
 use HTTP::Request;
+use HTTP::Headers;
 
 my $logger = Netdot->log->get_logger('Netdot::Model::Device');
 
@@ -27,33 +28,35 @@ Provides common functions for API access
 # Returns:
 #   hashref
 #
-sub _get_api_token {
+sub _get_credentials {
     my ($self, %argv) = @_;
 
     my $config_item = 'DEVICE_API_KEYS';
     my $host = $argv{host};
     my $api_conf = Netdot->config->get($config_item);
     unless ( ref($api_conf) eq 'ARRAY' ){
-	$self->throw_user("Device::API::_get_api_token: config $config_item must be an array reference.");
+	$self->throw_user("Device::API::_get_credentials: config $config_item must be an array reference.");
     }
     unless ( @$api_conf ){
-	$self->throw_user("Device::API::_get_api_token: config $config_item is empty");
+	$self->throw_user("Device::API::_get_credentials: config $config_item is empty");
     }
 
     my $match = 0;
-    foreach my $token ( @$api_conf ){
-	my $pattern = $token->{pattern};
+    foreach my $cred ( @$api_conf ){
+	my $pattern = $cred->{pattern};
 	if ( $host =~ /$pattern/ ){
 	    $match = 1;
 	    my %args;
-	    $args{token}      = $token->{token};
-	    $args{transport}  = $token->{transport} || 'HTTPS';
-	    $args{timeout}    = $token->{timeout}   || '30';
+	    $args{token}      = $cred->{token} || '';
+	    $args{login}      = $cred->{login} || '';
+	    $args{password}   = $cred->{password} || '';
+	    $args{transport}  = $cred->{transport} || 'HTTPS';
+	    $args{timeout}    = $cred->{timeout}   || '30';
 	    return \%args;
 	}
     }
     if ( !$match ){
-	$self->throw_user("Device::API::_get_api_token: $host did not match any patterns in configured credentials.")
+	$self->throw_user("Device::API::_get_credentials: $host did not match any patterns in configured credentials.")
     }
 }
 
@@ -75,13 +78,18 @@ sub _api_url {
 
     my $METHOD = $argv{'method'} || 'GET';
     my $URL    = $argv{'url'};
-    my $HEADER = $argv{'header'} || [];
+    my $HEADER = HTTP::Headers->new;
+    my $CONTENT = $argv{'content'} || '';
+
+    foreach my $head (keys %{$argv{'header'}}) {
+	$HEADER->header($head => $argv{'header'}->{$head});
+    }
 
     my $ua = LWP::UserAgent->new();
     $ua->ssl_opts(verify_hostname => 0);
     $ua->ssl_opts(SSL_verify_mode => 0x00);
 
-    my $request = HTTP::Request->new($METHOD, $URL, $HEADER);
+    my $request = HTTP::Request->new($METHOD, $URL, $HEADER, $CONTENT);
     my $response = $ua->request($request);
 
     my $ret;

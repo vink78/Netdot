@@ -25,6 +25,7 @@ my %DERIVED_CLASSES = (
     'CiscoFW'   => ['Netdot::Model::Device::CLI::CiscoFW',   'Netdot::Model::Device'],
     'CiscoIOS'  => ['Netdot::Model::Device::CLI::CiscoIOS',  'Netdot::Model::Device'],
     'CiscoCat'  => ['Netdot::Model::Device::CLI::CiscoCat',  'Netdot::Model::Device'],
+    'Cumulus'   => ['Netdot::Model::Device::API::Cumulus',   'Netdot::Model::Device'],
     'FoundryIW' => ['Netdot::Model::Device::CLI::FoundryIW', 'Netdot::Model::Device'],
     'BrocadeNOS' => ['Netdot::Model::Device::CLI::BrocadeNOS', 'Netdot::Model::Device'],
     'Paloalto'  => ['Netdot::Model::Device::API::Paloalto',  'Netdot::Model::Device'],
