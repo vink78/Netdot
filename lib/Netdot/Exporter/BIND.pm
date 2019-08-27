@@ -215,6 +215,11 @@ sub print_zone_to_file {
 			    $data .= '.' unless $data =~ /\.$/;
 			}
 
+			if ($type eq 'TXT' && length($data) > 254) {
+			    my @subdata = unpack("(A254)*", $data);
+			    $data = join "\" \"", @subdata;
+			}
+
 			my $line = "$name\t$ttl\tIN\t$type\t$data\n";
 
 			if ( $argv{nopriv} && $type eq 'TXT' ){
