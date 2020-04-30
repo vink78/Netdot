@@ -40,7 +40,7 @@ my @DEPS = (
     {cpan=>'Apache::Session', apt=>'libapache-session-perl', rpm=>'perl-Apache-Session'},
     {cpan=>'URI::Escape', apt=>'liburi-perl', rpm=>'perl-URI'},
     {cpan=>'SQL::Translator', apt=>'libsql-translator-perl', rpm=>'perl-SQL-Translator'},
-    {cpan=>'SNMP::Info 2.06', apt=>'libsnmp-info-perl', rpm=>'perl-SNMP-Info'},
+    {cpan=>'SNMP::Info', apt=>'libsnmp-info-perl', rpm=>'perl-SNMP-Info'},
     {apt=>'netdisco-mibs-installer'},
     {cpan=>'NetAddr::IP 4.042', apt=>'libnetaddr-ip-perl', rpm=>'perl-NetAddr-IP'},
     {cpan=>'Apache2::AuthCookie', apt=>'libapache2-authcookie-perl', rpm=>''},
@@ -62,8 +62,8 @@ my @DEPS = (
     {cpan=>'Text::ParseWords', apt=>'', rpm=>''},
     {cpan=>'Carp::Assert', apt=>'libcarp-assert-perl', rpm=>'perl-Carp-Assert'},
     {cpan=>'Digest::SHA', apt=> 'libdigest-sha-perl', rpm=>'perl-Digest-SHA1'},
-    {apt=> 'libssl-dev', rpm=>'openssl-devel'}, # needed by Net::DNS::ZoneFile::Fast
-    {cpan=>'Net::DNS::ZoneFile::Fast', apt=> 'dnssec-tools', rpm=>''},
+    {apt=> 'libssl-dev', rpm=>'openssl-devel'}, # needed by Net::DNS::ZoneFile
+    {cpan=>'Net::DNS::ZoneFile', apt=> 'libnet-dns-perl', rpm=>'perl-Net-DNS'},
     {cpan=>'Socket6', apt=> 'libsocket6-perl', rpm=>'perl-Socket6'},
     {cpan=>'XML::Simple', apt=>'libxml-simple-perl', rpm=>'perl-XML-Simple'},
     {apt=>'snmp'},
