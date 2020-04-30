@@ -123,7 +123,7 @@ sub check_credentials {
     my $dse = $ldap->root_dse();
     my $does_support_tls = $dse->supported_extension(LDAP_EXTENSION_START_TLS);
     my $require_tls = ($r->dir_config("NetdotLDAPRequireTLS") eq "yes")? 1 : 0;
-    if ( $scheme eq "ldap" && ( $require_tls || $does_support_tls ) ) {
+    if ( $scheme eq "ldap" && ( $require_tls ) ) { #|| $does_support_tls ) ) {
         my $tls = $ldap->start_tls();
         if ( $tls->code ) {
             if ( $require_tls ) {
