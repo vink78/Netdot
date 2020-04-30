@@ -90,10 +90,6 @@ sub _cli_cmd {
 	personality       => $personality,
 	connect_options   => {
 	    shkc => 0,
-	    opts => [
-		'-o', "ConnectTimeout=$timeout",
-		'-o', 'CheckHostIP=no',
-		],
 	},
 	);
 
@@ -106,20 +102,12 @@ sub _cli_cmd {
 	$logger->debug(sub{"$host: issuing CLI command: '$cmd' over $transport"});
 	my $s = Net::Appliance::Session->new(\%sess_args);
 
-	if ($personality eq 'foundry') {
-	    my $info = new SNMP::Info(AutoSpecify => 1, DestHost => $host, Community => 'public', Version => 2) or die "Can't connect to device.\n";
-	    my $version = $info->os_ver();
-	    $version =~ m/^(\d+)\./;
-	    if (int($1) < 8 || $host =~ /^max-ti/) {
-		$s->nci->transport->ors("\r\n");
-	    }
-	}
-
 #       Uncomment this to debug session exchanges	
 #	$s->set_global_log_at('debug');
 	
 	$s->connect({username  => $login, 
 		     password  => $password,
+		     Timeout   => $timeout,
 		    });
 	
 	$s->begin_privileged({password=>$privileged}) if ( $privileged );
