@@ -23,15 +23,20 @@ my $challenge = '_acme-challenge.'.$domain;
 my $acme = $netdot->get('RR?name='.$challenge);
 
 foreach my $rr (keys %{$acme->{'RR'}}) {
+    eval {
 	my $txt = $netdot->get('RRTXT?rr='.$rr);
 
 	foreach my $rrtxt (keys %{$txt->{'RRTXT'}}) {
 		$netdot->delete('RRTXT/'.$rrtxt);
 	}
+    };
+    if ($@) {
+	print "TXT '$challenge' not found.\n";
+    }
 
-	# Deactivate record
-	$netdot->post('RR/'.$rr, {active=>0} );
+    # Deactivate record
+    $netdot->post('RR/'.$rr, {active=>0} );
 
-	# Export
-	$netdot->update_bind();
+    # Export
+    $netdot->update_bind();
 }
