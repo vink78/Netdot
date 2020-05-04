@@ -22,13 +22,14 @@ $self{NUM_DAYS}    = 365;
 $self{ROTATE}      = 0;
 
 my $usage = <<EOF;
- usage: $0  -F, --fwt | -A, --arp | 
+ usage: $0  -F, --fwt | -A, --arp | -6, --ipv6 |
             -M, --macs | -I, --ips | -R, --rr | -a, --audit | -t, --hostaudit
           [ -d, --num_days <number> ] [ -r, --rotate ]
           [ -g, --debug ] [-h, --help]
     
     -F, --fwt                      Forwarding Tables
     -A, --arp                      ARP caches
+    -6, --ipv6                     IPv6 discovered addresses
     -M, --macs                     MAC addresses
     -I, --ips                      IP addresses
     -R, --rr                       DNS Resource Records
@@ -48,6 +49,7 @@ EOF
 my $result = GetOptions(
     "F|fwt"           => \$self{FWT},
     "A|arp"           => \$self{ARP},
+    "6|ipv6"          => \$self{IPV6},
     "M|macs"          => \$self{MACS},
     "I|ips"           => \$self{IPS},
     "R|rr"            => \$self{RR},
@@ -71,7 +73,7 @@ if ( !$result ){
     die "Error: Problem with cmdline args\n";
 }
 
-unless  ( $self{FWT} || $self{ARP} || $self{MACS} || 
+unless  ( $self{FWT} || $self{ARP} || $self{IPV6} || $self{MACS} ||
 	  $self{IPS} || $self{RR} || $self{HOSTAUDIT} || 
           $self{AUDIT} || $self{INTERFACES} ){
     print $usage;
@@ -120,6 +122,28 @@ if ( $self{IPS} ){
                            FROM   ipblock, ipblockstatus
                            WHERE  ipblockstatus.name='Discovered'
                              AND  ipblock.status=ipblockstatus.id
+                             AND  ipblock.last_seen < ?");
+    $q->execute($sqldate);
+    while ( my $id = $q->fetchrow_array() ) {
+	if ( my $ip = Ipblock->retrieve($id) ){
+	    $logger->debug(sprintf("Deleting IP %s", $ip->address));
+	    unless ( $self{PRETEND} ){
+		$ip->delete() ;
+		$rows_deleted{ipblock}++;
+	    }
+	}
+    }
+}
+
+if ( $self{IPV6} ){
+    ###########################################################################################
+    # Delete 'Discovered' IP addresses
+    # Note: This will also delete A/AAAA records, ArpCache entries, DhcpScopes, etc.
+    my $q = $dbh->prepare("SELECT ipblock.id
+                           FROM   ipblock, ipblockstatus
+                           WHERE  ipblockstatus.name='Discovered'
+                             AND  ipblock.status=ipblockstatus.id
+                             AND  ipblock.version=6
                              AND  ipblock.last_seen < ?");
     $q->execute($sqldate);
     while ( my $id = $q->fetchrow_array() ) {

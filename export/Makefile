@@ -13,6 +13,7 @@ all: dir
 	for dir in $(NDIR); do \
 	  chown $(APACHEUSER):$(APACHEGROUP) $(STAGEDIR)/$(DIR)/$$dir; \
 	  chmod 0755 $(STAGEDIR)/$(DIR)/$$dir; \
+	  chcon -R -t httpd_sys_rw_content_t $(STAGEDIR)/$(DIR)/$$dir; \
 	done
 
 # This section creates the export/ subdirs

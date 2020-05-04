@@ -22,8 +22,11 @@ dir:
 	@echo "Hacking together mason permissions fix..."
 	touch $(STAGEDIR)/$(DIR)/masondata/obj/.__obj_create_marker
 	chown -R $(APACHEUSER):$(APACHEGROUP) $(STAGEDIR)/$(DIR)/masondata
+	chcon -R -t httpd_sys_rw_content_t $(STAGEDIR)/$(DIR)/masondata
+
 	chmod 0755 $(STAGEDIR)/$(DIR)/masondata
 # Graphs can be updated dynamically so apache needs +w
 	chown $(APACHEUSER):$(APACHEGROUP) $(STAGEDIR)/$(DIR)/img/graphs
+	chcon -R -t httpd_sys_rw_content_t $(STAGEDIR)/$(DIR)/img/graphs
 	chmod 0750 $(STAGEDIR)/$(DIR)/img/graphs
 

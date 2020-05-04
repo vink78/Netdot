@@ -97,6 +97,7 @@ dir:
 	    fi ; \
 	done
 	chown -R $(APACHEUSER):$(APACHEGROUP) $(STAGEDIR)/tmp
+	chcon -R -t httpd_sys_rw_content_t $(STAGEDIR)/tmp
 	chmod 750 $(STAGEDIR)/tmp
 
 htdocs:

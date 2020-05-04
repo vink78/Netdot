@@ -11,7 +11,7 @@ PREFIX=/usr/local/netdot
 # aggressive, split the load using the following two jobs intead:
 
 # Retrieve forwarding tables and ARP caches
-0 * * * * root /sbin/pidof -s -x updatedevices.pl || $PREFIX/bin/updatedevices.pl -DFA
+0 * * * * root /sbin/pidof -s -x updatedevices.pl || $PREFIX/bin/updatedevices.pl -DFA;/usr/local/bin/netdot2syslog.pl
 # Twice a day, rediscover devices and topology (in addition to above)
 45 7,18 * * * root /sbin/pidof -s -x updatedevices.pl || $PREFIX/bin/updatedevices.pl -T -c r_public
 50 7,18 * * * root /sbin/pidof -s -x updatedevices.pl || $PREFIX/bin/updatedevices.pl -T -c a_public
@@ -28,6 +28,7 @@ PREFIX=/usr/local/netdot
 # Once a week, remove MAC and IP addresses older than 3 months
 # NOTE: ONLY ENABLE THIS IF YOU ARE SURE OF WHAT IT DOES
 45 4 * * 0 root $PREFIX/bin/prune_db.pl -M -d 90
+45 5 * * 0 root $PREFIX/bin/prune_db.pl -6 -d 120
 
 # Remove audit records older than 3 months
 40 4 * * 0 root $PREFIX/bin/prune_db.pl --audit --hostaudit -d 400
