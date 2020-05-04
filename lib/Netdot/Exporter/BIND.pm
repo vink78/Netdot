@@ -97,6 +97,9 @@ sub generate_configs {
     my $gitdir = Netdot->config->get('Git_BIND_DIR')
 	|| $self->throw_user('Git_BIND_DIR not defined in config file!');
 
+    # Execute remote command only there REMOTE_EXEC == 1
+    my $remoteexec = Netdot->config->get('REMOTE_EXEC') || 0;
+
     my @changes = ();
 
     foreach my $zone ( @zones ){
@@ -115,7 +118,8 @@ sub generate_configs {
 		    }
 		    $logger->info("Zone ".$zone->name." written to file: $path");
 
-		    system ("/usr/bin/scp $path $sshserver:$remotedir");
+		    system ("/usr/bin/scp $path $sshserver:$remotedir")
+		        if ($remoteexec == 1);
 		    system ('/bin/cp '.$path.' '.$gitdir.'/');
 		    push @changes, $zone->name;
 		}else{
@@ -127,7 +131,7 @@ sub generate_configs {
 	$logger->error($@) if $@;
     }
 
-    if (@changes) {
+    if (@changes && $remoteexec == 1) {
 	open (FOO, "/usr/bin/ssh $sshserver '$reloadcmd' |");
 	while (<FOO>) {
 	    chomp;

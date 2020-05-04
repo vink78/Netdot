@@ -55,6 +55,9 @@ sub new{
     $self->{gitdir} = Netdot->config->get('Git_NAMED_DIR')
 	|| $self->throw_user('Git_NAMED_DIR not defined in config file!');
 
+    # Execute remote command only there REMOTE_EXEC == 1
+    $self->{remoteexec} = Netdot->config->get('REMOTE_EXEC') || 0;
+
     # Open output file for writing
     $self->{master}  = "$dir/named.master.conf";
     $self->{slave}   = "$dir/named.";
@@ -169,7 +172,8 @@ sub generate_configs {
 
 		$logger->info("Netdot::Exporter::NAMED: Configuration written to file: ".$file);
 		close($self->{out});
-		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR});
+		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR})
+		    if ($self->{remoteexec} == 1);
 		system ('/bin/cp '.$file.' '.$self->{gitdir}.'/');
 	}
 
@@ -201,7 +205,8 @@ sub generate_configs {
 		$logger->info("Netdot::Exporter::NAMED: Configuration written to file: ".$file);
 		close($self->{out});
 
-		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR});
+		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR})
+		    if ($self->{remoteexec} == 1);
 		system ("/bin/cp $file ".$self->{gitdir}.'/');
 	}
 }

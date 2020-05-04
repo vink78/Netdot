@@ -41,12 +41,15 @@ sub new{
     foreach my $key ( qw /RFC952_DIR RFC952_FILE DEFAULT_DNSDOMAIN RFC952_SCP_TARGET RFC952_SITENAME Git_RFC952_DIR/ ){
 	$self->{$key} = Netdot->config->get($key);
     }
-     
+
     $self->{RFC952_FILE} || 
 	$class->throw_user("Netdot::Exporter::RFC952: RFC952_FILE not defined");
-    
+
     # Open output file for writing
     $self->{filename} = $self->{RFC952_DIR}."/".$self->{RFC952_FILE};
+
+    # Execute remote command only there REMOTE_EXEC == 1
+    $self->{remoteexec} = Netdot->config->get('REMOTE_EXEC') || 0;
 
     bless $self, $class;
 
@@ -298,16 +301,19 @@ sub generate_configs {
     close($self->{out});
 
     $logger->info("Netdot::Exporter::RFC952: Configuration written to file: ".$self->{filename});
-    system ("/usr/bin/scp ".$self->{filename}.' '.$self->{RFC952_SCP_TARGET});
-    system ('/usr/bin/scp '.$self->{filename}.' reseau\@prdres:scripts/');
-    system ('/bin/cp '.$self->{filename}.' '.$self->{Git_RFC952_DIR}.'/');
 
-    open (FOO, "/usr/bin/ssh reseau\@hns 'sudo /var/named/netdot/bin/update_named -i -u' |");
-    while (<FOO>) {
-	chomp;
-	$logger->info( $_ );
+    system ('/bin/cp '.$self->{filename}.' '.$self->{Git_RFC952_DIR}.'/');
+    if ($self->{remoteexec} == 1) {
+	system ("/usr/bin/scp ".$self->{filename}.' '.$self->{RFC952_SCP_TARGET});
+	system ('/usr/bin/scp '.$self->{filename}.' reseau\@prdres:scripts/');
+
+	open (FOO, "/usr/bin/ssh reseau\@hns 'sudo /var/named/netdot/bin/update_named -i -u' |");
+	while (<FOO>) {
+	    chomp;
+	    $logger->info( $_ );
+	}
+	close (FOO);
     }
-    close (FOO);
 }
 
 

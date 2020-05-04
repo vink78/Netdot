@@ -47,6 +47,9 @@ sub new{
     # Open output file for writing
     $self->{filename} = $self->{UNILSTAT_DIR}."/".$self->{UNILSTAT_FILE};
 
+    # Execute remote command only there REMOTE_EXEC == 1
+    $self->{remoteexec} = Netdot->config->get('REMOTE_EXEC') || 0;
+
     bless $self, $class;
 
     $self->{out} = $self->open_and_lock($self->{filename});
@@ -114,7 +117,8 @@ sub generate_configs {
     $self->print_footer();
     close($self->{out});
 
-    system ("/usr/bin/scp ".$self->{filename}." reseau\@prdres:/var/www/html/stat/");    
+    system ("/usr/bin/scp ".$self->{filename}." reseau\@prdres:/var/www/html/stat/")
+	if ($self->{remoteexec} == 1);
 
     $logger->info("Netdot::Exporter::Unilstat: Configuration written to file: ".$self->{filename});
 }
