@@ -46,7 +46,7 @@ sub new{
 
   Arguments:
     Hashref with the following keys:
-      branch - Name of commit branch
+      person - Object of the author
   Returns:
     True if successful
   Examples:
@@ -63,15 +63,7 @@ sub generate_configs {
 	$commit = 'Commit done by '.$author;
     }
 
-    my $branch = 'master';
-    if ( $argv{branch} ){
-	unless ( ref($argv{branch}) eq 'ARRAY' ){
-	    $self->throw_fatal("branch argument must be arrayref!");
-	}
-	foreach my $name ( @{$argv{branch}} ){
-	    $branch = $name;
-	}
-    }
+    my $branch = Netdot->config->get('Git_BRANCH') || 'master';
 
     my $gitdir = Netdot->config->get('Git_DIR')
 	|| $self->throw_user('Git_DIR not defined in config file!');
