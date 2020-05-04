@@ -61,7 +61,7 @@ DIR = bin doc htdocs tmp tmp/sessions /tmp/sessions/locks lib etc var import exp
 
 .PHONY: bin doc htdocs lib etc var upgrade
 
-install: dir doc htdocs lib var bin etc _import _export
+install: dir doc htdocs lib var bin etc _import _export local_bin
 	@echo
 	@echo "Netdot is installed. "
 	@echo "Please read the available documentation before proceeding."
@@ -116,6 +116,9 @@ bin:
 
 etc:
 	cd $@; $(MAKE) all DIR=$@
+
+local_bin:
+	cd $@; $(MAKE) all
 
 _import:
 	@echo "Going into $@..."
