@@ -981,7 +981,7 @@ sub get_snmp_info {
     }
 
     # Fix bug on pre 8.0 ICX series 
-    if ($dev{model} =~ /ICX6\d50/) {
+    if ($dev{model} && $dev{model} =~ /ICX6\d50/) {
 	if ($dev{os} =~ /^(\d+)\./) {
 	    my $version = int($1);
 

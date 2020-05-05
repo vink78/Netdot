@@ -158,6 +158,11 @@ sub generate_configs {
 
 			foreach my $ns (@{ $zone_info{$zone}{ns} }) {
 				push (@dns, @{ $nslookup{$ns} });
+
+				# Used for migration
+				#push (@dns, '130.223.8.23') if ($ns eq 'ns1.unil.ch');
+				#push (@dns, '130.223.4.7') if ($ns eq 'ins2.unil.ch');
+				#push (@dns, '130.223.4.8') if ($ns eq 'ns2.unil.ch');
 			}
 			push (@dns, 'none') if (@dns == 0);
 			push (@dns, '');
