@@ -497,6 +497,11 @@ sub print_serialized {
 	$self->{request}->content_type(q{text/xml; charset=utf-8});
 
 	print $xml;
+    } elsif ( $mtype eq 'json' ){
+	use JSON;
+	$self->{request}->content_type(q{application/json; charset=utf-8});
+
+	print encode_json $data;
     }
 }
 
@@ -524,7 +529,10 @@ sub read_serialized {
     
     if ( $mtype eq 'xml' ){
 	$self->_load_xml_lib();
-	$self->{xs}->XMLin($string);
+	return $self->{xs}->XMLin($string);
+    } elsif ( $mtype eq 'json' ){
+	use JSON;
+	return decode_json ($string);
     }
 }
 
@@ -551,6 +559,14 @@ sub check_accept_header{
 	my ($mtype, $parameters) = split m/;(\s+)?/, $header;
 	if ( $mtype eq 'text/xml' || $mtype eq 'application/xml' ){
 	    $self->{media_type} = 'xml';
+	    if ( $parameters =~ /version=(\w+)/ ){
+		# This will be used in future versions of this API for backwards compatibility
+		$self->{version} = $1;
+	    }
+	    last;
+	}
+	if ( $mtype eq 'text/json' || $mtype eq 'application/json' ){
+	    $self->{media_type} = 'json';
 	    if ( $parameters =~ /version=(\w+)/ ){
 		# This will be used in future versions of this API for backwards compatibility
 		$self->{version} = $1;
