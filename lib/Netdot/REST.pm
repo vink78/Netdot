@@ -122,6 +122,32 @@ sub handle_resource {
 
     # Get relevant HTTP headers from request object
     my $headers = $self->{request}->headers_in;
+
+    if ($headers->{'Content-Type'} eq 'application/json') {
+        # Read data
+        my $json_text;
+        my $bytes_read = $self->{request}->read($json_text, $headers->{'Content-Length'});
+
+	# Check if read content equals to Headers Content-Length
+        if ($bytes_read != $headers->{'Content-Length'}) {
+	    $self->throw(code=>Apache2::Const::HTTP_BAD_REQUEST,
+		     msg=>'Netdot::REST::handle_resource: Content-Length mismatch');
+        }
+
+        # Decode JSON using a Perl hash
+        my $params;
+        eval { $params = decode_json($json_text); };
+
+        if ($@) {
+	    $self->throw(code=>Apache2::Const::HTTP_BAD_REQUEST,
+		     msg=>'Netdot::REST::handle_resource: Invalid JSON format');
+        }
+
+	# Add Params to %argv
+	for my $key (keys %$params) {
+            $argv{$key} = $params->{$key};
+        }
+    }
     
     $logger->info(sprintf("Netdot::REST::handle_resource: %s request for %s?%s from %s (%s)", 
 			  $self->{request}->method, 
@@ -497,6 +523,11 @@ sub print_serialized {
 	$self->{request}->content_type(q{text/xml; charset=utf-8});
 
 	print $xml;
+    } elsif ( $mtype eq 'json' ){
+	use JSON;
+	$self->{request}->content_type(q{application/json; charset=utf-8});
+
+	print encode_json $data;
     }
 }
 
@@ -555,6 +586,10 @@ sub check_accept_header{
 		# This will be used in future versions of this API for backwards compatibility
 		$self->{version} = $1;
 	    }
+	    last;
+	}
+	if ( $mtype eq 'application/json' ){
+	    $self->{media_type} = 'json';
 	    last;
 	}
     }
