@@ -2892,6 +2892,10 @@ sub get_next_free {
     if ( $strategy eq 'first' ){
 	my $start = $s->first->numeric;
 	my $end   = $s->last->numeric;
+	if ($self->use_network_broadcast) {
+	    $start = $s->network->numeric;
+	    $end = $s->broadcast->numeric;
+	}
 	my $addr  = ($self->version == 6)? Math::BigInt->new($start) : $start;
 	while ( $addr <= $end ){
 	    $ret = &_chk_addr($class, $addr, \%used, $self->version);
@@ -2901,6 +2905,10 @@ sub get_next_free {
     }elsif ( $strategy eq 'last' ){
 	my $start = $s->last->numeric;
 	my $end   = $s->first->numeric;
+	if ($self->use_network_broadcast) {
+	    $start = $s->broadcast->numeric;
+	    $end = $s->network->numeric;
+	}
 	my $addr  = ($self->version == 6)? Math::BigInt->new($start) : $start;
 	while ( $addr >= $end ){
 	    $ret = &_chk_addr($class, $addr, \%used, $self->version);
