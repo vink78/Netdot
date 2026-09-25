@@ -37,6 +37,7 @@ my $ci = 1;
 %       if ( !$num ){
 	   <p>No mismatches found.</p>
 %       }else{
+        <div class="tablescroll">
         <table border="0" cellpading="0" width="100%">
             <tr class="rowtitle2">
 %           foreach ('Interface', 'VLANs', 'Interface', 'VLANs'){
@@ -58,6 +59,7 @@ my $ci = 1;
                 </tr>    
 %           }
         </table>
+        </div>
 %       }
         </div>
 </div>

@@ -30,6 +30,7 @@ my $ci = 1;
 %       if ( !scalar(@$list) ){
 	   <p>No mismatches found.</p>
 %       }else{
+        <div class="tablescroll">
         <table border="0" cellpading="0" width="100%">
             <tr class="rowtitle2">
 %           foreach ('Interface', 'Admin Duplex', 'Oper Duplex', 'Speed'){
@@ -50,6 +51,7 @@ my $ci = 1;
                 <tr><td colspan="4"><hr></td></tr>
 %           }
         </table>
+        </div>
 %       }
         </div>
 </div>
