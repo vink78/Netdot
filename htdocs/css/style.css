@@ -664,6 +664,128 @@ hr
   .red { background-color: red;}
 
 
+/*
+ * Responsive layout (mobile / tablette)
+ * Toutes les regles ci-dessous ne s'appliquent qu'aux petites
+ * tailles d'ecran; la mise en page desktop reste inchantee.
+ */
+
+/* Une table trop large fait defiler la zone de contenu au lieu de
+   deborder de l'ecran. */
+#content {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 1024px) {
+    #sectiontools fieldset.large { width: 100%; }
+}
+
+@media (max-width: 768px) {
+    body {
+        margin: 0;
+        font-size: 15px;
+    }
+    td, th {
+        font-size: 14px;
+    }
+
+    /* En-tete: permet le retour a la ligne + image redimensionnee */
+    #header {
+        height: auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    #header .headleft,
+    #header .headright {
+        float: none;
+    }
+    #header .headright {
+        margin-left: auto;
+    }
+    #header img {
+        max-width: 100%;
+        height: auto;
+    }
+    #header hr {
+        flex-basis: 100%;
+        width: 100%;
+    }
+    #header form input[type=text] {
+        max-width: 100%;
+    }
+
+    /* Navigation: deux lignes empilees, defilables horizontalement */
+    #navbar {
+        height: auto;
+        margin-bottom: 8px;
+    }
+    #navbar ul#navigation {
+        position: static;
+        white-space: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    #navbar ul#navigation > a {
+        float: none;
+        display: inline-block;
+    }
+    #navbar ul#subnavigation {
+        position: static;
+        top: auto;
+        left: auto;
+        white-space: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    #navbar ul#subnavigation li a,
+    #navbar ul#subnavigation li span {
+        float: none;
+        display: inline-block;
+    }
+
+    /* Outils de section: empiles pleine largeur au lieu de flotter */
+    #sectiontools fieldset {
+        float: none;
+        width: auto;
+        margin-right: 0;
+    }
+    #sectiontools fieldset.large,
+    #sectiontools fieldset.medium,
+    #sectiontools fieldset.small {
+        width: auto;
+    }
+    #sectiontools form p label {
+        float: none;
+        width: auto;
+        display: block;
+        margin-bottom: 2px;
+    }
+    #sectiontools input,
+    #sectiontools select {
+        max-width: 100%;
+    }
+
+    /* Conteneurs / notes: ne jamais deborder de l'ecran */
+    .note {
+        width: auto;
+        max-width: 100%;
+    }
+    .containeroutside {
+        width: auto;
+        max-width: 100%;
+    }
+
+    /* Login */
+    #loginform,
+    #loginform table.logintable {
+        width: auto;
+        max-width: 100%;
+    }
+}
+
+
 /* note on float css hack:
 In Firefox, a div block containing an input tag doesn't stretch
 its width when the input tag is too big for the block.

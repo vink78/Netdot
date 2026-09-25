@@ -35,6 +35,7 @@ $ui->get_allowed_objects($r, $user) if $user;
 %
 <html>
 <head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Use the path as set in the Apache conf for the netdot root so
        the user can change the location with out editing any code.
        The path needs to be absolute here since the user could pass
@@ -56,6 +57,7 @@ $ui->get_allowed_objects($r, $user) if $user;
 % for my $script ( qw(dynamic_list select jsrsClient toggle datechooser sorttable) ) {
 <script language="JavaScript" src="<% $js_prefix %>/<% $script %>.js"></script>
 % }
+<script language="JavaScript" src="<% $js_prefix %>/htmx.min.js"></script>
 <body<% $onload %>>
 <div id="header" <% $hideheader %>>
     <a href="../index.html" ><img border="0" class="headleft" SRC="<% $r->dir_config('NetdotPath') %>img/title.png"
