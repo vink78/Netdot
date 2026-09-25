@@ -39,6 +39,7 @@ my $colwidth = int(100/$width);
 </%init>
 
 % my $jsstring = "jspopoutstring+=encodeURIComponent(\"";
+ <div class="attrtable">
  <table border="0" width="100%">
     <tr>
 %    for ( my($w)=1; $w <= $width; $w++ ){
@@ -70,6 +71,7 @@ my $colwidth = int(100/$width);
 %    }
     </tr>
  </table>
+ </div>
 
 % $jsstring .= "<br>\");";
 

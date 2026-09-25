@@ -677,6 +677,12 @@ hr
     -webkit-overflow-scrolling: touch;
 }
 
+/* Tables de donnees (generic/data_table): defilement horizontal propre */
+.tablescroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 @media (max-width: 1024px) {
     #sectiontools fieldset.large { width: 100%; }
 }
@@ -765,6 +771,16 @@ hr
     #sectiontools input,
     #sectiontools select {
         max-width: 100%;
+    }
+
+    /* Vues/formulaires (generic/attribute_table): empiler les colonnes
+       qui etaient cote a cote (width=2) sur une seule colonne. */
+    .attrtable > table > tbody > tr > td {
+        display: block;
+        width: 100%;
+    }
+    .attrtable > table > tbody > tr > td > table {
+        width: 100%;
     }
 
     /* Conteneurs / notes: ne jamais deborder de l'ecran */
