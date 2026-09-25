@@ -20,6 +20,7 @@ my $colwidth = int(100/$cols);
 </%init>
 
 
+ <div class="tablestack">
  <table border="0" width="100%">
     <tr>
 %    for ( my($w)=1; $w <= $cols; $w++ ){
@@ -36,3 +37,4 @@ my $colwidth = int(100/$cols);
 %    }
     </tr>
  </table>
+ </div>

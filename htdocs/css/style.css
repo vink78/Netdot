@@ -773,13 +773,14 @@ hr
         max-width: 100%;
     }
 
-    /* Vues/formulaires (generic/attribute_table): empiler les colonnes
-       qui etaient cote a cote (width=2) sur une seule colonne. */
-    .attrtable > table > tbody > tr > td {
+    /* Vues/formulaires et tableaux multi-colonnes (generic/attribute_table,
+       generic/wrapping_table): empiler les colonnes qui etaient cote a cote
+       sur une seule colonne. */
+    .tablestack > table > tbody > tr > td {
         display: block;
         width: 100%;
     }
-    .attrtable > table > tbody > tr > td > table {
+    .tablestack > table > tbody > tr > td > table {
         width: 100%;
     }
 

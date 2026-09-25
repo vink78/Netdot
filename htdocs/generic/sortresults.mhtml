@@ -262,6 +262,7 @@ $last_item = ( ($offset + $per_page) < $total )? $offset + $per_page : $total;
 %        }
 %     }
 
+      <div class="tablescroll">
       <table border="0" cellspacing="0" cellpadding="0" class="tablebackground">
 
 %     #####################################################################
@@ -376,9 +377,10 @@ $last_item = ( ($offset + $per_page) < $total )? $offset + $per_page : $total;
            <td>&nbsp;</td>
 %      }
       </tr>
-  </table>
+   </table>
+   </div>
 
-  <div class="containerheadright">
+   <div class="containerheadright">
 % if ( $total > $per_page ){
       Results: [<% $offset+1 %>-<% $last_item %>] of <% $total %> 
 %     my $prev_offset = $offset - $per_page;
