@@ -33,7 +33,7 @@ $ui->get_allowed_objects($r, $user) if $user;
 </%init>
 %
 %
-<html>
+<html hx-boost>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Use the path as set in the Apache conf for the netdot root so
@@ -58,6 +58,24 @@ $ui->get_allowed_objects($r, $user) if $user;
 <script language="JavaScript" src="<% $js_prefix %>/<% $script %>.js"></script>
 % }
 <script language="JavaScript" src="<% $js_prefix %>/htmx.min.js"></script>
+<script>
+/* htmx: opt-out des liens/formulaires non-navigables (images,
+   telechargements, target=..., login/logout) pour une degradation sure. */
+htmx.onLoad(function(body){
+  body.querySelectorAll('a').forEach(function(a){
+    var href = a.getAttribute('href') || '';
+    var bad = !href || a.hasAttribute('download') || a.target ||
+      /\.(png|gif|jpe?g|svg|pdf|zip|csv|tar|gz|ico)$/i.test(href) ||
+      /(^|\/)(login|logout)\.html/i.test(href);
+    if (bad) { a.setAttribute('hx-boost', 'false'); }
+  });
+  body.querySelectorAll('form').forEach(function(f){
+    if (/login/i.test(f.getAttribute('action') || '')) {
+      f.setAttribute('hx-boost', 'false');
+    }
+  });
+});
+</script>
 <body<% $onload %>>
 <div id="header" <% $hideheader %>>
     <a href="../index.html" ><img border="0" class="headleft" SRC="<% $r->dir_config('NetdotPath') %>img/title.png"
