@@ -784,6 +784,13 @@ hr
         width: 100%;
     }
 
+    /* Champs de formulaire du contenu: ne jamais deborder de l'ecran */
+    #content input,
+    #content select,
+    #content textarea {
+        max-width: 100%;
+    }
+
     /* Conteneurs / notes: ne jamais deborder de l'ecran */
     .note {
         width: auto;

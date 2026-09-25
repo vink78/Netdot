@@ -259,6 +259,7 @@ if ( $view eq 'csv' ){
 %        }
 %     }
 
+      <div class="tablescroll">
       <table border="0" cellspacing="0" cellpadding="0" class="tablebackground">
 
 %     #####################################################################
@@ -348,6 +349,7 @@ if ( $view eq 'csv' ){
 %      }
       </tr>
   </table>
+  </div>
 
   <div class="containerheadright">
 % if ( $total > $per_page ){

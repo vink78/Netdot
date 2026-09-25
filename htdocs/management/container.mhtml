@@ -73,7 +73,7 @@ EOF
     print "<br>";
 
     print "<center>";
-    print "<table style='width:45em'><tr>";
+    print "<table style='width:100%'><tr>";
     print '<td style="text-align:right;vertical-align:middle;">Zoom: Set one row equal to ';
     print '<select name="rowsize" class="small" onchange="window.location=\'ip.html?id='.$network->id.'&view_availability=1&view_format=block&rowsize=\'+this.options[this.selectedIndex].value+\'&dividefreespace='.$dividefreespace.'\'">';
     for( my $i=$minrowsize; $i<=$maxrowsize; $i++ ) {
@@ -93,6 +93,7 @@ EOF
 
     print "<br>";
 
+    print '<div class="tablescroll">';
     print '<table class="ipcontainertable" style="width:' . ($cellsperrow+100) . ';" cellpadding="0" cellspacing="0"><tr class="outerrow"><td><table cellpadding="0" cellspacing="0" border="0">';
 
     my $count = 0;
@@ -145,6 +146,7 @@ EOF
 </%perl>
 
 </tr></table></td></tr></table>
+</div>
 
 % if ( $dividefreespace ne 'max' ){
 %     my $new_blocks_list = join ',', @new_blocks;
