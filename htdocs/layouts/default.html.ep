@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= $c->stash('title') // 'Netdot' %> · Netdot (Mojo)</title>
+</head>
+<body>
+  <header id="header">
+    <a href="<%= url_for('home') %>" class="logo">Netdot · Mojolicious</a>
+    <nav>
+      % if (my $u = $c->session('username')) {
+        <span><%= $u %></span>
+        <a href="<%= url_for('logout') %>">logout</a>
+      % } else {
+        <a href="<%= url_for('login') %>">login</a>
+      % }
+    </nav>
+  </header>
+  <main id="content">
+    <%= content %>
+  </main>
+</body>
+</html>

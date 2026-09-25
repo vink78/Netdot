@@ -1,0 +1,22 @@
+<h1>Ipblocks <small>(<%= $total %> au total, <%= scalar @{$ipblocks} %> affichés)</small></h1>
+
+% if (@$ipblocks) {
+  <table class="tablescroll">
+    <thead>
+      <tr><th>id</th><th>address</th><th>prefix</th><th>status</th><th>used_by</th></tr>
+    </thead>
+    <tbody>
+      % for my $b (@$ipblocks) {
+      <tr>
+        <td><%= $b->id %></td>
+        <td><%= $b->address %></td>
+        <td><%= $b->prefix // '' %></td>
+        <td><%= $b->status // '' %></td>
+        <td><%= $b->used_by // '' %></td>
+      </tr>
+      % }
+    </tbody>
+  </table>
+% } else {
+  <p>Aucun ipblock.</p>
+% }

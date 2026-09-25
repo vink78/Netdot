@@ -1,0 +1,54 @@
+package Netdot::Mojo::Controller::Auth;
+
+use Mojo::Base 'Mojolicious::Controller', -signatures;
+
+use Netdot;
+use Netdot::Mojo::AuthShim;
+
+sub login_form ($c) {
+    $c->render(
+        template => 'login',
+        layout   => 'default',
+        title    => 'Connexion',
+        username => ''
+    );
+}
+
+sub login_submit ($c) {
+    my $user = $c->param('username') // '';
+    my $pass = $c->param('password') // '';
+
+    my $shim = Netdot::Mojo::AuthShim->new( app => $c->app );
+
+    # LDAP d'abord (reutilise Netdot::LDAP ; bascule sur local si FailToLocal),
+    # puis local (Netdot::AuthLocal) en filet. Guarded : un module absent ne casse pas.
+    my $ok = eval {
+        require Netdot::LDAP;
+        Netdot::LDAP::check_credentials( $shim, $user, $pass );
+    };
+    $ok ||= eval {
+        require Netdot::AuthLocal;
+        Netdot::AuthLocal::check_credentials( $shim, $user, $pass );
+    };
+
+    if ($ok) {
+        $c->session( username => $user, login_time => time );
+        $c->redirect_to( $c->url_for('home') );
+    }
+    else {
+        $c->render(
+            template => 'login',
+            layout   => 'default',
+            title    => 'Connexion',
+            username => $user,
+            error    => 'Authentification echeouee',
+        );
+    }
+}
+
+sub logout ($c) {
+    $c->session( expires => 1 );
+    $c->redirect_to( $c->url_for('login') );
+}
+
+1;
