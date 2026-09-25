@@ -683,6 +683,13 @@ hr
     -webkit-overflow-scrolling: touch;
 }
 
+/* Graphes topologiques generes (img/graphs/*.png): ne jamais deborder.
+   S'aligne sur le graphe backbone qui porte deja max-width:100%. */
+img[src*="img/graphs"] {
+    max-width: 100%;
+    height: auto;
+}
+
 @media (max-width: 1024px) {
     #sectiontools fieldset.large { width: 100%; }
 }
