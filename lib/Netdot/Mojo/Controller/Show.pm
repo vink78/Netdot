@@ -23,6 +23,47 @@ sub show ($c) {
         my $o = eval { $class->retrieve( $id ) };
         return $c->reply->not_found unless $o;
 
+        # An individual address (/32 or /128) has no children: show its
+        # attributes and DNS records instead of the block views.
+        if ( eval { $o->is_address } ) {
+            my @ancs   = $o->get_ancestors;
+            my @crumbs = ( { label => 'Roots', id => 0 } );
+            push @crumbs, map { { label => $_->get_label, id => $_->id } } ( reverse @ancs );
+
+            my $stname = eval { $o->status->name } // '';
+            my @attrs;
+            push @attrs, [ 'Address',      $o->address // '' ];
+            push @attrs, [ 'Status',       "<strong>$stname</strong>" ];
+            push @attrs, [ 'Description',  eval { $o->description } // '' ];
+            push @attrs, [ 'First Seen',   eval { $o->first_seen }  // '' ];
+            push @attrs, [ 'Last Seen',    eval { $o->last_seen }   // '' ];
+            push @attrs, [ 'Owner',        _obj_label( $o->owner ) ];
+            push @attrs, [ 'Used by',      _obj_label( $o->used_by ) ];
+            push @attrs, [ 'Monitored?',   $o->monitored ? 'Yes' : 'No' ];
+
+            my $iid  = eval { $o->interface->id };
+            my $ilbl = eval { $o->interface->get_label };
+            push @attrs, [ 'Interface', $iid ? "<a href=\"/management/interface/$iid\">$ilbl</a>" : '' ];
+
+            my $dev = eval { $o->interface && $o->interface->device };
+            $dev   ||= eval { ( $o->snmp_devices )[0] };
+            my $did = eval { $dev->id };
+            push @attrs, [ 'Device', $did ? "<a href=\"/management/device/$did\">" . _obj_label($dev) . "</a>" : '' ];
+
+            $c->render(
+                template    => 'management/ipaddress',
+                layout      => 'default',
+                title       => "Ip " . $o->get_label,
+                current     => $o,
+                breadcrumb  => \@crumbs,
+                attrs       => \@attrs,
+                comments    => ( eval { $o->info } // '' ),
+                a_records   => [ _ip_dns_records( $o, 'a_records' ) ],
+                ptr_records => [ _ip_dns_records( $o, 'ptr_records' ) ],
+            );
+            return;
+        }
+
         my $cfg    = Netdot->config;
         my $status = eval { $o->status->name } // '';
         my $prefix = $o->prefix;
@@ -308,6 +349,30 @@ sub _build_subnet_grid {
         push @out, \@row;
     }
     return \@out;
+}
+
+# Label of a related object (owner, used_by, device), or '' if empty.
+sub _obj_label {
+    my ($o) = @_;
+    return '' unless $o;
+    return eval { $o->get_label } // '';
+}
+
+# DNS records (A or PTR) attached to an address. Each record is wrapped in a
+# joiner object; ->rr yields the RR (name), ->rr->zone the owning zone.
+sub _ip_dns_records {
+    my ( $o, $method ) = @_;
+    my @out;
+    my @rel = eval { $o->$method };      # list context; no "//()" (it degrades wantarray)
+    return @out if $@;
+    for my $r (@rel) {
+        my $rr = eval { $r->rr } or next;
+        my $name = eval { $rr->name } // '';
+        my $zid  = eval { $rr->zone->id };
+        my $zl   = eval { $rr->zone->get_label } // '';
+        push @out, { name => $name, zone => $zl, zone_href => $zid ? "/management/zone/$zid" : undef };
+    }
+    return @out;
 }
 
 1;
