@@ -15,6 +15,23 @@ sub list ($c) {
     my $cols  = $spec->{cols};
     my $table = $class->table;
 
+    # ipblock: hierarchical view. The list shows the ROOT blocks only (parent is
+    # NULL, version 4); clicking one shows its children (see Show#show).
+    if ( $type eq 'ipblock' ) {
+        # Direct list-context call: get_roots() uses wantarray, so it must NOT
+        # be wrapped in eval{} // () (that degrades to scalar -> first root only).
+        my @roots = $class->get_roots('all');
+        $c->render(
+            template   => 'management/ipblock',
+            layout     => 'default',
+            title      => 'IP Blocks',
+            viewtype   => 'block',
+            blocks     => \@roots,
+            breadcrumb => [],
+        );
+        return;
+    }
+
     my $per    = 50;
     my $offset = int( $c->param('offset') // 0 );
     $offset = 0 if $offset < 0;

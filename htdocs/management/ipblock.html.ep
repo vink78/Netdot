@@ -1,0 +1,66 @@
+%# Pull every variable from the stash with defaults, so the template is safe
+%# even if a controller omits an optional key (use strict is in effect).
+% my $viewtype   = $c->stash->{viewtype}   // 'block';
+% my $title      = $c->stash->{title}      // 'Ipblock';
+% my $current    = $c->stash->{current};
+% my $blocks     = $c->stash->{blocks}     // [];
+% my $breadcrumb = $c->stash->{breadcrumb} // [];
+% my $is_addr    = ( $viewtype eq 'address' );
+% my @hdrs       = $is_addr ? ( 'Address', 'Status', 'Owner', 'Used by', 'Description', 'Last seen' ) : ( 'Address/Prefix', 'Status', 'Owner', 'Used by', 'Description' );
+%# Breadcrumb: Roots > a > b > (current, bold). Only when viewing a block.
+% if ($current) {
+    <div class="breadcrumb" style="margin:0 0 1em 0; font-size:0.95em">
+    % for my $i (0 .. $#$breadcrumb) {
+        % my $cr = $breadcrumb->[$i];
+        <a href="<%= $cr->{id} ? "/management/ipblock/$cr->{id}" : '/management/ipblock' %>"><%= $cr->{label} %></a>
+        % if ($i < $#$breadcrumb) {
+            <span style="color:#999"> » </span>
+        % }
+    % }
+    <span style="color:#999"> » </span><strong><%= $current->get_label %></strong>
+    </div>
+% }
+<h1><%= $title %></h1>
+
+%# The block's own key attributes (only on the detail view).
+% if ($current) {
+    <p>
+        Status: <strong><%= Netdot::Mojo::Registry::format_value( $current->status ) %></strong>
+        % if ( my $ow = eval { $current->owner } ) {
+            · Owner: <strong><%= $ow->get_label %></strong>
+        % }
+        % if ( my $ub = eval { $current->used_by } ) {
+            · Used by: <strong><%= $ub->get_label %></strong>
+        % }
+        % if ( my $desc = eval { $current->description } ) {
+            · <span style="color:#555"><%= $desc %></span>
+        % }
+    </p>
+% }
+%# The blocks to list (roots on the top page, children on a block page).
+<table class="sortable">
+    <thead>
+        <tr>
+        % for my $h (@hdrs) {
+            <th><%= $h %></th>
+        % }
+        </tr>
+    </thead>
+    <tbody>
+    % for my $o (@$blocks) {
+        <tr>
+            <td><a href="/management/ipblock/<%= $o->id %>"><%= $o->get_label %></a></td>
+            <td><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
+            <td><%= Netdot::Mojo::Registry::format_value( $o->owner ) %></td>
+            <td><%= Netdot::Mojo::Registry::format_value( $o->used_by ) %></td>
+            <td><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
+            % if ($is_addr) {
+                <td><%= Netdot::Mojo::Registry::format_value( $o->last_seen ) %></td>
+            % }
+        </tr>
+    % }
+    </tbody>
+</table>
+% unless (@$blocks) {
+    <p style="color:#888">No blocks.</p>
+% }
