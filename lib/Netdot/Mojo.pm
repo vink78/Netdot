@@ -31,6 +31,17 @@ sub startup ($self) {
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');
     $r->get('/logout')->to('auth#logout')->name('logout');
+
+    # ---- Authentication: redirect (302) unauthenticated requests to /login ----
+    # Public paths (login/logout and static assets) are exempt.
+    $self->hook( before_dispatch => sub {
+        my ($c)  = @_;
+        my $path = $c->req->url->path;
+        return if $path eq '/login' || $path eq '/logout';
+        return if $path =~ m{^/(?:css|img|java_script)(?:/|$)};
+        return if $path eq '/favicon.ico';
+        $c->redirect_to( $c->url_for('login') ) unless $c->session('username');
+    });
 }
 
 1;

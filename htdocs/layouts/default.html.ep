@@ -1,28 +1,63 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" hx-boost>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/css/mojo.css">
-  <title><%= $c->stash('title') // 'Netdot' %> · Netdot (Mojo)</title>
+  <link rel="stylesheet" href="/css/style.css" type="text/css">
+  <link rel="stylesheet" href="/css/datechooser.css" type="text/css">
+  <link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon">
+  <title>Netdot: <%= $c->stash('title') // 'Netdot' %></title>
+  <script src="/java_script/dynamic_list.js"></script>
+  <script src="/java_script/select.js"></script>
+  <script src="/java_script/jsrsClient.js"></script>
+  <script src="/java_script/toggle.js"></script>
+  <script src="/java_script/datechooser.js"></script>
+  <script src="/java_script/sorttable.js"></script>
+  <script src="/java_script/htmx.min.js"></script>
+  <script>
+    /* htmx: opt-out non-navigable links/forms (images, downloads, login/logout) for safe degradation. */
+    htmx.onLoad(function(body){
+      body.querySelectorAll('a').forEach(function(a){
+        var href = a.getAttribute('href') || '';
+        var bad = !href || a.hasAttribute('download') || a.target ||
+          /\.(png|gif|jpe?g|svg|pdf|zip|csv|tar|gz|ico)$/i.test(href) ||
+          /(^|\/)(login|logout)$/i.test(href);
+        if (bad) { a.setAttribute('hx-boost', 'false'); }
+      });
+      body.querySelectorAll('form').forEach(function(f){
+        if (/login/i.test(f.getAttribute('action') || '')) { f.setAttribute('hx-boost', 'false'); }
+      });
+    });
+  </script>
 </head>
 <body>
-  <header id="header">
-    <a href="<%= url_for('home') %>" class="logo">Netdot · Mojolicious</a>
-    <nav>
-      <a href="<%= url_for('home') %>">home</a>
-      <a href="<%= url_for('ipblock_list') %>">ipblock</a>
-      <a href="<%= url_for('device_list') %>">device</a>
+  <div id="header">
+    <a href="<%= url_for('home') %>"><img border="0" class="headleft" src="/img/title.png" alt="Netdot: Network Documentation Tool"></a>
+    <span class="headright">
       % if (my $u = $c->session('username')) {
-        <span><%= $u %></span>
-        <a href="<%= url_for('logout') %>">logout</a>
+        <strong>user</strong>: <%= $u %> &nbsp;
+        [<a href="<%= url_for('logout') %>">logout</a>]
       % } else {
         <a href="<%= url_for('login') %>">login</a>
       % }
-    </nav>
-  </header>
-  <main id="content">
+    </span>
+    <hr />
+    <span class="headleft">Netdot</span>
+    <span class="headright"><%= scalar localtime %></span>
+  </div>
+  <div id="navbar">
+    <ul id="navigation">
+      <li><a href="<%= url_for('home') %>">home</a></li>
+      <li><a href="<%= url_for('ipblock_list') %>">ipblock</a></li>
+      <li><a href="<%= url_for('device_list') %>">device</a></li>
+      <li><a href="<%= url_for('vlan_list') %>">vlan</a></li>
+      <li><a href="<%= url_for('zone_list') %>">zone</a></li>
+      <li><a href="<%= url_for('interface_list') %>">interface</a></li>
+      <li><a href="<%= url_for('person_list') %>">person</a></li>
+    </ul>
+  </div>
+  <div id="content">
     <%= content %>
-  </main>
+  </div>
 </body>
 </html>

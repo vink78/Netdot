@@ -1,7 +1,7 @@
 <h1><%= ucfirst($type) %> <small>(<%= $total %> total, <%= scalar @$rows %> shown)</small></h1>
 
 % if (@$rows) {
-  <table class="tablescroll">
+  <table class="sortable">
     <thead>
       <tr>
         <th>id</th>
