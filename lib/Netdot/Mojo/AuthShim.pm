@@ -18,7 +18,10 @@ sub new {
 sub dir_config {
     my ( $self, $key ) = @_;
     require Netdot;
-    return Netdot->config->get($key);
+    # Netdot::Config->get croake si la cle est absente ; Apache dir_config renvoie
+    # undef. On renvoie donc undef (sans exception) si la cle n'est pas definie.
+    my $val = eval { Netdot->config->get($key) };
+    return $val;
 }
 
 sub log_error {

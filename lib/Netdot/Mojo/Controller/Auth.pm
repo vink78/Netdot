@@ -20,16 +20,19 @@ sub login_submit ($c) {
 
     my $shim = Netdot::Mojo::AuthShim->new( app => $c->app );
 
-    # LDAP d'abord (reutilise Netdot::LDAP ; bascule sur local si FailToLocal),
-    # puis local (Netdot::AuthLocal) en filet. Guarded : un module absent ne casse pas.
+    # LDAP (Netdot::LDAP bascule lui-meme sur l'auth locale si NetdotLDAPFailToLocal=yes).
     my $ok = eval {
         require Netdot::LDAP;
         Netdot::LDAP::check_credentials( $shim, $user, $pass );
     };
-    $ok ||= eval {
-        require Netdot::AuthLocal;
-        Netdot::AuthLocal::check_credentials( $shim, $user, $pass );
-    };
+
+    # Filet : si le module LDAP est indisponible (Net::LDAP absent), auth locale directe.
+    if ( !$ok && ( $@ || '' ) =~ m{Can't locate Net/LDAP} ) {
+        $ok = eval {
+            require Netdot::AuthLocal;
+            Netdot::AuthLocal::check_credentials( $shim, $user, $pass );
+        };
+    }
 
     if ($ok) {
         $c->session( username => $user, login_time => time );
