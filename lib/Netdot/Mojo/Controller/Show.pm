@@ -28,12 +28,14 @@ sub show ($c) {
         my $v4     = ( $o->version == 4 );
 
         # View modes available for this block (rules from ip.html):
-        #   list always; block for v4 when prefix >= MAX; tree for v4 containers.
+        #   list always; block and tree for v4 when prefix >= MAX.
         my $max = $status eq 'Subnet' ? $cfg->get('SUBNET_BLOCK_VIEW_MAX_PREFIX')
                  : ( $status eq 'Container' ? $cfg->get('CONTAINER_BLOCK_VIEW_MAX_PREFIX') : undef );
         my @modes = ( 'list' );
-        push @modes, 'block' if ( $v4 && $max && $prefix >= $max );
-        push @modes, 'tree'  if ( $v4 && $status eq 'Container' );
+        if ( $v4 && $max && $prefix >= $max ) {
+            push @modes, 'block';
+            push @modes, 'tree';
+        }
 
         # Effective view: requested (sanitized), defaulting to the config value,
         # forced to an available mode (so v6 / too-large blocks fall back to list).
@@ -43,7 +45,7 @@ sub show ($c) {
         $vfmt = 'list' unless grep { $_ eq $vfmt } @modes;
 
         # Objects to display, depending on the effective view.
-        my ( @blocks, $viewtype, $tree_html );
+        my ( @blocks, $viewtype, $tree_html, $grid );
         if ( $vfmt eq 'list' ) {
             if ( $status eq 'Subnet' ) {
                 @blocks   = $o->get_addresses_by('Address');   # individual addresses
@@ -52,14 +54,20 @@ sub show ($c) {
                 @blocks   = _ipblock_children( $o );            # contained IP blocks
                 $viewtype = @blocks && eval { $blocks[0]->is_address } ? 'address' : 'block';
             }
-        } else {  # block or tree: the descendant subnets (no individual addresses)
-            my $ref    = eval { $o->get_descendants( no_addresses => 1 ) };
-            @blocks    = ref( $ref ) eq 'ARRAY' ? @$ref : ();
-            @blocks    = grep { $_ && $_->prefix > $prefix } @blocks;  # proper descendants
+        } elsif ( $vfmt eq 'tree' ) {
             $viewtype  = 'block';
-            if ( $vfmt eq 'tree' ) {
-                my $ui = eval { Netdot::UI->new() };
-                $tree_html = ( $ui && $ref ) ? eval { $ui->build_ip_tree_graph_html( id => $o->id, list => $ref ) } : undef;
+            my $ref    = eval { $o->get_descendants( no_addresses => 1 ) };
+            my $ui     = eval { Netdot::UI->new() };
+            $tree_html = ( $ui && $ref ) ? eval { $ui->build_ip_tree_graph_html( id => $o->id, list => $ref ) } : undef;
+        } else {  # block view
+            $viewtype = 'block';
+            if ( $status eq 'Subnet' ) {
+                $grid = _build_subnet_grid( $o );               # the address grid
+            } else {
+                # Container: the descendant subnets (the proportional usage grid is a follow-up).
+                my $ref  = eval { $o->get_descendants( no_addresses => 1 ) };
+                @blocks  = ref( $ref ) eq 'ARRAY' ? @$ref : ();
+                @blocks  = grep { $_ && $_->prefix > $prefix } @blocks;
             }
         }
 
@@ -76,6 +84,7 @@ sub show ($c) {
             viewformat => $vfmt,
             modes      => \@modes,
             tree_html  => $tree_html,
+            grid       => $grid,
             blocks     => \@blocks,
             current    => $o,
             breadcrumb => \@crumbs,
@@ -121,6 +130,83 @@ sub _ipblock_children {
         }
     }
     return @kids;
+}
+
+# Block view for a Subnet: a grid of every individual address (port of subnet.mhtml).
+# Returns an arrayref of rows, each row an arrayref of ready-to-print HTML cell strings.
+sub _build_subnet_grid {
+    my ($o) = @_;
+
+    my %classes = (
+        Static => 'ipaddr_static', Dynamic => 'ipaddr_dynamic', Reserved => 'ipaddr_reserved',
+        Container => 'ipaddr_container', Discovered => 'ipaddr_discovered', Available => 'ipaddr_available',
+    );
+
+    # Used addresses in this subnet (id, numeric address, description, status, dns, device).
+    my $id  = $o->id;
+    my $dbh = Netdot::Model->db_Main();
+    my $q   = "SELECT ipblock.id, ipblock.address, ipblock.description, ipblockstatus.name, rr.name, device.id
+               FROM ipblockstatus, ipblock
+               LEFT JOIN (rr CROSS JOIN rraddr) ON (ipblock.id = rraddr.ipblock AND rraddr.rr = rr.id)
+               LEFT JOIN (device CROSS JOIN interface) ON (ipblock.interface = interface.id AND interface.device = device.id)
+               WHERE ipblock.parent = $id AND ipblock.status = ipblockstatus.id
+               ORDER BY ipblock.address";
+    my $results = $dbh->selectall_arrayref($q);
+    my ( %used, %names, %status, %ids );
+    for my $r ( @$results ) {
+        my ( $ipid, $address, $description, $st, $dnsname, $device ) = @$r;
+        $used{ $address }   = 1;
+        $names{ $address }  = $st;
+        if ( $st eq 'Static' ) {
+            $names{ $address } = $dnsname if $dnsname;
+        } elsif ( $device ) {
+            my $lbl = eval { Device->retrieve($device)->get_label };
+            $names{ $address } = $lbl if $lbl;
+        }
+        $names{ $address } = $description if ( $st ne 'Static' && $description );
+        $status{ $address } = $st;
+        $ids{ $address }    = $ipid;
+    }
+
+    my $net   = $o->netaddr->network;
+    my $mask  = $net->masklen;
+    my $bits  = ( $o->version == 4 ) ? 32 : 128;
+    my $total = 2 ** ( $bits - $mask );
+    my $cols  = ( $total < 16 ) ? $total : 16;
+    my $rows  = int( $total / $cols );
+
+    my @out;
+    for ( my $i = 0; $i < $rows; $i++ ) {
+        my @row;
+        for ( my $j = 0; $j < $cols; $j++ ) {
+            my $disp     = $net->addr;
+            my $stn      = $status{ $net->numeric } // '';
+            my $divclass = $classes{ $stn } || 'ipaddr_available';
+            my $divtitle = $names{ $net->numeric } || $net->addr;
+            # Hide the insignificant (network) octets for v4.
+            if ( $o->version == 4 ) {
+                $disp =~ s/^\d+\.\d+\.\d+\.(\d+)$/$1/o if $mask >= 24;
+                $disp =~ s/^\d+\.\d+\.(\d+\.\d+)$/$1/o    if $mask >= 16 && $mask < 24;
+                $disp =~ s/^\d+\.(\d+\.\d+\.\d+)$/$1/o    if $mask >= 8  && $mask < 16;
+            }
+            my $cell;
+            if ( $mask != 31 && $net->numeric == $net->network->numeric && !$o->use_network_broadcast ) {
+                $cell = qq{<div class="ipaddr_disabled" title="Network">$disp</div>};
+            } elsif ( $mask != 31 && $net->numeric == $net->broadcast->numeric && !$o->use_network_broadcast ) {
+                $cell = qq{<div class="ipaddr_disabled" title="Broadcast">$disp</div>};
+            } else {
+                my $inner = qq{<div class="$divclass" title="$divtitle" width="100%">$disp</div>};
+                my $aid   = $ids{ $net->numeric };
+                $cell = ( exists $used{ $net->numeric } && $aid )
+                    ? qq{<a href="/management/ipblock/$aid" class="ipaddr">$inner</a>}
+                    : $inner;
+            }
+            push @row, $cell;
+            $net++;
+        }
+        push @out, \@row;
+    }
+    return \@out;
 }
 
 1;

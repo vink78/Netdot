@@ -8,6 +8,7 @@
 % my $viewformat = $c->stash->{viewformat} // 'list';
 % my $modes      = $c->stash->{modes}      // [ 'list' ];
 % my $tree_html  = $c->stash->{tree_html};
+% my $grid       = $c->stash->{grid};   # arrayref of rows of HTML cells (subnet block view)
 % my $is_addr    = ( $viewtype eq 'address' );
 % my @hdrs = $is_addr ? ( 'Address', 'Name', 'Device', 'Status', 'Used by', 'Description', 'Last Seen' ) : ( 'Address/Prefix', 'Status', 'Utilization', 'Owner', 'Used by', 'Description' );
 %# Breadcrumb: Roots > a > b > (current, bold). Only when viewing a block.
@@ -50,8 +51,25 @@
     % }
     </div>
 % }
-%# Tree view: the GraphViz graph (containers). Otherwise the block table.
-% if ($viewformat eq 'tree' && $tree_html) {
+%# Block view (subnet): the address grid. Tree view: the GraphViz graph. Otherwise the table.
+% if ($grid) {
+    <div style="margin:0.5em 0; font-size:0.85em">
+    Legend:
+    <span class="ipaddr_available">Available</span>
+    <span class="ipaddr_dynamic">Dynamic</span>
+    <span class="ipaddr_static">Static</span>
+    <span class="ipaddr_reserved">Reserved</span>
+    </div>
+    <table class="ipgrid" style="border-collapse:collapse">
+    % for my $row (@$grid) {
+        <tr>
+        % for my $cell (@$row) {
+            <td style="padding:0 2px; text-align:center"><%== $cell %></td>
+        % }
+        </tr>
+    % }
+    </table>
+% } elsif ($viewformat eq 'tree' && $tree_html) {
     <div style="margin:1em 0"><%== $tree_html %></div>
 % } else {
 %# The blocks to list (roots on the top page, children/descendants on a block page).
