@@ -5,6 +5,11 @@
 % my $comments   = $c->stash->{comments}    // '';
 % my $a_records  = $c->stash->{a_records}   // [];
 % my $ptr_records= $c->stash->{ptr_records} // [];
+% my $services   = $c->stash->{services}    // [];
+% my $attributes = $c->stash->{attributes}  // [];
+% my $dhcp       = $c->stash->{dhcp}        // [];
+% my $arp        = $c->stash->{arp}         // [];
+% my $audit      = $c->stash->{audit}       // [];
 %# Breadcrumb: Roots > a > b > (current, bold).
 % if ($current) {
     <div class="breadcrumb" style="margin:0 0 1em 0; font-size:0.95em">
@@ -67,7 +72,7 @@
             <tbody>
             % for my $r (@$a_records) {
                 <tr>
-                    <td><%= $r->{name} %></td>
+                    <td><%== $r->{name_html} %></td>
                     <td>
                     % if ($r->{zone_href}) {
                         <a href="<%= $r->{zone_href} %>"><%= $r->{zone} %></a>
@@ -96,7 +101,7 @@
             <tbody>
             % for my $r (@$ptr_records) {
                 <tr>
-                    <td><%= $r->{name} %></td>
+                    <td><%== $r->{name_html} %></td>
                     <td>
                     % if ($r->{zone_href}) {
                         <a href="<%= $r->{zone_href} %>"><%= $r->{zone} %></a>
@@ -113,3 +118,109 @@
     % }
     </div>
 </div>
+
+%# Services
+% if (@$services) {
+<div class="container">
+    <div class="containerheadleft">Services</div>
+    <div class="containerheadright">&nbsp;</div>
+    <div class="containerbody" style="padding:0.6em">
+        <table class="sortable" style="width:100%">
+            <thead><tr><th>Service</th><th>Contact List</th></tr></thead>
+            <tbody>
+            % for my $r (@$services) {
+                <tr><td><%== $r->{service_html} %></td><td><%== $r->{contact_html} %></td></tr>
+            % }
+            </tbody>
+        </table>
+    </div>
+</div>
+% }
+
+%# Custom Attributes
+% if (@$attributes) {
+<div class="container">
+    <div class="containerheadleft">Custom Attributes</div>
+    <div class="containerheadright">&nbsp;</div>
+    <div class="containerbody" style="padding:0.6em">
+        <table class="sortable" style="width:100%">
+            <thead><tr><th>Name</th><th>Value</th></tr></thead>
+            <tbody>
+            % for my $r (@$attributes) {
+                <tr><td><%= $r->{name} %></td><td><%= $r->{value} %></td></tr>
+            % }
+            </tbody>
+        </table>
+    </div>
+</div>
+% }
+
+%# DHCP Host
+% if (@$dhcp) {
+<div class="container">
+    <div class="containerheadleft">DHCP Host</div>
+    <div class="containerheadright">&nbsp;</div>
+    <div class="containerbody" style="padding:0.6em">
+        <table class="sortable" style="width:100%">
+            <thead><tr><th>Type</th><th>Name</th><th>Ethernet</th><th>DUID</th><th>Active?</th></tr></thead>
+            <tbody>
+            % for my $r (@$dhcp) {
+                <tr>
+                    <td><%= $r->{type} %></td>
+                    <td><%= $r->{name} %></td>
+                    <td><%== $r->{ethernet_html} %></td>
+                    <td><%= $r->{duid} %></td>
+                    <td><%= $r->{active} ? 'Yes' : 'No' %></td>
+                </tr>
+            % }
+            </tbody>
+        </table>
+    </div>
+</div>
+% }
+
+%# Last ARP entries
+% if (@$arp) {
+<div class="container">
+    <div class="containerheadleft">Last ARP entries</div>
+    <div class="containerheadright">&nbsp;</div>
+    <div class="containerbody" style="padding:0.6em">
+        <table class="sortable" style="width:100%">
+            <thead><tr><th>Time Seen</th><th>MAC</th><th>Interfaces</th></tr></thead>
+            <tbody>
+            % for my $r (@$arp) {
+                <tr>
+                    <td><%= $r->{tstamp} %></td>
+                    <td><%== $r->{mac_html} %></td>
+                    <td><%== join( ', ', @{ $r->{interfaces} } ) %></td>
+                </tr>
+            % }
+            </tbody>
+        </table>
+    </div>
+</div>
+% }
+
+%# Audit Records
+% if (@$audit) {
+<div class="container">
+    <div class="containerheadleft">Audit Records</div>
+    <div class="containerheadright">&nbsp;</div>
+    <div class="containerbody" style="padding:0.6em">
+        <table class="sortable" style="width:100%">
+            <thead><tr><th>Timestamp</th><th>Username</th><th>Table</th><th>Label</th><th>Operation</th></tr></thead>
+            <tbody>
+            % for my $r (@$audit) {
+                <tr>
+                    <td><%= $r->{tstamp} %></td>
+                    <td><%= $r->{username} %></td>
+                    <td><%= $r->{tablename} %></td>
+                    <td><%= $r->{label} %></td>
+                    <td><%= $r->{operation} %></td>
+                </tr>
+            % }
+            </tbody>
+        </table>
+    </div>
+</div>
+% }

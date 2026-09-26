@@ -4,6 +4,8 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Netdot;
 use Netdot::Model;
+use Netdot::Model::Interface;
+use Netdot::Model::PhysAddr;
 use Netdot::UI;
 use Netdot::Mojo::Registry;
 use NetAddr::IP;
@@ -37,8 +39,8 @@ sub show ($c) {
             push @attrs, [ 'Description',  eval { $o->description } // '' ];
             push @attrs, [ 'First Seen',   eval { $o->first_seen }  // '' ];
             push @attrs, [ 'Last Seen',    eval { $o->last_seen }   // '' ];
-            push @attrs, [ 'Owner',        _obj_label( $o->owner ) ];
-            push @attrs, [ 'Used by',      _obj_label( $o->used_by ) ];
+            push @attrs, [ 'Owner',        _fk_link( eval { $o->owner } ) ];
+            push @attrs, [ 'Used by',      _fk_link( eval { $o->used_by } ) ];
             push @attrs, [ 'Monitored?',   $o->monitored ? 'Yes' : 'No' ];
 
             my $iid  = eval { $o->interface->id };
@@ -50,6 +52,14 @@ sub show ($c) {
             my $did = eval { $dev->id };
             push @attrs, [ 'Device', $did ? "<a href=\"/management/device/$did\">" . _obj_label($dev) . "</a>" : '' ];
 
+            # Related objects (read-only; no add/edit links — those need the
+            # not-yet-migrated edit interface).
+            my @services = _ip_services( $o );
+            my @attributes = _ip_attributes( $o );
+            my @dhcp   = _ip_dhcp_scopes( $o );
+            my @arp    = _ip_last_arp( $o );
+            my @audit  = _ip_audit_records( $o );
+
             $c->render(
                 template    => 'management/ipaddress',
                 layout      => 'default',
@@ -60,6 +70,11 @@ sub show ($c) {
                 comments    => ( eval { $o->info } // '' ),
                 a_records   => [ _ip_dns_records( $o, 'a_records' ) ],
                 ptr_records => [ _ip_dns_records( $o, 'ptr_records' ) ],
+                services    => \@services,
+                attributes  => \@attributes,
+                dhcp        => \@dhcp,
+                arp         => \@arp,
+                audit       => \@audit,
             );
             return;
         }
@@ -358,6 +373,17 @@ sub _obj_label {
     return eval { $o->get_label } // '';
 }
 
+# Display an FK object as a link to its detail page (when a route exists).
+# $obj may be undef. An optional display text overrides the object's label
+# (e.g. a PhysAddr shown via its config-formatted MAC).
+sub _fk_link {
+    my ( $obj, %opt ) = @_;
+    return '' unless $obj;
+    my ( $text, $href ) = @{ Netdot::Mojo::Registry::link_for( $obj ) };
+    $text = $opt{text} if defined $opt{text};
+    return $href ? "<a href=\"$href\">$text</a>" : $text;
+}
+
 # DNS records (A or PTR) attached to an address. Each record is wrapped in a
 # joiner object; ->rr yields the RR (name), ->rr->zone the owning zone.
 sub _ip_dns_records {
@@ -366,11 +392,116 @@ sub _ip_dns_records {
     my @rel = eval { $o->$method };      # list context; no "//()" (it degrades wantarray)
     return @out if $@;
     for my $r (@rel) {
-        my $rr = eval { $r->rr } or next;
+        my $rr   = eval { $r->rr } or next;
         my $name = eval { $rr->name } // '';
         my $zid  = eval { $rr->zone->id };
         my $zl   = eval { $rr->zone->get_label } // '';
-        push @out, { name => $name, zone => $zl, zone_href => $zid ? "/management/zone/$zid" : undef };
+        push @out, {
+            # name shown as the bare record name, linked to the RR object.
+            name_html => _fk_link( $rr, text => $name ),
+            zone      => $zl,
+            zone_href => $zid ? "/management/zone/$zid" : undef,
+        };
+    }
+    return @out;
+}
+
+# Services attached to an address (IpService -> Service, ContactList).
+sub _ip_services {
+    my ($o) = @_;
+    my @out;
+    my @rel = eval { $o->services };
+    return @out if $@;
+    for my $s (@rel) {
+        my $svc = eval { $s->service };
+        my $cl  = eval { $s->contactlist };
+        push @out, {
+            service_html => _fk_link( $svc ),   # Service    -> /management/service/<id>
+            contact_html => _fk_link( $cl ),    # ContactList -> /management/contactlist/<id>
+        };
+    }
+    return @out;
+}
+
+# Custom attributes of an address (IpblockAttr -> IpblockAttrName, value).
+sub _ip_attributes {
+    my ($o) = @_;
+    my @out;
+    my @rel = eval { $o->attributes };
+    return @out if $@;
+    for my $a (@rel) {
+        my $nm = eval { $a->name->name } // eval { $a->name->get_label } // '';
+        push @out, { name => $nm, value => eval { $a->value } // '' };
+    }
+    return @out;
+}
+
+# DHCP host scopes bound to this address (DhcpScope).
+sub _ip_dhcp_scopes {
+    my ($o) = @_;
+    my @rel = eval { $o->dhcp_scopes };
+    return () if $@;
+    my @out;
+    for my $s (@rel) {
+        my $pa  = eval { $s->physaddr };
+        my $mac = eval { $pa && $pa->format_address } // '';
+        push @out, {
+            # type is a FK to DhcpScopeType (enum value, not linked);
+            # physaddr is a FK to PhysAddr, shown via its config-formatted MAC.
+            type          => eval { $s->type->name } // '',
+            name          => eval { $s->name }       // '',
+            ethernet_html => _fk_link( $pa, text => $mac ),
+            duid          => eval { $s->duid }       // '',
+            active        => eval { $s->active },
+        };
+    }
+    return @out;
+}
+
+# Last ARP entries for this address, grouped by (tstamp, mac).
+sub _ip_last_arp {
+    my ( $o, $limit ) = @_;
+    $limit ||= 10;
+    my $arp = eval { $o->get_last_n_arp( $limit ) };
+    return () unless $arp && ref( $arp ) eq 'ARRAY';
+    my %tstamps;
+    for my $row ( @$arp ) {
+        my ( $iid, $macid, $tstamp ) = @$row;
+        next unless defined $iid;
+        my $lbl = eval { Interface->retrieve( $iid )->get_label } // '';
+        # Each interface is a link to its detail page.
+        push @{ $tstamps{ $tstamp }{ $macid } },
+            _fk_link( eval { Interface->retrieve( $iid ) }, text => $lbl );
+    }
+    my @out;
+    for my $tstamp ( reverse sort keys %tstamps ) {
+        for my $macid ( sort keys %{ $tstamps{ $tstamp } } ) {
+            my $pa  = eval { PhysAddr->retrieve( $macid ) };
+            my $mac = eval { $pa && $pa->format_address } // '';
+            push @out, {
+                tstamp     => $tstamp,
+                mac_html   => _fk_link( $pa, text => $mac ),   # PhysAddr link, formatted MAC
+                interfaces => $tstamps{ $tstamp }{ $macid },   # arrayref of link HTML
+            };
+        }
+    }
+    return @out;
+}
+
+# Audit log entries for this address.
+sub _ip_audit_records {
+    my ($o) = @_;
+    my @rel = eval { $o->get_audit_records };
+    return () if $@;
+    my @out;
+    for my $r (@rel) {
+        push @out, {
+            tstamp    => eval { $r->tstamp }    // '',
+            username  => eval { $r->username }  // '',
+            tablename => eval { $r->tablename } // '',
+            label     => eval { $r->label }     // '',
+            operation => eval { $r->operation } // '',
+        };
     }
     return @out;
 }

@@ -16,10 +16,16 @@ our %TYPES = (
     floor     => { class => 'Floor',     label => 'Floors',     desc => 'site floors',         cols => [qw(level site)] },
     closet    => { class => 'Closet',    label => 'Closets',    desc => 'machine rooms',       cols => [qw(name room info)] },
     person    => { class => 'Person',    label => 'People',     desc => 'contacts / users',    cols => [qw(username firstname lastname email entity)] },
+    # Foreign-key target objects (linked from other detail pages).
+    rr          => { class => 'RR',          label => 'DNS Records',   desc => 'DNS resource records',   cols => [qw(name zone)] },
+    entity      => { class => 'Entity',      label => 'Entities',      desc => 'entities / customers',   cols => [qw(name aliases short_name)] },
+    service     => { class => 'Service',     label => 'Services',      desc => 'Internet services',      cols => [qw(name)] },
+    contactlist => { class => 'ContactList', label => 'Contact Lists', desc => 'contact groups',         cols => [qw(name)] },
+    physaddr    => { class => 'PhysAddr',    label => 'MAC Addresses', desc => 'physical (MAC) addresses', cols => [qw(address)] },
 );
 
 # Ordered list of browsable types (drives routes, navbar and home menu).
-our @ORDER = qw(ipblock device interface vlan zone site room floor closet person);
+our @ORDER = qw(ipblock device interface vlan zone site room floor closet person rr entity service contactlist physaddr);
 sub types { @ORDER }
 
 # Columns that must never be displayed (secrets / raw credentials).
