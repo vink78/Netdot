@@ -8,3 +8,6 @@ etc/Site.conf*
 etc/schema*
 upgrade/error.log
 var/pollstats.rrd
+
+# Generated GraphViz images (tree view); the directory itself is kept via .gitkeep
+htdocs/img/graphs/*.png

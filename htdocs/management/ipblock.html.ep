@@ -5,6 +5,9 @@
 % my $blocks     = $c->stash->{blocks}     // [];
 % my $breadcrumb = $c->stash->{breadcrumb} // [];
 % my $devs       = $c->stash->{devs};   # hashref: address_numeric => device_id (address view)
+% my $viewformat = $c->stash->{viewformat} // 'list';
+% my $modes      = $c->stash->{modes}      // [ 'list' ];
+% my $tree_html  = $c->stash->{tree_html};
 % my $is_addr    = ( $viewtype eq 'address' );
 % my @hdrs = $is_addr ? ( 'Address', 'Name', 'Device', 'Status', 'Used by', 'Description', 'Last Seen' ) : ( 'Address/Prefix', 'Status', 'Utilization', 'Owner', 'Used by', 'Description' );
 %# Breadcrumb: Roots > a > b > (current, bold). Only when viewing a block.
@@ -37,7 +40,21 @@
         % }
     </p>
 % }
-%# The blocks to list (roots on the top page, children on a block page).
+%# View-format toggle (list / block / tree) — shown on the detail view.
+% if ($current && @$modes > 1) {
+    <div style="margin:0 0 1em 0; font-size:0.9em">
+    % for my $i (0 .. $#$modes) {
+        % my $m = $modes->[$i];
+        <a href="/management/ipblock/<%= $current->id %>?view_format=<%= $m %>" style="<%= $viewformat eq $m ? 'font-weight:bold' : '' %>"><%= $m eq 'list' ? 'List' : $m eq 'block' ? 'Block' : 'Tree' %> View</a>
+        <span style="color:#ccc"><%= $i < $#$modes ? ' | ' : '' %></span>
+    % }
+    </div>
+% }
+%# Tree view: the GraphViz graph (containers). Otherwise the block table.
+% if ($viewformat eq 'tree' && $tree_html) {
+    <div style="margin:1em 0"><%== $tree_html %></div>
+% } else {
+%# The blocks to list (roots on the top page, children/descendants on a block page).
 <table class="sortable">
     <thead>
         <tr>
@@ -85,4 +102,5 @@
 </table>
 % unless (@$blocks) {
     <p style="color:#888">No blocks.</p>
+% }
 % }
