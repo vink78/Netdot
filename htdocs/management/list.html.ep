@@ -1,0 +1,26 @@
+<h1><%= ucfirst($type) %> <small>(<%= $total %> total, <%= scalar @$rows %> shown)</small></h1>
+
+% if (@$rows) {
+  <table class="tablescroll">
+    <thead>
+      <tr>
+        <th>id</th>
+        % for my $col (@$cols) {
+        <th><%= $col %></th>
+        % }
+      </tr>
+    </thead>
+    <tbody>
+      % for my $row (@$rows) {
+      <tr>
+        <td><a href="<%= url_for( $type . '_show', id => $row->{id} ) %>"><%= $row->{id} %></a></td>
+        % for my $col (@$cols) {
+        <td><%= $row->{$col} // '' %></td>
+        % }
+      </tr>
+      % }
+    </tbody>
+  </table>
+% } else {
+  <p>No <%= $type %>.</p>
+% }

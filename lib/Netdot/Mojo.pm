@@ -21,8 +21,12 @@ sub startup ($self) {
     # ---- Routes ----
     my $r = $self->routes;
     $r->get('/')->to('home#index')->name('home');
-    $r->get('/management/ipblock_list')->to('browse#ipblock_list')->name('ipblock_list');
-    $r->get('/management/device')->to('browse#device_list')->name('device_list');
+
+    # One list + one detail route per browsable type (see Netdot::Mojo::Registry).
+    for my $t (qw(ipblock device vlan zone interface person)) {
+        $r->get("/management/$t")->to('browse#list', type => $t)->name("${t}_list");
+        $r->get("/management/$t/:id")->to('show#show', type => $t)->name("${t}_show");
+    }
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');
     $r->get('/logout')->to('auth#logout')->name('logout');

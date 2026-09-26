@@ -1,0 +1,15 @@
+<h1><%= ucfirst($type) %> #<%= $id %></h1>
+
+<p><a href="<%= url_for( $type . '_list' ) %>">&laquo; <%= ucfirst($type) %></a></p>
+
+% if (@$attrs) {
+  <table class="tablescroll detail">
+    <tbody>
+      % for my $a (@$attrs) {
+      <tr><th><%= $a->[0] %></th><td><%= $a->[1] %></td></tr>
+      % }
+    </tbody>
+  </table>
+% } else {
+  <p>No attribute.</p>
+% }
