@@ -48,12 +48,10 @@
   <div id="navbar">
     <ul id="navigation">
       <li><a href="<%= url_for('home') %>">home</a></li>
-      <li><a href="<%= url_for('ipblock_list') %>">ipblock</a></li>
-      <li><a href="<%= url_for('device_list') %>">device</a></li>
-      <li><a href="<%= url_for('vlan_list') %>">vlan</a></li>
-      <li><a href="<%= url_for('zone_list') %>">zone</a></li>
-      <li><a href="<%= url_for('interface_list') %>">interface</a></li>
-      <li><a href="<%= url_for('person_list') %>">person</a></li>
+      % my $nav = $c->stash('nav') // [];
+      % for my $n (@$nav) {
+      <li><a href="<%= url_for( $n->[0] . '_list' ) %>"><%= $n->[1] %></a></li>
+      % }
     </ul>
   </div>
   <div id="content">

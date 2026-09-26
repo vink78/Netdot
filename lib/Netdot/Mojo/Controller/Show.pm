@@ -25,9 +25,9 @@ sub show ($c) {
         my $v = eval { $obj->$col };
         next if $@;
         next unless defined $v;
-        my $val = Netdot::Mojo::Registry::format_value($v);
-        next if $val eq '';
-        push @attrs, [ $col, $val ];
+        my ( $text, $href ) = @{ Netdot::Mojo::Registry::link_for($v) };
+        next if !defined $text || $text eq '';
+        push @attrs, [ $col, $text, $href ];
     }
 
     $c->render(

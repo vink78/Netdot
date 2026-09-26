@@ -6,6 +6,7 @@ use File::Basename qw(dirname);
 use Cwd          qw(abs_path);
 
 use Netdot::Model;    # loads Netdot (config + meta) and connects to the DB
+use Netdot::Mojo::Registry;
 
 sub startup ($self) {
 
@@ -24,7 +25,7 @@ sub startup ($self) {
     $r->get('/')->to('home#index')->name('home');
 
     # One list + one detail route per browsable type (see Netdot::Mojo::Registry).
-    for my $t (qw(ipblock device vlan zone interface person)) {
+    for my $t ( Netdot::Mojo::Registry::types() ) {
         $r->get("/management/$t")->to('browse#list', type => $t)->name("${t}_list");
         $r->get("/management/$t/:id")->to('show#show', type => $t)->name("${t}_show");
     }
@@ -41,6 +42,15 @@ sub startup ($self) {
         return if $path =~ m{^/(?:css|img|java_script)(?:/|$)};
         return if $path eq '/favicon.ico';
         $c->redirect_to( $c->url_for('login') ) unless $c->session('username');
+    });
+
+    # Expose the browsable types to the layout (navbar + home menu): [type, label, desc].
+    $self->hook( before_render => sub {
+        my ($c) = @_;
+        $c->stash( nav => [ map {
+            my $s = Netdot::Mojo::Registry::spec( $_ );
+            [ $_, $s->{label}, $s->{desc} ]
+        } Netdot::Mojo::Registry::types() ] );
     });
 }
 

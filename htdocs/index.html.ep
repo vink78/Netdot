@@ -2,11 +2,9 @@
 
 <p>Select an object type to browse:</p>
 <ul class="menu">
-  <li><a href="<%= url_for('ipblock_list') %>">Ipblocks</a> — IP address blocks</li>
-  <li><a href="<%= url_for('device_list') %>">Devices</a> — network equipment</li>
-  <li><a href="<%= url_for('vlan_list') %>">VLANs</a> — virtual LANs</li>
-  <li><a href="<%= url_for('zone_list') %>">Zones</a> — DNS zones</li>
-  <li><a href="<%= url_for('interface_list') %>">Interfaces</a> — device interfaces</li>
-  <li><a href="<%= url_for('person_list') %>">People</a> — contacts / users</li>
+  % my $nav = $c->stash('nav') // [];
+  % for my $n (@$nav) {
+  <li><a href="<%= url_for( $n->[0] . '_list' ) %>"><%= $n->[1] %></a> — <%= $n->[2] %></li>
+  % }
 </ul>
-<p class="muted">Read-only: click any id to see all its attributes.</p>
+<p class="muted">Read-only: click any id to see all its attributes; related objects are linked.</p>
