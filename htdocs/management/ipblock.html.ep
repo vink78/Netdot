@@ -1,12 +1,12 @@
-%# Pull every variable from the stash with defaults, so the template is safe
-%# even if a controller omits an optional key (use strict is in effect).
+%# Pull every variable from the stash with defaults (safe if a controller omits a key).
 % my $viewtype   = $c->stash->{viewtype}   // 'block';
 % my $title      = $c->stash->{title}      // 'Ipblock';
 % my $current    = $c->stash->{current};
 % my $blocks     = $c->stash->{blocks}     // [];
 % my $breadcrumb = $c->stash->{breadcrumb} // [];
+% my $devs       = $c->stash->{devs};   # hashref: address_numeric => device_id (address view)
 % my $is_addr    = ( $viewtype eq 'address' );
-% my @hdrs       = $is_addr ? ( 'Address', 'Status', 'Owner', 'Used by', 'Description', 'Last seen' ) : ( 'Address/Prefix', 'Status', 'Owner', 'Used by', 'Description' );
+% my @hdrs = $is_addr ? ( 'Address', 'Name', 'Device', 'Status', 'Used by', 'Description', 'Last Seen' ) : ( 'Address/Prefix', 'Status', 'Utilization', 'Owner', 'Used by', 'Description' );
 %# Breadcrumb: Roots > a > b > (current, bold). Only when viewing a block.
 % if ($current) {
     <div class="breadcrumb" style="margin:0 0 1em 0; font-size:0.95em">
@@ -49,14 +49,36 @@
     <tbody>
     % for my $o (@$blocks) {
         <tr>
-            <td><a href="/management/ipblock/<%= $o->id %>"><%= $o->get_label %></a></td>
+        % if ($is_addr) {
+            <td><a href="/management/ipblock/<%= $o->id %>"><%= $o->address %></a></td>
+            % my @names = eval { $o->a_records } // ();
+            % my $name  = join( ', ', map { eval { $_->rr->get_label } // '' } @names );
+            <td><%= $name %></td>
+            % my $did = $devs ? ( $devs->{ $o->address_numeric } // undef ) : undef;
+            <td>
+            % if ( my $dev = $did ? Device->retrieve( $did ) : undef ) {
+                <a href="/management/device/<%= $dev->id %>"><%= $dev->fqdn %></a>
+            % }
+            </td>
             <td><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
+            <td><%= Netdot::Mojo::Registry::format_value( $o->used_by ) %></td>
+            <td><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
+            <td><%= Netdot::Mojo::Registry::format_value( $o->last_seen ) %></td>
+        % } else {
+            <td><a href="/management/ipblock/<%= $o->id %>"><%= $o->get_label %></a></td>
+            % my $st = eval { $o->status->get_label } // '';
+            <td><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
+            <td>
+            % if ( $st eq 'Subnet' && $o->num_addr ) {
+                <b><%= int( $o->num_children * 1000 / $o->num_addr ) / 10 %>%</b>
+            % } elsif ( $st eq 'Container' && $o->num_addr ) {
+                <b><%= int( $o->address_usage * 1000 / $o->num_addr ) / 10 %>%</b> / <b><%= int( $o->subnet_usage * 1000 / $o->num_addr ) / 10 %>%</b>
+            % }
+            </td>
             <td><%= Netdot::Mojo::Registry::format_value( $o->owner ) %></td>
             <td><%= Netdot::Mojo::Registry::format_value( $o->used_by ) %></td>
             <td><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
-            % if ($is_addr) {
-                <td><%= Netdot::Mojo::Registry::format_value( $o->last_seen ) %></td>
-            % }
+        % }
         </tr>
     % }
     </tbody>

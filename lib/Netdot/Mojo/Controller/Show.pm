@@ -33,6 +33,8 @@ sub show ($c) {
         my @crumbs = ( { label => 'Roots', id => 0 } );
         push @crumbs, map { { label => $_->get_label, id => $_->id } } ( reverse @ancs );
         my $viewtype = @kids && eval { $kids[0]->is_address } ? 'address' : 'block';
+        # Address view needs a device-by-ip lookup (built once, shared by all rows).
+        my $devs = $viewtype eq 'address' ? ( eval { Device->get_ips_from_all() } || {} ) : undef;
         $c->render(
             template   => 'management/ipblock',
             layout     => 'default',
@@ -41,6 +43,7 @@ sub show ($c) {
             blocks     => \@kids,
             current    => $o,
             breadcrumb => \@crumbs,
+            devs       => $devs,
         );
         return;
     }
