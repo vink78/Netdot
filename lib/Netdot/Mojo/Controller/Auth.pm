@@ -9,7 +9,7 @@ sub login_form ($c) {
     $c->render(
         template => 'login',
         layout   => 'default',
-        title    => 'Connexion',
+        title    => 'Login',
         username => ''
     );
 }
@@ -20,13 +20,13 @@ sub login_submit ($c) {
 
     my $shim = Netdot::Mojo::AuthShim->new( app => $c->app );
 
-    # LDAP (Netdot::LDAP bascule lui-meme sur l'auth locale si NetdotLDAPFailToLocal=yes).
+    # LDAP (Netdot::LDAP itself falls back to local auth if NetdotLDAPFailToLocal=yes).
     my $ok = eval {
         require Netdot::LDAP;
         Netdot::LDAP::check_credentials( $shim, $user, $pass );
     };
 
-    # Filet : si le module LDAP est indisponible (Net::LDAP absent), auth locale directe.
+    # Fallback: if the LDAP module is unavailable (Net::LDAP missing), direct local auth.
     if ( !$ok && ( $@ || '' ) =~ m{Can't locate Net/LDAP} ) {
         $ok = eval {
             require Netdot::AuthLocal;
@@ -42,9 +42,9 @@ sub login_submit ($c) {
         $c->render(
             template => 'login',
             layout   => 'default',
-            title    => 'Connexion',
+            title    => 'Login',
             username => $user,
-            error    => 'Authentification echeouee',
+            error    => 'Authentication failed',
         );
     }
 }

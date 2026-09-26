@@ -3,12 +3,12 @@ package Netdot::Mojo::AuthShim;
 use strict;
 use warnings;
 
-# Simule l'objet requete Apache ($r) attendu par Netdot::LDAP et Netdot::AuthLocal :
-#   ->dir_config(nom) : renvoie la valeur depuis la config Netdot (etc/Site.conf)
-#   ->log_error(msg)  : log via le logger Mojolicious
-#   ->warn(msg)       : idem
+# Emulates the Apache request object ($r) expected by Netdot::LDAP and Netdot::AuthLocal:
+#   ->dir_config(key): returns the value from Netdot config (etc/Site.conf)
+#   ->log_error(msg) : logs via the Mojolicious logger
+#   ->warn(msg)      : same
 #
-# Permet de reutiliser l'auth existante hors Apache sans la modifier.
+# Allows reusing the existing auth out of Apache without modifying it.
 
 sub new {
     my ( $class, %args ) = @_;
@@ -18,8 +18,8 @@ sub new {
 sub dir_config {
     my ( $self, $key ) = @_;
     require Netdot;
-    # Netdot::Config->get croake si la cle est absente ; Apache dir_config renvoie
-    # undef. On renvoie donc undef (sans exception) si la cle n'est pas definie.
+    # Netdot::Config->get croaks if the key is absent; Apache dir_config returns
+    # undef. So we return undef (without an exception) if the key is not defined.
     my $val = eval { Netdot->config->get($key) };
     return $val;
 }

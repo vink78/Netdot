@@ -4,9 +4,9 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Netdot::Model;
 
-# Liste BORNEE des ipblocks, reutilise le modele Netdot (hors Apache).
-# NB : la table ipblock est grosse (centaines de milliers) -> LIMIT en SQL,
-# puis retrieval par id pour obtenir des objets inflates (address = IP lisible).
+# BOUNDED list of ipblocks, reusing the Netdot model (out of Apache).
+# NB: the ipblock table is large (hundreds of thousands) -> SQL LIMIT,
+# then retrieve by id to get inflated objects (address = readable IP).
 sub ipblock_list ($c) {
     my $limit = 50;
 
@@ -22,6 +22,27 @@ sub ipblock_list ($c) {
         layout   => 'default',
         title    => 'Ipblocks',
         ipblocks => \@objs,
+        total    => $total,
+        limit    => $limit,
+    );
+}
+
+# BOUNDED list of devices (LIMIT query + retrieve by id, inflated objects).
+sub device_list ($c) {
+    my $limit = 50;
+
+    my $dbh   = Netdot::Model->db_Main;
+    my ($total) = $dbh->selectrow_array("SELECT COUNT(*) FROM device");
+
+    my $sth  = $dbh->prepare("SELECT id FROM device LIMIT ?");
+    $sth->execute($limit);
+    my @objs = map { Device->retrieve( $_->[0] ) } @{ $sth->fetchall_arrayref };
+
+    $c->render(
+        template => 'management/device',
+        layout   => 'default',
+        title    => 'Devices',
+        devices  => \@objs,
         total    => $total,
         limit    => $limit,
     );

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,6 +9,9 @@
   <header id="header">
     <a href="<%= url_for('home') %>" class="logo">Netdot · Mojolicious</a>
     <nav>
+      <a href="<%= url_for('home') %>">home</a>
+      <a href="<%= url_for('ipblock_list') %>">ipblock</a>
+      <a href="<%= url_for('device_list') %>">device</a>
       % if (my $u = $c->session('username')) {
         <span><%= $u %></span>
         <a href="<%= url_for('logout') %>">logout</a>

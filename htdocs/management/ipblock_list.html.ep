@@ -1,4 +1,4 @@
-<h1>Ipblocks <small>(<%= $total %> au total, <%= scalar @{$ipblocks} %> affichés)</small></h1>
+<h1>Ipblocks <small>(<%= $total %> total, <%= scalar @{$ipblocks} %> shown)</small></h1>
 
 % if (@$ipblocks) {
   <table class="tablescroll">
@@ -18,5 +18,5 @@
     </tbody>
   </table>
 % } else {
-  <p>Aucun ipblock.</p>
+  <p>No ipblock.</p>
 % }

@@ -6,7 +6,7 @@ use lib "$FindBin::Bin/../lib";
 
 use Netdot::Mojo;
 
-# Pattern standard (cf. Mojo::HelloWorld) : instancier, puis ->start sur l'instance.
-# (->start en methode classe est casse en v9.39 : attributs lazy accedes sur le string).
+# Standard pattern (cf. Mojo::HelloWorld): instantiate, then call ->start on the instance.
+# (->start as a class method is broken in v9.39: lazy attrs accessed on the class string).
 my $app = Netdot::Mojo->new;
 $app->start;
