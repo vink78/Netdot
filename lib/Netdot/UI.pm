@@ -1665,7 +1665,8 @@ sub build_backbone_graph_html {
 sub build_ip_tree_graph {
     my ($self, %argv) = @_;
     my ($list, $filename) = @argv{'list', 'filename'};
-    
+    my $web_path = $argv{web_path} // '/';
+
     # These should match whatever is on the stylesheet
     my %colors = (
 	Subnet    => '#ff6666',
@@ -1700,7 +1701,7 @@ sub build_ip_tree_graph {
 	    label     => $lbl,
 	    shape     => "record",
 	    fillcolor => $colors{$ip->status->name},
-	    URL       => "ip.html?id=".$ip->id,
+	    URL       => $web_path . "management/ipblock/" . $ip->id,
 	    );
 	
 	if ( my $parent = $ip->parent ){
@@ -1716,7 +1717,7 @@ sub build_ip_tree_graph {
 		    name   => $parent->get_label,
 		    label  => $lbl,
 		    shape  => "record",
-		    URL    => "ip.html?id=".$parent->id,
+		    URL    => $web_path . "management/ipblock/" . $parent->id,
 		    );
 		$seen{$parent->id} = 1;
 	    }
