@@ -14,6 +14,7 @@ sub startup ($self) {
     my $root   = abs_path( dirname( dirname( dirname( __FILE__ ) ) ) );
     my $htdocs = "$root/htdocs";
     push @{ $self->renderer->paths }, $htdocs;
+    push @{ $self->static->paths },   $htdocs;    # static assets (css, img, js)
 
     # ---- Sessions / cookies ----
     $self->secrets([ $ENV{NETDOT_MOCK} // 'netdot-mojo-dev-change-me' ]);
