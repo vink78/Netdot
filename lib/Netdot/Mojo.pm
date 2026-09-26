@@ -24,9 +24,12 @@ sub startup ($self) {
     my $r = $self->routes;
     $r->get('/')->to('home#index')->name('home');
 
-    # One list + one detail route per browsable type (see Netdot::Mojo::Registry).
+    # Per browsable type: list, CSV export, batch delete, then detail (see Registry).
+    # csv/delete are declared before :id so they win over the id placeholder.
     for my $t ( Netdot::Mojo::Registry::types() ) {
         $r->get("/management/$t")->to('browse#list', type => $t)->name("${t}_list");
+        $r->get("/management/$t/csv")->to('browse#csv', type => $t)->name("${t}_csv");
+        $r->post("/management/$t/delete")->to('browse#delete', type => $t)->name("${t}_delete");
         $r->get("/management/$t/:id")->to('show#show', type => $t)->name("${t}_show");
     }
     $r->get('/login')->to('auth#login_form')->name('login');

@@ -9,14 +9,14 @@ use Netdot::Mojo::Registry;
 sub show ($c) {
     my $type = $c->stash('type');
     my $spec = Netdot::Mojo::Registry::spec($type)
-        or return $c->rendered(404);
+        or return $c->reply->not_found;
     my $class = $spec->{class};
 
     my $id = $c->param('id');
-    $id =~ /^\d+$/ or return $c->rendered(404);
+    $id =~ /^\d+$/ or return $c->reply->not_found;
 
     my $obj = eval { $class->retrieve($id) };
-    return $c->rendered(404) unless $obj;
+    return $c->reply->not_found unless $obj;
 
     my @attrs;
     for my $col ( $class->columns ) {

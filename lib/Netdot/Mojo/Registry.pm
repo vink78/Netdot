@@ -30,13 +30,14 @@ sub spec         { $TYPES{ $_[0] } }
 sub is_sensitive { exists $SENSITIVE{ $_[0] } }
 
 # Render a (possibly inflated) column value as a display string.
-# Inflated objects (relationships) are shown as "ShortClass #id".
+# Relationships use the object's own ->get_label; fallback is "ShortClass #id".
 sub format_value {
     my ($v) = @_;
     return '' unless defined $v;
     if (ref $v) {
-        my $short = ref $v;       # Netdot::Model::Site
-        $short   =~ s/.*:://;     # Site
+        my $lbl = eval { $v->get_label };
+        return $lbl if defined $lbl && length $lbl;
+        my $short = ref $v;   $short =~ s/.*:://;   # Netdot::Model::Site -> Site
         my $s     = eval { "$v" };
         $s        = ( $@ || !defined $s ) ? '?' : $s;
         return $short . ' #' . $s;
@@ -53,8 +54,19 @@ sub link_for {
     my $type  = lc $short;                       # Site -> site
     my $id    = eval { "$v" };
     $id = '?' if $@ || !defined $id;
+    my $text  = eval { $v->get_label };
+    $text = "$short #$id" unless defined $text && length $text;
     my $href  = ( exists $TYPES{$type} && $id =~ /^\d+$/ ) ? "/management/$type/$id" : undef;
-    return [ $short . ' #' . $id, $href ];
+    return [ $text, $href ];
+}
+
+# Escape a value for CSV (matches Netdot viewtext.html: comma -> space, quote -> apostrophe).
+sub csv_field {
+    my ($s) = @_;
+    $s = '' unless defined $s;
+    $s =~ s/,/ /g;
+    $s =~ s/"/'/g;
+    return $s;
 }
 
 1;

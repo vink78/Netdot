@@ -1,26 +1,49 @@
-<h1><%= ucfirst($type) %> <small>(<%= $total %> total, <%= scalar @$rows %> shown)</small></h1>
+<h1><%= ucfirst($type) %> <small>(<%= $total %> total)</small></h1>
+
+% if (my $msg = $c->param('msg')) {
+<p style="color:#006600"><%= $msg %></p>
+% }
 
 % if (@$rows) {
-  <table class="sortable">
-    <thead>
-      <tr>
-        <th>id</th>
-        % for my $col (@$cols) {
-        <th><%= $col %></th>
+  <form method="post" action="<%= url_for( $type . '_delete' ) %>" hx-boost="false">
+    <table class="sortable">
+      <thead>
+        <tr>
+          % for my $col (@$cols) {
+          <th><%= $col %></th>
+          % }
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        % for my $row (@$rows) {
+        % my $first = $cols->[0];
+        % my $label = $row->{$first};
+        % $label = $row->{id} if !defined $label || $label eq '';
+        <tr>
+          <td><a href="<%= url_for( $type . '_show', id => $row->{id} ) %>"><%= $label %></a></td>
+          % for my $col ( @{$cols}[1..$#$cols] ) {
+          <td><%= $row->{$col} // '' %></td>
+          % }
+          <td style="text-align:center"><input type="checkbox" name="<%= $type %>__<%= $row->{id} %>"></td>
+        </tr>
         % }
-      </tr>
-    </thead>
-    <tbody>
-      % for my $row (@$rows) {
-      <tr>
-        <td><a href="<%= url_for( $type . '_show', id => $row->{id} ) %>"><%= $row->{id} %></a></td>
-        % for my $col (@$cols) {
-        <td><%= $row->{$col} // '' %></td>
-        % }
-      </tr>
-      % }
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+    <p><input type="submit" value="Delete"></p>
+  </form>
+
+  % if ($total > $per) {
+  <p>Results: [<%= $start %>-<%= $last_item %>] of <%= $total %>
+    % if ($offset > 0) {
+    <a href="?offset=<%= $offset - $per %>">[&laquo;]</a>
+    % }
+    % if ($last_item < $total) {
+    <a href="?offset=<%= $last_item %>">[&raquo;]</a>
+    % }
+  </p>
+  % }
+  <p><a href="<%= url_for( $type . '_csv' ) %>">[csv]</a></p>
 % } else {
   <p>No <%= $type %>.</p>
 % }

@@ -5,25 +5,28 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 use Netdot::Model;
 use Netdot::Mojo::Registry;
 
-# BOUNDED list of one object type (SQL LIMIT + retrieve by id -> inflated objects).
-# Reuses the Netdot model, out of Apache. Works for every type in Netdot::Mojo::Registry.
+# BOUNDED, paginated list of one object type (SQL LIMIT/OFFSET + retrieve by id).
+# Reuses the Netdot model, out of Apache. Works for every type in the Registry.
 sub list ($c) {
     my $type  = $c->stash('type');
     my $spec  = Netdot::Mojo::Registry::spec($type)
-        or return $c->rendered(404);
+        or return $c->reply->not_found;
     my $class = $spec->{class};
     my $cols  = $spec->{cols};
-    my $limit = 50;
-
     my $table = $class->table;
+
+    my $per    = 50;
+    my $offset = int( $c->param('offset') // 0 );
+    $offset = 0 if $offset < 0;
+
     my $dbh   = Netdot::Model->db_Main;
     my ($total) = $dbh->selectrow_array("SELECT COUNT(*) FROM $table");
 
-    my $sth = $dbh->prepare("SELECT id FROM $table LIMIT ?");
-    $sth->execute($limit);
+    my $sth = $dbh->prepare("SELECT id FROM $table ORDER BY id LIMIT ? OFFSET ?");
+    $sth->execute($per, $offset);
     my @objs = map { $class->retrieve( $_->[0] ) } @{ $sth->fetchall_arrayref };
 
-    # Build display rows: id (linked) + the type's display columns.
+    # Build display rows: id (for the link) + the type's display columns.
     my @rows;
     for my $obj (@objs) {
         my %row = ( id => $obj->id );
@@ -34,16 +37,85 @@ sub list ($c) {
         push @rows, \%row;
     }
 
+    my $start     = @rows ? $offset + 1 : 0;
+    my $last_item = $offset + scalar(@rows);
+
     $c->render(
-        template => 'management/list',
-        layout   => 'default',
-        title    => ucfirst($type),
-        type     => $type,
-        cols     => $cols,
-        rows     => \@rows,
-        total    => $total,
-        limit    => $limit,
+        template  => 'management/list',
+        layout    => 'default',
+        title     => ucfirst($type),
+        type      => $type,
+        cols      => $cols,
+        rows      => \@rows,
+        total     => $total,
+        per       => $per,
+        offset    => $offset,
+        start     => $start,
+        last_item => $last_item,
     );
+}
+
+# CSV export of ALL objects of one type (header line + every row), streamed from
+# the model iterator. Relationships are rendered via ->get_label (like viewtext.html).
+sub csv ($c) {
+    my $type  = $c->stash('type');
+    my $spec  = Netdot::Mojo::Registry::spec($type)
+        or return $c->reply->not_found;
+    my $class = $spec->{class};
+    my $cols  = $spec->{cols};
+    my $meta  = $class->meta_data;
+
+    # Pre-compute per-column metadata once (header tag + whether it is a relationship).
+    my @colmeta;
+    for my $col (@$cols) {
+        my $tag   = eval { $meta->get_column( $col )->tag };
+        $tag = ( defined $tag && length $tag ) ? $tag : $col;
+        my $links = eval { $meta->get_column( $col )->links_to };
+        push @colmeta, { col => $col, tag => $tag, links => $links };
+    }
+
+    my $csv  = join( ',', map { Netdot::Mojo::Registry::csv_field( $_->{tag} ) } @colmeta ) . "\n";
+    my $iter = $class->retrieve_all;
+    while ( my $o = $iter->next ) {
+        my @vals;
+        for my $cm (@colmeta) {
+            my $col = $cm->{col};
+            my $val = $cm->{links}
+                     ? eval { my $fo = $o->$col; $fo ? $fo->get_label : '' }
+                     : eval { $o->$col };
+            push @vals, Netdot::Mojo::Registry::csv_field( defined $val ? $val : '' );
+        }
+        $csv .= join( ',', @vals ) . "\n";
+    }
+
+    my $h = $c->res->headers;
+    $h->content_type( 'text/csv' );
+    $h->content_disposition( 'attachment', filename => "$type.csv" );
+    $c->render( data => $csv );
+}
+
+# Delete the checked objects of one type (batch: params named "<type>__<id>").
+sub delete ($c) {
+    my $type  = $c->stash('type');
+    my $spec  = Netdot::Mojo::Registry::spec($type)
+        or return $c->reply->not_found;
+    my $class = $spec->{class};
+
+    my @ids;
+    for my $name ( @{ $c->req->params->names } ) {
+        my ($id) = $name =~ /^\Q$type\E__(\d+)$/;
+        push @ids, $id if $id;
+    }
+
+    my $deleted = 0;
+    for my $id (@ids) {
+        my $o = eval { $class->retrieve( $id ) };
+        next unless $o;
+        $deleted++ if eval { $o->delete };
+    }
+
+    # Back to the list with a small confirmation.
+    $c->redirect_to( $c->url_for( "${type}_list" ) . "?msg=deleted-$deleted" );
 }
 
 1;
