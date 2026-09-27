@@ -298,99 +298,115 @@ sub _ipblock_children {
     return @kids;
 }
 
-# Block view for a Container: a proportional usage visualization (port of
-# container.mhtml). Rendered as a CSS grid: one row = a /rowsize (config
-# DEFAULT_IPBLOCK_ROWSIZE), divided into $COLS base columns; each contained block /
-# free partition spans 2^(base_prefix-prefix) columns, so a /23 is exactly 2x a /24.
-# A leading column holds the row's starting address. CIDR blocks are aligned to their
-# prefix, so no cell crosses a row boundary at a mid-cell offset. Returns HTML.
+# Block view for a Container: a proportional usage visualization. Faithful port of
+# container.mhtml: one row holds one /rowsize of the container, and contained blocks
+# and free partitions are drawn to scale (a /23 is exactly 2x a /24) using the
+# original integer-width scheme (a /32 is the base unit, so every block width is an
+# integer number of pixels). Cells flow left-to-right and wrap at $cellsperrow px.
+# IPv6 is not supported (the original template aborts for v6); the "add block" and
+# "create blocks from free space" write actions are omitted (edit interface not
+# yet migrated), so free-space cells carry no link. Returns HTML.
 sub _build_container_grid_html {
     my ( $o, %opt ) = @_;
     my $rowsize = $opt{rowsize} || ( Netdot->config->get('DEFAULT_IPBLOCK_ROWSIZE') || 22 );
     my $divide  = $opt{divide}  || 'max';
-    $rowsize    = int( $rowsize );
-    my $v4      = ( $o->version == 4 );
-    my $bits    = $v4 ? 32 : 128;
-    $rowsize    = 32  if ( $v4 && $rowsize > 32 );
-    $rowsize    = 128 if ( ! $v4 && $rowsize > 128 );
-    my $COLS        = 16;                  # base columns per row
-    my $base_prefix = $rowsize + 4;        # one row = a /rowsize, split into 16=2^4 columns
-    my $base_size   = 2 ** ( $bits - $base_prefix );   # addresses per base column
 
-    # Contained blocks (sorted) and free space (sorted), merged by address.
-    my @ch;
-    my $it = eval { $o->children };
-    if ( $it && $it->isa( 'Class::DBI::Iterator' ) ) {
-        while ( my $k = $it->next ) { push @ch, $k; }
-    }
-    @ch = sort { $a->address_numeric <=> $b->address_numeric } @ch;
-    my @fs = $o->free_space( $divide );
-    @fs   = sort { $a->numeric <=> $b->numeric } @fs;
+    my $mask = $o->prefix;
+    my $v4   = ( $o->version == 4 );
+    return '<div style="padding:1em">This view cannot currently handle IPv6 blocks.</div>'
+        unless $v4;
 
-    my @cells;
-    while ( @ch || @fs ) {
-        if ( ! @ch || ( @fs && $fs[0]->numeric < $ch[0]->address_numeric ) ) {
-            my $f = shift @fs;
-            push @cells, {
-                width => 2 ** ( $base_prefix - $f->masklen ), class => 'ipaddr_available',
-                title => "$f", link => '',
-            };
-        } elsif ( ! @fs || $fs[0]->numeric > $ch[0]->address_numeric ) {
-            my $c     = shift @ch;
-            my $st    = $c->status->name;
-            my $title = $c->cidr;
-            $title   .= ' (' . $c->description . ')' if $c->description;
-            push @cells, {
-                width => 2 ** ( $base_prefix - $c->prefix ), class => 'ipaddr_' . lc($st),
-                title => $title, link => '/management/ipblock/' . $c->id,
-            };
-        } else {
-            last;   # inconsistent state; stop rather than loop forever
-        }
-    }
+    # set the visual size of the table on the screen (from container.mhtml)
+    $rowsize = int( $rowsize );
+    $rowsize = 32 if ( $rowsize > 32 );
+    $rowsize = ( $rowsize > $mask ) ? $rowsize : $mask;    # never more /32s per row than the block has
+    my $cellsperrow = ( $rowsize >= 22 ) ? 1024 : 2 ** ( 32 - $rowsize );
 
-    # Row headers: the starting address of each /rowsize row.
-    my $total_units = 2 ** ( $base_prefix - $o->prefix );
-    my $num_rows    = int( $total_units / $COLS );
-    my $start_num   = $o->address_numeric;
-    my $base_url    = '/management/ipblock/' . $o->id . '?view_format=block';
+    my @children  = sort { $a->address_numeric <=> $b->address_numeric } _ipblock_children( $o );
+    my @freespace = sort { $a->numeric <=> $b->numeric } $o->free_space( $divide );
 
-    my $html = '<table style="width:100%"><tr>';
+    my $base_url = '/management/ipblock/' . $o->id . '?view_format=block';
+    my $html     = '';
+    $html .= '<table style="width:100%"><tr>';
     $html .= '<td style="text-align:right;vertical-align:middle">Zoom: Set one row equal to '
            . '<select class="small" onchange="window.location=\'' . $base_url
-           . '&rowsize=\'+this.value">';
-    for my $i ( $o->prefix .. ( $v4 ? 32 : 128 ) ) {
+           . '&rowsize=\'+this.options[this.selectedIndex].value+\'&dividefreespace=' . $divide . '\'">';
+    for my $i ( $mask .. 32 ) {
         $html .= '<option value="' . $i . '"' . ( $rowsize == $i ? ' selected' : '' ) . '>/'. $i . '</option>';
     }
-    $html .= '</select></td><td style="text-align:right;vertical-align:middle">Partition: Set max free space size to '
+    $html .= '</select></td>';
+    $html .= '<td style="text-align:right;vertical-align:middle">Partition: Set max free space size to '
            . '<select class="small" onchange="window.location=\'' . $base_url
-           . '&rowsize=' . $rowsize . '&dividefreespace=\'+this.value">';
+           . '&rowsize=' . $rowsize . '&dividefreespace=\'+this.options[this.selectedIndex].value">';
     $html .= '<option value="max"' . ( $divide eq 'max' ? ' selected' : '' ) . '>unlimited</option>';
-    for my $i ( $o->prefix .. ( $v4 ? 32 : 128 ) ) {
+    for my $i ( $mask .. 32 ) {
         $html .= '<option value="' . $i . '"' . ( $divide eq $i ? ' selected' : '' ) . '>/'. $i . '</option>';
     }
     $html .= '</select></td></tr></table>';
 
-    $html .= '<div class="ipcontainergrid" style="display:grid;grid-template-columns:110px repeat('
-           . $COLS . ',1fr);grid-auto-rows:15px;gap:1px;width:100%">';
-    for my $r ( 0 .. $num_rows - 1 ) {
-        my $n    = $start_num + $r * $COLS * $base_size;
-        my $addr = eval { NetAddr::IP->new( $n )->addr } // '';
-        $html   .= '<div class="ipcontainergrid-rowheader" style="grid-column:1 / 2;grid-row:' . ( $r + 1 )
-                 . ' / span 1">' . $addr . '</div>';
+    $html .= '<div class="tablescroll">';
+    $html .= '<table class="ipcontainertable" style="width:' . ( $cellsperrow + 100 ) . 'px" cellpadding="0" cellspacing="0"><tr class="outerrow"><td><table cellpadding="0" cellspacing="0" border="0">';
+
+    my $count     = 0;
+    my $prevclass = '';
+    my $needtr    = 1;
+    while ( @children || @freespace ) {
+        my ( $class, $rowtitle, $title, $width, $link );
+        if ( ! @children || ( @freespace && $freespace[0]->numeric < $children[0]->address_numeric ) ) {
+            my $child = shift @freespace;
+            $class = 'ipaddr_available';
+            $class .= '_2' if $prevclass eq $class;
+            $rowtitle = $child->addr;
+            $title    = $child;
+            $link     = '#';    # "add block" write action not yet migrated
+            $width = ( $rowsize >= 22 ) ? ( 2 ** ( 32 - $child->masklen ) ) * ( 2 ** ( $rowsize - 22 ) ) : 2 ** ( 32 - $child->masklen );
+            $count += $width;
+            $prevclass = $class;
+        }
+        elsif ( ! @freespace || $freespace[0]->numeric > $children[0]->address_numeric ) {
+            my $child  = shift @children;
+            my $status = $child->status->name;
+            $class = 'ipaddr_' . lc( $status );
+            $class .= '_2' if $prevclass eq $class;
+            $rowtitle = $child->address;
+            $title    = $child->cidr;
+            $title   .= ' (' . $child->description . ')' if $child->description;
+            $width = ( $rowsize >= 22 ) ? ( 2 ** ( 32 - $child->prefix ) ) * ( 2 ** ( $rowsize - 22 ) ) : 2 ** ( 32 - $child->prefix );
+            $count += $width;
+            $link      = '/management/ipblock/' . $child->id;
+            $prevclass = $class;
+        }
+        else {
+            last;    # inconsistent state; stop rather than loop forever
+        }
+
+        if ( $needtr ) {
+            $needtr = 0;
+            $html .= '<tr class="outerrow"><td width="100">' . _esc( $rowtitle ) . '</td><td><table cellpadding="0" cellspacing="0"><tr>';
+        }
+
+        # one cell of $width px; a block wider than a row is drawn as a taller cell
+        if ( $width > $cellsperrow ) {
+            my $height = $width / $cellsperrow * 15;
+            $html .= '<td title="' . _esc( $title ) . '"><a href="' . $link . '" class="' . $class
+                   . '" style="display:block;width:' . $cellsperrow . 'px;border:0;height:' . $height . 'px"><table>';
+            for ( my $i = 0; $i < $width / $cellsperrow; $i++ ) {
+                $html .= '<tr><td></td></tr>';
+            }
+            $html .= '</table></a></td>';
+        }
+        else {
+            $html .= '<td title="' . _esc( $title ) . '"><a href="' . $link . '" class="' . $class
+                   . '" style="display:block;width:' . $width . 'px;border:0;height:15px"></a></td>';
+        }
+
+        if ( $count >= $cellsperrow ) {
+            $needtr = 1;
+            $count  = 0;
+            $html .= '</tr></table></td></tr>';
+        }
     }
-    my $g = 0;
-    for my $cell (@cells) {
-        my $W         = $cell->{width};
-        my $start_row = int( $g / $COLS );
-        my $start_col = $g % $COLS;
-        my ( $spanC, $spanR ) = $W <= $COLS ? ( $W, 1 ) : ( $COLS, int( $W / $COLS ) );
-        $html .= '<div class="' . $cell->{class} . '" title="' . $cell->{title}
-               . '" style="grid-column:' . ( $start_col + 2 ) . ' / span ' . $spanC
-               . ';grid-row:' . ( $start_row + 1 ) . ' / span ' . $spanR . '">'
-               . '<a href="' . ( $cell->{link} || '#' ) . '" style="display:block;height:100%"></a></div>';
-        $g += $W;
-    }
+    $html .= '</tr></table></td></tr></table>';
     $html .= '</div>';
     return $html;
 }

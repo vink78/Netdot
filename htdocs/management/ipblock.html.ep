@@ -12,6 +12,7 @@
 % my $tree_html  = $c->stash->{tree_html};
 % my $grid       = $c->stash->{grid};   # arrayref of rows of HTML cells (subnet block view)
 % my $cgrid      = $c->stash->{container_grid};  # HTML string (container usage visualization)
+% my $block_attrs = $c->stash->{block_attrs};    # arrayref of [label, value_html] (block detail only)
 % my $is_addr    = ( $viewtype eq 'address' );
 %# Section-tab data (block detail).
 % my $sites      = $c->stash->{sites}    // [];
@@ -103,7 +104,7 @@
     <span class="ipaddr_static">Static</span>
     <span class="ipaddr_reserved">Reserved</span>
     </div>
-    <div class="tablescroll" style="overflow-x:auto"><%== $cgrid %></div>
+    <%== $cgrid %>
 % } elsif ($viewformat eq 'tree' && $tree_html) {
     <div style="margin:1em 0"><%== $tree_html %></div>
 % } else {
