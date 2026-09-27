@@ -27,6 +27,79 @@ sub show ($c) {
     );
 }
 
+# DNS Records search (port of host_tasks.html "search" action). The query term
+# can be a name, an IP, or a MAC; an optional "names within" zone narrows the
+# name lookup. A MAC resolves to PhysAddr, an IP to Ipblock, anything else to RR.
+# A single hit goes straight to the object's detail page; otherwise the matches
+# are listed (or a "not found" notice).
+sub search ($c) {
+    my $search = _trim( $c->param('search') // '' );
+    $search = '*' if $search eq '';
+    my $zone_id = $c->param('zone_id') // '';
+    $zone_id = 0 if $zone_id !~ /^\d+$/;
+
+    my $mac  = Netdot->get_mac_regex();
+    my @list;
+    if ( $search =~ /^$mac$/ ) {
+        @list = _search_all( 'PhysAddr', address => $search );
+    }
+    elsif ( Ipblock->matches_ip($search) ) {
+        @list = _search_all( 'Ipblock', address => $search );
+    }
+    else {
+        my %args = ( name => $search );
+        $args{zone} = $zone_id if $zone_id;
+        @list = RR->search_like( %args );
+    }
+
+    # A single match opens the object's own page directly.
+    if ( @list == 1 ) {
+        my $obj   = $list[0];
+        my $short = ref $obj; $short =~ s/.*:://;
+        my $type  = lc $short;   # RR -> rr, Ipblock -> ipblock, PhysAddr -> physaddr
+        return $c->redirect_to( "/management/$type/" . $obj->id );
+    }
+
+    my ( @headers, @rows );
+    if ( @list && ref( $list[0] ) =~ /PhysAddr/ ) {
+        @headers = ( 'MAC Address' );
+        @rows = map { { href => "/management/physaddr/" . $_->id, label => $_->address // '', cells => [] } } @list;
+    }
+    elsif ( @list && ref( $list[0] ) =~ /Ipblock/ ) {
+        @headers = ( 'Address', 'Prefix', 'Status' );
+        @rows = map {
+            { href => "/management/ipblock/" . $_->id, label => $_->address // '',
+              cells => [ $_->prefix // '', Netdot::Mojo::Registry::format_value( $_->status ) ] }
+        } @list;
+    }
+    else {
+        @headers = ( 'Name', 'Zone' );
+        @rows = map {
+            { href => "/management/rr/" . $_->id, label => _rr_label( $_ ),
+              cells => [ Netdot::Mojo::Registry::format_value( $_->zone ) ] }
+        } @list;
+    }
+
+    $c->render(
+        template   => 'management/search_results',
+        layout     => 'default',
+        title      => 'DNS Record Search',
+        search     => $search,
+        headers    => \@headers,
+        rows       => \@rows,
+        search_url => $c->url_for( 'rr_search' ),
+    );
+}
+
+# Trim leading/trailing whitespace.
+sub _trim {
+    my ($s) = @_;
+    $s = '' unless defined $s;
+    $s =~ s/^\s+//;
+    $s =~ s/\s+$//;
+    return $s;
+}
+
 # Minimal HTML escaping for text emitted from Perl (templates auto-escape <%= %>,
 # but values built in controllers are inserted raw and must be escaped first).
 sub _esc {

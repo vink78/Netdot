@@ -184,6 +184,110 @@ sub show ($c) {
         return;
 }
 
+# Address Space search (port of address_tasks.html "search"). Three criteria:
+#   - IP[/prefix]: exact lookup; if not found, offer the closest covering block.
+#   - IP regex:    regular-expression match on the address (Ipblock->search_like).
+#   - Keywords:    text match across description, info, related sites/entities.
+sub search ($c) {
+    my $sa = _trim( $c->param('search_address') );
+    my $sr = $c->param('search_regex');
+    my $so = _trim( $c->param('search_other') );
+
+    my $search;
+    my @list;
+    my $covering;
+    my $error;
+
+    if ( $sa ) {
+        $search = $sa;
+        my $it = eval { Ipblock->search( address => $sa ) };
+        if ( my $e = $@ ) {
+            $error = $e;
+        }
+        else {
+            @list = _ipblock_list( $it );
+            $covering = eval { Ipblock->get_covering_block( address => $sa ) } if ! @list;
+        }
+    }
+    elsif ( defined $sr && $sr ne '' ) {
+        ( my $pat = $sr ) =~ s/\s+//g;
+        eval { qr/$pat/i; 1 };
+        if ( my $e = $@ ) {
+            $error = "Your regular expression doesn't seem valid: $e";
+        }
+        else {
+            $search = $sr;
+            eval { @list = Ipblock->search_like( address => $pat ); 1 };
+            $error = $@ if $@;
+        }
+    }
+    elsif ( $so ) {
+        $search = $so;
+        eval { @list = Ipblock->keyword_search( $so ); 1 };
+        $error = $@ if $@;
+    }
+    else {
+        return $c->redirect_to( $c->url_for( 'ipblock_list' ) );
+    }
+
+    if ( $error ) {
+        $c->render(
+            template   => 'management/search_results',
+            layout     => 'default',
+            title      => 'Address Space Search',
+            search     => $search // '',
+            error      => $error,
+            headers    => [],
+            rows       => [],
+            search_url => $c->url_for( 'ipblock_search' ),
+        );
+        return;
+    }
+
+    my @headers = ( 'Address', 'Prefix', 'Status', 'Used by' );
+    my @rows = map {
+        { href  => "/management/ipblock/" . $_->id,
+          label => $_->cidr // '',
+          cells => [ $_->prefix // '',
+                     Netdot::Mojo::Registry::format_value( $_->status ),
+                     Netdot::Mojo::Registry::format_value( $_->used_by ) ] }
+    } @list;
+
+    $c->render(
+        template   => 'management/search_results',
+        layout     => 'default',
+        title      => 'Address Space Search',
+        search     => $search,
+        headers    => \@headers,
+        rows       => \@rows,
+        covering   => $covering ? { id => $covering->id, label => $covering->cidr } : undef,
+        search_url => $c->url_for( 'ipblock_search' ),
+    );
+}
+
+# Slurp a CDBI search iterator into a plain list (->search returns a
+# Class::DBI::Iterator; calling it in scalar context then dereferencing loses
+# wantarray, so iterate explicitly).
+sub _ipblock_list {
+    my ($it) = @_;
+    return () unless $it && ref $it;
+    if ( $it->isa( 'Class::DBI::Iterator' ) ) {
+        my @out;
+        while ( my $o = $it->next ) { push @out, $o; }
+        return @out;
+    }
+    return @$it;
+}
+
+# Trim leading/trailing whitespace.
+sub _trim {
+    my ($s) = @_;
+    $s = '' unless defined $s;
+    $s =~ s/^\s+//;
+    $s =~ s/\s+$//;
+    return $s;
+}
+
 # The block's own attribute table (port of ip.html's block attribute_table), as a
 # list of [label, value_html] rows. Read-only; the [edit] links are deferred with
 # the write functionality. Handles Subnet vs Container conditionals and renders

@@ -57,6 +57,15 @@ sub list ($c) {
     my $start     = @rows ? $offset + 1 : 0;
     my $last_item = $offset + scalar(@rows);
 
+    # DNS Records list gets the host_tasks.html search box (name/IP/MAC + zone).
+    my %extra;
+    if ( $type eq 'rr' ) {
+        my @zones = Zone->retrieve_all;
+        @zones = sort { $a->name cmp $b->name } @zones;
+        $extra{zones}      = \@zones;
+        $extra{search_url} = $c->url_for( 'rr_search' );
+    }
+
     $c->render(
         template  => 'management/list',
         layout    => 'default',
@@ -69,6 +78,7 @@ sub list ($c) {
         offset    => $offset,
         start     => $start,
         last_item => $last_item,
+        %extra,
     );
 }
 

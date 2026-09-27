@@ -24,16 +24,21 @@ sub startup ($self) {
     my $r = $self->routes;
     $r->get('/')->to('home#index')->name('home');
 
-    # Per browsable type: list, CSV export, batch delete, then detail (see Registry).
-    # csv/delete are declared before :id so they win over the id placeholder.
+    # Per browsable type: list, search, CSV export, batch delete, then detail.
+    # (see Registry). search/csv/delete are declared before :id so they win over
+    # the id placeholder. Types with custom search/detail logic get a dedicated
+    # controller; the rest use the generic ones.
+    my %show_ctrl   = ( ipblock => 'ipblock', rr => 'rr' );
+    my %search_ctrl = ( ipblock => 'ipblock', rr => 'rr' );
     for my $t ( Netdot::Mojo::Registry::types() ) {
         $r->get("/management/$t")->to('browse#list', type => $t)->name("${t}_list");
+        if ( my $sc = $search_ctrl{$t} ) {
+            $r->get("/management/$t/search")->to("$sc#search", type => $t)->name("${t}_search");
+        }
         $r->get("/management/$t/csv")->to('browse#csv', type => $t)->name("${t}_csv");
         $r->post("/management/$t/delete")->to('browse#delete', type => $t)->name("${t}_delete");
-        # Types with custom detail logic get a dedicated controller; the rest use
-        # the generic one.
-        my $show_ctrl = { ipblock => 'ipblock', rr => 'rr' }->{$t} // 'show';
-        $r->get("/management/$t/:id")->to("${show_ctrl}#show", type => $t)->name("${t}_show");
+        my $ctrl = $show_ctrl{$t} // 'show';
+        $r->get("/management/$t/:id")->to("${ctrl}#show", type => $t)->name("${t}_show");
     }
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');

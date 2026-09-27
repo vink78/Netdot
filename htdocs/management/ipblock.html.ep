@@ -40,6 +40,37 @@
 % }
 <h1><%= $title %></h1>
 
+# Search box (Address Space) — shown on the list/roots view only.
+% unless ($current) {
+<div class="container" style="margin-bottom:1em">
+  <div class="containerheadleft">Search Address Space</div>
+  <div class="containerheadright">&nbsp;</div>
+  <div class="containerbody" style="padding:0.6em">
+    <form method="get" action="<%= url_for('ipblock_search') %>">
+      <p>
+        <label>IP[/prefix]:</label>
+        <input type="text" name="search_address" class="longtxt">
+        <input type="submit" value="Search" class="btn">
+      </p>
+    </form>
+    <form method="get" action="<%= url_for('ipblock_search') %>">
+      <p>
+        <label>IP regex:</label>
+        <input type="text" name="search_regex" class="longtxt">
+        <input type="submit" value="Search" class="btn">
+      </p>
+    </form>
+    <form method="get" action="<%= url_for('ipblock_search') %>">
+      <p>
+        <label>Keywords:</label>
+        <input type="text" name="search_other" class="longtxt">
+        <input type="submit" value="Search" class="btn">
+      </p>
+    </form>
+  </div>
+</div>
+% }
+
 %# The block's own attribute table (Address, Status, First/Last Seen, RIR/ASN,
 %# Owner/Used by, Netmask/Broadcast, Usable, Utilization/Space Allocated).
 % if ($current && $block_attrs && @$block_attrs) {

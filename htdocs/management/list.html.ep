@@ -4,6 +4,35 @@
 <p style="color:#006600"><%= $msg %></p>
 % }
 
+% my $search_url = $c->stash('search_url');
+% my $zones      = $c->stash('zones') // [];
+% my $q          = $c->param('search')  // '';
+% my $zsel       = $c->param('zone_id') // '';
+% if ($search_url) {
+<div class="container" style="margin-bottom:1em">
+  <div class="containerheadleft">Search DNS Records</div>
+  <div class="containerheadright">&nbsp;</div>
+  <div class="containerbody" style="padding:0.6em">
+    <form method="get" action="<%= $search_url %>">
+      <p>
+        <label>Name / IP / MAC:</label>
+        <input type="text" name="search" class="longtxt" value="<%= $q %>">
+      </p>
+      <p>
+        <label>Names within:</label>
+        <select name="zone_id">
+          <option value="0">All Zones</option>
+          % for my $z (@$zones) {
+          <option value="<%= $z->id %>" <%= $z->id eq $zsel ? 'selected' : '' %>><%= $z->get_label %></option>
+          % }
+        </select>
+        <input type="submit" value="Find" class="btn">
+      </p>
+    </form>
+  </div>
+</div>
+% }
+
 % if (@$rows) {
   <form method="post" action="<%= url_for( $type . '_delete' ) %>" hx-boost="false">
     <table class="sortable">

@@ -8,6 +8,7 @@ use warnings;
 our %TYPES = (
     ipblock   => { class => 'Ipblock',   label => 'Ipblocks',   desc => 'IP address blocks',   cols => [qw(address prefix status used_by)] },
     device    => { class => 'Device',    label => 'Devices',    desc => 'network equipment',   cols => [qw(sysname os owner site)] },
+    asset     => { class => 'Asset',     label => 'Assets',     desc => 'hardware assets',     cols => [qw(serial_number product_id physaddr inventory_number)] },
     interface => { class => 'Interface', label => 'Interfaces', desc => 'device interfaces',   cols => [qw(name number device oper_status admin_status)] },
     vlan      => { class => 'Vlan',      label => 'VLANs',      desc => 'virtual LANs',        cols => [qw(name vid vlangroup description)] },
     zone      => { class => 'Zone',      label => 'Zones',      desc => 'DNS zones',           cols => [qw(name rname mname active)] },
@@ -25,7 +26,7 @@ our %TYPES = (
 );
 
 # Ordered list of browsable types (drives routes, navbar and home menu).
-our @ORDER = qw(ipblock device interface vlan zone site room floor closet person rr entity service contactlist physaddr);
+our @ORDER = qw(ipblock device asset interface vlan zone site room floor closet person rr entity service contactlist physaddr);
 sub types { @ORDER }
 
 # Columns that must never be displayed (secrets / raw credentials).
