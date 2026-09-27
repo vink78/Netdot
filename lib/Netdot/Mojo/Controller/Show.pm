@@ -84,49 +84,64 @@ sub show ($c) {
         my $prefix = $o->prefix;
         my $v4     = ( $o->version == 4 );
 
-        # View modes available for this block (rules from ip.html):
-        #   list always; block and tree for v4 when prefix >= MAX.
-        my $max = $status eq 'Subnet' ? $cfg->get('SUBNET_BLOCK_VIEW_MAX_PREFIX')
-                 : ( $status eq 'Container' ? $cfg->get('CONTAINER_BLOCK_VIEW_MAX_PREFIX') : undef );
-        my @modes = ( 'list' );
-        if ( $v4 && $max && $prefix >= $max ) {
-            push @modes, 'block';
-            push @modes, 'tree';
-        }
+        # Section tabs (view=Children|Sites|Zones|DHCP|Attributes|Comments|Audit|All),
+        # orthogonal to the children view_format (list|block|tree). Default Children.
+        # Access Rights is deferred. DHCP tab only for Subnets (like ip.html).
+        my $view = $c->param('view');
+        $view = 'Children' unless $view =~ /^(Children|Sites|Zones|DHCP|Attributes|Comments|Audit|All)$/;
+        my @tabs = ( [ 'Children', 'Children' ], [ 'Sites', 'Sites' ], [ 'Zones', 'Zones' ] );
+        push @tabs, [ 'DHCP', 'DHCP' ] if $status eq 'Subnet';
+        push @tabs, [ 'Attributes', 'Attributes' ], [ 'Comments', 'Comments' ],
+                     [ 'Audit', 'Audit' ], [ 'All', 'All' ];
+        my $show = sub { my $s = shift; $view eq $s || $view eq 'All' ? 1 : 0 };
 
-        # Effective view: requested (sanitized), defaulting to the config value,
-        # forced to an available mode (so v6 / too-large blocks fall back to list).
-        my $vfmt = $c->param('view_format');
-        $vfmt = $cfg->get('DEFAULT_IPBLOCK_VIEW') || 'block' unless $vfmt;
-        $vfmt = 'list' unless $vfmt =~ /^(list|block|tree)$/;
-        $vfmt = 'list' unless grep { $_ eq $vfmt } @modes;
-
-        # Objects to display, depending on the effective view.
-        my ( @blocks, $viewtype, $tree_html, $grid, $container_grid );
-        if ( $vfmt eq 'list' ) {
-            if ( $status eq 'Subnet' ) {
-                @blocks   = $o->get_addresses_by('Address');   # individual addresses
-                $viewtype = @blocks ? 'address' : 'block';
-            } else {
-                @blocks   = _ipblock_children( $o );            # contained IP blocks
-                $viewtype = @blocks && eval { $blocks[0]->is_address } ? 'address' : 'block';
+        # Children display (list/block/tree via view_format), shown on Children & All.
+        my ( @blocks, $viewtype, $tree_html, $grid, $container_grid, @modes );
+        my $vfmt = 'list';
+        if ( $show->('Children') ) {
+            # View modes available for this block (rules from ip.html):
+            #   list always; block and tree for v4 when prefix >= MAX.
+            my $max = $status eq 'Subnet' ? $cfg->get('SUBNET_BLOCK_VIEW_MAX_PREFIX')
+                      : ( $status eq 'Container' ? $cfg->get('CONTAINER_BLOCK_VIEW_MAX_PREFIX') : undef );
+            @modes = ( 'list' );
+            if ( $v4 && $max && $prefix >= $max ) {
+                push @modes, 'block';
+                push @modes, 'tree';
             }
-        } elsif ( $vfmt eq 'tree' ) {
-            $viewtype  = 'block';
-            my $ref    = eval { $o->get_descendants( no_addresses => 1 ) };
-            my $ui     = eval { Netdot::UI->new() };
-            $tree_html = ( $ui && $ref ) ? eval { $ui->build_ip_tree_graph_html( id => $o->id, list => $ref, web_path => '/' ) } : undef;
-        } else {  # block view
-            $viewtype = 'block';
-            if ( $status eq 'Subnet' ) {
-                $grid = _build_subnet_grid( $o );               # the address grid
-            } else {
-                # Container: the proportional usage visualization (port of container.mhtml).
-                $container_grid = _build_container_grid_html(
-                    $o,
-                    rowsize => $c->param('rowsize'),
-                    divide  => $c->param('dividefreespace'),
-                );
+
+            # Effective view_format: requested (sanitized), defaulting to the config
+            # value, forced to an available mode (v6 / too-large -> list).
+            my $f = $c->param('view_format');
+            $f = $cfg->get('DEFAULT_IPBLOCK_VIEW') || 'block' unless $f;
+            $f = 'list' unless $f =~ /^(list|block|tree)$/;
+            $f = 'list' unless grep { $_ eq $f } @modes;
+            $vfmt = $f;
+
+            if ( $vfmt eq 'list' ) {
+                if ( $status eq 'Subnet' ) {
+                    @blocks   = $o->get_addresses_by('Address');   # individual addresses
+                    $viewtype = @blocks ? 'address' : 'block';
+                } else {
+                    @blocks   = _ipblock_children( $o );            # contained IP blocks
+                    $viewtype = @blocks && eval { $blocks[0]->is_address } ? 'address' : 'block';
+                }
+            } elsif ( $vfmt eq 'tree' ) {
+                $viewtype  = 'block';
+                my $ref    = eval { $o->get_descendants( no_addresses => 1 ) };
+                my $ui     = eval { Netdot::UI->new() };
+                $tree_html = ( $ui && $ref ) ? eval { $ui->build_ip_tree_graph_html( id => $o->id, list => $ref, web_path => '/' ) } : undef;
+            } else {  # block view
+                $viewtype = 'block';
+                if ( $status eq 'Subnet' ) {
+                    $grid = _build_subnet_grid( $o );               # the address grid
+                } else {
+                    # Container: the proportional usage visualization (port of container.mhtml).
+                    $container_grid = _build_container_grid_html(
+                        $o,
+                        rowsize => $c->param('rowsize'),
+                        divide  => $c->param('dividefreespace'),
+                    );
+                }
             }
         }
 
@@ -135,10 +150,21 @@ sub show ($c) {
         push @crumbs, map { { label => $_->get_label, id => $_->id } } ( reverse @ancs );
         my $devs   = $viewtype eq 'address' ? ( eval { Device->get_ips_from_all() } || {} ) : undef;
 
+        # Per-tab section data (gathered lazily, only for the active view).
+        my ( @sites, @fzones, @rzones, @dhcp, @attributes, @audit, $comments );
+        @sites      = _block_sites( $o )      if $show->('Sites');
+        ( @fzones, @rzones ) = _block_zones( $o ) if $show->('Zones');
+        @dhcp       = _ip_dhcp_scopes( $o )   if $show->('DHCP');
+        @attributes = _ip_attributes( $o )    if $show->('Attributes');
+        $comments   = eval { $o->info } // '' if $show->('Comments');
+        @audit      = _ip_audit_records( $o ) if $show->('Audit');
+
         $c->render(
             template   => 'management/ipblock',
             layout     => 'default',
             title      => "Ipblock " . $o->get_label,
+            view       => $view,
+            tabs       => \@tabs,
             viewtype   => $viewtype,
             viewformat => $vfmt,
             modes      => \@modes,
@@ -149,6 +175,13 @@ sub show ($c) {
             current    => $o,
             breadcrumb => \@crumbs,
             devs       => $devs,
+            sites      => \@sites,
+            fzones     => \@fzones,
+            rzones     => \@rzones,
+            dhcp       => \@dhcp,
+            attributes => \@attributes,
+            comments   => $comments,
+            audit      => \@audit,
         );
         return;
     }
@@ -382,6 +415,45 @@ sub _fk_link {
     my ( $text, $href ) = @{ Netdot::Mojo::Registry::link_for( $obj ) };
     $text = $opt{text} if defined $opt{text};
     return $href ? "<a href=\"$href\">$text</a>" : $text;
+}
+
+# Sites associated with a block (SiteSubnet join -> Site).
+sub _block_sites {
+    my ($o) = @_;
+    my @rel = eval { $o->sites };
+    return () if $@;
+    my @out;
+    for my $ss (@rel) {
+        push @out, _fk_link( eval { $ss->site } );   # Site -> /management/site/<id>
+    }
+    return @out;
+}
+
+# Forward + reverse DNS zones of a block. Forward: SubnetZone join -> Zone.
+# Reverse: dot-arpa names that match an existing Zone. Returns (forward, reverse).
+sub _block_zones {
+    my ($o) = @_;
+    my @fwd;
+    my @rel = eval { $o->zones };
+    unless ($@) {
+        for my $sz (@rel) {
+            my $zone = eval { $sz->zone };
+            push @fwd, _fk_link( $zone ) if $zone;   # Zone -> /management/zone/<id>
+        }
+    }
+    my @rev;
+    my %zones;
+    my $it = eval { Zone->retrieve_all };
+    if ( $it && $it->isa( 'Class::DBI::Iterator' ) ) {
+        while ( my $z = $it->next ) { $zones{ $z->name } = $z; }
+    }
+    my @names = eval { $o->get_dot_arpa_names };
+    unless ($@) {
+        for my $n (@names) {
+            push @rev, _fk_link( $zones{$n} ) if $zones{ $n };
+        }
+    }
+    return ( @fwd, @rev );
 }
 
 # DNS records (A or PTR) attached to an address. Each record is wrapped in a

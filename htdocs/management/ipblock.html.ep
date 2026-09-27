@@ -5,12 +5,24 @@
 % my $blocks     = $c->stash->{blocks}     // [];
 % my $breadcrumb = $c->stash->{breadcrumb} // [];
 % my $devs       = $c->stash->{devs};   # hashref: address_numeric => device_id (address view)
+% my $view       = $c->stash->{view}       // 'Children';
+% my $tabs       = $c->stash->{tabs};      # arrayref of [key, label] (block detail only)
 % my $viewformat = $c->stash->{viewformat} // 'list';
 % my $modes      = $c->stash->{modes}      // [ 'list' ];
 % my $tree_html  = $c->stash->{tree_html};
 % my $grid       = $c->stash->{grid};   # arrayref of rows of HTML cells (subnet block view)
 % my $cgrid      = $c->stash->{container_grid};  # HTML string (container usage visualization)
 % my $is_addr    = ( $viewtype eq 'address' );
+%# Section-tab data (block detail).
+% my $sites      = $c->stash->{sites}    // [];
+% my $fzones     = $c->stash->{fzones}   // [];
+% my $rzones     = $c->stash->{rzones}   // [];
+% my $dhcp       = $c->stash->{dhcp}     // [];
+% my $attributes = $c->stash->{attributes} // [];
+% my $comments   = $c->stash->{comments};
+% my $audit      = $c->stash->{audit}    // [];
+%# Children (list/grid/tree) show on the roots page (no current) or on Children/All.
+% my $show_children = $current ? ( $view eq 'Children' || $view eq 'All' ) : 1;
 % my @hdrs = $is_addr ? ( 'Address', 'Name', 'Device', 'Status', 'Used by', 'Description', 'Last Seen' ) : ( 'Address/Prefix', 'Status', 'Utilization', 'Owner', 'Used by', 'Description' );
 %# Breadcrumb: Roots > a > b > (current, bold). Only when viewing a block.
 % if ($current) {
@@ -42,7 +54,19 @@
         % }
     </p>
 % }
-%# View-format toggle (list / block / tree) — shown on the detail view.
+%# Section tab bar (block detail only).
+% if ($current && $tabs) {
+    <div style="margin:0.5em 0 1em 0; padding-bottom:0.4em; border-bottom:2px solid #ddeedd; font-size:0.95em">
+    % for my $i (0 .. $#$tabs) {
+        % my $t = $tabs->[$i];
+        <a href="/management/ipblock/<%= $current->id %>?view=<%= $t->[0] %>" style="<%= $view eq $t->[0] ? 'font-weight:bold; color:#000' : '' %>"><%= $t->[1] %></a>
+        <span style="color:#ccc"><%= $i < $#$tabs ? ' | ' : '' %></span>
+    % }
+    </div>
+% }
+
+% if ($show_children) {
+%# View-format toggle (list / block / tree) — on the Children/All view.
 % if ($current && @$modes > 1) {
     <div style="margin:0 0 1em 0; font-size:0.9em">
     % for my $i (0 .. $#$modes) {
@@ -52,11 +76,12 @@
     % }
     </div>
 % }
-%# Block view (subnet): the address grid. Tree view: the GraphViz graph. Otherwise the table.
+%# Children: address grid (subnet), container grid, tree graph, or the table.
 % if ($grid) {
     <div style="margin:0.5em 0; font-size:0.85em">
     Legend:
     <span class="ipaddr_available">Available</span>
+    <span class="ipaddr_discovered">Discovered</span>
     <span class="ipaddr_dynamic">Dynamic</span>
     <span class="ipaddr_static">Static</span>
     <span class="ipaddr_reserved">Reserved</span>
@@ -130,5 +155,140 @@
 </table>
 % unless (@$blocks) {
     <p style="color:#888">No blocks.</p>
+% }
+% }
+% }
+
+%# ---- Section-tab body (block detail) ----
+% if ($current) {
+% if ( $view eq 'Sites' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerheadleft">Sites</div>
+        <div class="containerheadright">&nbsp;</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$sites) {
+            <table class="sortable" style="width:100%"><tbody>
+            % for my $s (@$sites) {
+                <tr><td><%== $s %></td></tr>
+            % }
+            </tbody></table>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        </div>
+    </div>
+% }
+% if ( $view eq 'Zones' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerheadleft">Forward DNS Zones</div>
+        <div class="containerheadright">&nbsp;</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$fzones) {
+            <table class="sortable" style="width:100%"><tbody>
+            % for my $z (@$fzones) {
+                <tr><td><%== $z %></td></tr>
+            % }
+            </tbody></table>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        </div>
+    </div>
+    <div class="container">
+        <div class="containerheadleft">Reverse DNS Zones</div>
+        <div class="containerheadright">&nbsp;</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$rzones) {
+            <table class="sortable" style="width:100%"><tbody>
+            % for my $z (@$rzones) {
+                <tr><td><%== $z %></td></tr>
+            % }
+            </tbody></table>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        </div>
+    </div>
+% }
+% if ( $view eq 'DHCP' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerheadleft">DHCP Scope</div>
+        <div class="containerheadright">&nbsp;</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$dhcp) {
+            <table class="sortable" style="width:100%">
+                <thead><tr><th>Type</th><th>Name</th><th>Ethernet</th><th>DUID</th><th>Active?</th></tr></thead>
+                <tbody>
+                % for my $r (@$dhcp) {
+                    <tr>
+                        <td><%= $r->{type} %></td>
+                        <td><%= $r->{name} %></td>
+                        <td><%== $r->{ethernet_html} %></td>
+                        <td><%= $r->{duid} %></td>
+                        <td><%= $r->{active} ? 'Yes' : 'No' %></td>
+                    </tr>
+                % }
+                </tbody>
+            </table>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        </div>
+    </div>
+% }
+% if ( $view eq 'Attributes' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerheadleft">Custom Attributes</div>
+        <div class="containerheadright">&nbsp;</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$attributes) {
+            <table class="sortable" style="width:100%">
+                <thead><tr><th>Name</th><th>Value</th></tr></thead>
+                <tbody>
+                % for my $r (@$attributes) {
+                    <tr><td><%= $r->{name} %></td><td><%= $r->{value} %></td></tr>
+                % }
+                </tbody>
+            </table>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        </div>
+    </div>
+% }
+% if ( $view eq 'Comments' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerheadleft">Comments</div>
+        <div class="containerheadright">&nbsp;</div>
+        <div class="containerbody" style="padding:0.6em">
+            <pre style="white-space:pre-wrap; margin:0"><%= $comments %></pre>
+        </div>
+    </div>
+% }
+% if ( $view eq 'Audit' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerheadleft">Audit Records</div>
+        <div class="containerheadright">&nbsp;</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$audit) {
+            <table class="sortable" style="width:100%">
+                <thead><tr><th>Timestamp</th><th>Username</th><th>Table</th><th>Label</th><th>Operation</th></tr></thead>
+                <tbody>
+                % for my $r (@$audit) {
+                    <tr>
+                        <td><%= $r->{tstamp} %></td>
+                        <td><%= $r->{username} %></td>
+                        <td><%= $r->{tablename} %></td>
+                        <td><%= $r->{label} %></td>
+                        <td><%= $r->{operation} %></td>
+                    </tr>
+                % }
+                </tbody>
+            </table>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        </div>
+    </div>
 % }
 % }
