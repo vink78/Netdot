@@ -1,0 +1,45 @@
+%# Detail page for a DNS resource record (read-only port of host.html).
+% my $rr       = $c->stash->{rr};
+% my $rr_attrs = $c->stash->{rr_attrs} // [];
+% my $sections = $c->stash->{sections} // [];
+
+<h1>DNS Record: <strong><%= $rr->get_label %></strong></h1>
+<p style="margin:0 0 1em 0; font-size:0.95em"><a href="/management/rr">All DNS Records</a></p>
+
+%# The record's own attributes.
+% if ($rr_attrs && @$rr_attrs) {
+    <table class="sortable" style="max-width:760px; margin-bottom:1.2em">
+        <tbody>
+        % for my $i (0 .. $#$rr_attrs) {
+            % my $row = $rr_attrs->[$i];
+            <tr>
+                <th style="text-align:left; white-space:nowrap; width:200px"><%= $row->[0] %></th>
+                <td><%== $row->[1] %></td>
+            </tr>
+        % }
+        </tbody>
+    </table>
+% }
+
+%# One container per record type; each record is a small attribute table.
+% for my $s (0 .. $#$sections) {
+    % my $sec = $sections->[$s];
+    <div class="container" style="margin:0 0 1.2em 0">
+        <div class="containerhead"><%= $sec->{title} %></div>
+        <div class="containerbody">
+        % for my $r (0 .. $#{ $sec->{records} }) {
+            % my $rec = $sec->{records}->[$r];
+            <table class="sortable" style="margin:0 0 0.6em 0">
+                <tbody>
+                % for my $row (@$rec) {
+                    <tr>
+                        <th style="text-align:left; white-space:nowrap; width:200px"><%= $row->[0] %></th>
+                        <td><%== $row->[1] %></td>
+                    </tr>
+                % }
+                </tbody>
+            </table>
+        % }
+        </div>
+    </div>
+% }

@@ -30,8 +30,9 @@ sub startup ($self) {
         $r->get("/management/$t")->to('browse#list', type => $t)->name("${t}_list");
         $r->get("/management/$t/csv")->to('browse#csv', type => $t)->name("${t}_csv");
         $r->post("/management/$t/delete")->to('browse#delete', type => $t)->name("${t}_delete");
-        # ipblock has a dedicated detail controller; the rest use the generic one.
-        my $show_ctrl = $t eq 'ipblock' ? 'ipblock' : 'show';
+        # Types with custom detail logic get a dedicated controller; the rest use
+        # the generic one.
+        my $show_ctrl = { ipblock => 'ipblock', rr => 'rr' }->{$t} // 'show';
         $r->get("/management/$t/:id")->to("${show_ctrl}#show", type => $t)->name("${t}_show");
     }
     $r->get('/login')->to('auth#login_form')->name('login');
