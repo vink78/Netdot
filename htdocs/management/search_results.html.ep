@@ -1,0 +1,54 @@
+% my $title      = $c->stash('title')      // 'Search';
+% my $search     = $c->stash('search')     // '';
+% my $error      = $c->stash('error');
+% my $headers    = $c->stash('headers')    // [];
+% my $rows       = $c->stash('rows')       // [];
+% my $covering   = $c->stash('covering');
+% my $search_url = $c->stash('search_url');
+<h1><%= $title %></h1>
+
+% if ($error) {
+<div class="container">
+  <div class="containerhead">Search error</div>
+  <div class="containerbody"><p><%= $error %></p></div>
+</div>
+% } elsif (@$rows) {
+<div class="container">
+  <div class="containerhead">Query <em><%= $search %></em> returned: <%= scalar(@$rows) %> matches</div>
+  <div class="containerbody">
+    <table class="sortable">
+      <thead>
+        <tr>
+        % for my $i (0 .. $#$headers) {
+          <th><%= $headers->[$i] %></th>
+        % }
+        </tr>
+      </thead>
+      <tbody>
+      % for my $r (@$rows) {
+        <tr>
+          <td><a href="<%= $r->{href} %>"><%= $r->{label} %></a></td>
+          % for my $v (@{ $r->{cells} }) {
+            <td><%= $v // '' %></td>
+          % }
+        </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+% } else {
+<div class="container">
+  <div class="containerhead"><em><%= $search %></em> not found</div>
+  <div class="containerbody">
+  % if ($covering) {
+    <p>Closest covering block:</p>
+    <p><a href="/management/ipblock/<%= $covering->{id} %>"><%= $covering->{label} %></a></p>
+  % }
+  </div>
+</div>
+% }
+
+% if ($search_url) {
+  <p style="margin-top:1em"><a href="<%= $search_url %>">[back to search]</a></p>
+% }

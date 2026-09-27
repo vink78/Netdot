@@ -22,22 +22,29 @@ sub show ($c) {
     my $obj = eval { $class->retrieve($id) };
     return $c->reply->not_found unless $obj;
 
+    # Display fields follow netdot.meta "views" { all } (order + user-friendly
+    # tags). All listed fields are shown (empty ones blank), like view.html; FK
+    # values become links when their type has a route.
     my @attrs;
-    for my $col ( $class->columns ) {
-        next if $col eq 'id';
+    for my $cd ( @{ Netdot::Mojo::Registry::display_columns($class) } ) {
+        my ( $col, $tag ) = @$cd;
         next if Netdot::Mojo::Registry::is_sensitive($col);
         my $v = eval { $obj->$col };
-        next if $@;
-        next unless defined $v;
+        $v = undef if $@;
         my ( $text, $href ) = @{ Netdot::Mojo::Registry::link_for($v) };
-        next if !defined $text || $text eq '';
-        push @attrs, [ $col, $text, $href ];
+        $text = '' unless defined $text;
+        push @attrs, [ $tag, $text, $href ];
     }
+
+    # Title: prefer the object's own label (built from netdot.meta "label" columns
+    # by ->get_label), falling back to "Type #id" when the label is empty.
+    my $label = eval { $obj->get_label } // '';
+    $label = undef unless defined $label && length $label;
 
     $c->render(
         template => 'management/detail',
         layout   => 'default',
-        title    => ucfirst($type) . " #$id",
+        title    => $label // ( ucfirst($type) . " #$id" ),
         type     => $type,
         id       => $id,
         attrs    => \@attrs,

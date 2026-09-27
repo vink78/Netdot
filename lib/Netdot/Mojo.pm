@@ -58,10 +58,13 @@ sub startup ($self) {
     # Expose the browsable types to the layout (navbar + home menu): [type, label, desc].
     $self->hook( before_render => sub {
         my ($c) = @_;
+        # Nav only lists the main browsable types; "nav => 0" types (e.g. Product)
+        # are routable/linkable but hidden from the nav and home menu.
         $c->stash( nav => [ map {
             my $s = Netdot::Mojo::Registry::spec( $_ );
             [ $_, $s->{label}, $s->{desc} ]
-        } Netdot::Mojo::Registry::types() ] );
+        } grep { ( Netdot::Mojo::Registry::spec( $_ )->{nav} // 1 ) }
+                Netdot::Mojo::Registry::types() ] );
     });
 }
 

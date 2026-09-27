@@ -23,10 +23,27 @@ our %TYPES = (
     service     => { class => 'Service',     label => 'Services',      desc => 'Internet services',      cols => [qw(name)] },
     contactlist => { class => 'ContactList', label => 'Contact Lists', desc => 'contact groups',         cols => [qw(name)] },
     physaddr    => { class => 'PhysAddr',    label => 'MAC Addresses', desc => 'physical (MAC) addresses', cols => [qw(address)] },
+    # Link-only "object" types: reachable as the target of a foreign key (linksto in
+    # netdot.meta) and rendered by the generic detail, but not shown in the nav.
+    product         => { class => 'Product',         label => 'Products',          desc => 'catalog products',        cols => [qw(name manufacturer part_number type)],        nav => 0 },
+    availability    => { class => 'Availability',    label => 'Availability',      desc => 'service availability',    cols => [qw(name info)],                                  nav => 0 },
+    circuit         => { class => 'Circuit',         label => 'Circuits',          desc => 'network circuits',        cols => [qw(cid linkid status type speed)],              nav => 0 },
+    arpcache        => { class => 'ArpCache',        label => 'ARP Cache',         desc => 'ARP cache entries',       cols => [qw(tstamp device)],                             nav => 0 },
+    sitelink        => { class => 'SiteLink',        label => 'Site Links',        desc => 'inter-site links',        cols => [qw(name entity nearend farend)],              nav => 0 },
+    fwtable         => { class => 'FWTable',         label => 'FW Tables',         desc => 'firewall tables',         cols => [qw(tstamp device)],                             nav => 0 },
+    stpinstance     => { class => 'STPInstance',     label => 'STP Instances',     desc => 'spanning tree instances', cols => [qw(number device root_port root_bridge)],      nav => 0 },
+    horizontalcable => { class => 'HorizontalCable', label => 'Horizontal Cables', desc => 'horizontal cabling',      cols => [qw(jackid faceplateid type closet room)],       nav => 0 },
+    backbonecable   => { class => 'BackboneCable',   label => 'Backbone Cables',   desc => 'backbone cabling',        cols => [qw(name type owner start_closet end_closet length)], nav => 0 },
+    dhcscope        => { class => 'DhcpScope',       label => 'DHCP Scopes',       desc => 'DHCP scopes',             cols => [qw(name type version container active)],        nav => 0 },
 );
 
 # Ordered list of browsable types (drives routes, navbar and home menu).
-our @ORDER = qw(ipblock device asset interface vlan zone site room floor closet person rr entity service contactlist physaddr);
+our @ORDER = qw(
+    ipblock device asset interface vlan zone site room floor closet person
+    rr entity service contactlist physaddr
+    product availability circuit arpcache sitelink fwtable stpinstance
+    horizontalcable backbonecable dhcscope
+);
 sub types { @ORDER }
 
 # Columns that must never be displayed (secrets / raw credentials).
@@ -35,6 +52,23 @@ our %SENSITIVE = map { $_ => 1 } qw(password snmp_authkey snmp_privkey);
 # Accessors (avoid the "PKG::HASH{$x}" parse-as-method pitfall).
 sub spec         { $TYPES{ $_[0] } }
 sub is_sensitive { exists $SENSITIVE{ $_[0] } }
+
+# Ordered display columns for a class's "all" view (from netdot.meta "views"), as
+# [ [col, tag], ... ]. The tag is the user-friendly label (e.g. serial_number ->
+# "S/N", product_id -> "Product", info -> "Comments"). Falls back to the raw
+# column list (minus id) when the class has no "all" view.
+sub display_columns {
+    my ($class) = @_;
+    my $meta  = $class->meta_data;
+    my %order;
+    eval { %order = $meta->get_column_order( view => 'all' ); 1 };
+    my @cols  = sort { $order{$a} <=> $order{$b} } keys %order;
+    @cols = grep { $_ ne 'id' } $class->columns unless @cols;
+    return [ map {
+        my $tag = eval { $meta->get_column( $_ )->tag };
+        [ $_, ( defined $tag && length $tag ? $tag : $_ ) ];
+    } @cols ];
+}
 
 # Render a (possibly inflated) column value as a display string.
 # Relationships use the object's own ->get_label; fallback is "ShortClass #id".

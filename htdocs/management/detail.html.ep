@@ -1,4 +1,4 @@
-<h1><%= ucfirst($type) %> #<%= $id %></h1>
+<h1><%= $title %></h1>
 
 <p><a href="<%= url_for( $type . '_list' ) %>">&laquo; <%= ucfirst($type) %></a></p>
 
@@ -6,7 +6,7 @@
   <table class="sortable detail">
     <tbody>
       % for my $a (@$attrs) {
-      <tr><th><%= $a->[0] %></th><td>
+      <tr><th><%= $a->[0] %></th><td style="white-space:pre-wrap">
         % if ( defined $a->[2] ) {
         <a href="<%= $a->[2] %>"><%= $a->[1] %></a>
         % } else {
