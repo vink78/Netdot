@@ -87,7 +87,7 @@ sub show ($c) {
         # Section tabs (view=Children|Sites|Zones|DHCP|Attributes|Comments|Audit|All),
         # orthogonal to the children view_format (list|block|tree). Default Children.
         # Access Rights is deferred. DHCP tab only for Subnets (like ip.html).
-        my $view = $c->param('view');
+        my $view = $c->param('view') // '';
         $view = 'Children' unless $view =~ /^(Children|Sites|Zones|DHCP|Attributes|Comments|Audit|All)$/;
         my @tabs = ( [ 'Children', 'Children' ], [ 'Sites', 'Sites' ], [ 'Zones', 'Zones' ] );
         push @tabs, [ 'DHCP', 'DHCP' ] if $status eq 'Subnet';
@@ -159,12 +159,15 @@ sub show ($c) {
         $comments   = eval { $o->info } // '' if $show->('Comments');
         @audit      = _ip_audit_records( $o ) if $show->('Audit');
 
+        my @block_attrs = _block_attributes( $o );
+
         $c->render(
             template   => 'management/ipblock',
             layout     => 'default',
             title      => "Ipblock " . $o->get_label,
             view       => $view,
             tabs       => \@tabs,
+            block_attrs => \@block_attrs,
             viewtype   => $viewtype,
             viewformat => $vfmt,
             modes      => \@modes,
@@ -209,6 +212,106 @@ sub show ($c) {
         id       => $id,
         attrs    => \@attrs,
     );
+}
+
+# The block's own attribute table (port of ip.html's block attribute_table), as a
+# list of [label, value_html] rows. Read-only; the [edit] links are deferred with
+# the write functionality. Handles Subnet vs Container conditionals and renders
+# the utilization progress bars.
+sub _block_attributes {
+    my ($o) = @_;
+    my @rows;
+    my $status = $o->status ? $o->status->name : '';
+    my $v4     = $o->version == 4;
+    my $maxips = Netdot->config->get('SHOW_COUNT_THRESHOLD') || 65536;
+    my $ui     = Netdot::UI->new;
+
+    push @rows, [ 'Address', _esc( $o->address . '/' . $o->prefix ) ];
+    push @rows, [ 'Status', "<strong>" . _esc($status) . "</strong>" ] if length $status;
+    push @rows, [ 'Description', _esc($o->description) ]
+        if defined $o->description && length $o->description;
+    push @rows, [ 'Use Network Broadcast', $o->use_network_broadcast ? 'Yes' : 'No' ]
+        if $status eq 'Subnet';
+    push @rows, [ 'First Seen', _esc($o->first_seen) ]
+        if defined $o->first_seen && length $o->first_seen;
+    push @rows, [ 'Last Seen', _esc($o->last_seen) ]
+        if defined $o->last_seen && length $o->last_seen;
+    push @rows, [ 'VLAN', _fk_link( $o->vlan ) ]
+        if $status eq 'Subnet' && $o->vlan;
+    if ( $status eq 'Container' ) {
+        push @rows, [ 'RIR', _esc($o->rir) ] if defined $o->rir && length $o->rir;
+        push @rows, [ 'ASN', _fk_link( $o->asn ) ] if $o->asn;
+    }
+    for my $pair ( [ owner => 'Owner' ], [ used_by => 'Used by' ] ) {
+        my ( $col, $label ) = @$pair;
+        my $ent = $o->$col;
+        push @rows, [ $label, _fk_link($ent) ] if $ent;
+    }
+
+    # Netmask / broadcast + usable address range (NetAddr::IP, like ip.html).
+    my $ip = NetAddr::IP->new( $o->address, $o->prefix );
+    push @rows, [ 'Netmask', $v4 ? _esc( $ip->mask ) : ( '/' . $o->prefix ) ];
+    push @rows, [ 'Broadcast', $v4 ? _esc( $ip->broadcast->addr ) : 'n/a' ];
+    my ( $num, $first, $last );
+    if ( $v4 ) {
+        if ( $o->prefix == 31 ) {
+            ( $num, $first, $last ) = ( 2, $ip->addr, $ip->broadcast->addr );
+        }
+        else {
+            ( $num, $first, $last ) = ( $o->num_addr, $ip->first->addr, $ip->last->addr );
+        }
+    }
+    else {
+        ( $num, $first, $last ) = ( $o->num_addr, $ip->network->canon, $ip->broadcast->canon );
+    }
+    push @rows, [ 'Usable Addresses', "$num ($first - $last)" ];
+
+    if ( $status eq 'Subnet' ) {
+        my $used  = $o->address_usage;
+        my $total = $o->num_addr;
+        my $avail = $total - $used;
+        my $percent = $total ? ( $used * 100 / $total ) : 0;
+        my $text = "Used: $used";
+        $text .= " of $total" if $total <= $maxips;
+        $text .= "   Available: ";
+        $text .= "$avail (" if $avail <= $maxips;
+        $text .= $ui->friendly_percent( value => $avail, total => $total );
+        $text .= ")" if $avail <= $maxips;
+        push @rows, [ 'Utilization', $ui->percent_bar( percent => $percent )
+            . qq{<div class="small">$text</div>} ];
+    }
+    elsif ( $status eq 'Container' ) {
+        my $total  = $o->num_addr;
+        my $used_a = $o->address_usage;
+        my $avail_a = $total - $used_a;
+        my $used_s = $o->subnet_usage;
+        my $avail_s = $total - $used_s;
+        my $address_percent = $total ? ( $used_a * 100 / $total ) : 0;
+        my $subnet_percent  = $total ? ( $used_s * 100 / $total ) : 0;
+
+        my $a_text;
+        if ( $used_a <= $maxips ) {
+            $a_text = "Used: $used_a";
+            $a_text .= " of $total" if $total <= $maxips;
+            $a_text .= "   Available: ";
+            $a_text .= "$avail_a (" if $total <= $maxips;
+            $a_text .= $ui->friendly_percent( value => $avail_a, total => $total );
+            $a_text .= ")" if $total <= $maxips;
+        }
+        else {
+            $a_text = $avail_a <= $maxips
+                ? "Available: $avail_a (" . ( 100 - $address_percent ) . "%)"
+                : "Available: " . ( 100 - $address_percent ) . "%";
+        }
+        push @rows, [ 'Address Utilization', $ui->percent_bar( percent => $address_percent )
+            . qq{<div class="small">$a_text</div>} ];
+
+        my $s_text = "Available: " . $ui->friendly_percent( value => $avail_s, total => $total );
+        push @rows, [ 'Space Allocated', $ui->percent_bar( percent => $subnet_percent )
+            . qq{<div class="small">$s_text</div>} ];
+    }
+
+    return @rows;
 }
 
 # Direct children of an ipblock. ->children returns a Class::DBI::Iterator, so it
@@ -404,6 +507,19 @@ sub _obj_label {
     my ($o) = @_;
     return '' unless $o;
     return eval { $o->get_label } // '';
+}
+
+# Minimal HTML escaping for text values emitted from Perl (the template's <%= %>
+# auto-escapes, but values built in controllers -- e.g. _block_attributes -- are
+# inserted raw and must be escaped explicitly before being marked safe).
+sub _esc {
+    my ($s) = @_;
+    return '' unless defined $s;
+    $s =~ s/&/&amp;/g;
+    $s =~ s/</&lt;/g;
+    $s =~ s/>/&gt;/g;
+    $s =~ s/"/&quot;/g;
+    return $s;
 }
 
 # Display an FK object as a link to its detail page (when a route exists).

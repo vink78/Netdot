@@ -39,20 +39,20 @@
 % }
 <h1><%= $title %></h1>
 
-%# The block's own key attributes (only on the detail view).
-% if ($current) {
-    <p>
-        Status: <strong><%= Netdot::Mojo::Registry::format_value( $current->status ) %></strong>
-        % if ( my $ow = eval { $current->owner } ) {
-            · Owner: <strong><%= $ow->get_label %></strong>
+%# The block's own attribute table (Address, Status, First/Last Seen, RIR/ASN,
+%# Owner/Used by, Netmask/Broadcast, Usable, Utilization/Space Allocated).
+% if ($current && $block_attrs && @$block_attrs) {
+    <table class="sortable" style="max-width:760px; margin-bottom:1em">
+        <tbody>
+        % for my $i (0 .. $#$block_attrs) {
+            % my $row = $block_attrs->[$i];
+            <tr>
+                <th style="text-align:left; white-space:nowrap; width:200px"><%= $row->[0] %></th>
+                <td><%== $row->[1] %></td>
+            </tr>
         % }
-        % if ( my $ub = eval { $current->used_by } ) {
-            · Used by: <strong><%= $ub->get_label %></strong>
-        % }
-        % if ( my $desc = eval { $current->description } ) {
-            · <span style="color:#555"><%= $desc %></span>
-        % }
-    </p>
+        </tbody>
+    </table>
 % }
 %# Section tab bar (block detail only).
 % if ($current && $tabs) {
