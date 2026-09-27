@@ -61,6 +61,20 @@ au premier `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
   enregistré dans `lib/Netdot/Mojo/Registry.pm` (`%TYPES`, `@ORDER`).
 - Objets FK stringifient à leur **id** → utiliser `->name`, `->get_label`,
   `->format_address`, ou `Registry::link_for`.
+- **Registry (`lib/Netdot/Mojo/Registry.pm`)** : `%TYPES` minimal =
+  `{ class, [nav=>0], [label] }`. `label` (nom méta), `desc` (description méta)
+  et `cols` (vue `brief`) sont **dérivés** du méta via `spec()` (mémoïsé) →
+  `netdot.meta` = source unique. `display_columns($class)` = vue `all` + tags
+  (détail générique). `nav=>0` = objet `linksto` (routable + détail générique,
+  masqué de la nav). Les cibles FK « objets » (Product, Availability, Circuit,
+  ArpCache, SiteLink, FWTable, STPInstance, HorizontalCable, BackboneCable,
+  DhcpScope) sont enregistrées pour que `link_for` les lie.
+- **`get_column_order(view=>…)` / `get_column_order_brief()`** renvoient un
+  **hash** colonnes→position → appeler en contexte liste :
+  `eval { %o = $m->get_column_order_brief(); 1 }` puis
+  `sort { $o{$a}<=>$o{$b} } keys %o` (sinon `wantarray` dégradé).
+- **Titre du détail générique** : `$obj->get_label` (construit depuis
+  `label => [...]` de `netdot.meta`), repli `Type #id`.
 - FK du type "nom de domaine → RR" : résoudre avec `RR->search({name=>...})`
   (helper `_name_link`).
 - Dates : masquer les valeurs nulles/vides (`_dt_ok`).

@@ -3,38 +3,40 @@ package Netdot::Mojo::Registry;
 use strict;
 use warnings;
 
-# Browsable object types: key => { class, label, desc, cols => [display columns] }.
-# "id" is always shown first (linked to the detail page); cols are the extra columns.
+# Browsable object types: key => { class, [nav => 0], [label => display override] }.
+# The list columns, the object label and the description are DERIVED from the model
+# meta (netdot.meta: "views" { brief / all }, table name/description) — not stored
+# here, to keep the model the single source of truth. "id" is always shown first
+# (linked to the detail page). nav => 0 marks link-only objects (linksto targets):
+# routable + generic detail, but hidden from the nav/home menu.
 our %TYPES = (
-    ipblock   => { class => 'Ipblock',   label => 'Ipblocks',   desc => 'IP address blocks',   cols => [qw(address prefix status used_by)] },
-    device    => { class => 'Device',    label => 'Devices',    desc => 'network equipment',   cols => [qw(sysname os owner site)] },
-    asset     => { class => 'Asset',     label => 'Assets',     desc => 'hardware assets',     cols => [qw(serial_number product_id physaddr inventory_number)] },
-    interface => { class => 'Interface', label => 'Interfaces', desc => 'device interfaces',   cols => [qw(name number device oper_status admin_status)] },
-    vlan      => { class => 'Vlan',      label => 'VLANs',      desc => 'virtual LANs',        cols => [qw(name vid vlangroup description)] },
-    zone      => { class => 'Zone',      label => 'Zones',      desc => 'DNS zones',           cols => [qw(name rname mname active)] },
-    site      => { class => 'Site',      label => 'Sites',      desc => 'physical sites',      cols => [qw(name aliases city country)] },
-    room      => { class => 'Room',      label => 'Rooms',      desc => 'site rooms',          cols => [qw(name floor)] },
-    floor     => { class => 'Floor',     label => 'Floors',     desc => 'site floors',         cols => [qw(level site)] },
-    closet    => { class => 'Closet',    label => 'Closets',    desc => 'machine rooms',       cols => [qw(name room info)] },
-    person    => { class => 'Person',    label => 'People',     desc => 'contacts / users',    cols => [qw(username firstname lastname email entity)] },
-    # Foreign-key target objects (linked from other detail pages).
-    rr          => { class => 'RR',          label => 'DNS Records',   desc => 'DNS resource records',   cols => [qw(name zone)] },
-    entity      => { class => 'Entity',      label => 'Entities',      desc => 'entities / customers',   cols => [qw(name aliases short_name)] },
-    service     => { class => 'Service',     label => 'Services',      desc => 'Internet services',      cols => [qw(name)] },
-    contactlist => { class => 'ContactList', label => 'Contact Lists', desc => 'contact groups',         cols => [qw(name)] },
-    physaddr    => { class => 'PhysAddr',    label => 'MAC Addresses', desc => 'physical (MAC) addresses', cols => [qw(address)] },
-    # Link-only "object" types: reachable as the target of a foreign key (linksto in
-    # netdot.meta) and rendered by the generic detail, but not shown in the nav.
-    product         => { class => 'Product',         label => 'Products',          desc => 'catalog products',        cols => [qw(name manufacturer part_number type)],        nav => 0 },
-    availability    => { class => 'Availability',    label => 'Availability',      desc => 'service availability',    cols => [qw(name info)],                                  nav => 0 },
-    circuit         => { class => 'Circuit',         label => 'Circuits',          desc => 'network circuits',        cols => [qw(cid linkid status type speed)],              nav => 0 },
-    arpcache        => { class => 'ArpCache',        label => 'ARP Cache',         desc => 'ARP cache entries',       cols => [qw(tstamp device)],                             nav => 0 },
-    sitelink        => { class => 'SiteLink',        label => 'Site Links',        desc => 'inter-site links',        cols => [qw(name entity nearend farend)],              nav => 0 },
-    fwtable         => { class => 'FWTable',         label => 'FW Tables',         desc => 'firewall tables',         cols => [qw(tstamp device)],                             nav => 0 },
-    stpinstance     => { class => 'STPInstance',     label => 'STP Instances',     desc => 'spanning tree instances', cols => [qw(number device root_port root_bridge)],      nav => 0 },
-    horizontalcable => { class => 'HorizontalCable', label => 'Horizontal Cables', desc => 'horizontal cabling',      cols => [qw(jackid faceplateid type closet room)],       nav => 0 },
-    backbonecable   => { class => 'BackboneCable',   label => 'Backbone Cables',   desc => 'backbone cabling',        cols => [qw(name type owner start_closet end_closet length)], nav => 0 },
-    dhcscope        => { class => 'DhcpScope',       label => 'DHCP Scopes',       desc => 'DHCP scopes',             cols => [qw(name type version container active)],        nav => 0 },
+    ipblock   => { class => 'Ipblock' },
+    device    => { class => 'Device' },
+    asset     => { class => 'Asset' },
+    interface => { class => 'Interface' },
+    vlan      => { class => 'Vlan' },
+    zone      => { class => 'Zone' },
+    site      => { class => 'Site' },
+    room      => { class => 'Room' },
+    floor     => { class => 'Floor' },
+    closet    => { class => 'Closet' },
+    person    => { class => 'Person' },
+    rr        => { class => 'RR' },
+    entity    => { class => 'Entity' },
+    service   => { class => 'Service' },
+    contactlist => { class => 'ContactList' },
+    physaddr  => { class => 'PhysAddr' },
+    # Link-only objects (linksto targets): generic detail, no nav entry.
+    product         => { class => 'Product',         nav => 0 },
+    availability    => { class => 'Availability',    nav => 0 },
+    circuit         => { class => 'Circuit',         nav => 0 },
+    arpcache        => { class => 'ArpCache',        nav => 0 },
+    sitelink        => { class => 'SiteLink',        nav => 0 },
+    fwtable         => { class => 'FWTable',         nav => 0 },
+    stpinstance     => { class => 'STPInstance',     nav => 0 },
+    horizontalcable => { class => 'HorizontalCable', nav => 0 },
+    backbonecable   => { class => 'BackboneCable',   nav => 0 },
+    dhcscope        => { class => 'DhcpScope',       nav => 0 },
 );
 
 # Ordered list of browsable types (drives routes, navbar and home menu).
@@ -50,8 +52,43 @@ sub types { @ORDER }
 our %SENSITIVE = map { $_ => 1 } qw(password snmp_authkey snmp_privkey);
 
 # Accessors (avoid the "PKG::HASH{$x}" parse-as-method pitfall).
-sub spec         { $TYPES{ $_[0] } }
 sub is_sensitive { exists $SENSITIVE{ $_[0] } }
+
+# Memoized spec for a type: { class, label, desc, cols, nav, ... }. label/desc/cols
+# are derived from the model meta (single source of truth); an optional override in
+# %TYPES wins. The model is loaded by the time this runs (requests), so meta_data
+# is available; guard anyway.
+our %SPEC;
+sub spec {
+    my ($key) = @_;
+    my $base = $TYPES{$key} or return;
+    return $SPEC{$key} if exists $SPEC{$key};
+    my $class = $base->{class};
+    my $meta  = eval { $class->meta_data };
+    my $label = $base->{label} // ( $meta && eval { $meta->name } ) // $key;
+    my $desc  = $meta ? eval { $meta->description } : undef;
+    $desc  = '' unless defined $desc;
+    my @cols = _brief_cols($class);
+    my $spec = { %$base, class => $class, label => $label, desc => $desc, cols => \@cols };
+    return $SPEC{$key} = $spec;
+}
+
+# List columns from the meta "brief" view; fall back to the "all" view, then the
+# raw column list (minus id).
+sub _brief_cols {
+    my ($class) = @_;
+    my $meta = eval { $class->meta_data };
+    return () unless $meta;
+    my %o;
+    eval { %o = $meta->get_column_order_brief(); 1 };
+    my @c = sort { $o{$a} <=> $o{$b} } keys %o;
+    return @c if @c;
+    %o = ();
+    eval { %o = $meta->get_column_order( view => 'all' ); 1 };
+    @c = sort { $o{$a} <=> $o{$b} } keys %o;
+    return grep { $_ ne 'id' } @c if @c;
+    return grep { $_ ne 'id' } $class->columns;
+}
 
 # Ordered display columns for a class's "all" view (from netdot.meta "views"), as
 # [ [col, tag], ... ]. The tag is the user-friendly label (e.g. serial_number ->

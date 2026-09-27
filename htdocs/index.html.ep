@@ -4,7 +4,7 @@
 <ul class="menu">
   % my $nav = $c->stash('nav') // [];
   % for my $n (@$nav) {
-  <li><a href="<%= url_for( $n->[0] . '_list' ) %>"><%= $n->[1] %></a> — <%= $n->[2] %></li>
+  <li><a href="<%= url_for( $n->[0] . '_list' ) %>"><%= $n->[1] %></a></li>
   % }
 </ul>
 <p class="muted">Read-only: click any id to see all its attributes; related objects are linked.</p>
