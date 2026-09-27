@@ -30,7 +30,9 @@ sub startup ($self) {
         $r->get("/management/$t")->to('browse#list', type => $t)->name("${t}_list");
         $r->get("/management/$t/csv")->to('browse#csv', type => $t)->name("${t}_csv");
         $r->post("/management/$t/delete")->to('browse#delete', type => $t)->name("${t}_delete");
-        $r->get("/management/$t/:id")->to('show#show', type => $t)->name("${t}_show");
+        # ipblock has a dedicated detail controller; the rest use the generic one.
+        my $show_ctrl = $t eq 'ipblock' ? 'ipblock' : 'show';
+        $r->get("/management/$t/:id")->to("${show_ctrl}#show", type => $t)->name("${t}_show");
     }
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');
