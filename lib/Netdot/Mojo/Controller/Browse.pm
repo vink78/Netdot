@@ -32,7 +32,7 @@ sub list ($c) {
         return;
     }
 
-    my $per    = 50;
+    my $per    = eval { Netdot::Model->config->get('DEFAULT_PERPAGE') } || 50;
     my $offset = int( $c->param('offset') // 0 );
     $offset = 0 if $offset < 0;
 

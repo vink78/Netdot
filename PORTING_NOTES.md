@@ -118,7 +118,14 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
   `_block_attributes`, grid, sites/zones/dhcp/attrs/arp/audit) + search.
 - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
   `_rr_sections`, `_search_all`, `_name_link`, `_obj_link`) + search.
-- `lib/Netdot/Mojo/Controller/Show.pm` — generic detail (most types).
+ - `lib/Netdot/Mojo/Controller/Show.pm` — generic detail (most types): attrs
+   (all view) + **has_many tables** (from `meta_data->get_links_from`, like
+   Mason `view.html`): one table per non-empty relation, brief columns (label
+   columns excluded from the brief set), 1st column = object label linked to its
+   detail page, rows capped at config `DEFAULT_PERPAGE` (50). NOTE: `get_links_from`
+   returns a **hash** and `get_labels` a **list** → use `my %h; eval { %h = ... }` /
+   `my @l; eval { @l = ... }` (the `eval {...} || ()` wantarray trap breaks both).
+   `Browse#list` page size also comes from `DEFAULT_PERPAGE`.
 - `lib/Netdot/Mojo/Registry.pm` — type catalogue, `link_for`, `format_value`,
   `spec`, `display_columns`, `is_sensitive`, `csv_field`.
 - `lib/Netdot/Mojo.pm` — app, routes per type, auth hook.

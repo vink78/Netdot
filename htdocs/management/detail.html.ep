@@ -19,3 +19,37 @@
 % } else {
   <p>No attribute.</p>
 % }
+
+% my $relations = $c->stash->{relations} // [];
+% if (@$relations) {
+% for my $r (@$relations) {
+<div style="margin:1.2em 0 0.5em 0">
+  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px"><%= $r->{title} %></h2>
+  <table class="sortable">
+    <thead>
+      <tr>
+      % for my $h ( @{ $r->{cols} } ) {
+      <th><%= $h %></th>
+      % }
+      </tr>
+    </thead>
+    <tbody>
+      % for my $row ( @{ $r->{rows} } ) {
+      <tr>
+        % for my $cell ( @$row ) {
+        % my ($t, $h) = @$cell;
+        <td>
+          % if ($h) {
+          <a href="<%= $h %>"><%= $t %></a>
+          % } else {
+          <%= $t // '' %>
+          % }
+        </td>
+        % }
+      </tr>
+      % }
+    </tbody>
+  </table>
+</div>
+% }
+% }
