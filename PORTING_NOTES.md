@@ -138,8 +138,14 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
 - Done: **Interface** (`Controller/Interface.pm`: detail + FDB + ARP sub-views;
   the raw FWT/ARP timestamp queries from the Mason `interface.html` moved into
   the model as `Interface->fdb_tstamps` / `Interface->arp_tstamps`).
-- In progress: **Device** port via dedicated controller
-  (order: Asset (done) → Interface (done) → Device).
+- Done: **Device — Basics + Interfaces** (`Controller/Device.pm`, `device.html.ep`,
+  `?view=` tabs). Basics = attributes (netdot.meta "all" view) + custom attributes
+  (`Device->attributes`); Interfaces = the `interfaces.mhtml` table (read-only):
+  number/name (linked), speed, VLAN (linked), status, jack/descr (conditional),
+  connected-devices (neighbor / `get_connected_devices`), sort by `ifsort`,
+  VLAN filter by `showvlan`, row color by `doc_status`.
+- Deferred (Device): IP, BGP, Hosted, Circuits, STP, Modules, Topology (graph),
+  Audit, Access Rights, and all write/edit actions.
 - Deferred: Access Rights tab; all write functions; minor read-only omissions
   (ASN link, v4/v6 selector, utilization toggle); search for the remaining
   types (VLAN, Zone, DHCP, Devices, Assets); NS/MX/TXT/NAPTR related-record
