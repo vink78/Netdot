@@ -1,120 +1,131 @@
-# Netdot → Mojolicious : notes de portage
+# Netdot → Mojolicious: porting notes
 
-Objectif : porter la web-app Netdot (Apache/mod_perl + Mason `.mhtml`) vers
-**Mojolicious**, en réutilisant `Netdot::Model`. Portage type par type,
-contrôleurs **lecture seule** d'abord.
+Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
+**Mojolicious**, reusing `Netdot::Model`. Port type by type,
+**read-only** controllers first.
 
-## Stack / environnement
+## Stack / environment
 - Perl 5.40.1 + Mojolicious 9.39.
-- BDD **mysql** (voir `etc/Site.conf`).
-- Auth LDAP + fallback local.
-- Branch git `dev`. L'utilisateur commit à chaque étape.
-  **Ne jamais commit/push sans demande.**
+- **mysql DB** (see `etc/Site.conf`).
+- LDAP auth + local fallback.
+- Git branch `dev`. The user commits at each step.
+  **Never commit/push without being asked.**
 
-## Workflow de validation
-- Syntax : `perl -c -Ilib` sur chaque fichier perl modifié.
-- Test E2E :
-  `bin/mojo daemon -l http://127.0.0.1:8899 -m development &` → kill par port.
-  Login : `curl -c ck.txt -d "username=<user>&password=<pass>" /login` (302).
-- Bare-`-e` : `use Netdot::Model` charge config+DB ; mais les classes RR*
-  (RRMX, RRNS, …) ne se chargent que via les relations RR.
-- À chaque étape : vérifier la page ciblée (200, contenu présent) **et** une
-  régression (liste du type + un type générique).
+## Validation workflow
+- Syntax: `perl -c -Ilib` on each modified perl file.
+- E2E test:
+  `bin/mojo daemon -l http://127.0.0.1:8899 -m development &` → kill by port.
+  Login: `curl -c ck.txt -d "username=<user>&password=<pass>" /login` (302).
+- Bare-`-e`: `use Netdot::Model` loads config+DB; but the RR* classes
+  (RRMX, RRNS, …) only load via the RR relations.
+- At each step: verify the target page (200, content present) **and** a
+  regression (the type's list + one generic type).
 
-## Architecture ciblée
-- **Un contrôleur dédié par type majeur** (`Controller/Ipblock.pm`,
-  `Controller/Rr.pm`, …), action `show`. Le détail générique reste dans
+## Target architecture
+- **One dedicated controller per major type** (`Controller/Ipblock.pm`,
+  `Controller/Rr.pm`, …), action `show`. The generic detail stays in
   `Controller/Show.pm`.
-- `lib/Netdot/Mojo.pm` : route `/management/<type>/<id>`, map
-  `my %show_ctrl = ( ipblock => 'ipblock', rr => 'rr' );` → contrôle dédié si
-  présent, sinon `show#show` (générique). Ajouter un type = une entrée dans la
-  map + un `Controller/<Type>.pm`.
-- Template par type : `htdocs/management/<type>.html.ep`.
-- Les pages racines/breadcrumb sont rendues par `Browse#list` ; elles
-  n'exposent PAS les variables du détail (ex. `$block_attrs`) → d'où la règle
-  de préambule ci-dessous.
+- `lib/Netdot/Mojo.pm`: route `/management/<type>/<id>`, dispatch map
+  `my %show_ctrl = ( ipblock => 'ipblock', rr => 'rr' );` → dedicated controller if
+  present, else `show#show` (generic). Adding a type = one entry in the
+  map + one `Controller/<Type>.pm`.
+- Template per type: `htdocs/management/<type>.html.ep`.
+- Root/breadcrumb pages are rendered by `Browse#list`; they do NOT expose the
+  detail-page variables (e.g. `$block_attrs`) → hence the preamble rule below.
 
-## Pièges (critiques)
+## Pitfalls (critical)
 
 ### 1. CDBI + `wantarray`
-`eval { $class->search(...) } // ()` dégrade `wantarray` : les **itérateurs
-CDBI** (retournés par `->children` ET par `->search()`) sont alors stringifiés
-au premier `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
-- Ne jamais `// ()` autour d'un appel de méthode CDBI qui itère.
-- Itérer explicitement l'itérateur (`$it = $obj->children; while ($c = $it->next)`)
-  ; helper local `_search_all($class, ...)` = `my $r=$c->search(...); my @out;
-  while (my $o=$r->next){push @out,$o} @out` quand un array est attendu.
+`eval { $class->search(...) } // ()` degrades `wantarray`: the **CDBI
+iterators** (returned by `->children` AND by `->search()`) are then stringified
+at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
+- Never wrap a CDBI call that iterates in `// ()`.
+- Iterate the iterator explicitly (`$it = $obj->children; while ($c = $it->next)`)
+  ; local helper `_search_all($class, ...)` = `my $r=$c->search(...); my @out;
+  while (my $o=$r->next){push @out,$o} @out` when an array is expected.
 
 ### 2. Templates `.ep`
-- **Préambule** : chaque variable du stash utilisée dans le corps doit être
-  déclarée `my $x = $c->stash->{x} // default;`. Une var absente du stash →
-  erreur `strict` "requires explicit package name".
-- `% if/else`, `% for { <tr> }` **en ligne unique ne compile PAS** → multi-lignes.
-- `esc` n'existe pas dans le code Perl du contrôleur (helper de template) →
-  helper local `_esc` (`s/([&<>"])/\u$1/ge`) ou `escape()` dans `.ep`.
-- `esc()` dans `.ep` échappe le HTML ; pour du HTML déjà formaté (grille,
-  percent_bar) utiliser `==` (`<%== $var %>`).
+- **Preamble**: every stash variable used in the body must be declared
+  `my $x = $c->stash->{x} // default;`. A var missing from the stash →
+  `strict` error "requires explicit package name".
+- `% if/else`, `% for { <tr> }` **on a single line DO NOT compile** → multi-line.
+- `esc` does not exist in the controller Perl code (it's a template helper) →
+  local helper `_esc` (`s/([&<>"])/\u$1/ge`) or `escape()` in `.ep`.
+- `esc()` in `.ep` escapes HTML; for already-formatted HTML (grid,
+  percent_bar) use `==` (`<%== $var %>`).
+- **Cache**: Mojolicious caches templates **compiled in memory** in the
+  process → after editing a `.ep`, **restart the daemon** (and hard-refresh the
+  browser), otherwise the old version is served.
+- **Code** comments are in **English** (international project).
 
-### 3. Modèles
-- `Registry::link_for($obj)` renvoie une **arrayref** `[text, href]` →
-  déréférencer avec `@{ }`. Génère `/management/<type>/<id>` pour tout type
-  enregistré dans `lib/Netdot/Mojo/Registry.pm` (`%TYPES`, `@ORDER`).
-- Objets FK stringifient à leur **id** → utiliser `->name`, `->get_label`,
-  `->format_address`, ou `Registry::link_for`.
-- **Registry (`lib/Netdot/Mojo/Registry.pm`)** : `%TYPES` minimal =
-  `{ class, [nav=>0], [label] }`. `label` (nom méta), `desc` (description méta)
-  et `cols` (vue `brief`) sont **dérivés** du méta via `spec()` (mémoïsé) →
-  `netdot.meta` = source unique. `display_columns($class)` = vue `all` + tags
-  (détail générique). `nav=>0` = objet `linksto` (routable + détail générique,
-  masqué de la nav). Les cibles FK « objets » (Product, Availability, Circuit,
-  ArpCache, SiteLink, FWTable, STPInstance, HorizontalCable, BackboneCable,
-  DhcpScope) sont enregistrées pour que `link_for` les lie.
-- **`get_column_order(view=>…)` / `get_column_order_brief()`** renvoient un
-  **hash** colonnes→position → appeler en contexte liste :
-  `eval { %o = $m->get_column_order_brief(); 1 }` puis
-  `sort { $o{$a}<=>$o{$b} } keys %o` (sinon `wantarray` dégradé).
-- **Titre du détail générique** : `$obj->get_label` (construit depuis
-  `label => [...]` de `netdot.meta`), repli `Type #id`.
-- FK du type "nom de domaine → RR" : résoudre avec `RR->search({name=>...})`
+### 3. Models
+- `Registry::link_for($obj)` returns an **arrayref** `[text, href]` →
+  dereference with `@{ }`. Generates `/management/<type>/<id>` for any type
+  registered in `lib/Netdot/Mojo/Registry.pm` (`%TYPES`, `@ORDER`).
+- FK objects stringify to their **id** → use `->name`, `->get_label`,
+  `->format_address`, or `Registry::link_for`.
+- **Registry (`lib/Netdot/Mojo/Registry.pm`)**: `%TYPES` minimal =
+  `{ class, [nav=>0], [label] }`. `label` (meta name), `desc` (meta description)
+  and `cols` (brief view) are **derived** from the meta via `spec()` (memoized) →
+  `netdot.meta` = single source of truth. `display_columns($class)` = the
+  `all` view + tags (generic detail). `nav=>0` = a linksto object (routable +
+  generic detail, hidden from the nav). The FK "object" targets (Product,
+  Availability, Circuit, ArpCache, SiteLink, FWTable, STPInstance,
+  HorizontalCable, BackboneCable, DhcpScope) are registered so `link_for`
+  links them.
+- **`get_column_order(view=>…)` / `get_column_order_brief()`** return a
+  **hash** column→position → call in list context:
+  `eval { %o = $m->get_column_order_brief(); 1 }` then
+  `sort { $o{$a}<=>$o{$b} } keys %o` (else `wantarray` is degraded).
+- **Generic detail title**: `$obj->get_label` (built from
+  `label => [...]` in `netdot.meta`), fallback `Type #id`.
+- FK of the "domain name → RR" type: resolve with `RR->search({name=>...})`
   (helper `_name_link`).
-- Dates : masquer les valeurs nulles/vides (`_dt_ok`).
+- Dates: hide null/empty values (`_dt_ok`).
 
-### 4. Grille container (portage Mason `container.mhtml`)
-- Base d'unité = **/32** (pas /28), sinon les enfants plus fins (ex. /29)
-  ont une largeur fractionnaire (0.5) qui casse la grille.
-- `cellsperrow = (rowsize>=22) ? 1024 : 2**(32-rowsize)` ; largeur cellule =
-  `(2**(32-prefix)) * (2**(rowsize-22))` px. 1 ligne = 1 bloc /rowsize.
-- v6 non supporté (message). Liens `/management/ipblock/<id>`.
+### 4. Container grid (port of Mason `container.mhtml`)
+- Unit base = **/32** (not /28), otherwise finer children (e.g. /29)
+  get a fractional width (0.5) that breaks the grid.
+- `cellsperrow = (rowsize>=22) ? 1024 : 2**(32-rowsize)`; cell width =
+  `(2**(32-prefix)) * (2**(rowsize-22))` px. 1 row = 1 /rowsize block.
+- v6 not supported (message). Links `/management/ipblock/<id>`.
 
-## Référence Mason → Mojolicious
-- Vue générique d'un record : `htdocs/generic/view.html?table=X&id=Y`.
-- Portage type : reprendre la page Mason (`htdocs/management/*.mhtml`) et ses
-  helpers, adapter vers contrôleur dédié + `.ep`.
-- Mécanique de liens de champs : `lib/Netdot/UI.pm` (`form_field`/
+## Mason → Mojolicious reference
+- Generic view of a record: `htdocs/generic/view.html?table=X&id=Y`.
+- Port a type: take the Mason page (`htdocs/management/*.mhtml`) and its
+  helpers, adapt to a dedicated controller + `.ep`.
+- Field-link mechanics: `lib/Netdot/UI.pm` (`form_field`/
   `add_to_fields`, `linkPage`/`linkpages`). NS/MX/TXT/NAPTR → `view.html`
-  (vue du record) ; PTR → `host.html` (vue host).
-- Styles : `htdocs/css/style.css` (`.ipaddr_*`, `.ipcontainertable`,
+  (record view); PTR → `host.html` (host view).
+- Styles: `htdocs/css/style.css` (`.ipaddr_*`, `.ipcontainertable`,
   `.tablescroll`, `.container*`, `.progress_bar`).
 
-## Fichiers clés
-- `lib/Netdot/Mojo/Controller/Ipblock.pm` — détail bloc (show + helpers
-  `_block_attributes`, grille, sites/zones/dhcp/attrs/arp/audit).
-- `lib/Netdot/Mojo/Controller/Rr.pm` — détail host (show + `_rr_attributes`,
-  `_rr_sections`, `_search_all`, `_name_link`, `_obj_link`).
-- `lib/Netdot/Mojo/Controller/Show.pm` — détail générique (14 types).
-- `lib/Netdot/Mojo/Registry.pm` — catalogue de types, `link_for`, `format_value`,
-  `spec`, `is_sensitive`, `csv_field`.
-- `lib/Netdot/Mojo.pm` — app, routes par type, auth hook.
-- `htdocs/management/{ipblock,rr,ipaddress,detail}.html.ep` — templates.
+## Key files
+- `lib/Netdot/Mojo/Controller/Ipblock.pm` — block detail (show + helpers
+  `_block_attributes`, grid, sites/zones/dhcp/attrs/arp/audit) + search.
+- `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
+  `_rr_sections`, `_search_all`, `_name_link`, `_obj_link`) + search.
+- `lib/Netdot/Mojo/Controller/Show.pm` — generic detail (most types).
+- `lib/Netdot/Mojo/Registry.pm` — type catalogue, `link_for`, `format_value`,
+  `spec`, `display_columns`, `is_sensitive`, `csv_field`.
+- `lib/Netdot/Mojo.pm` — app, routes per type, auth hook.
+- `htdocs/management/{ipblock,rr,ipaddress,detail,search_results}.html.ep` — templates.
 - `htdocs/management/host.html` (1136 l.), `container.mhtml`,
-  `htdocs/generic/view.html` — références Mason.
-- `etc/netdot.meta` — schéma FK/relations.
+  `htdocs/generic/view.html` — Mason references.
+- `etc/netdot.meta` — FK/relations schema (`linksto`, `views`, `label`).
 
-## État (à mettre à jour)
-- Fait : responsive/htmx, Bootstrap, Auth, nav générique, design,
-  pagination/CSV/delete, ipblock (nav, subnets, container grid, tree, onglets,
-  adresse IP, attrs du bloc, types génériques), **table RR (host)**.
-- En cours : navigation records liés (NS/MX/TXT/NAPTR → vue du record RRNS/
-  RRMX/RRTXT/RRNAPTR ; PTR → host ok).
-- Différé : Access Rights tab ; toutes les fonctions d'écriture ; omissions
-  mineures read-only (lien ASN, sélecteur v4/v6, toggle utilization).
+## Status (to be updated)
+- Done: responsive/htmx, Bootstrap, Auth, generic nav, design,
+  pagination/CSV/delete, ipblock (nav, subnets, container grid, tree, tabs,
+  IP address, block attrs), **RR table (host)**, **search (RR + Ipblock)**,
+  **Asset**, meta-driven Registry (labels/views/cols + titles from
+  `netdot.meta`), **linksto objects registered + linked** (Product,
+  Availability, Circuit, ArpCache, SiteLink, FWTable, STPInstance,
+  HorizontalCable, BackboneCable, DhcpScope).
+- In progress: **Device** port via dedicated controller, order
+  **Asset (done) → Interface → Device**.
+- Deferred: Access Rights tab; all write functions; minor read-only omissions
+  (ASN link, v4/v6 selector, utilization toggle); search for the remaining
+  types (VLAN, Zone, DHCP, Devices, Assets); NS/MX/TXT/NAPTR related-record
+  navigation (register RRNS/RRMX/RRTXT/RRNAPTR, point host-page links at their
+  detail pages).
