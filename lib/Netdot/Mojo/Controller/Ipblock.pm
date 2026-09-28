@@ -146,9 +146,12 @@ sub show ($c) {
         my $devs   = $viewtype eq 'address' ? ( eval { Device->get_ips_from_all() } || {} ) : undef;
 
         # Per-tab section data (gathered lazily, only for the active view).
-        my ( @sites, @fzones, @rzones, @dhcp, @attributes, @audit, $comments );
+        # fzones/rzones are arrayrefs (forward / reverse zones, kept separate).
+        my ( @sites, $fzones, $rzones, @dhcp, @attributes, @audit, $comments );
         @sites      = _block_sites( $o )      if $show->('Sites');
-        ( @fzones, @rzones ) = _block_zones( $o ) if $show->('Zones');
+        ( $fzones, $rzones ) = _block_zones( $o ) if $show->('Zones');
+        $fzones ||= [];
+        $rzones ||= [];
         @dhcp       = _ip_dhcp_scopes( $o )   if $show->('DHCP');
         @attributes = _ip_attributes( $o )    if $show->('Attributes');
         $comments   = eval { $o->info } // '' if $show->('Comments');
@@ -174,8 +177,8 @@ sub show ($c) {
             breadcrumb => \@crumbs,
             devs       => $devs,
             sites      => \@sites,
-            fzones     => \@fzones,
-            rzones     => \@rzones,
+            fzones     => $fzones,
+            rzones     => $rzones,
             dhcp       => \@dhcp,
             attributes => \@attributes,
             comments   => $comments,
@@ -635,31 +638,31 @@ sub _block_sites {
     return @out;
 }
 
-# Forward + reverse DNS zones of a block. Forward: SubnetZone join -> Zone.
-# Reverse: dot-arpa names that match an existing Zone. Returns (forward, reverse).
+# Forward + reverse DNS zones of a block. Returns two arrayrefs:
+# [forward links], [reverse links] (each zone rendered as a link to /management/zone/<id>).
+# Forward: model's forward_zone() (linked zones, in-addr.arpa/ip6.arpa excluded).
+# Reverse: every dot-arpa name the block maps to -- a /23 spans two /24s, so there
+# can be more than one -- matched against the existing zones.
 sub _block_zones {
     my ($o) = @_;
-    my @fwd;
-    my @rel = eval { $o->zones };
-    unless ($@) {
-        for my $sz (@rel) {
-            my $zone = eval { $sz->zone };
-            push @fwd, _fk_link( $zone ) if $zone;   # Zone -> /management/zone/<id>
-        }
-    }
-    my @rev;
-    my %zones;
+    my @fwd = eval { $o->forward_zone };
+
+    my %all_zones;
     my $it = eval { Zone->retrieve_all };
     if ( $it && $it->isa( 'Class::DBI::Iterator' ) ) {
-        while ( my $z = $it->next ) { $zones{ $z->name } = $z; }
+        while ( my $z = $it->next ) { $all_zones{ $z->name } = $z; }
     }
+    my %reverse_zones;
     my @names = eval { $o->get_dot_arpa_names };
-    unless ($@) {
-        for my $n (@names) {
-            push @rev, _fk_link( $zones{$n} ) if $zones{ $n };
-        }
+    for my $n (@names) {
+        $reverse_zones{ $n } = $all_zones{ $n } if exists $all_zones{ $n };
     }
-    return ( @fwd, @rev );
+    my @rev = values %reverse_zones;
+
+    return (
+        [ map { _fk_link( $_ ) } @fwd ],
+        [ map { _fk_link( $_ ) } @rev ],
+    );
 }
 
 # DNS records (A or PTR) attached to an address. Each record is wrapped in a

@@ -40,7 +40,7 @@
 % }
 <h1><%= $title %></h1>
 
-# Search box (Address Space) — shown on the list/roots view only.
+%# Search box (Address Space) — shown on the list/roots view only.
 % unless ($current) {
 <div class="container" style="margin-bottom:1em">
   <div class="containerheadleft">Search Address Space</div>
