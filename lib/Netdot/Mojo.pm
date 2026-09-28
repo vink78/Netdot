@@ -28,8 +28,8 @@ sub startup ($self) {
     # (see Registry). search/csv/delete are declared before :id so they win over
     # the id placeholder. Types with custom search/detail logic get a dedicated
     # controller; the rest use the generic ones.
-    my %show_ctrl   = ( ipblock => 'ipblock', rr => 'rr' );
-    my %search_ctrl = ( ipblock => 'ipblock', rr => 'rr' );
+    my %show_ctrl   = ( ipblock => 'ipblock', rr => 'rr', physaddr => 'physaddr' );
+    my %search_ctrl = ( ipblock => 'ipblock', rr => 'rr', physaddr => 'physaddr' );
     for my $t ( Netdot::Mojo::Registry::types() ) {
         $r->get("/management/$t")->to('browse#list', type => $t)->name("${t}_list");
         if ( my $sc = $search_ctrl{$t} ) {

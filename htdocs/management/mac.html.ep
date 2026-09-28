@@ -1,0 +1,69 @@
+<%# MAC (PhysAddr) detail: read-only port of mac.html. %>
+<% my $title      = $c->stash->{title} // 'MAC'; %>
+<% my $limit      = $c->stash->{limit} // 10; %>
+<% my $addr_rows  = $c->stash->{addr_rows}  // []; %>
+<% my $devices    = $c->stash->{devices}    // []; %>
+<% my $interfaces = $c->stash->{interfaces} // []; %>
+<% my $scopes     = $c->stash->{scopes}     // []; %>
+<% my $edge_html  = $c->stash->{edge_html}; %>
+<% my $fwt_html   = $c->stash->{fwt_html}; %>
+<% my $arp_html   = $c->stash->{arp_html}; %>
+<h1><%= $title %></h1>
+
+<h3>MAC Address</h3>
+<table class="table">
+  % for my $r (@$addr_rows) {
+  <tr><th style="width:25%"><%= $r->[0] %></th><td style="white-space:pre-wrap"><%== $r->[1] %></td></tr>
+  % }
+</table>
+
+% if (@$devices) {
+<h3>Devices using this address</h3>
+<table class="table">
+  % for my $d (@$devices) {
+    % my $l = Netdot::Mojo::Registry::link_for($d);
+    % if ($l) {
+  <tr><td><a href="<%= $l->[1] %>"><%= $l->[0] %></a></td></tr>
+    % }
+  % }
+</table>
+% }
+
+% if (@$interfaces) {
+<h3>Interfaces using this address</h3>
+<table class="table">
+  % for my $i (@$interfaces) {
+    % my $l = Netdot::Mojo::Registry::link_for($i);
+    % if ($l) {
+  <tr><td><a href="<%= $l->[1] %>"><%= $l->[0] %></a></td></tr>
+    % }
+  % }
+</table>
+% }
+
+% if ($edge_html) {
+<h3>Edge Port</h3>
+<table class="table"><tr><th>Interface</th><th>Room</th><th>Jack</th><th>Description</th></tr><%== $edge_html %></table>
+% }
+
+% if ($fwt_html) {
+<h3>Last <%= $limit %> forwarding table entries</h3>
+<table class="table"><%== $fwt_html %></table>
+% }
+
+% if ($arp_html) {
+<h3>Last <%= $limit %> ARP entries</h3>
+<table class="table"><%== $arp_html %></table>
+% }
+
+% if (@$scopes) {
+<h3>DHCP Scopes</h3>
+<table class="table">
+  % for my $s (@$scopes) {
+    % my $l = Netdot::Mojo::Registry::link_for($s);
+    % if ($l) {
+  <tr><td><a href="<%= $l->[1] %>"><%= $l->[0] %></a></td></tr>
+    % }
+  % }
+</table>
+% }
