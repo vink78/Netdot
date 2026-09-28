@@ -21,6 +21,7 @@
 % }
 
 % my $relations = $c->stash->{relations} // [];
+% my $dbase     = "/management/$type/$id";
 % if (@$relations) {
 % for my $r (@$relations) {
 <div style="margin:1.2em 0 0.5em 0">
@@ -50,6 +51,19 @@
       % }
     </tbody>
   </table>
+  <p style="font-size:0.85em; margin:0.3em 0 0 0">
+    % if ( $r->{total} > $r->{per} ) {
+    Results: [<%= $r->{start} %>-<%= $r->{last_item} %>] of <%= $r->{total} %>&nbsp;
+    % if ( $r->{offset} > 0 ) {
+    <a href="<%= $r->{offset} >= $r->{per} ? ( $dbase . '?offset=' . ( $r->{offset} - $r->{per} ) ) : $dbase %>">&laquo;</a>&nbsp;
+    % }
+    % if ( $r->{offset} + $r->{per} < $r->{total} ) {
+    <a href="<%= $dbase . '?offset=' . ( $r->{offset} + $r->{per} ) %>">&raquo;</a>
+    % }
+    &nbsp;
+    % }
+    <a href="<%= $dbase . '?csv=' . $r->{csv_rel} %>">[csv]</a>
+  </p>
 </div>
 % }
 % }
