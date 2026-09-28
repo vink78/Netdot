@@ -6,18 +6,21 @@
 
 % my $search_url = $c->stash('search_url');
 % my $zones      = $c->stash('zones') // [];
+% my $s_title    = $c->stash('search_title') // 'Search';
+% my $s_ph       = $c->stash('search_placeholder') // 'Search...';
 % my $q          = $c->param('search')  // '';
 % my $zsel       = $c->param('zone_id') // '';
 % if ($search_url) {
 <div class="container" style="margin-bottom:1em">
-  <div class="containerheadleft">Search DNS Records</div>
+  <div class="containerheadleft"><%= $s_title %></div>
   <div class="containerheadright">&nbsp;</div>
   <div class="containerbody" style="padding:0.6em">
     <form method="get" action="<%= $search_url %>">
       <p>
-        <label>Name / IP / MAC:</label>
+        <label><%= $s_ph %>:</label>
         <input type="text" name="search" class="longtxt" value="<%= $q %>">
       </p>
+      % if (@$zones) {
       <p>
         <label>Names within:</label>
         <select name="zone_id">
@@ -26,8 +29,9 @@
           <option value="<%= $z->id %>" <%= $z->id eq $zsel ? 'selected' : '' %>><%= $z->get_label %></option>
           % }
         </select>
-        <input type="submit" value="Find" class="btn">
       </p>
+      % }
+      <input type="submit" value="Find" class="btn">
     </form>
   </div>
 </div>

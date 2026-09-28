@@ -57,13 +57,20 @@ sub list ($c) {
     my $start     = @rows ? $offset + 1 : 0;
     my $last_item = $offset + scalar(@rows);
 
-    # DNS Records list gets the host_tasks.html search box (name/IP/MAC + zone).
+    # Search boxes on the list page (mac.html / host_tasks.html). The box is
+    # generic (see list.html.ep); "Names within" only shows when zones are given.
     my %extra;
     if ( $type eq 'rr' ) {
         my @zones = Zone->retrieve_all;
         @zones = sort { $a->name cmp $b->name } @zones;
-        $extra{zones}      = \@zones;
-        $extra{search_url} = $c->url_for( 'rr_search' );
+        $extra{zones}              = \@zones;
+        $extra{search_url}         = $c->url_for( 'rr_search' );
+        $extra{search_title}       = 'Search DNS Records';
+        $extra{search_placeholder} = 'Name / IP / MAC';
+    } elsif ( $type eq 'physaddr' ) {
+        $extra{search_url}         = $c->url_for( 'physaddr_search' );
+        $extra{search_title}       = 'Search MAC addresses';
+        $extra{search_placeholder} = 'MAC address / OUI';
     }
 
     $c->render(

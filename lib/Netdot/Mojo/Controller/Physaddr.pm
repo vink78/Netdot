@@ -11,13 +11,10 @@ use Netdot::Mojo::Registry;
 sub show {
     my $c  = shift;
     my $id = $c->param('id');
+    $id =~ /^\d+$/ or return $c->reply->not_found;
 
     my $o = eval { PhysAddr->retrieve($id) };
-    unless ( $o && !$@ ) {
-        $c->render(template => 'error', status => 404,
-                   title => 'MAC', message => "PhysAddr #${id} not found.");
-        return;
-    }
+    return $c->reply->not_found unless $o && !$@;
 
     my $app   = $c->app;
     my $esc   = sub { my ($s) = @_; $s = '' unless defined $s; $s =~ s/([&<>"])/\u$1/ge; $s };
@@ -37,9 +34,12 @@ sub show {
         ['Last Seen',  $esc->( $o->last_seen  // '' )],
     );
 
-    my @devices    = eval { $o->devices }    // ();
-    my @interfaces = eval { $o->interfaces } // ();
-    my @scopes     = eval { $o->dhcp_hosts } // ();
+    # List-context calls: NEVER wrap in eval{ } // () (it degrades wantarray and
+    # yields a single iterator/count instead of the object list). Assign into an
+    # array inside the eval so list context is preserved and errors are swallowed.
+    my @devices;    eval { @devices = $o->devices };
+    my @interfaces; eval { @interfaces = $o->interfaces };
+    my @scopes;     eval { @scopes = $o->dhcp_hosts };
 
     # Edge port (find_edge_port may die when there is none; guard it).
     my $edge_html;
@@ -111,6 +111,7 @@ sub show {
     }
 
     $c->render( template => 'management/mac', status => 200,
+        layout     => 'default',
         title      => $o->format_address // "PhysAddr #$id",
         o          => $o,
         limit      => $limit,
@@ -131,29 +132,38 @@ sub search {
     my $c    = shift;
     my $term = $c->param('search');
     $term =~ s/^\s+|\s+$//g if defined $term;
-    unless ( $term ) { $c->redirect_to('/management/physaddr_list'); return; }
+    my $search_url = $c->url_for('physaddr_search');
+    unless ( $term ) { $c->redirect_to( $search_url ); return; }
 
-    my @results = eval { PhysAddr->search_like(address => $term) } // ();
+    # search_like returns a CDBI iterator; iterate it explicitly (never wrap the
+    # call in eval{} // (), that degrades wantarray -> a single iterator object).
+    my @results;
+    eval {
+        my $it = PhysAddr->search_like( address => $term );
+        while ( my $o = $it->next ) { push @results, $o; }
+    };
 
-    if ( !@results ) {
-        $c->render(template => 'management/search_results', status => 200,
-                   title => 'MAC search', query => $term, type_label => 'MAC addresses', results => []);
-        return;
-    }
     if ( @results == 1 ) {
-        $c->redirect_to('/management/physaddr/' . $results[0]->id);
+        $c->redirect_to( '/management/physaddr/' . $results[0]->id );
         return;
     }
-    my $shown  = scalar(@results) > 200 ? 200 : scalar(@results);
-    my @items  = map {
-        my $o = $_;
-        { label => $o->format_address // $o->address,
-          href  => '/management/physaddr/' . $o->id };
-    } @results[ 0 .. $shown - 1 ];
-    $c->render(template => 'management/search_results', status => 200,
-               title => 'MAC search', query => $term,
-               type_label => 'MAC addresses', results => \@items,
-               total => scalar(@results), shown => $shown);
+
+    my $limit = 200;
+    my @rows;
+    for my $o ( @results[ 0 .. ( @results > $limit ? $limit - 1 : $#results ) ] ) {
+        push @rows, { label => $o->format_address // $o->address,
+                      href  => '/management/physaddr/' . $o->id,
+                      cells => [] };
+    }
+    $c->render(
+        template   => 'management/search_results',
+        layout     => 'default',
+        title      => 'MAC Address Search',
+        search     => $term,
+        headers    => [ 'MAC Address' ],
+        rows       => \@rows,
+        search_url => $search_url,
+    );
 }
 
 1;

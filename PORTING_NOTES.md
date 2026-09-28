@@ -26,9 +26,13 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
   `Controller/Rr.pm`, …), action `show`. The generic detail stays in
   `Controller/Show.pm`.
 - `lib/Netdot/Mojo.pm`: route `/management/<type>/<id>`, dispatch map
-  `my %show_ctrl = ( ipblock => 'ipblock', rr => 'rr' );` → dedicated controller if
-  present, else `show#show` (generic). Adding a type = one entry in the
-  map + one `Controller/<Type>.pm`.
+   `my %show_ctrl = ( ipblock => 'ipblock', rr => 'rr' );` → dedicated controller if
+   present, else `show#show` (generic). Adding a type = one entry in the
+   map + one `Controller/<Type>.pm`.
+- **Route paths**: list = `/management/<type>` (route *name* `<type>_list`),
+   search = `/management/<type>/search`, detail = `/management/<type>/<id>`.
+   `<type>_list` is the route NAME (for `url_for`/`redirect_to`), NOT a path —
+   hitting `/management/<type>_list` 404s.
 - Template per type: `htdocs/management/<type>.html.ep`.
 - Root/breadcrumb pages are rendered by `Browse#list`; they do NOT expose the
   detail-page variables (e.g. `$block_attrs`) → hence the preamble rule below.
@@ -43,6 +47,15 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
 - Iterate the iterator explicitly (`$it = $obj->children; while ($c = $it->next)`)
   ; local helper `_search_all($class, ...)` = `my $r=$c->search(...); my @out;
   while (my $o=$r->next){push @out,$o} @out` when an array is expected.
+- **`->search_like(...)` (PhysAddr) also returns an iterator** → same rule:
+  `my $it = $class->search_like(...); while (my $o=$it->next){...}`. Never
+  `eval { $class->search_like(...) } // ()` (yields 1 element = the iterator,
+  `->id` then fails). Plain list context (`my @r = $class->search_like(...)`)
+  expands fine — it is the `eval{ } // ()` that breaks it.
+- **Same trap on relation methods** (`->devices`, `->interfaces`, `->dhcp_hosts`,
+  …) : `my @x = eval { $o->rel } // ()` degrades wantarray → 1 iterator/count
+  (renders as `Iterator#0` / a bare number). Correct form:
+  `my @x; eval { @x = $o->rel };` (list context preserved inside the eval).
 
 ### 2. Templates `.ep`
 - **Preamble**: every stash variable used in the body must be declared
