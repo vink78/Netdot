@@ -171,7 +171,8 @@ sub _rr_attributes {
         if _dt_ok( $o->modified );
     push @rows, [ 'Expiration', _esc( $o->expiration ) ]
         if _dt_ok( $o->expiration );
-    my @devs = eval { $o->devices } || ();
+    my @devs;
+    eval { @devs = $o->devices };
     push @rows, [ 'Device', _obj_link( $devs[0] ) ] if @devs && $devs[0];
     push @rows, [ 'Auto Update', $o->auto_update ? 'Yes' : 'No' ];
     return \@rows;

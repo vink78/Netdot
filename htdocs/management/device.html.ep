@@ -23,31 +23,50 @@
 </div>
 
 % if ($view eq 'Basics') {
-% my $attrs  = $c->stash->{attrs}  // [];
-% my $custom = $c->stash->{custom} // [];
-<table class="sortable detail">
-  <tbody>
-    % for my $a (@$attrs) {
-    <tr><th><%= $a->[0] %></th><td style="white-space:pre-wrap">
-      % if ( defined $a->[2] ) {
-      <a href="<%= $a->[2] %>"><%= $a->[1] %></a>
-      % } else {
-      <%= $a->[1] %>
+% my $sections = $c->stash->{sections} // [];
+% for my $s (@$sections) {
+% my $rows = $s->{rows};
+% next unless @$rows;
+<div style="margin:0 0 1em 0">
+  <h3><%= $s->{title} %></h3>
+  <table class="devgrid">
+    <tbody>
+      % for my $row (@$rows) {
+      <tr>
+        % for my $cell (@$row) {
+          % my ( $tag, $text, $href ) = @$cell;
+          <th><%= $tag %></th>
+          <td>
+            % if ( ref $text eq 'ARRAY' ) {
+            % for my $li (0 .. $#$text) {
+            % my $l = $text->[$li];
+            % if ($li > 0) {
+            ,
+            % }
+            % if ( $l->[1] ) {
+            <a href="<%= $l->[1] %>"><%= $l->[0] %></a>
+            % } else {
+            <%= $l->[0] %>
+            % }
+            % }
+            % } else {
+            % if ( defined $href ) {
+            <a href="<%= $href %>"><%= $text %></a>
+            % } else {
+            <%= $text %>
+            % }
+            % }
+          </td>
+        % }
+        % my $missing = $s->{cols} - scalar(@$row);
+        % for (1 .. $missing) {
+        <th></th><td></td>
+        % }
+      </tr>
       % }
-    </td></tr>
-    % }
-  </tbody>
-</table>
-
-% if (@$custom) {
-<h3>Custom Attributes</h3>
-<table class="sortable detail">
-  <tbody>
-    % for my $a (@$custom) {
-    <tr><th><%= $a->[0] %></th><td style="white-space:pre-wrap"><%= $a->[1] %></td></tr>
-    % }
-  </tbody>
-</table>
+    </tbody>
+  </table>
+</div>
 % }
 % }
 % elsif ($view eq 'Interfaces') {

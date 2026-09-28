@@ -37,6 +37,7 @@ our %TYPES = (
     horizontalcable => { class => 'HorizontalCable', nav => 0 },
     backbonecable   => { class => 'BackboneCable',   nav => 0 },
     dhcscope        => { class => 'DhcpScope',       nav => 0 },
+    producttype     => { class => 'ProductType',     nav => 0 },
 );
 
 # Ordered list of browsable types (drives routes, navbar and home menu).
@@ -44,7 +45,7 @@ our @ORDER = qw(
     ipblock device asset interface vlan zone site room floor closet person
     rr entity service contactlist physaddr
     product availability circuit arpcache sitelink fwtable stpinstance
-    horizontalcable backbonecable dhcscope
+    horizontalcable backbonecable dhcscope producttype
 );
 sub types { @ORDER }
 

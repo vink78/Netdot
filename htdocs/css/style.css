@@ -116,6 +116,28 @@ th {
     background-color: #aaccaa;
 }
 
+/* Device basics: grouped multi-column attribute grid (label | value pairs) */
+table.devgrid {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 1em 0;
+}
+table.devgrid th {
+    background: none;
+    text-align: right;
+    vertical-align: top;
+    font-weight: bold;
+    color: #006600;
+    padding: 2px 8px 2px 0;
+    white-space: nowrap;
+    width: 1%;
+}
+table.devgrid td {
+    vertical-align: top;
+    padding: 2px 0;
+    white-space: pre-wrap;
+}
+
 
 #header {
     height: 80px;
