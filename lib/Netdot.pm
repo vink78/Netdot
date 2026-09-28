@@ -40,11 +40,11 @@ Netdot - Network Documentation Tool
 
 =head1 VERSION
 
-Version 1.0.7
+Version 2.0.0
 
 =cut
 
-our $VERSION = "1.0.7";
+our $VERSION = "2.0.0";
 
 =head1 SYNOPSIS
 
