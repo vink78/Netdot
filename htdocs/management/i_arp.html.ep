@@ -1,0 +1,32 @@
+<%# ARP entries on an interface at a timestamp: read-only port of i_arp.html. %>
+<% my $title  = $c->stash->{title}  // 'ARP'; %>
+<% my $id     = $c->stash->{id}     // ''; %>
+<% my $tstamp = $c->stash->{tstamp} // ''; %>
+<% my $label  = $c->stash->{label}  // ''; %>
+<% my $rows   = $c->stash->{rows}   // []; %>
+<h1><%= $title %></h1>
+<p><a href="<%= url_for('interface_show', id => $id) %>">&laquo; <%= $label %></a></p>
+<p>ARP entries in <a href="<%= url_for('interface_show', id => $id) %>"><%= $label %></a> at <em><%= $tstamp %></em></p>
+% if (@$rows) {
+<table class="table">
+  <thead><tr><th>IP</th><th>MAC</th></tr></thead>
+  <tbody>
+    % for my $r (@$rows) {
+    <tr>
+      % if ( defined $r->{iphref} ) {
+      <td><a href="<%= $r->{iphref} %>"><%= $r->{ip} %></a></td>
+      % } else {
+      <td><%= $r->{ip} %></td>
+      % }
+      % if ( defined $r->{machref} ) {
+      <td><a href="<%= $r->{machref} %>"><%= $r->{mac} %></a></td>
+      % } else {
+      <td><%= $r->{mac} %></td>
+      % }
+    </tr>
+    % }
+  </tbody>
+</table>
+% } else {
+<p>No ARP entries at this timestamp.</p>
+% }

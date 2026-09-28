@@ -28,7 +28,7 @@ sub startup ($self) {
     # (see Registry). search/csv/delete are declared before :id so they win over
     # the id placeholder. Types with custom search/detail logic get a dedicated
     # controller; the rest use the generic ones.
-    my %show_ctrl   = ( ipblock => 'ipblock', rr => 'rr', physaddr => 'physaddr' );
+    my %show_ctrl   = ( ipblock => 'ipblock', rr => 'rr', physaddr => 'physaddr', interface => 'interface' );
     my %search_ctrl = ( ipblock => 'ipblock', rr => 'rr', physaddr => 'physaddr' );
     for my $t ( Netdot::Mojo::Registry::types() ) {
         $r->get("/management/$t")->to('browse#list', type => $t)->name("${t}_list");
@@ -40,6 +40,10 @@ sub startup ($self) {
         my $ctrl = $show_ctrl{$t} // 'show';
         $r->get("/management/$t/:id")->to("${ctrl}#show", type => $t)->name("${t}_show");
     }
+    # Interface sub-views: FDB / ARP entries at a given timestamp (ports of
+    # i_fdb.html / i_arp.html).
+    $r->get('/management/interface/:id/fdb')->to('interface#fdb')->name('interface_fdb');
+    $r->get('/management/interface/:id/arp')->to('interface#arp')->name('interface_arp');
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');
     $r->get('/logout')->to('auth#logout')->name('logout');
