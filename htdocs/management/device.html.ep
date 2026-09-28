@@ -91,9 +91,9 @@
     <input type="hidden" name="view" value="Interfaces">
     VLAN:
     <select name="showvlan" onchange="this.form.submit()">
-      <option value="all"% if ($showvlan eq 'all') { selected %}>all</option>
+      <option value="all"<%= $showvlan eq 'all' ? ' selected' : '' %>>all</option>
       % for my $v (@$vids) {
-      <option value="<%= $v %>"% if ($showvlan eq $v) { selected %>><%= $v %></option>
+      <option value="<%= $v %>"<%= $showvlan eq $v ? ' selected' : '' %>><%= $v %></option>
       % }
     </select>
   </form>
@@ -137,6 +137,14 @@
       % my $key  = $col->[0];
       % my $segs = $r->{$key};
       <td>
+        % if ( ref $segs eq 'HASH' && $segs->{select} ) {
+        <select onchange="location.href=this.value">
+        % for my $oi (0 .. ( @{ $segs->{options} } - 1 )) {
+        % my ($ot, $oh) = @{ $segs->{options}[$oi] };
+        <option value="<%= $oh %>"<%= $oi == 0 ? ' selected' : '' %>><%= $ot %></option>
+        % }
+        </select>
+        % } else {
         % for my $i (0 .. $#$segs) {
           % my ($t, $h) = @{ $segs->[$i] };
           % if ($h) {
@@ -147,6 +155,7 @@
           % if ($i < $#$segs) {
           <br>
           % }
+        % }
         % }
       </td>
       % }
@@ -173,9 +182,9 @@
     <input type="hidden" name="view" value="<%= $view %>">
     VLAN:
     <select name="<%= $filter_param %>" onchange="this.form.submit()">
-      <option value=""% if ($filter_val eq '') { selected %}>all</option>
+      <option value=""<%= $filter_val eq '' ? ' selected' : '' %>>all</option>
       % for my $v (@$filter_vids) {
-      <option value="<%= $v %>"% if ($filter_val eq $v) { selected %>><%= $v %></option>
+      <option value="<%= $v %>"<%= $filter_val eq $v ? ' selected' : '' %>><%= $v %></option>
       % }
     </select>
   </form>

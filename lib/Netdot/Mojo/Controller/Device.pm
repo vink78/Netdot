@@ -238,6 +238,12 @@ sub _interfaces {
                 push @vp, Netdot::Mojo::Registry::link_for( $ifvlans{$i}{$vid} );
             }
         }
+        # >1 VLAN => a <select> dropdown (simpler display); else a plain link.
+        my $nvp = scalar @vp;
+        my $vcell =
+           $nvp > 1 ? { select => 1, options => \@vp }
+         : $nvp == 1 ? [ $vp[0] ]
+         : [ [ '', '' ] ];
 
         my @conn;
         my $nbr = eval { $if->neighbor };
@@ -273,7 +279,7 @@ sub _interfaces {
             number => [ [ $if->number // '', $ihref ] ],
             name   => [ [ $if->name   // '', $ihref ] ],
             speed  => [ [ $if->speed_pretty // '', undef ] ],
-            vlans  => \@vp,
+            vlans  => $vcell,
             status => [ [ $if->oper_status // '', undef ] ],
             jack   => [ $jack ],
             descr  => [ [ $if->description // '', undef ] ],
@@ -341,32 +347,26 @@ sub _ip_view {
     my %ok       = map { $_ => 1 } qw(address interface);
     my $ipsort   = $c->param('ipsort') || 'address';
     $ipsort      = 'address' unless $ok{$ipsort};
-    my $showvlan = $c->param('showvlan') || '';
-
     my $r = eval { $o->get_ips( sort_by => $ipsort ) };
     $r = [] if $@ || !ref $r;
     my @ips = @$r;
 
-    my %vids;
-    for my $ip (@ips) {
-        my $v = eval { $ip->vlan };
-        $vids{$v} = 1 if defined $v && length $v;
-    }
-
     my @rows;
     for my $ip (@ips) {
-        my $vid = eval { $ip->vlan };
-        next if $showvlan ne '' && ( ( $vid // '' ) ne $showvlan );
-
         my @dns;
-        my @ar = eval { $ip->a_records } || ();
-        for my $rr (@ar) {
-            my $rn = eval { $rr->name };
-            push @dns, [ $rn // '', "/management/rr/" . $rr->id ] if length( $rn // '' );
+        my @ar;
+        eval { @ar = $ip->a_records };
+        for my $a (@ar) {
+            my $rr  = eval { $a->rr };
+            next unless $rr;
+            my $lbl = eval { $rr->get_label };
+            $lbl //= eval { $rr->name };
+            push @dns, [ $lbl // '', "/management/rr/" . $rr->id ] if length( $lbl // '' );
         }
 
         my @svc;
-        my @sv = eval { $ip->services } || ();
+        my @sv;
+        eval { @sv = $ip->services };
         for my $s (@sv) {
             my $sn = eval { $s->name };
             push @svc, [ $sn // '', '' ] if length( $sn // '' );
@@ -376,9 +376,10 @@ sub _ip_view {
         my $iface  = eval { $ip->interface };
 
         push @rows, [
-            [ [ ( eval { $ip->address } // '' ), "/management/ip/" . $ip->id ] ],
+            [ [ ( eval { $ip->address } // '' ), "/management/ipblock/" . $ip->id ] ],
             $parent
-              ? [ [ ( eval { $parent->address } // '' ), "/management/ipblock/" . $parent->id ] ]
+              ? [ [ ( eval { $parent->cidr } // eval { $parent->address } // '' ),
+                    "/management/ipblock/" . $parent->id ] ]
               : [ [ '', '' ] ],
             $iface ? [ [ ( eval { $iface->name } // '' ), "/management/interface/" . $iface->id ] ] : [ [ '', '' ] ],
             _ml(@dns),
@@ -401,9 +402,6 @@ sub _ip_view {
         sort_base    => "/management/device/$id?view=IP",
         sort_param   => 'ipsort',
         sort         => $ipsort,
-        filter_param => 'showvlan',
-        filter_vids  => [ sort { $a <=> $b } keys %vids ],
-        filter_val   => $showvlan,
         empty_msg    => 'This device has no IP addresses.',
     };
 }
@@ -433,7 +431,8 @@ sub _bgp_view {
     my @rows;
     for my $p (@$peers) {
         my $ent  = eval { $p->entity };
-        my @cl   = eval { $p->contactlist } || ();
+        my @cl;
+        eval { @cl = $p->contactlist };
         my @clinks;
         for my $cl (@cl) {
             my $cn = eval { $cl->name };

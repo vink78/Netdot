@@ -142,10 +142,12 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
    `?view=` tabs: Basics, Interfaces, IP, BGP, Hosted, Circuits, STP, Modules,
    Audit). Basics = attributes (netdot.meta "all" view) + custom attributes
    (`Device->attributes`); Interfaces = the `interfaces.mhtml` table (read-only):
-   number/name (linked), speed, VLAN (linked), status, jack/descr (conditional),
-   connected-devices (neighbor / `get_connected_devices`), sort by `ifsort`,
-   VLAN filter by `showvlan`, row color by `doc_status`.
-   - IP = `get_ips` (sort_by address/interface, `ipsort`, vlan filter): Address,
+   number/name (linked), speed, VLAN (linked; a `<select>` dropdown when an
+   interface has >1 VLAN, first option preselected, onchange → vlan page),
+   status, jack/descr (conditional), connected-devices (neighbor /
+   `get_connected_devices`), sort by `ifsort`, VLAN filter by `showvlan`, row
+   color by `doc_status`.
+   - IP = `get_ips` (sort_by address/interface, `ipsort`): Address,
      Subnet (parent), Interface, DNS names (multi-link), Monitored?, Services.
    - BGP = `get_bgp_peers` (internal→external→all, `peersort`): Remote IP, ID,
      Entity, AS Name, AS Number (IANA link), State, Contact List; info = BGP ID
