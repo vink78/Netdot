@@ -18,7 +18,8 @@ sub show {
     return $c->reply->not_found unless $o && !$@;
 
     my $view = $c->param('view') || 'Basics';
-    my %views = map { $_ => 1 } qw(Basics Interfaces);
+    my %views = map { $_ => 1 }
+        qw(Basics Interfaces IP BGP Hosted Circuits STP Modules Audit);
     $view = 'Basics' unless $views{$view};
 
     my ($name, $fqdn) = ('', '');
@@ -39,8 +40,11 @@ sub show {
 
     if ($view eq 'Basics') {
         $stash{sections} = _basics($o);
-    } else {
+    } elsif ($view eq 'Interfaces') {
         my $d = _interfaces($o, $c, $id);
+        @stash{ keys %$d } = values %$d;
+    } else {
+        my $d = _table_view($view, $o, $c, $id);
         @stash{ keys %$d } = values %$d;
     }
 
@@ -286,6 +290,300 @@ sub _interfaces {
         show_jack => $present{jack} ? 1 : 0,
         show_desc => $present{desc} ? 1 : 0,
         sort_base => "/management/device/$id?view=Interfaces",
+    };
+}
+
+############################################################################
+# Generic "table" views: IP, BGP, Hosted, Circuits, STP, Modules, Audit.
+# Each returns { view, cols => [[label, sortcode]], rows => [ [cell, ...] ],
+#                info => [[label, text, href]], sort_base, sort_param, sort,
+#                filter_param, filter_vids, filter_val, empty_msg }.
+# A "cell" is an arrayref of [ text, href ] segments (joined by ", " in the
+# template); pass several segments for a multi-link cell (e.g. DNS names).
+############################################################################
+
+sub _table_view {
+    my ( $view, $o, $c, $id ) = @_;
+    if    ($view eq 'IP')       { return _ip_view( $o, $c, $id ); }
+    elsif ($view eq 'BGP')      { return _bgp_view( $o, $c, $id ); }
+    elsif ($view eq 'Hosted')   { return _hosted_view( $o, $c, $id ); }
+    elsif ($view eq 'Circuits') { return _circuits_view( $o, $c, $id ); }
+    elsif ($view eq 'STP')      { return _stp_view( $o, $c, $id ); }
+    elsif ($view eq 'Modules')  { return _modules_view( $o, $c, $id ); }
+    elsif ($view eq 'Audit')    { return _audit_view( $o, $c, $id ); }
+    return { view => $view, cols => [], rows => [] };
+}
+
+# [text, href] from a value via the registry (falls back to plain text).
+sub _lk {
+    my ($v) = @_;
+    my ( $t, $h ) = @{ Netdot::Mojo::Registry::link_for($v) };
+    return [ $t // '', $h // '' ];
+}
+
+# Format a scalar (dates become readable strings).
+sub _fmt {
+    my ($v) = @_;
+    return '' unless defined $v;
+    my $f = Netdot::Mojo::Registry::format_value($v);
+    return defined $f ? $f : $v;
+}
+
+# Multi-link cell: arrayref of [ text, href ] segments.
+sub _ml {
+    my ( @pairs ) = @_;
+    return \@pairs if @pairs;
+    return [ [ '', '' ] ];
+}
+
+sub _ip_view {
+    my ( $o, $c, $id ) = @_;
+    my %ok       = map { $_ => 1 } qw(address interface);
+    my $ipsort   = $c->param('ipsort') || 'address';
+    $ipsort      = 'address' unless $ok{$ipsort};
+    my $showvlan = $c->param('showvlan') || '';
+
+    my $r = eval { $o->get_ips( sort_by => $ipsort ) };
+    $r = [] if $@ || !ref $r;
+    my @ips = @$r;
+
+    my %vids;
+    for my $ip (@ips) {
+        my $v = eval { $ip->vlan };
+        $vids{$v} = 1 if defined $v && length $v;
+    }
+
+    my @rows;
+    for my $ip (@ips) {
+        my $vid = eval { $ip->vlan };
+        next if $showvlan ne '' && ( ( $vid // '' ) ne $showvlan );
+
+        my @dns;
+        my @ar = eval { $ip->a_records } || ();
+        for my $rr (@ar) {
+            my $rn = eval { $rr->name };
+            push @dns, [ $rn // '', "/management/rr/" . $rr->id ] if length( $rn // '' );
+        }
+
+        my @svc;
+        my @sv = eval { $ip->services } || ();
+        for my $s (@sv) {
+            my $sn = eval { $s->name };
+            push @svc, [ $sn // '', '' ] if length( $sn // '' );
+        }
+
+        my $parent = eval { $ip->parent };
+        my $iface  = eval { $ip->interface };
+
+        push @rows, [
+            [ [ ( eval { $ip->address } // '' ), "/management/ip/" . $ip->id ] ],
+            $parent
+              ? [ [ ( eval { $parent->address } // '' ), "/management/ipblock/" . $parent->id ] ]
+              : [ [ '', '' ] ],
+            $iface ? [ [ ( eval { $iface->name } // '' ), "/management/interface/" . $iface->id ] ] : [ [ '', '' ] ],
+            _ml(@dns),
+            [ [ ( eval { $ip->monitored } ) ? 'yes' : 'no', '' ] ],
+            _ml(@svc),
+        ];
+    }
+
+    return {
+        view         => 'IP',
+        cols         => [
+            [ 'Address',      'address' ],
+            [ 'Subnet',       undef ],
+            [ 'Interface',    'interface' ],
+            [ 'DNS Name(s)',  undef ],
+            [ 'Monitored?',   undef ],
+            [ 'Services',     undef ],
+        ],
+        rows         => \@rows,
+        sort_base    => "/management/device/$id?view=IP",
+        sort_param   => 'ipsort',
+        sort         => $ipsort,
+        filter_param => 'showvlan',
+        filter_vids  => [ sort { $a <=> $b } keys %vids ],
+        filter_val   => $showvlan,
+        empty_msg    => 'This device has no IP addresses.',
+    };
+}
+
+sub _bgp_view {
+    my ( $o, $c, $id ) = @_;
+    my %ok       = map { $_ => 1 } qw(ip id state);
+    my $peersort = $c->param('peersort') || 'ip';
+    $peersort    = 'ip' unless $ok{$peersort};
+
+    my $localas = eval { $o->bgplocalas };
+    my $bgpid   = eval { $o->bgpid };
+    my @info;
+    push @info, [ 'BGP ID', _fmt($bgpid), '' ] if defined $bgpid && length $bgpid;
+    if ( $localas && ( eval { $localas->number } ) ) {
+        push @info, [ 'Local AS', $localas->number, "/management/as/" . $localas->id ];
+    }
+
+    my ( $peers, $ptype );
+    for my $t ( qw(internal external all) ) {
+        my $r = eval { $o->get_bgp_peers( type => $t, sort => $peersort ) };
+        $r = [] if $@ || !ref $r;
+        if ( @$r ) { $peers = $r; $ptype = $t; last; }
+    }
+    $peers = [] unless $peers;
+
+    my @rows;
+    for my $p (@$peers) {
+        my $ent  = eval { $p->entity };
+        my @cl   = eval { $p->contactlist } || ();
+        my @clinks;
+        for my $cl (@cl) {
+            my $cn = eval { $cl->name };
+            push @clinks, [ ( $cn || '#' . $cl->id ), "/management/contactlist/" . $cl->id ];
+        }
+        push @rows, [
+            [ [ ( eval { $p->bgppeeraddr } // '' ), '' ] ],
+            [ [ ( eval { $p->bgppeerid } // '' ),   '' ] ],
+            [ [ ( eval { $ent->name } // '' ),       '' ] ],
+            [ [ ( eval { $ent->asname } // '' ),     '' ] ],
+            [ [ ( eval { $ent->asnumber } // '' ), 'http://www.iana.org/assignments/autonomous-systems/autonomous-system-numbers' ] ],
+            [ [ ( eval { $p->state } // '' ), '' ] ],
+            _ml(@clinks),
+        ];
+    }
+
+    return {
+        view        => 'BGP',
+        cols        => [
+            [ 'Remote IP',   'ip' ],
+            [ 'ID',          'id' ],
+            [ 'Entity',      undef ],
+            [ 'AS Name',     undef ],
+            [ 'AS Number',   undef ],
+            [ 'State',       'state' ],
+            [ 'Contact List',undef ],
+        ],
+        rows        => \@rows,
+        info        => \@info,
+        peer_type   => $ptype // '',
+        sort_base   => "/management/device/$id?view=BGP",
+        sort_param  => 'peersort',
+        sort        => $peersort,
+        empty_msg   => 'This device has no BGP peers.',
+    };
+}
+
+sub _hosted_view {
+    my ( $o, $c, $id ) = @_;
+    my @hd = ();
+    eval { @hd = $o->hosted_devices };
+    my @rows;
+    for my $h (@hd) {
+        my $hname = _lk( eval { $h->name } );
+        push @rows, [
+            [ [ $hname->[0], "/management/device/" . $h->id ] ],
+            [ [ ( eval { $h->http_addr } // '' ), 'http://' . ( eval { $h->http_addr } // '' ) ] ],
+            [ [ ( eval { $h->https_addr } // '' ), 'https://' . ( eval { $h->https_addr } // '' ) ] ],
+        ];
+    }
+    return {
+        view      => 'Hosted',
+        cols      => [ [ 'Name', undef ], [ 'HTTP', undef ], [ 'HTTPS', undef ] ],
+        rows      => \@rows,
+        empty_msg => 'No hosted devices.',
+    };
+}
+
+sub _circuits_view {
+    my ( $o, $c, $id ) = @_;
+    my @c = ();
+    eval { @c = $o->get_circuits };
+    my @rows;
+    for my $ci (@c) {
+        push @rows, [
+            [ [ ( eval { $ci->cid } // '' ), '' ] ],
+            [ [ ( eval { $ci->type } // '' ), '' ] ],
+            [ [ ( eval { $ci->vendor } // '' ), '' ] ],
+            [ [ ( eval { $ci->status } // '' ), '' ] ],
+            [ [ ( eval { $ci->speed } // '' ), '' ] ],
+        ];
+    }
+    return {
+        view      => 'Circuits',
+        cols      => [
+            [ 'Circuit ID', undef ], [ 'Type', undef ], [ 'Provider', undef ],
+            [ 'Status', undef ], [ 'Speed', undef ],
+        ],
+        rows      => \@rows,
+        empty_msg => 'No circuits.',
+    };
+}
+
+sub _stp_view {
+    my ( $o, $c, $id ) = @_;
+    my @info;
+    push @info, [ 'STP Enabled', ( eval { $o->stp_enabled } ) ? 'yes' : 'no', '' ];
+    push @info, [ 'STP Type',    _fmt( eval { $o->stp_type } ), '' ];
+
+    my @stp = ();
+    eval { @stp = $o->stp_instances };
+    my @rows;
+    for my $s (@stp) {
+        push @rows, [
+            [ [ ( eval { $s->number } // '' ), '' ] ],
+            [ [ ( eval { $s->root_bridge } // '' ), '' ] ],
+            [ [ ( eval { $s->root_port } // '' ), '' ] ],
+            [ [ ( eval { $s->bridge_priority } // '' ), '' ] ],
+        ];
+    }
+    return {
+        view      => 'STP',
+        info      => \@info,
+        cols      => [
+            [ 'Number', undef ], [ 'Root Bridge', undef ],
+            [ 'Root Port', undef ], [ 'Bridge Priority', undef ],
+        ],
+        rows      => \@rows,
+        empty_msg => 'No STP instances.',
+    };
+}
+
+sub _modules_view {
+    my ( $o, $c, $id ) = @_;
+    my @m = ();
+    eval { @m = $o->modules };
+    my @rows;
+    for my $mod (@m) {
+        push @rows, [
+            [ [ ( eval { $mod->number } // '' ), '' ] ],
+            [ [ ( eval { $mod->name } // '' ), '' ] ],
+            [ [ ( eval { $mod->description } // '' ), '' ] ],
+        ];
+    }
+    return {
+        view      => 'Modules',
+        cols      => [ [ 'Number', undef ], [ 'Name', undef ], [ 'Description', undef ] ],
+        rows      => \@rows,
+        empty_msg => 'No modules.',
+    };
+}
+
+sub _audit_view {
+    my ( $o, $c, $id ) = @_;
+    my @a = ();
+    eval { @a = $o->get_audit_records };
+    my @rows;
+    for my $rec (@a) {
+        push @rows, [
+            [ [ _fmt( eval { $rec->tstamp } ), '' ] ],
+            [ [ ( eval { $rec->username } // '' ), '' ] ],
+            [ [ ( eval { $rec->operation } // '' ), '' ] ],
+            [ [ ( eval { $rec->label } // '' ), '' ] ],
+        ];
+    }
+    return {
+        view      => 'Audit',
+        cols      => [ [ 'Date', undef ], [ 'User', undef ], [ 'Operation', undef ], [ 'Target', undef ] ],
+        rows      => \@rows,
+        empty_msg => 'No audit records.',
     };
 }
 

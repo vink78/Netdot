@@ -138,14 +138,24 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
 - Done: **Interface** (`Controller/Interface.pm`: detail + FDB + ARP sub-views;
   the raw FWT/ARP timestamp queries from the Mason `interface.html` moved into
   the model as `Interface->fdb_tstamps` / `Interface->arp_tstamps`).
-- Done: **Device — Basics + Interfaces** (`Controller/Device.pm`, `device.html.ep`,
-  `?view=` tabs). Basics = attributes (netdot.meta "all" view) + custom attributes
-  (`Device->attributes`); Interfaces = the `interfaces.mhtml` table (read-only):
-  number/name (linked), speed, VLAN (linked), status, jack/descr (conditional),
-  connected-devices (neighbor / `get_connected_devices`), sort by `ifsort`,
-  VLAN filter by `showvlan`, row color by `doc_status`.
-- Deferred (Device): IP, BGP, Hosted, Circuits, STP, Modules, Topology (graph),
-  Audit, Access Rights, and all write/edit actions.
+ - Done: **Device — all read-only tabs** (`Controller/Device.pm`, `device.html.ep`,
+   `?view=` tabs: Basics, Interfaces, IP, BGP, Hosted, Circuits, STP, Modules,
+   Audit). Basics = attributes (netdot.meta "all" view) + custom attributes
+   (`Device->attributes`); Interfaces = the `interfaces.mhtml` table (read-only):
+   number/name (linked), speed, VLAN (linked), status, jack/descr (conditional),
+   connected-devices (neighbor / `get_connected_devices`), sort by `ifsort`,
+   VLAN filter by `showvlan`, row color by `doc_status`.
+   - IP = `get_ips` (sort_by address/interface, `ipsort`, vlan filter): Address,
+     Subnet (parent), Interface, DNS names (multi-link), Monitored?, Services.
+   - BGP = `get_bgp_peers` (internal→external→all, `peersort`): Remote IP, ID,
+     Entity, AS Name, AS Number (IANA link), State, Contact List; info = BGP ID
+     + Local AS. Hosted = `hosted_devices`. Circuits = `get_circuits` (cid/type/
+     vendor/status/speed). STP = stp_enabled/stp_type + `stp_instances`.
+     Modules = `modules` (flat). Audit = `get_audit_records`.
+   - Model return types: `get_ips`/`get_bgp_peers` → arrayref; `stp_instances`,
+     `modules`, `get_circuits`, `get_audit_records`, `hosted_devices` → list
+     (`my @l; eval { @l = $o->m };`).
+ - Deferred (Device): Topology (graph), Access Rights, and all write/edit actions.
 - Deferred: Access Rights tab; all write functions; minor read-only omissions
   (ASN link, v4/v6 selector, utilization toggle); search for the remaining
   types (VLAN, Zone, DHCP, Devices, Assets); NS/MX/TXT/NAPTR related-record
