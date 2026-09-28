@@ -16,8 +16,6 @@ sub show {
     my $o = eval { Interface->retrieve($id) };
     return $c->reply->not_found unless $o && !$@;
 
-    my $dbh = Netdot::Model->db_Main;
-
     # Main attributes (all view) — same logic as the generic detail.
     my @attrs;
     for my $cd ( @{ Netdot::Mojo::Registry::display_columns('Interface') } ) {
@@ -42,28 +40,13 @@ sub show {
     # Neighboring interfaces.
     my @neighbors;    eval { @neighbors = $o->neighbors };
 
-    # Forwarding-table timestamps (GROUP BY tstamp, newest first; limited to
-    # SHOW_LAST_N_FTE). Each links to the FDB sub-view with the tstamp encoded.
-    my $fwt_limit = Netdot->config->get('SHOW_LAST_N_FTE') || 10;
-    my @fwt;
-    my $sth1 = $dbh->prepare(
-        'SELECT ft.tstamp FROM interface i, fwtable ft, fwtableentry fte
-          WHERE fte.interface=i.id AND fte.fwtable=ft.id AND i.id=?
-          GROUP BY ft.tstamp ORDER BY ft.tstamp DESC LIMIT ?' );
-    $sth1->execute($id, $fwt_limit);
-    @fwt = map { $_->[0] } @{ $sth1->fetchall_arrayref // [] };
+    # Forwarding-table (FDB) timestamps — last SHOW_LAST_N_FTE (model method).
+    my @fwt;    eval { @fwt = $o->fdb_tstamps() };
     my @fwt_links =
         map { my $t = $_; [ $t, "/management/interface/$id/fdb?tstamp=" . url_escape($t) ] } @fwt;
 
-    # ARP timestamps (GROUP BY tstamp, newest first; limited to SHOW_LAST_N_ARP).
-    my $arp_limit = Netdot->config->get('SHOW_LAST_N_ARP') || 10;
-    my @arp;
-    my $sth2 = $dbh->prepare(
-        'SELECT arp.tstamp FROM interface i, arpcache arp, arpcacheentry arpe
-          WHERE arpe.interface=i.id AND arpe.arpcache=arp.id AND i.id=?
-          GROUP BY arp.tstamp ORDER BY arp.tstamp DESC LIMIT ?' );
-    $sth2->execute($id, $arp_limit);
-    @arp = map { $_->[0] } @{ $sth2->fetchall_arrayref // [] };
+    # ARP timestamps — last SHOW_LAST_N_ARP (model method).
+    my @arp;    eval { @arp = $o->arp_tstamps() };
     my @arp_links =
         map { my $t = $_; [ $t, "/management/interface/$id/arp?tstamp=" . url_escape($t) ] } @arp;
 

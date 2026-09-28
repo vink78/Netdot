@@ -135,8 +135,11 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
   `netdot.meta`), **linksto objects registered + linked** (Product,
   Availability, Circuit, ArpCache, SiteLink, FWTable, STPInstance,
   HorizontalCable, BackboneCable, DhcpScope).
-- In progress: **Device** port via dedicated controller, order
-  **Asset (done) → Interface → Device**.
+- Done: **Interface** (`Controller/Interface.pm`: detail + FDB + ARP sub-views;
+  the raw FWT/ARP timestamp queries from the Mason `interface.html` moved into
+  the model as `Interface->fdb_tstamps` / `Interface->arp_tstamps`).
+- In progress: **Device** port via dedicated controller
+  (order: Asset (done) → Interface (done) → Device).
 - Deferred: Access Rights tab; all write functions; minor read-only omissions
   (ASN link, v4/v6 selector, utilization toggle); search for the remaining
   types (VLAN, Zone, DHCP, Devices, Assets); NS/MX/TXT/NAPTR related-record
