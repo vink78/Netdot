@@ -694,9 +694,16 @@ hr
 
 /* Une table trop large fait defiler la zone de contenu au lieu de
    deborder de l'ecran. */
-#content {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+ #content {
+     overflow-x: auto;
+     -webkit-overflow-scrolling: touch;
+ }
+
+/* Boite de login: largeur fixe, centree horizontalement, descendue sous l'en-tete */
+.loginbox {
+    max-width: 320px;
+    margin: 4em auto 0;
+    padding: 0 5px;
 }
 
 /* Tables de donnees (generic/data_table): defilement horizontal propre */

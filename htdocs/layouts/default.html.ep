@@ -45,6 +45,7 @@
     <span class="headleft">Netdot</span>
     <span class="headright"><%= scalar localtime %></span>
   </div>
+  % unless ( $c->stash('hide_nav') ) {
   <div id="navbar">
     <ul id="navigation">
       <li><a href="<%= url_for('home') %>">home</a></li>
@@ -54,6 +55,7 @@
       % }
     </ul>
   </div>
+  % }
   <div id="content">
     <%= content %>
   </div>

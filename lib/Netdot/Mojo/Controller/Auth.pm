@@ -10,6 +10,7 @@ sub login_form ($c) {
         template => 'login',
         layout   => 'default',
         title    => 'Login',
+        hide_nav => 1,
         username => ''
     );
 }
@@ -43,6 +44,7 @@ sub login_submit ($c) {
             template => 'login',
             layout   => 'default',
             title    => 'Login',
+            hide_nav => 1,
             username => $user,
             error    => 'Authentication failed',
         );

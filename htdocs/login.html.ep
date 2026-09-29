@@ -1,19 +1,23 @@
-<h1>Login</h1>
-
-% if (defined(my $err = $c->stash('error'))) {
-  <p class="error"><%= $err %></p>
+<div class="loginbox">
+  <div class="container">
+    <div class="containerhead">Please enter your login and password to authenticate.</div>
+    <div class="containerbody" style="padding:1em">
+% if ( defined( my $err = $c->stash('error') ) ) {
+      <p class="error"><%= $err %></p>
 % }
-
-<form method="post" action="/login">
-  <p>
-    <label>Username
-      <input type="text" name="username" value="<%= $username // '' %>" autofocus>
-    </label>
-  </p>
-  <p>
-    <label>Password
-      <input type="password" name="password">
-    </label>
-  </p>
-  <p><button type="submit">Log in</button></p>
-</form>
+      <form method="post" action="/login">
+        <p>
+          <label>Username
+            <input type="text" name="username" value="<%= $username // '' %>" autofocus>
+          </label>
+        </p>
+        <p>
+          <label>Password
+            <input type="password" name="password">
+          </label>
+        </p>
+        <p><button type="submit">Log in</button></p>
+      </form>
+    </div>
+  </div>
+</div>
