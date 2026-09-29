@@ -4,6 +4,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Netdot::Model;
 use Netdot::Mojo::Registry;
+use Netdot::Mojo::Permissions;
 
 # BOUNDED, paginated list of one object type (SQL LIMIT/OFFSET + retrieve by id).
 # Reuses the Netdot model, out of Apache. Works for every type in the Registry.
@@ -13,7 +14,19 @@ sub list ($c) {
         or return $c->reply->not_found;
     my $class = $spec->{class};
     my $cols  = $spec->{cols};
-    my $table = $class->table;
+    my $table  = $class->table;
+    my $dbh    = Netdot::Model->db_Main;
+
+    # Per-user access: a User sees only the objects they may view (none by
+    # default). Admin/Operator are unrestricted (view access to everything).
+    my $person    = $c->current_person;
+    my $where_sql = undef;    # e.g. " WHERE (id IN (?,?) OR zone IN (?))"
+    my @binds;
+    if ( Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
+        my ( $w, $b ) = Netdot::Mojo::Permissions->viewable_predicate( $class, $person );
+        $where_sql = defined $w ? " WHERE $w" : undef;
+        @binds     = defined $b ? @$b : ();
+    }
 
     # ipblock: hierarchical view. The list shows the ROOT blocks only (parent is
     # NULL, version 4); clicking one shows its children (see Show#show).
@@ -21,6 +34,21 @@ sub list ($c) {
         # Direct list-context call: get_roots() uses wantarray, so it must NOT
         # be wrapped in eval{} // () (that degrades to scalar -> first root only).
         my @roots = $class->get_roots('all');
+        if ( defined $where_sql ) {
+            # A root is visible if it, any descendant, or an allowed block's
+            # ancestor path includes it: i.e. keep the roots that lead down to a
+            # viewable block, so the user can drill in.
+            my %keep;
+            my $sthv = $dbh->prepare( "SELECT id FROM $table $where_sql" );
+            $sthv->execute(@binds);
+            for my $row ( @{ $sthv->fetchall_arrayref } ) {
+                my $ip = eval { $class->retrieve( $row->[0] ) };
+                next unless $ip;
+                $keep{ $row->[0] } = 1;
+                $keep{ $_->id } = 1 for eval { $ip->get_ancestors } || ();
+            }
+            @roots = grep { $keep{ $_->id } } @roots;
+        }
         $c->render(
             template   => 'management/ipblock',
             layout     => 'default',
@@ -36,12 +64,15 @@ sub list ($c) {
     my $offset = int( $c->param('offset') // 0 );
     $offset = 0 if $offset < 0;
 
-    my $dbh   = Netdot::Model->db_Main;
-    my ($total) = $dbh->selectrow_array("SELECT COUNT(*) FROM $table");
+    my $wc = $where_sql // '';
+    my ($total) = $dbh->selectrow_array( "SELECT COUNT(*) FROM $table $wc", undef, @binds );
 
-    my $sth = $dbh->prepare("SELECT id FROM $table ORDER BY id LIMIT ? OFFSET ?");
-    $sth->execute($per, $offset);
+    my $sth = $dbh->prepare( "SELECT id FROM $table $wc ORDER BY id LIMIT ? OFFSET ?" );
+    $sth->execute( @binds, $per, $offset );
     my @objs = map { $class->retrieve( $_->[0] ) } @{ $sth->fetchall_arrayref };
+
+    # May the current user delete objects of this type? (controls the delete form)
+    my $can_delete = Netdot::Mojo::Permissions->has_action( $class, $person, 'delete' );
 
     # Build display rows: id (for the link) + the type's display columns.
     my @rows;
@@ -85,6 +116,7 @@ sub list ($c) {
         offset    => $offset,
         start     => $start,
         last_item => $last_item,
+        can_delete => $can_delete,
         %extra,
     );
 }
@@ -108,8 +140,20 @@ sub csv ($c) {
     }
 
     my $csv  = join( ',', map { Netdot::Mojo::Registry::csv_field( $_->{tag} ) } @colmeta ) . "\n";
-    my $iter = $class->retrieve_all;
-    while ( my $o = $iter->next ) {
+
+    # Per-user filter: a User exports only the objects they may view (none by
+    # default). Admin/Operator export everything.
+    my $person    = $c->current_person;
+    my $where_sql = undef;
+    my @binds;
+    if ( Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
+        my ( $w, $b ) = Netdot::Mojo::Permissions->viewable_predicate( $class, $person );
+        $where_sql = defined $w ? " WHERE $w" : undef;
+        @binds     = defined $b ? @$b : ();
+    }
+
+    my $emit = sub {
+        my ($o) = @_;
         my @vals;
         for my $cm (@colmeta) {
             my $col = $cm->{col};
@@ -119,6 +163,18 @@ sub csv ($c) {
             push @vals, Netdot::Mojo::Registry::csv_field( defined $val ? $val : '' );
         }
         $csv .= join( ',', @vals ) . "\n";
+    };
+
+    my $table = $class->table;
+    my $dbh   = Netdot::Model->db_Main;
+    if ( defined $where_sql ) {
+        my $sth = $dbh->prepare( "SELECT id FROM $table $where_sql ORDER BY id" );
+        $sth->execute(@binds);
+        my $ids = $sth->fetchall_arrayref;
+        $emit->( $class->retrieve( $_->[0] ) ) for @$ids;
+    } else {
+        my $iter = $class->retrieve_all;
+        while ( my $o = $iter->next ) { $emit->($o); }
     }
 
     my $h = $c->res->headers;
@@ -140,10 +196,17 @@ sub delete ($c) {
         push @ids, $id if $id;
     }
 
+    # Only delete objects the current user may delete (Admin: all).
+    my $person = $c->current_person;
+    my $access = Netdot::Mojo::Permissions->user_type( $person ) eq 'Admin'
+               ? undef
+               : Netdot::Mojo::Permissions->allowed_objects( $person );
+
     my $deleted = 0;
     for my $id (@ids) {
         my $o = eval { $class->retrieve( $id ) };
         next unless $o;
+        next unless Netdot::Mojo::Permissions->can( $person, 'delete', $o, $access );
         $deleted++ if eval { $o->delete };
     }
 

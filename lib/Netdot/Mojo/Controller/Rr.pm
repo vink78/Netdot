@@ -16,6 +16,7 @@ sub show ($c) {
     $id =~ /^\d+$/ or return $c->reply->not_found;
     my $o = eval { RR->retrieve($id) };
     return $c->reply->not_found unless $o;
+    return if $c->deny_unless( 'view', $o );    # per-object access (User: none by default)
 
     $c->render(
         template   => 'management/rr',

@@ -50,6 +50,20 @@ sub startup ($self) {
         return Netdot::Mojo::Permissions->can($p, $action, $resource, $access);
     });
 
+    # deny_unless($action, $resource): render a 403 and return 1 if the current
+    # user may not $action $resource; otherwise return 0 (proceed).
+    $self->helper(deny_unless => sub ($c, $action, $resource) {
+        my $p = $c->current_person;
+        return 0 if $p && Netdot::Mojo::Permissions->can($p, $action, $resource);
+        $c->render(
+            template => 'forbidden',
+            layout   => 'default',
+            title    => 'Access denied',
+            status   => 403,
+        );
+        return 1;
+    });
+
     # ---- Routes ----
     my $r = $self->routes;
     $r->get('/')->to('home#index')->name('home');

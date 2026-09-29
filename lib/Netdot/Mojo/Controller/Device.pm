@@ -16,6 +16,7 @@ sub show {
     $id =~ /^\d+$/ or return $c->reply->not_found;
     my $o = eval { Device->retrieve($id) };
     return $c->reply->not_found unless $o && !$@;
+    return if $c->deny_unless( 'view', $o );    # per-object access (User: none by default)
 
     my $view = $c->param('view') || 'Basics';
     my %views = map { $_ => 1 }

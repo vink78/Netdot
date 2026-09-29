@@ -55,6 +55,75 @@ sub allowed_objects {
 }
 
 ##################################################################
+# SQL WHERE fragment restricting a list to the objects $person may 'view'.
+#   (undef, undef) -> no restriction (Admin / Operator: view access to everything)
+#   ( $where, [] ) -> predicate to append after the table name (ids inlined as a
+#       literal, e.g. " WHERE (id IN (3,7) OR zone IN (2))"); no placeholders.
+#   ( '0', [] )  -> nothing is viewable (a User with no matching rights).
+#
+# Built from the FK columns so we never materialise a huge id list (a single
+# Zone can hold tens of thousands of RRs; we filter by `zone IN (...)` instead).
+sub viewable_predicate {
+    my ( $self, $class, $person ) = @_;
+    my $type = user_type( __PACKAGE__, $person );
+    return ( undef, undef ) unless defined $person && ref $person;
+    return ( undef, undef ) if $type eq 'Admin' || $type eq 'Operator';
+
+    my $otype  = eval { $class->short_class } // ref($class);
+    my $access = allowed_objects( __PACKAGE__, $person );
+
+    # [ column, allowed-object-class ] pairs (inheritance grants, view action).
+    my @pairs = ( [ 'id', $otype ] );
+    if (    $otype eq 'Interface' ) { @pairs = ( [ 'id', 'Interface' ], [ 'device', 'Device' ] ); }
+    elsif ( $otype =~ /^RR/ )       { @pairs = ( [ 'id', 'RR' ],        [ 'zone',   'Zone'   ] ); }
+    elsif ( $otype eq 'Contact' )   { @pairs = ( [ 'id', 'Contact' ],   [ 'contactlist', 'ContactList' ] ); }
+
+    my @clauses;
+    for my $p (@pairs) {
+        my ( $col, $acl ) = @$p;
+        next unless exists $access->{$acl};
+        # Object ids are integers: build a single literal IN list (one string),
+        # rather than one placeholder per value.
+        my @ids = grep { defined && /^\d+$/ } keys %{ $access->{$acl} };
+        next unless @ids;
+        push @clauses, "$col IN (" . join( ',', @ids ) . ")";
+    }
+
+    return ( '0', [] ) unless @clauses;          # no rights at all -> view nothing
+    return ( '(' . join( ' OR ', @clauses ) . ')', [] );
+}
+
+##################################################################
+# Does $person hold $action on ANY object of $class (used to show/hide the
+# delete control on list pages). Conservative: checks the type itself plus the
+# FK types whose rights grant access (Device->Interface, Zone->RR, ...).
+sub has_action {
+    my ( $self, $class, $person, $action ) = @_;
+    my $type = user_type( __PACKAGE__, $person );
+    return 0 unless defined $person && ref $person;
+    return 1 if $type eq 'Admin';
+
+    my $otype  = eval { $class->short_class } // ref($class);
+    my $access = allowed_objects( __PACKAGE__, $person );
+    return 0 unless %$access;
+
+    my @types = ( $otype );
+    push @types, 'Device'      if $otype eq 'Interface';
+    push @types, 'Zone'       if $otype =~ /^RR/;
+    push @types, 'ContactList' if $otype eq 'Contact';
+
+    for my $t (@types) {
+        next unless exists $access->{$t};
+        for my $id ( keys %{ $access->{$t} } ) {
+            my $a = $access->{$t}{$id};
+            next unless ref $a && !exists $a->{none};
+            return 1 if exists $a->{$action};
+        }
+    }
+    return 0;
+}
+
+##################################################################
 # Main entry point
 ##################################################################
 

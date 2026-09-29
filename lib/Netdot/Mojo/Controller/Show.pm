@@ -21,6 +21,7 @@ sub show ($c) {
 
     my $obj = eval { $class->retrieve($id) };
     return $c->reply->not_found unless $obj;
+    return if $c->deny_unless( 'view', $obj );    # per-object access (User: none by default)
 
     # Display fields follow netdot.meta "views" { all } (order + user-friendly
     # tags). All listed fields are shown (empty ones blank), like view.html; FK

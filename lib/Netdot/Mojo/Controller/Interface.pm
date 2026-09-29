@@ -15,6 +15,7 @@ sub show {
     $id =~ /^\d+$/ or return $c->reply->not_found;
     my $o = eval { Interface->retrieve($id) };
     return $c->reply->not_found unless $o && !$@;
+    return if $c->deny_unless( 'view', $o );    # per-object access (User: none by default)
 
     # Main attributes (all view) — same logic as the generic detail.
     my @attrs;
@@ -80,6 +81,7 @@ sub fdb {
     $id =~ /^\d+$/ or return $c->reply->not_found;
     my $o = eval { Interface->retrieve($id) };
     return $c->reply->not_found unless $o && !$@;
+    return if $c->deny_unless( 'view', $o );
 
     my @macs;    eval { @macs = PhysAddr->search_interface_macs( $id, $tstamp ) };
 
@@ -105,6 +107,7 @@ sub arp {
     $id =~ /^\d+$/ or return $c->reply->not_found;
     my $o = eval { Interface->retrieve($id) };
     return $c->reply->not_found unless $o && !$@;
+    return if $c->deny_unless( 'view', $o );
 
     my @entries;    eval { @entries = ArpCacheEntry->search_interface( $id, $tstamp ) };
 

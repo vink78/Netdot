@@ -15,6 +15,7 @@ sub show {
 
     my $o = eval { PhysAddr->retrieve($id) };
     return $c->reply->not_found unless $o && !$@;
+    return if $c->deny_unless( 'view', $o );    # per-object access (User: none by default)
 
     my $app   = $c->app;
     my $esc   = sub { my ($s) = @_; $s = '' unless defined $s; $s =~ s/([&<>"])/\u$1/ge; $s };

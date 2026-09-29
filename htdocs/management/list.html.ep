@@ -37,15 +37,20 @@
 </div>
 % }
 
+% my $can_delete = $c->stash('can_delete');
 % if (@$rows) {
+% if ($can_delete) {
   <form method="post" action="<%= url_for( $type . '_delete' ) %>" hx-boost="false">
+% }
     <table class="sortable">
       <thead>
         <tr>
           % for my $col (@$cols) {
           <th><%= $col %></th>
           % }
+% if ($can_delete) {
           <th></th>
+% }
         </tr>
       </thead>
       <tbody>
@@ -58,13 +63,17 @@
           % for my $col ( @{$cols}[1..$#$cols] ) {
           <td><%= $row->{$col} // '' %></td>
           % }
+% if ($can_delete) {
           <td style="text-align:center"><input type="checkbox" name="<%= $type %>__<%= $row->{id} %>"></td>
+% }
         </tr>
         % }
       </tbody>
     </table>
+% if ($can_delete) {
     <p><input type="submit" value="Delete"></p>
   </form>
+% }
 
   % if ($total > $per) {
   <p>Results: [<%= $start %>-<%= $last_item %>] of <%= $total %>

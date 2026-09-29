@@ -18,6 +18,7 @@ sub show ($c) {
     $id =~ /^\d+$/ or return $c->reply->not_found;
     my $o = eval { Ipblock->retrieve($id) };
     return $c->reply->not_found unless $o;
+    return if $c->deny_unless( 'view', $o );    # per-object access (User: none by default)
 
     # An individual address (/32 or /128) has no children: show its
         # attributes and DNS records instead of the block views.
