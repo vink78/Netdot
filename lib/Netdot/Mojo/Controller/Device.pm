@@ -148,8 +148,7 @@ sub _chunk {
 # Friendly label for a column (from the meta tag).
 sub _tag {
     my ($col) = @_;
-    my $tag = eval { Device->meta_data->get_column($col)->tag };
-    return ( defined $tag && length $tag ) ? $tag : $col;
+    return Netdot::Mojo::Registry::column_tag( 'Device', $col );
 }
 
 # [ tag, text, href ] for a device column. Sensitive columns are masked.

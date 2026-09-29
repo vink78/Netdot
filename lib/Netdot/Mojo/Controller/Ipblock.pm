@@ -247,7 +247,8 @@ sub search ($c) {
         return;
     }
 
-    my @headers = ( 'Address', 'Prefix', 'Status', 'Used by' );
+    my @headers = map { Netdot::Mojo::Registry::column_tag( 'Ipblock', $_ ) }
+                  qw(address prefix status used_by);
     my @rows = map {
         { href  => "/management/ipblock/" . $_->id,
           label => $_->cidr // '',
@@ -302,27 +303,27 @@ sub _block_attributes {
     my $v4     = $o->version == 4;
     my $maxips = Netdot->config->get('SHOW_COUNT_THRESHOLD') || 65536;
     my $ui     = Netdot::UI->new;
+    my $T      = sub { Netdot::Mojo::Registry::column_tag( 'Ipblock', $_[0] ) };
 
-    push @rows, [ 'Address', _esc( $o->address . '/' . $o->prefix ) ];
-    push @rows, [ 'Status', "<strong>" . _esc($status) . "</strong>" ] if length $status;
-    push @rows, [ 'Description', _esc($o->description) ]
+    push @rows, [ $T->('address'), _esc( $o->address . '/' . $o->prefix ) ];
+    push @rows, [ $T->('status'), "<strong>" . _esc($status) . "</strong>" ] if length $status;
+    push @rows, [ $T->('description'), _esc($o->description) ]
         if defined $o->description && length $o->description;
-    push @rows, [ 'Use Network Broadcast', $o->use_network_broadcast ? 'Yes' : 'No' ]
+    push @rows, [ $T->('use_network_broadcast'), $o->use_network_broadcast ? 'Yes' : 'No' ]
         if $status eq 'Subnet';
-    push @rows, [ 'First Seen', _esc($o->first_seen) ]
+    push @rows, [ $T->('first_seen'), _esc($o->first_seen) ]
         if defined $o->first_seen && length $o->first_seen;
-    push @rows, [ 'Last Seen', _esc($o->last_seen) ]
+    push @rows, [ $T->('last_seen'), _esc($o->last_seen) ]
         if defined $o->last_seen && length $o->last_seen;
-    push @rows, [ 'VLAN', _fk_link( $o->vlan ) ]
+    push @rows, [ $T->('vlan'), _fk_link( $o->vlan ) ]
         if $status eq 'Subnet' && $o->vlan;
     if ( $status eq 'Container' ) {
-        push @rows, [ 'RIR', _esc($o->rir) ] if defined $o->rir && length $o->rir;
-        push @rows, [ 'ASN', _fk_link( $o->asn ) ] if $o->asn;
+        push @rows, [ $T->('rir'), _esc($o->rir) ] if defined $o->rir && length $o->rir;
+        push @rows, [ $T->('asn'), _fk_link( $o->asn ) ] if $o->asn;
     }
-    for my $pair ( [ owner => 'Owner' ], [ used_by => 'Used by' ] ) {
-        my ( $col, $label ) = @$pair;
+    for my $col ( qw(owner used_by) ) {
         my $ent = $o->$col;
-        push @rows, [ $label, _fk_link($ent) ] if $ent;
+        push @rows, [ $T->($col), _fk_link($ent) ] if $ent;
     }
 
     # Netmask / broadcast + usable address range (NetAddr::IP, like ip.html).

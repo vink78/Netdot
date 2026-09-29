@@ -102,8 +102,7 @@ sub csv ($c) {
     # Pre-compute per-column metadata once (header tag + whether it is a relationship).
     my @colmeta;
     for my $col (@$cols) {
-        my $tag   = eval { $meta->get_column( $col )->tag };
-        $tag = ( defined $tag && length $tag ) ? $tag : $col;
+        my $tag   = Netdot::Mojo::Registry::column_tag( $class, $col );
         my $links = eval { $meta->get_column( $col )->links_to };
         push @colmeta, { col => $col, tag => $tag, links => $links };
     }

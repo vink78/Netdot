@@ -91,6 +91,15 @@ sub _brief_cols {
     return grep { $_ ne 'id' } $class->columns;
 }
 
+# User-friendly tag (label) of a column from the meta, falling back to the
+# column name. Single source for the tag look-up that several controllers need.
+sub column_tag {
+    my ( $class, $col ) = @_;
+    my $meta = eval { $class->meta_data };
+    my $tag  = $meta ? eval { $meta->get_column( $col )->tag } : undef;
+    return ( defined $tag && length $tag ) ? $tag : $col;
+}
+
 # Ordered display columns for a class's "all" view (from netdot.meta "views"), as
 # [ [col, tag], ... ]. The tag is the user-friendly label (e.g. serial_number ->
 # "S/N", product_id -> "Product", info -> "Comments"). Falls back to the raw
@@ -102,10 +111,7 @@ sub display_columns {
     eval { %order = $meta->get_column_order( view => 'all' ); 1 };
     my @cols  = sort { $order{$a} <=> $order{$b} } keys %order;
     @cols = grep { $_ ne 'id' } $class->columns unless @cols;
-    return [ map {
-        my $tag = eval { $meta->get_column( $_ )->tag };
-        [ $_, ( defined $tag && length $tag ? $tag : $_ ) ];
-    } @cols ];
+    return [ map { [ $_, column_tag( $class, $_ ) ] } @cols ];
 }
 
 # Render a (possibly inflated) column value as a display string.

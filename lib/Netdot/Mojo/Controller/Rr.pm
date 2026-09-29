@@ -66,7 +66,8 @@ sub search ($c) {
         @rows = map { { href => "/management/physaddr/" . $_->id, label => $_->address // '', cells => [] } } @list;
     }
     elsif ( @list && ref( $list[0] ) =~ /Ipblock/ ) {
-        @headers = ( 'Address', 'Prefix', 'Status' );
+        @headers = map { Netdot::Mojo::Registry::column_tag( 'Ipblock', $_ ) }
+                   qw(address prefix status);
         @rows = map {
             { href => "/management/ipblock/" . $_->id, label => $_->address // '',
               cells => [ $_->prefix // '', Netdot::Mojo::Registry::format_value( $_->status ) ] }

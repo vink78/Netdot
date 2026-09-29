@@ -166,10 +166,7 @@ sub _brief_columns {
     my @cols = sort { $order{$a} <=> $order{$b} } keys %order;
     @cols = grep { $_ ne 'id' } @cols;
     @cols = grep { !Netdot::Mojo::Registry::is_sensitive($_) } @cols;
-    return [ map {
-        my $tag = eval { $meta->get_column( $_ )->tag };
-        [ $_, ( defined $tag && length $tag ? $tag : $_ ) ];
-    } @cols ];
+    return [ map { [ $_, Netdot::Mojo::Registry::column_tag( $class, $_ ) ] } @cols ];
 }
 
 # Columns to display for a has_many relation. Returns ( $cols, $show_label ).
