@@ -254,7 +254,7 @@
                 % for my $r (@$dhcp) {
                     <tr>
                         <td><%= $r->{type} %></td>
-                        <td><%= $r->{name} %></td>
+                        <td><%== $r->{name_html} %></td>
                         <td><%== $r->{ethernet_html} %></td>
                         <td><%= $r->{duid} %></td>
                         <td><%= $r->{active} ? 'Yes' : 'No' %></td>

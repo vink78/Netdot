@@ -730,9 +730,10 @@ sub _ip_dhcp_scopes {
         my $mac = eval { $pa && $pa->format_address } // '';
         push @out, {
             # type is a FK to DhcpScopeType (enum value, not linked);
+            # the scope name links to its DhcpScope detail page;
             # physaddr is a FK to PhysAddr, shown via its config-formatted MAC.
             type          => eval { $s->type->name } // '',
-            name          => eval { $s->name }       // '',
+            name_html     => _fk_link( $s ),
             ethernet_html => _fk_link( $pa, text => $mac ),
             duid          => eval { $s->duid }       // '',
             active        => eval { $s->active },

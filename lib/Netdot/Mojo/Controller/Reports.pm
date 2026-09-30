@@ -562,8 +562,15 @@ sub _ipblock_rows {
     my ( $blocks, $empty ) = @_;
     my @rows;
     for my $b ( @$blocks ) {
-        push @rows, [ _link('ipblock', $b->id, $b->cidr), $b->status ? _link('availability', undef, $b->status) : '',
-                      $b->used_by ? _link('entity', $b->used_by, $b->used_by) : '', $b->version // '', $b->last_seen // '' ];
+        my $st = eval { $b->status };     # IpblockStatus (not a browsable type -> plain value)
+        my $ub = eval { $b->used_by };    # Entity (browsable -> value + link)
+        push @rows, [
+            _link( 'ipblock', $b->id, $b->cidr ),
+            $st ? _esc( eval { $st->name } // '' ) : '',
+            $ub ? _link( 'entity', $ub->id, eval { $ub->get_label } // '' ) : '',
+            $b->version // '',
+            $b->last_seen // '',
+        ];
     }
     return ( [ 'Address', 'Status', 'Used By', 'Version', 'Last Seen' ],
              @rows ? \@rows : [ [$empty] ] );
