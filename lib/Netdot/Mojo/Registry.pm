@@ -29,6 +29,7 @@ our %TYPES = (
     # Link-only objects (linksto targets): generic detail, no nav entry.
     product         => { class => 'Product',         nav => 0 },
     availability    => { class => 'Availability',    nav => 0 },
+    ipblockstatus   => { class => 'IpblockStatus',   nav => 0 },
     circuit         => { class => 'Circuit',         nav => 0 },
     arpcache        => { class => 'ArpCache',        nav => 0 },
     sitelink        => { class => 'SiteLink',        nav => 0 },
@@ -45,7 +46,7 @@ our %TYPES = (
 our @ORDER = qw(
     ipblock device asset interface vlan zone site room floor closet person
     rr entity service contactlist physaddr
-    product availability circuit arpcache sitelink fwtable stpinstance
+    product availability ipblockstatus circuit arpcache sitelink fwtable stpinstance
     horizontalcable backbonecable dhcscope producttype
 );
 sub types { @ORDER }

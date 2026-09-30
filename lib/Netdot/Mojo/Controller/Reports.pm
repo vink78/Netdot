@@ -562,17 +562,18 @@ sub _ipblock_rows {
     my ( $blocks, $empty ) = @_;
     my @rows;
     for my $b ( @$blocks ) {
-        my $st = eval { $b->status };     # IpblockStatus (not a browsable type -> plain value)
+        my $st = eval { $b->status };     # IpblockStatus (browsable -> value + link)
+        my $vl = eval { $b->vlan };       # Vlan (browsable -> value + link)
         my $ub = eval { $b->used_by };    # Entity (browsable -> value + link)
         push @rows, [
             _link( 'ipblock', $b->id, $b->cidr ),
-            $st ? _esc( eval { $st->name } // '' ) : '',
+            $st ? _link( 'ipblockstatus', $st->id, eval { $st->name } // '' ) : '',
+            $vl ? _link( 'vlan', $vl->id, eval { $vl->get_label } // '' ) : '',
             $ub ? _link( 'entity', $ub->id, eval { $ub->get_label } // '' ) : '',
-            $b->version // '',
-            $b->last_seen // '',
+            _esc( $b->description // '' ),
         ];
     }
-    return ( [ 'Address', 'Status', 'Used By', 'Version', 'Last Seen' ],
+    return ( [ 'Address', 'Status', 'Vlan', 'Used By', 'Description' ],
              @rows ? \@rows : [ [$empty] ] );
 }
 
