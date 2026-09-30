@@ -50,8 +50,15 @@
     <ul id="navigation">
       <li><a href="<%= url_for('home') %>">home</a></li>
       % my $nav = $c->stash('nav') // [];
-      % for my $n (@$nav) {
-      <li><a href="<%= url_for( $n->[0] . '_list' ) %>"><%= $n->[1] %></a></li>
+      % for my $sec (@$nav) {
+      <li class="navsec">
+        <a href="<%= url_for( $sec->{first} . '_list' ) %>"><%= $sec->{title} %></a>
+        <ul class="navsubmenu">
+          % for my $it (@{ $sec->{items} }) {
+          <li><a href="<%= url_for( $it->{type} . '_list' ) %>"><%= $it->{label} %></a></li>
+          % }
+        </ul>
+      </li>
       % }
     </ul>
   </div>

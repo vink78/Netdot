@@ -273,6 +273,54 @@ table.devgrid td {
 #navbar ul#subnavigation li a:hover.subnav_selected {
 	color: #006600;
 }
+
+/* Top-level sections + hover dropdown of their sub-menus (2-level nav). */
+#navbar ul#navigation li.navsec {
+    position: relative;
+    display: inline-block;
+}
+#navbar ul#navigation li.navsec > a {
+    display: block;
+}
+#navbar ul#navigation li.navsec .navsubmenu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 170px;
+    background: #aaccaa;
+    border: 1px solid #000000;
+    border-top: none;
+    list-style: none;
+    z-index: 1000;
+    font-size: 1em;
+}
+#navbar ul#navigation li.navsec:hover .navsubmenu {
+    display: block;
+}
+#navbar ul#navigation li.navsec .navsubmenu li {
+    display: block;
+    list-style: none;
+    border-bottom: 1px dotted #000000;
+}
+#navbar ul#navigation li.navsec .navsubmenu li:last-child {
+    border-bottom: none;
+}
+#navbar ul#navigation li.navsec .navsubmenu li a {
+    display: block;
+    padding: 4px 12px;
+    color: #003300;
+    text-decoration: none;
+    background: #aaccaa;
+    white-space: nowrap;
+}
+#navbar ul#navigation li.navsec .navsubmenu li a:hover {
+    background: #99bb99;
+    text-decoration: underline;
+    color: #000000;
+}
 	
 
 

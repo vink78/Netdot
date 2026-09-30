@@ -95,18 +95,24 @@ sub viewable_predicate {
 
 ##################################################################
 # Does $person hold $action on ANY object of $class (used to show/hide the
-# delete control on list pages). Conservative: checks the type itself plus the
-# FK types whose rights grant access (Device->Interface, Zone->RR, ...).
+# delete control on list pages and to filter the navigation). Conservative:
+# checks the type itself plus the FK types whose rights grant access
+# (Device->Interface, Zone->RR, ...).
 sub has_action {
     my ( $self, $class, $person, $action ) = @_;
     my $type = user_type( __PACKAGE__, $person );
     return 0 unless defined $person && ref $person;
     return 1 if $type eq 'Admin';
+    return has_action_on( $class, allowed_objects( __PACKAGE__, $person ), $action );
+}
 
-    my $otype  = eval { $class->short_class } // ref($class);
-    my $access = allowed_objects( __PACKAGE__, $person );
-    return 0 unless %$access;
+# Same as has_action but takes a PRE-FETCHED allowed_objects() hashref (so a
+# caller can inspect many types in one shot without re-querying the DB per type).
+sub has_action_on {
+    my ( $class, $access, $action ) = @_;
+    return 0 unless ref $access eq 'HASH';
 
+    my $otype = eval { $class->short_class } // ref($class);
     my @types = ( $otype );
     push @types, 'Device'      if $otype eq 'Interface';
     push @types, 'Zone'       if $otype =~ /^RR/;

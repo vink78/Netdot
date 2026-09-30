@@ -1,10 +1,23 @@
 <h1>Netdot <small>(Mojolicious)</small></h1>
 
-<p>Select an object type to browse:</p>
-<ul class="menu">
-  % my $nav = $c->stash('nav') // [];
-  % for my $n (@$nav) {
-  <li><a href="<%= url_for( $n->[0] . '_list' ) %>"><%= $n->[1] %></a></li>
-  % }
-</ul>
+% my $nav = $c->stash('nav') // [];
+% if (@$nav) {
+  <div class="menuwrap">
+    % for my $sec (@$nav) {
+    <div class="container">
+      <div class="containerheadleft"><%= $sec->{title} %></div>
+      <div class="containerheadright">&nbsp;</div>
+      <div class="containerbody">
+        <ul class="menu">
+          % for my $it (@{ $sec->{items} }) {
+          <li><a href="<%= url_for( $it->{type} . '_list' ) %>"><%= $it->{label} %></a></li>
+          % }
+        </ul>
+      </div>
+    </div>
+    % }
+  </div>
+% } else {
+  <p>You have no access to any object type.</p>
+% }
 <p class="muted">Read-only: click any id to see all its attributes; related objects are linked.</p>

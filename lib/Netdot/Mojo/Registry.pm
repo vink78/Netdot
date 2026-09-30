@@ -40,7 +40,7 @@ our %TYPES = (
     producttype     => { class => 'ProductType',     nav => 0 },
 );
 
-# Ordered list of browsable types (drives routes, navbar and home menu).
+# Ordered list of browsable types (drives routes and the generic listing logic).
 our @ORDER = qw(
     ipblock device asset interface vlan zone site room floor closet person
     rr entity service contactlist physaddr
@@ -48,6 +48,36 @@ our @ORDER = qw(
     horizontalcable backbonecable dhcscope producttype
 );
 sub types { @ORDER }
+
+# Navigation, organised into the 5 top-level sections of the original
+# menu_admin.mhtml, each with its sub-menus (Registry type keys -> /management/<type>).
+# A section is only shown when at least one of its sub-menus is visible to the user
+# (see the nav builder in Netdot::Mojo). Types listed here must exist in %TYPES.
+our %MENU = (
+    management   => { title => 'Management',  types => [ qw(device asset vlan ipblock rr zone) ] },
+    contacts     => { title => 'Contacts',    types => [ qw(person entity contactlist) ] },
+    cable_plant  => { title => 'Cable Plant', types => [ qw(site closet room floor) ] },
+    generic      => { title => 'Advanced',    types => [ qw(interface physaddr service) ] },
+    reports      => { title => 'Reports',     types => [] },
+);
+our @MENU_ORDER = qw(management contacts cable_plant generic reports);
+# Ordered (key, meta) pairs for the navigation.
+sub menu { map { [ $_, $MENU{$_} ] } @MENU_ORDER }
+
+# Friendly navigation labels (match the original menu_admin.mhtml sub-section
+# names). Falls back to the model meta name when a type is not listed here.
+our %NAV_LABELS = (
+    device => 'Devices',        asset     => 'Assets',
+    vlan   => 'VLANs',          ipblock   => 'Address Space',
+    rr     => 'DNS Records',    zone      => 'DNS Zones',
+    person => 'People',         entity    => 'Entities',
+    contactlist => 'Contact Lists',
+    site   => 'Sites',          closet    => 'Closets',
+    room   => 'Rooms',          floor     => 'Floors',
+    interface => 'Interfaces',  physaddr  => 'MAC Addresses',
+    service => 'Services',
+);
+sub nav_label { $NAV_LABELS{ $_[0] } }
 
 # Columns that must never be displayed (secrets / raw credentials).
 our %SENSITIVE = map { $_ => 1 } qw(password snmp_authkey snmp_privkey);

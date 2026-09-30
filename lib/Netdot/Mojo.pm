@@ -103,16 +103,41 @@ sub startup ($self) {
         $c->redirect_to( $c->url_for('login') ) unless $c->session('username');
     });
 
-    # Expose the browsable types to the layout (navbar + home menu): [type, label, desc].
+    # Build the 5-section navigation (Registry::menu), filtering each sub-menu by
+    # what the current user may view: Admin/Operator see every type; a User sees
+    # only the types they hold 'view' on (none by default). Sections with no
+    # visible sub-menu are hidden. allowed_objects is fetched once per render.
     $self->hook( before_render => sub {
-        my ($c) = @_;
-        # Nav only lists the main browsable types; "nav => 0" types (e.g. Product)
-        # are routable/linkable but hidden from the nav and home menu.
-        $c->stash( nav => [ map {
-            my $s = Netdot::Mojo::Registry::spec( $_ );
-            [ $_, $s->{label}, $s->{desc} ]
-        } grep { ( Netdot::Mojo::Registry::spec( $_ )->{nav} // 1 ) }
-                Netdot::Mojo::Registry::types() ] );
+        my ($c)     = @_;
+        my $person  = $c->current_person;
+        my $utype   = Netdot::Mojo::Permissions->user_type( $person );
+        my $access;
+        $access = Netdot::Mojo::Permissions->allowed_objects( $person )
+            unless $utype eq 'Admin' || $utype eq 'Operator';
+
+        my @sections;
+        for my $sec ( Netdot::Mojo::Registry::menu() ) {
+            my ( $key, $meta ) = @$sec;
+            my @items;
+            for my $t ( @{ $meta->{types} } ) {
+                my $spec = Netdot::Mojo::Registry::spec( $t ) or next;
+                next unless ( $spec->{nav} // 1 );
+                my $visible = ( $utype eq 'Admin' || $utype eq 'Operator' )
+                            ? 1
+                            : Netdot::Mojo::Permissions::has_action_on( $spec->{class}, $access, 'view' );
+                next unless $visible;
+                my $label = Netdot::Mojo::Registry::nav_label( $t ) // $spec->{label};
+                push @items, { type => $t, label => $label };
+            }
+            next unless @items;
+            push @sections, {
+                key   => $key,
+                title => $meta->{title},
+                first => $items[0]{type},
+                items => \@items,
+            };
+        }
+        $c->stash( nav => \@sections );
     });
 }
 
