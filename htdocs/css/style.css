@@ -74,6 +74,15 @@ table.sortable tbody tr:nth-child(2n+1) td {
   color: #000000;
 }
 
+table.sortable thead th {
+  cursor: pointer;
+  white-space: nowrap;
+}
+table.sortable thead th.ts-asc  { background-color: #93b893; }
+table.sortable thead th.ts-desc { background-color: #93b893; }
+table.sortable thead th.ts-asc::after  { content: " \25B4"; font-size: 0.7em; }
+table.sortable thead th.ts-desc::after { content: " \25BE"; font-size: 0.7em; }
+
 tr {
     text-align: left;
 }
