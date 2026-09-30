@@ -1,7 +1,6 @@
 % use Mojo::ByteStream qw(b);
 % my $headers = $headers // [];
 % my $rows    = $rows    // [];
-% my $sortable = ($sortable ? 1 : 0);
 % if ($title) {
 <h1><%= $title %></h1>
 % }
@@ -10,7 +9,7 @@
 % }
 % if (@$rows) {
 <div class="tablescroll">
-<table border="0" width="100%" cellspacing="0"<%= $sortable ? ' class="sortable"' : '' %>>
+<table border="0" width="100%" cellspacing="0" class="sortable">
   <tr>
     % for my $h (@$headers) {
     <th class="formtabletitle"><%= b($h) %></th>

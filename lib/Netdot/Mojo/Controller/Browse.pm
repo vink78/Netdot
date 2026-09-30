@@ -179,7 +179,7 @@ sub csv ($c) {
 
     my $h = $c->res->headers;
     $h->content_type( 'text/csv' );
-    $h->content_disposition( 'attachment', filename => "$type.csv" );
+    $h->content_disposition( 'attachment; filename="' . $type . '.csv"' );
     $c->render( data => $csv );
 }
 

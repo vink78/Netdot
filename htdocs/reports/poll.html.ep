@@ -1,22 +1,28 @@
-% my $titles = { addr => 'Network Addresses', dev => 'Devices', time => 'Poll Time' };
-<h1><%= $titles->{$type} // 'Polling Stats' %></h1>
+% use Mojo::ByteStream qw(b);
+<h1><%= $title %></h1>
 <p>Aggregated over time from the polling RRD database
    (<a href="/reports/pollstats">back to polling stats</a>).</p>
 
-% my $periods = $periods // [];
-% if ($rrd_ok) {
-  % for my $p (@$periods) {
-  <div class="container">
-    <div class="containerhead"><%= $p->[1] %></div>
-    <div class="containerbody">
-      <p>RRD graph not available (no polling RRD data in this environment).</p>
-    </div>
+% if ($rrd_avail) {
+%   my $cards = $cards // [];
+%   for my $card (@$cards) {
+<div class="container">
+  <div class="containerhead"><%= $card->{label} %></div>
+  <div class="containerbody">
+    % if ($card->{ok}) {
+    <img src="/img/graphs/<%= $card->{img} %>" alt="poll stats" style="max-width:100%">
+    % } else {
+    <p>RRD graph could not be generated (<%= $card->{label} %>)</p>
+    % }
   </div>
-  % }
+</div>
+% }
 % } else {
 <div class="container">
   <div class="containerbody">
-    <p>Polling statistics are not available: RRDtool is not installed in this environment.</p>
+    <p>Polling statistics are not available: the RRD file
+       <code><%= $rrd_file %></code> does not exist.
+       It is written by the Netdot pollers (ARP/FWT) once polling has run.</p>
   </div>
 </div>
 % }

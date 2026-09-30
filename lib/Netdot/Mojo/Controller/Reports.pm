@@ -3,8 +3,10 @@ package Netdot::Mojo::Controller::Reports;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Netdot::Model;
+use Netdot::Mojo::Registry;
 use Netdot::Mojo::Permissions;
 use NetAddr::IP;
+use File::stat;
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -68,9 +70,41 @@ sub _guard {
     return 1;
 }
 
+# Strip HTML markup from a (raw) cell -> plain text for CSV export.
+sub _strip_html {
+    my ($s) = @_;
+    return '' unless defined $s;
+    $s =~ s/<[^>]*>//g;      # drop tags
+    $s =~ s/&nbsp;/ /g;
+    $s =~ s/&quot;/"/g;
+    $s =~ s/&lt;/</g;
+    $s =~ s/&gt;/>/g;
+    $s =~ s/&amp;/&/g;
+    return $s;
+}
+
+# Stream a report table as a CSV attachment (cells are the raw HTML cells -> stripped).
+sub _csv {
+    my ( $c, $headers, $rows, $name ) = @_;
+    my @hdr = map { Netdot::Mojo::Registry::csv_field( _strip_html($_) ) } @$headers;
+    my $csv = join( ',', @hdr ) . "\n";
+    for my $row ( @$rows ) {
+        my @cells = map { Netdot::Mojo::Registry::csv_field( _strip_html($_) ) } @$row;
+        $csv .= join( ',', @cells ) . "\n";
+    }
+    my $h = $c->res->headers;
+    $h->content_type( 'text/csv' );
+    $h->content_disposition( 'attachment; filename="' . $name . '"' );
+    $c->render( data => $csv );
+}
+
 # Render a report: optional title/description + optional raw form + the data table.
+# Also stashes a csv_url (current path + query, with format=csv) for the [csv] link.
 sub _render {
-    my ($c, %a) = @_;
+    my ( $c, %a ) = @_;
+    my $p = $c->req->params->clone;
+    $p->param( format => 'csv' );
+    $c->stash( csv_url => $c->req->url->path . '?' . $p->to_string );
     $c->render(
         template  => $a{template} // 'reports/report',
         layout    => 'default',
@@ -118,6 +152,10 @@ sub device ($c) {
     $rt = 'product' unless grep { $_->[0] eq $rt } @DEVICE_OPTS;
 
     my ( $headers, $rows, $desc ) = _device_report( $rt );
+
+    if ( ( $c->param('format') // '' ) eq 'csv' ) {
+        return _csv( $c, $headers, $rows, "device_inventory_$rt.csv" );
+    }
 
     my $form = qq{<form method="get" action="/reports/device"> By }
              . _sel( 'report_type', $rt, @DEVICE_OPTS )
@@ -382,6 +420,10 @@ sub asset ($c) {
 
     my ( $headers, $rows ) = _asset_report( $rt, $sort );
 
+    if ( ( $c->param('format') // '' ) eq 'csv' ) {
+        return _csv( $c, $headers, $rows, "asset_inventory_$rt.csv" );
+    }
+
     my $form = qq{<form method="get" action="/reports/asset"> By }
              . _sel( 'report_type', $rt, @ASSET_OPTS )
              . qq{ <input type="submit" class="btn" value="Go"></form>};
@@ -504,6 +546,10 @@ sub ip ($c) {
         $desc    = 'IP reports';
     }
 
+    if ( ( $c->param('format') // '' ) eq 'csv' ) {
+        return _csv( $c, $headers, $rows, "ip_reports_".($rt//'all').".csv" );
+    }
+
     my $form = qq{<form method="get" action="/reports/ip">}
              . _sel( 'report_type', $rt, @IP_OPTS )
              . qq{ <input type="submit" class="btn" value="Go"></form>};
@@ -551,6 +597,10 @@ sub macs ($c) {
         last if $i == $topn;
     }
 
+    if ( ( $c->param('format') // '' ) eq 'csv' ) {
+        return _csv( $c, \@headers, \@rows, "macs_by_vendor_$type.csv" );
+    }
+
     _render( $c, title => "MAC Addresses by Vendor (top $topn)", form_html => $form,
              headers => \@headers, rows => \@rows );
 }
@@ -593,7 +643,7 @@ sub ipbat ($c) {
         my @rows;
         for my $r ( @$res ) {
             my $ubid = $r->[2];
-            $ubid = $r->[3] if $ubid == 0;
+            $ubid = $r->[3] if !defined $ubid || $ubid == 0;
             push @rows, [ _ip_cell( $r->[1], $r->[0] ),
                           _link('rr', $r->[4], $r->[5] // '' ),
                           _link('entity', $ubid, $ub{$ubid} // '' ) ];
@@ -603,6 +653,10 @@ sub ipbat ($c) {
     else {
         $headers = [ 'IP Address', 'Host', 'UB' ];
         $rows    = [ ['Select a building.'] ];
+    }
+
+    if ( ( $c->param('format') // '' ) eq 'csv' ) {
+        return _csv( $c, $headers, $rows, "ipbat_".($site//'all').".csv" );
     }
 
     _render( $c, title => 'Rapport IP par Batiment', desc => $name ? "Batiment: $name" : undef,
@@ -682,7 +736,11 @@ sub security ($c) {
                       _esc($list), _esc($contact), _esc($date) ];
     }
 
-    _render( $c, title => 'Liste Verte', headers => [ 'Host', 'IP Address', 'UB', 'List', 'Contact', 'Date' ],
+    my $sec_headers = [ 'Host', 'IP Address', 'UB', 'List', 'Contact', 'Date' ];
+    if ( ( $c->param('format') // '' ) eq 'csv' ) {
+        return _csv( $c, $sec_headers, \@rows, 'security_liste_verte.csv' );
+    }
+    _render( $c, title => 'Liste Verte', headers => $sec_headers,
              rows => \@rows, sortable => 1 );
 }
 
@@ -716,8 +774,13 @@ sub hinfo ($c) {
     }
     my $total = scalar @$res;
     push @rows, [ '<strong>Total</strong>', '<strong>' . $total . '</strong>' ];
-    _render( $c, title => "Hosts by HINFO for CPU=$cpu", headers => [ 'Hostname', 'IP' ],
-             rows => @rows ? \@rows : [ ['No HINFO records for this CPU.'] ] );
+    my $hi_headers = [ 'Hostname', 'IP' ];
+    my $hi_rows    = @rows ? \@rows : [ ['No HINFO records for this CPU.'] ];
+    if ( ( $c->param('format') // '' ) eq 'csv' ) {
+        return _csv( $c, $hi_headers, $hi_rows, "hinfo_$cpu.csv" );
+    }
+    _render( $c, title => "Hosts by HINFO for CPU=$cpu", headers => $hi_headers,
+             rows => $hi_rows );
 }
 
 sub usedby ($c) {
@@ -741,7 +804,11 @@ sub usedby ($c) {
                       sprintf( '%.1f%%', $r->[2] / $total * 100 ) ];
     }
     push @rows, [ '<strong>Total</strong>', '<strong>' . $total . '</strong>', '<strong>100%</strong>' ];
-    _render( $c, title => "IP Addresses by Entity (IPv$ver)", headers => [ 'Entity', 'Count', '%' ],
+    my $ub_headers = [ 'Entity', 'Count', '%' ];
+    if ( ( $c->param('format') // '' ) eq 'csv' ) {
+        return _csv( $c, $ub_headers, \@rows, "used_by_ipv$ver.csv" );
+    }
+    _render( $c, title => "IP Addresses by Entity (IPv$ver)", headers => $ub_headers,
              rows => [ @rows ] );
 }
 
@@ -764,6 +831,9 @@ sub database ($c) {
     }
     push @rows, [ '<b>Total Size:</b>', '&nbsp;', "<b>" . _fmt_size($ds) . "</b>",
                   "<b>" . _fmt_size($is) . "</b>", '&nbsp;', "<b>" . _fmt_size($fs) . "</b>", '&nbsp;', '&nbsp;', '&nbsp;' ];
+    if ( ( $c->param('format') // '' ) eq 'csv' ) {
+        return _csv( $c, \@headers, \@rows, 'mysql_table_status.csv' );
+    }
     _render( $c, title => 'Table Information', headers => [ @headers ], rows => \@rows );
 }
 
@@ -773,20 +843,56 @@ sub database ($c) {
 # ---------------------------------------------------------------------------
 sub topology ($c) {
     return if _guard($c);
-    my $root   = Netdot::Model->config->get('NMS_DEVICE') // '';
-    my $imgdir = 'img/graphs';
-    my %imgs = (
-        no_vlans  => [ "$imgdir/whole_network_no_vlans.png",  'whole_network_no_vlans.png' ],
-        with_vlans => [ "$imgdir/whole_network_with_vlans.png", 'whole_network_with_vlans.png' ],
+    my $netdot_path = Netdot::Model->config->get('NETDOT_PATH') // '';
+    my $graph_dir   = "$netdot_path/htdocs/img/graphs";
+    my $root        = Netdot::Model->config->get('NMS_DEVICE') // '';
+    my $root_dev    = $root ? eval { Device->search( name => $root )->first } : undef;
+
+    my %defs = (
+        no_vlans   => { file => 'whole_network_no_vlans.png',  vlans => 0, title => 'Network Graph without VLANs' },
+        with_vlans => { file => 'whole_network_with_vlans.png', vlans => 1, title => 'Network Graph with VLANs' },
     );
+
+    my $show_names = $c->param('show_names') ? 1 : 0;
+    my $minlen     = $c->param('minlen') // 1;
+    $minlen = 1 unless $minlen =~ /^[123]$/;
+
+    # Regenerate on demand (whole-network graph is resource-heavy).
+    my $note  = '';
+    my $regen = $c->param('regen') // '';
+    if ( $root_dev && $regen ) {
+        require Netdot::UI;
+        my $ui    = Netdot::UI->new;
+        my @which = ( $regen eq '1' ) ? ( qw(no_vlans with_vlans) ) : ( $regen );
+        my @msg;
+        for my $k (@which) {
+            my $def = $defs{$k} or next;
+            my $abs = "$graph_dir/$def->{file}";
+            my $ok  = eval {
+                $ui->build_device_topology_graph(
+                    id => $root_dev->id, depth => 99999, show_vlans => $def->{vlans},
+                    show_names => $show_names, minlen => $minlen, format => 'png', filename => $abs,
+                );
+                1;
+            };
+            push @msg, $def->{title} . ( $ok ? '' : " (failed: $@)" );
+        }
+        $note = 'Regenerated: ' . join( '; ', @msg );
+    }
+
     my @cards;
     for my $k ( qw(no_vlans with_vlans) ) {
-        my ( $path, $fname ) = @{ $imgs{$k} };
-        push @cards, { key => $k, file => $fname,
-                       exists => -s "$path" ? 1 : 0, size => -s "$path" };
+        my $def = $defs{$k};
+        my $abs = "$graph_dir/$def->{file}";
+        my $st  = ( -e $abs ) ? stat($abs) : undef;
+        push @cards, { key => $k, title => $def->{title}, file => $def->{file},
+                       exists => $st ? 1 : 0,
+                       size   => $st ? $st->size : 0,
+                       mtime  => $st ? scalar( localtime( $st->mtime ) ) : '' };
     }
-    $c->render( template => 'reports/topology', layout => 'default', title => 'Topology Graph',
-                root => $root, cards => \@cards );
+    $c->render( template => 'reports/topology', layout => 'default', title => 'Network Topology Graph',
+                root => $root, note => $note, cards => \@cards,
+                show_names => $show_names, minlen => $minlen );
 }
 
 sub pollstats ($c) {
@@ -798,13 +904,32 @@ sub poll ($c) {
     return if _guard($c);
     my $type = $c->param('type') // 'addr';
     $type = 'addr' unless grep { $_ eq $type } qw(addr dev time);
-    # RRD graphs depend on RRDtool + a populated POLL_STATS_FILE_PATH; degrade
-    # gracefully when unavailable.
-    my @periods = ( [ '-1d', 'Last day' ], [ '-1w', 'Last week' ], [ '-1m', 'Last month' ], [ '-1y', 'Last year' ] );
-    my $rrd_ok = 0;
-    eval { require RRDs; $rrd_ok = 1; 1 };
-    $c->render( template => 'reports/poll', layout => 'default', title => 'Polling Stats',
-                type => $type, rrd_ok => $rrd_ok, periods => \@periods );
+    my %titles = ( addr => 'Network Addresses', dev => 'Devices', time => 'Poll Time' );
+    my %img    = ( addr => 'poll_addr_%s.png', dev => 'poll_dev_%s.png', time => 'poll_time_%s.png' );
+
+    # RRD graphs need the populated POLL_STATS_FILE_PATH RRD (written by the
+    # Netdot pollers). When absent, degrade gracefully.
+    my $netdot_path = Netdot::Model->config->get('NETDOT_PATH') // '';
+    my $rrd_file    = "$netdot_path/" . ( Netdot::Model->config->get('POLL_STATS_FILE_PATH') // '' );
+    my $rrd_avail   = ( -e $rrd_file ) ? 1 : 0;
+    my @periods     = ( [ '-1d', 'day',   'Last day' ], [ '-1w', 'week',   'Last week' ],
+                        [ '-1m', 'month', 'Last month' ], [ '-1y', 'year',  'Last year' ] );
+
+    my @cards;
+    if ( $rrd_avail ) {
+        require Netdot::UI;
+        my $ui = Netdot::UI->new;
+        for my $p (@periods) {
+            my ( $start, $tag, $label ) = @$p;
+            my $img = sprintf( $img{$type}, $tag );
+            my $ok  = eval { $ui->rrd_graph( type => $type, period => $start, web_path => '', img => $img,
+                                              title => $titles{$type} ); 1 };
+            push @cards, { label => $label, img => $img, ok => $ok };
+        }
+    }
+    $c->render( template => 'reports/poll', layout => 'default', title => $titles{$type},
+                type => $type, title => $titles{$type}, rrd_avail => $rrd_avail, rrd_file => $rrd_file,
+                cards => \@cards );
 }
 
 1;
