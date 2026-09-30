@@ -1,0 +1,21 @@
+<h1>Topology Graph</h1>
+% if ($root) {
+<p class="reportdesc">Root device: <strong><%= $root %></strong></p>
+% }
+<p>Whole-network topology, generated with GraphViz (with and without VLANs).</p>
+
+% my $cards = $cards // [];
+% for my $card (@$cards) {
+<div class="container">
+  <div class="containerhead"><%= $card->{key} eq 'no_vlans' ? 'Without VLANs' : 'With VLANs' %></div>
+  <div class="containerbody">
+    % if ($card->{exists}) {
+      <img src="/<%= $card->{file} %>" alt="topology" style="max-width:100%">
+      <p><em>file size: <%= $card->{size} %> bytes</em></p>
+    % } else {
+      <p>No graph available. The topology image has not been generated in this environment
+         (GraphViz / device graph data required).</p>
+    % }
+  </div>
+</div>
+% }

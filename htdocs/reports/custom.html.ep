@@ -1,0 +1,31 @@
+<h1>UNIL Reports</h1>
+<p>Custom reports: HINFO hosts by CPU and IP addresses by owner.</p>
+
+% my $cpus = $cpus // [];
+<div class="container">
+  <div class="containerhead">HINFO Hosts by CPU</div>
+  <div class="containerbody">
+  % if (scalar(@$cpus)) {
+    <table border="0"><% for my $cpu (@$cpus) { %>
+      <tr>
+        <td style="white-space:nowrap"><a href="/reports/hinfo?cpu=<%= $cpu %>"><strong><%= $cpu %></strong></a></td>
+        <td>Hosts whose HINFO CPU is <%= $cpu %></td>
+      </tr>
+    <% } %></table>
+  % } else {
+    <p>No HINFO CPU values configured.</p>
+  % }
+  </div>
+</div>
+
+<div class="container">
+  <div class="containerhead">IP Addresses by Owner</div>
+  <div class="containerbody">
+    <table border="0">
+      <tr><td style="white-space:nowrap"><a href="/reports/usedby?version=4"><strong>IPv4</strong></a></td>
+          <td>IP addresses grouped by owning entity (IPv4)</td></tr>
+      <tr><td style="white-space:nowrap"><a href="/reports/usedby?version=6"><strong>IPv6</strong></a></td>
+          <td>IP addresses grouped by owning entity (IPv6)</td></tr>
+    </table>
+  </div>
+</div>

@@ -88,6 +88,12 @@ sub startup ($self) {
     # i_fdb.html / i_arp.html).
     $r->get('/management/interface/:id/fdb')->to('interface#fdb')->name('interface_fdb');
     $r->get('/management/interface/:id/arp')->to('interface#arp')->name('interface_arp');
+    # Reports (Admin + Operator; see Reports controller guard).
+    $r->get('/reports')->to('reports#index')->name('reports_index');
+    for my $rep ( qw(device asset ip macs topology pollstats poll database custom ipbat security hinfo usedby) ) {
+        $r->get("/reports/$rep")->to("reports#$rep")->name("reports_${rep}");
+    }
+
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');
     $r->get('/logout')->to('auth#logout')->name('logout');
@@ -118,6 +124,18 @@ sub startup ($self) {
         my @sections;
         for my $sec ( Netdot::Mojo::Registry::menu() ) {
             my ( $key, $meta ) = @$sec;
+
+            # Reports: fixed sub-menu (Registry::reports_menu), Admin + Operator only
+            # (the original gates it with the access_section permission).
+            if ( $key eq 'reports' ) {
+                next unless $utype eq 'Admin' || $utype eq 'Operator';
+                my @items = map { { label => $_->{label}, url => "/reports/$_->{key}" } }
+                            Netdot::Mojo::Registry::reports_menu();
+                next unless @items;
+                push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
+                next;
+            }
+
             my @items;
             for my $t ( @{ $meta->{types} } ) {
                 my $spec = Netdot::Mojo::Registry::spec( $t ) or next;
@@ -127,13 +145,13 @@ sub startup ($self) {
                             : Netdot::Mojo::Permissions::has_action_on( $spec->{class}, $access, 'view' );
                 next unless $visible;
                 my $label = Netdot::Mojo::Registry::nav_label( $t ) // $spec->{label};
-                push @items, { type => $t, label => $label };
+                push @items, { type => $t, label => $label, url => $c->url_for( "${t}_list" ) };
             }
             next unless @items;
             push @sections, {
                 key   => $key,
                 title => $meta->{title},
-                first => $items[0]{type},
+                url   => $items[0]{url},
                 items => \@items,
             };
         }

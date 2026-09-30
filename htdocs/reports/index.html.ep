@@ -1,0 +1,21 @@
+<h1>Reports</h1>
+<p>Aggregated, read-only reports over the Netdot database.</p>
+
+% my $reports = $reports // [];
+% if (@$reports) {
+<div class="container">
+  <div class="containerhead">Available Reports</div>
+  <div class="containerbody">
+    <table border="0" width="100%">
+      % for my $r (@$reports) {
+      <tr>
+        <td style="white-space:nowrap"><a href="/reports/<%= $r->{key} %>"><strong><%= $r->{label} %></strong></a></td>
+        <td><%= $r->{desc} %></td>
+      </tr>
+      % }
+    </table>
+  </div>
+</div>
+% } else {
+<p>No reports available.</p>
+% }

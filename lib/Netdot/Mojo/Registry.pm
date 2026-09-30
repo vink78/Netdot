@@ -79,6 +79,24 @@ our %NAV_LABELS = (
 );
 sub nav_label { $NAV_LABELS{ $_[0] } }
 
+# Reports sub-menu (fixed list, mirrors the original reports/autohandler
+# sub_sections). Reports is an access_section => Admin + Operator only.
+# key   => reports/<key> route, label => nav + landing title, desc => landing blurb.
+our @REPORTS = (
+    { key => 'device',    label => 'Devices',           desc => 'Device inventory by type/model, site, OS, mismatches' },
+    { key => 'asset',     label => 'Assets',            desc => 'Asset inventory by type/model' },
+    { key => 'ip',        label => 'IP',                desc => 'Unused subnets, maxed-out subnets, unused statics' },
+    { key => 'macs',      label => 'MAC Addresses',     desc => 'MAC addresses by vendor (OUI)' },
+    { key => 'topology',  label => 'Topology Graph',    desc => 'Whole-network topology (with/without VLANs)' },
+    { key => 'pollstats', label => 'Polling Stats',     desc => 'Network addresses / devices / poll time over time' },
+    { key => 'database',  label => 'Database Reports',  desc => 'MySQL table information' },
+    { key => 'custom',    label => 'UNIL Reports',      desc => 'HINFO hosts, IP addresses by owner (used-by)' },
+    { key => 'ipbat',     label => 'IP par Batiment',   desc => 'IP addresses per building/site' },
+    { key => 'security',  label => 'Liste Verte',       desc => 'Hosts listed on the green (security) list' },
+);
+# Ordered list of the report nav items.
+sub reports_menu { @REPORTS }
+
 # Columns that must never be displayed (secrets / raw credentials).
 our %SENSITIVE = map { $_ => 1 } qw(password snmp_authkey snmp_privkey);
 

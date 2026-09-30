@@ -52,10 +52,10 @@
       % my $nav = $c->stash('nav') // [];
       % for my $sec (@$nav) {
       <li class="navsec">
-        <a href="<%= url_for( $sec->{first} . '_list' ) %>"><%= $sec->{title} %></a>
+        <a href="<%= $sec->{url} %>"><%= $sec->{title} %></a>
         <ul class="navsubmenu">
           % for my $it (@{ $sec->{items} }) {
-          <li><a href="<%= url_for( $it->{type} . '_list' ) %>"><%= $it->{label} %></a></li>
+          <li><a href="<%= $it->{url} %>"><%= $it->{label} %></a></li>
           % }
         </ul>
       </li>

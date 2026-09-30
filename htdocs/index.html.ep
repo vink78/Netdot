@@ -10,7 +10,7 @@
       <div class="containerbody">
         <ul class="menu">
           % for my $it (@{ $sec->{items} }) {
-          <li><a href="<%= url_for( $it->{type} . '_list' ) %>"><%= $it->{label} %></a></li>
+          <li><a href="<%= $it->{url} %>"><%= $it->{label} %></a></li>
           % }
         </ul>
       </div>
