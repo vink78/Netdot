@@ -10,8 +10,12 @@
       re-initialisation needed.
     - Click a header cell of any <table class="sortable"> to sort by that
       column; click again to reverse. Column type (IPv4 vs numeric vs text)
-      is auto-detected from the first non-empty data cell. IPv4 addresses
-      sort numerically (octet by octet); text sorts case-insensitively.
+      is auto-detected from the first non-empty data cell. Detection is
+      start-anchored, so a leading value in a longer string is honoured:
+        * IPv4 -> sorted by the dotted quad, incl. CIDR (10.0.0.0/8); the
+          /prefix is a tie-break (broad -> specific).
+        * Numbers -> sorted by the leading number ("42 items" -> 42).
+        * Text  -> sorted case-insensitively.
     - Add class "ts-nosort" to a header cell to exempt that column.
 
   Markup expected: first <tr> is the header row (<th> cells). A <thead> is
@@ -49,28 +53,40 @@
     table.__tsNorm = true;
   }
 
+  // Numbers: the value *starts with* a number (optional sign, optional
+  // decimal part). It may be the lead of a longer string ("42 items"); only
+  // that leading number is used to sort.
   function isNum(s) {
-    var t = s.replace(/[^0-9.-]/g, '');
-    return t !== '' && t !== '-' && t !== '.' && !isNaN(parseFloat(s));
+    return /^-?\d+(?:\.\d+)?/.test(s);
   }
+  function numKey(s) {
+    var m = s.match(/^-?\d+(?:\.\d+)?/);
+    var n = m ? parseFloat(m[0]) : 0;
+    return isNaN(n) ? 0 : n;
+  }
+
+  // IPv4: the value *starts with* a dotted quad (each octet 0-255). The start
+  // anchor (no trailing $) also catches CIDR ("10.0.0.0/8") and an IP that
+  // prefixes a longer string.
   function isIPv4(s) {
-    if (!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(s)) return false;
-    var p = s.split('.');
-    for (var i = 0; i < 4; i++) if (parseInt(p[i], 10) > 255) return false;
+    var m = s.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/);
+    if (!m) return false;
+    for (var i = 1; i <= 4; i++) if (parseInt(m[i], 10) > 255) return false;
     return true;
   }
-  // Weighted 32-bit value: o1*256^3 + o2*256^2 + o3*256 + o4 (fits exactly in
-  // a JS double). Returns -1 for anything that is not a valid IPv4 address.
+  // Sort key for an IPv4 value: the leading dotted quad as a weighted 32-bit
+  // number (fits exactly in a JS double), with the optional /prefix as a
+  // tie-break so the same network lists broad -> specific (/8 < /24 < /32).
+  // Returns -1 when the value does not start with a valid IPv4.
   function ipKey(s) {
-    var p = s.split('.');
-    if (p.length !== 4) return -1;
-    var k = 0;
-    for (var i = 0; i < 4; i++) {
-      var o = parseInt(p[i], 10);
-      if (isNaN(o) || o < 0 || o > 255) return -1;
-      k = k * 256 + o;
-    }
-    return k;
+    var m = s.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?:\/(\d{1,2}))?/);
+    if (!m) return -1;
+    for (var i = 1; i <= 4; i++) if (parseInt(m[i], 10) > 255) return -1;
+    var ip = parseInt(m[1], 10) * 16777216 + parseInt(m[2], 10) * 65536 +
+             parseInt(m[3], 10) * 256 + parseInt(m[4], 10);
+    var prefix = m[5] !== undefined ? parseInt(m[5], 10) : 0;
+    if (prefix > 32) prefix = 0;
+    return ip * 33 + prefix;
   }
   function colType(table, col) {
     var rows = bodyRows(table);
@@ -95,11 +111,7 @@
       var vb = b.cells[col] ? cellText(b.cells[col]) : '';
       var r;
       if (type === 'num') {
-        var na = parseFloat(va.replace(/[^0-9.-]/g, ''));
-        var nb = parseFloat(vb.replace(/[^0-9.-]/g, ''));
-        if (isNaN(na)) na = 0;
-        if (isNaN(nb)) nb = 0;
-        r = na - nb;
+        r = numKey(va) - numKey(vb);
       } else if (type === 'ip') {
         r = ipKey(va) - ipKey(vb);
       } else {
