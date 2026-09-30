@@ -32,10 +32,13 @@ Le détail est soit **dédié** (✅) soit **générique** (🔶).
 | ipblock             | Address Space (ADDRESS)| ✅ dédié  | ✅          |
 | rr                  | DNS Records (HOSTS)    | ✅ dédié  | ✅          |
 | zone                | DNS Zones (ZONES)      | 🔶 gén.  | ✅          |
-| **dhcscope**        | **DHCP (DHCP)**        | 🔶 gén.  | ⬜ **absent** |
+| dhcscope            | DHCP (DHCP)            | 🔶 gén. (cols dédiées) | ✅          |
 
-> `dhcscope` est **routable et rend en 200** (`/management/dhcscope`) mais n'est pas
-> listé dans le nav. L'original l'a dans Management → DHCP.
+> `dhcscope` : dans le nav (Management → DHCP), liste avec colonnes dédiées
+> (name, type, container, version, ipblock, physaddr, active), détail générique
+> avec drill-down via `contained_scopes`, CSV liste + CSV relation.
+> Fix : `link_for`/`format_value` résolvent la clé par classe (DhcpScope → `dhcscope`),
+> la stringification `lc(ref)` donnant `dhcpscope` (inexistant).
 
 ## 3. Contacts
 
@@ -103,7 +106,7 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 
 ## Prochaines étapes suggérées (par priorité)
 
-1. ⬜ **Nav** : ajouter DHCP (Management) + Backbone/Horizontal/Circuits (Cable Plant) ; trancher la divergence Cable Plant.
+1. ⬜ **Nav** : ajouter Backbone/Horizontal/Circuits (Cable Plant) ; trancher la divergence Cable Plant. (DHCP ✅ fait)
 2. ⬜ **Détails spécialisés** (si parité avec l'original) pour : asset, vlan, zone, person, entity, contactlist, site, closet, room, floor, service.
 3. ⬜ **Section Export** (Configurations) — Admin.
 4. ⬜ **Section Help** (Manual + Database Help).
@@ -114,6 +117,9 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 
 ## État vérifié (2026-09-30, branch `dev`)
 
+- **DHCP** : nav (Management → DHCP), liste 455 scopes (colonnes dédiées, pagination),
+  détail + drill-down `contained_scopes` (liens vers enfants, 409 sous le scope global),
+  CSV liste + CSV relation. Régression vérifiée (Device/Ipblock, liens FK intacts).
 - 20 routes de liste = **200** (Admin) : device, asset, vlan, ipblock, rr, zone, person,
   entity, contactlist, site, closet, room, floor, interface, physaddr, service,
   dhcscope, circuit, backbonecable, horizontalcable.

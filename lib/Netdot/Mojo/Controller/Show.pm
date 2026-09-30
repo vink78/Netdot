@@ -73,7 +73,7 @@ sub show ($c) {
             $csv .= join( ',', map { Netdot::Mojo::Registry::csv_field($_) } @vals ) . "\n";
         }
         $c->res->headers->content_type( 'text/csv' );
-        $c->res->headers->content_disposition( 'attachment', filename => "$type-$csv_rel.csv" );
+        $c->res->headers->content_disposition( 'attachment; filename="' . $type . '-' . $csv_rel . '.csv"' );
         return $c->render( data => $csv );
     }
 

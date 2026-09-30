@@ -36,7 +36,8 @@ our %TYPES = (
     stpinstance     => { class => 'STPInstance',     nav => 0 },
     horizontalcable => { class => 'HorizontalCable', nav => 0 },
     backbonecable   => { class => 'BackboneCable',   nav => 0 },
-    dhcscope        => { class => 'DhcpScope',       nav => 0 },
+    dhcscope      => { class => 'DhcpScope',
+                       cols => [ qw(name type container version ipblock physaddr active) ] },
     producttype     => { class => 'ProductType',     nav => 0 },
 );
 
@@ -54,7 +55,7 @@ sub types { @ORDER }
 # A section is only shown when at least one of its sub-menus is visible to the user
 # (see the nav builder in Netdot::Mojo). Types listed here must exist in %TYPES.
 our %MENU = (
-    management   => { title => 'Management',  types => [ qw(device asset vlan ipblock rr zone) ] },
+    management   => { title => 'Management',  types => [ qw(device asset vlan ipblock rr zone dhcscope) ] },
     contacts     => { title => 'Contacts',    types => [ qw(person entity contactlist) ] },
     cable_plant  => { title => 'Cable Plant', types => [ qw(site closet room floor) ] },
     generic      => { title => 'Advanced',    types => [ qw(interface physaddr service) ] },
@@ -75,7 +76,7 @@ our %NAV_LABELS = (
     site   => 'Sites',          closet    => 'Closets',
     room   => 'Rooms',          floor     => 'Floors',
     interface => 'Interfaces',  physaddr  => 'MAC Addresses',
-    service => 'Services',
+    service => 'Services',      dhcscope  => 'DHCP',
 );
 sub nav_label { $NAV_LABELS{ $_[0] } }
 
@@ -117,7 +118,9 @@ sub spec {
     my $label = $base->{label} // ( $meta && eval { $meta->name } ) // $key;
     my $desc  = $meta ? eval { $meta->description } : undef;
     $desc  = '' unless defined $desc;
-    my @cols = _brief_cols($class);
+    # List/CSV columns: an explicit override in %TYPES wins, else the meta brief
+    # view (falling back to the all view). See %TYPES (e.g. dhcscope).
+    my @cols = $base->{cols} ? @{ $base->{cols} } : _brief_cols($class);
     my $spec = { %$base, class => $class, label => $label, desc => $desc, cols => \@cols };
     return $SPEC{$key} = $spec;
 }
@@ -162,6 +165,28 @@ sub display_columns {
     return [ map { [ $_, column_tag( $class, $_ ) ] } @cols ];
 }
 
+# Map an object's class to its Registry key (the type used in routes/URLs).
+# lc(short class name) works for every type EXCEPT DhcpScope (class "DhcpScope"
+# -> "dhcpscope" but the registry key/route is "dhcscope"), so resolve by class
+# through the %TYPES values when the naive lc() lookup misses.
+our %CLASS_TO_KEY;
+{
+    my %seen;
+    for my $key ( keys %TYPES ) {
+        my $cls = $TYPES{$key}{class};
+        $seen{$cls}                     = $key;
+        $seen{ ( $cls =~ s/.*:://r ) }  = $key;
+    }
+    %CLASS_TO_KEY = %seen;
+}
+sub class_key {
+    my ($class) = @_;
+    return $CLASS_TO_KEY{$class} if exists $CLASS_TO_KEY{$class};
+    my $short = $class =~ s/.*:://r;
+    return $CLASS_TO_KEY{$short} if exists $CLASS_TO_KEY{$short};
+    return lc $short;
+}
+
 # Render a (possibly inflated) column value as a display string.
 # Relationships use the object's own ->get_label; fallback is "ShortClass #id".
 sub format_value {
@@ -183,12 +208,12 @@ sub format_value {
 sub link_for {
     my ($v) = @_;
     return [ format_value($v) ] unless ref $v;
-    my $short = ref $v;   $short =~ s/.*:://;
-    my $type  = lc $short;                       # Site -> site
+    my $class = ref $v;
+    my $type  = class_key( $class );              # Site -> site, DhcpScope -> dhcscope
     my $id    = eval { "$v" };
     $id = '?' if $@ || !defined $id;
     my $text  = eval { $v->get_label };
-    $text = "$short #$id" unless defined $text && length $text;
+    $text = class_key( $class ) . " #$id" unless defined $text && length $text;
     my $href  = ( exists $TYPES{$type} && $id =~ /^\d+$/ ) ? "/management/$type/$id" : undef;
     return [ $text, $href ];
 }
