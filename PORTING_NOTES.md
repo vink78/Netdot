@@ -144,6 +144,10 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
 - `lib/Netdot/Mojo/Controller/Export.pm` — Export form (GET) + run (POST):
   type-gating (Admin→12, write-rights→4), `generate_configs`, String appender
   log capture, per-type error list.
+- `lib/Netdot/Mojo/Controller/Advanced.pm` — Changelog: `Audit->search_where`
+  (200 most recent, `limit_dialect => 'LimitOffset'`), table display.
+- `lib/Netdot/Mojo/Controller/Search.pm` — Global search: IPv4/IPv6 → redirect
+  ipblock search; MAC → redirect physaddr search; text → `RR->search_like(name)`.
 - `lib/Netdot/Mojo/Registry.pm` — type catalogue, `link_for`, `format_value`,
   `spec`, `display_columns`, `is_sensitive`, `csv_field`, `column_link_key`,
   `esc`, `%MENU` + `@MENU_ORDER` (5 sections incl. Export).
@@ -154,6 +158,8 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
   (error page branding).
 - `htdocs/management/{ipblock,rr,ipaddress,detail,search_results}.html.ep` — templates.
 - `htdocs/export.html.ep` — Export form (types, zones, scopes, force, HINFO/TXT).
+- `htdocs/advanced/changelog.html.ep` — Changelog (audit log) table.
+- `htdocs/search/results.html.ep` — Global search results (RR name + zone).
 - `htdocs/error_{403,404,500}.html.ep` — branded error pages (layout `default`).
 - `htdocs/management/host.html` (1136 l.), `container.mhtml`,
   `htdocs/generic/view.html` — Mason references.
@@ -206,6 +212,14 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
   `error_500.html.ep`): branded Netdot (layout `default`). Helpers
   `reply.html_not_found` / `reply.html_exception` in `Netdot::Mojo.pm`
   override Mojolicious default debug pages.
+- Done: **Changelog** (`Controller/Advanced.pm`, `/changelog`): 200 most recent
+  audit records (`Audit->search_where`, `limit_dialect => 'LimitOffset'`).
+  Nav "Advanced" section shows only "Changelog" (interface/physaddr/service
+  set to `nav => 0` — routable but hidden from nav).
+- Done: **Global search** (`Controller/Search.pm`, `/search`): search box on
+  home page. Detects IPv4/IPv6 → redirect to ipblock search; MAC → redirect to
+  physaddr search; text → `RR->search_like(name)` (redirect if 1 match, else
+  results table with Name + Zone).
 - Deferred: Access Rights tab; all write functions; minor read-only omissions
   (ASN link, v4/v6 selector, utilization toggle); search for the remaining
   types (VLAN, Zone, DHCP, Devices, Assets); NS/MX/TXT/NAPTR related-record

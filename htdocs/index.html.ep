@@ -1,5 +1,10 @@
 <h1>Netdot <small>(Mojolicious)</small></h1>
 
+<form action="/search" method="get" style="margin:1em 0">
+  <input type="text" name="q" size="50" placeholder="Search: IP, MAC, or hostname" />
+  <input type="submit" value="Search" />
+</form>
+
 % my $nav = $c->stash('nav') // [];
 % if (@$nav) {
   <div class="menuwrap">

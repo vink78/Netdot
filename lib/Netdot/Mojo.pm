@@ -120,6 +120,11 @@ sub startup ($self) {
     # GET renders the form; POST runs the requested exports and shows the captured log.
     $r->any('/export')->to('export#index')->name('export');
 
+    # Advanced: changelog (audit log).
+    $r->get('/changelog')->to('advanced#changelog')->name('changelog');
+    # Global search (IP / MAC / hostname detection).
+    $r->get('/search')->to('search#index')->name('search');
+
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');
     $r->get('/logout')->to('auth#logout')->name('logout');
@@ -167,6 +172,13 @@ sub startup ($self) {
             if ( $key eq 'export' ) {
                 next unless Netdot::Mojo::Permissions->can_export( $person );
                 my @items = ( { label => 'Configurations', url => '/export' } );
+                push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
+                next;
+            }
+
+            # Advanced: changelog (audit log). Single item, all users.
+            if ( $key eq 'generic' ) {
+                my @items = ( { label => 'Changelog', url => '/changelog' } );
                 push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
                 next;
             }

@@ -71,18 +71,21 @@ Seuls **Sites**, **Closets**, **Rooms** et **Floors** sont utiles (portés). Le 
 > dédié comme **Netbox** est mieux adapté à la gestion du câblage / des circuits ; il ne sert à
 > rien de maintenir cette partie dans Netdot.
 
-## 5. Advanced / Generic — ⚠️ réinterprété
+## 5. Advanced / Generic — ✅ Changelog (Audit)
 
-L'original « Advanced » = page **Advanced Database Operations** (ops DB : vacuum, reindex…).
-Le nav Mojo a réinterprété « Advanced » comme liste des types « en vrac » :
+La section « Advanced » ne montre plus que le **Changelog** (table `audit`).
+Interface, physaddr, service sont **masqués du nav** (`nav => 0`) mais restent
+accessibles via URL (`/management/physaddr/…`, etc.).
 
-| Type (route) | Détail   | Dans le nav |
-|--------------|----------|-------------|
-| interface    | ✅ dédié (Interface.pm + i_fdb/i_arp) | ✅ |
-| physaddr     | ✅ dédié (Physaddr.pm + mac.html.ep)   | ✅ |
-| service      | 🔶 gén.                         | ✅ |
-
-- [ ] ⬜ Page « Advanced Database Operations » de l'original (vacuum/reindex/…) non portée.
+- [x] ✅ **Changelog** (`/changelog`, `Controller/Advanced.pm`) : 200 dernières
+  entrées d'audit (tstamp DESC), table : Timestamp / User / Table / Label / Operation / Fields / Values.
+- [x] ✅ **Nav** : section « Advanced » = un seul item « Changelog » (hook `before_render`,
+  cas spécial `generic` comme reports/export).
+- [x] ✅ **Recherche globale** (`/search`, `Controller/Search.pm`) : champ de recherche
+  sur la page d'accueil. Détection : IPv4/IPv6 → redirect `/management/ipblock/search`,
+  MAC → redirect `/management/physaddr/search`, texte → `RR->search_like(name)` →
+  redirect si 1 résultat, sinon table de résultats (Name + Zone).
+- [x] ✅ `interface`, `physaddr`, `service` : `nav => 0` dans Registry (routable, hors nav).
 
 ## 6. Reports — ✅ 10/10 terminés
 
@@ -160,8 +163,7 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 
 1. ⬜ **Section Help** (Manual + Database Help).
 2. ⬜ **Détails spécialisés** (si parité) pour : asset, vlan, zone, person, entity, contactlist, site, closet, room, floor, service.
-3. ⬜ **Page Advanced DB-ops** (si on conserve la structure originale).
-4. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
+3. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
 
 > ✅ **Cable Plant tranché (2026-10-01)** : on garde Sites, Closets, Rooms, Floors ;
 > backbone/horizontal/circuit **dépréciés** (non migrés) — cf. §4 + Netbox.
@@ -190,3 +192,8 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 - **Pages d'erreur** : 403 (Access denied) / 404 (Page Not Found) / 500 (Internal Server Error)
   brandées Netdot (layout default : header, navbar, CSS) — helpers `reply.html_not_found`
   et `reply.html_exception` dans `Netdot::Mojo.pm` remplacent les pages debug Mojolicious.
+- **Changelog** (`/changelog`) = **200** (Admin + User) : 200 dernières entrées d'audit,
+  nav « Advanced » → « Changelog » (interface/physaddr/service masqués du nav, routes intactes).
+- **Recherche globale** (`/search`) = détection IPv4/IPv6 → redirect ipblock search,
+  MAC → redirect physaddr search, texte → `RR->search_like(name)` (redirect si 1 résultat,
+  sinon table Name+Zone).

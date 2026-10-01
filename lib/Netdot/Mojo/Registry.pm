@@ -13,7 +13,7 @@ our %TYPES = (
     ipblock   => { class => 'Ipblock' },
     device    => { class => 'Device' },
     asset     => { class => 'Asset' },
-    interface => { class => 'Interface' },
+    interface => { class => 'Interface', nav => 0 },
     vlan      => { class => 'Vlan' },
     zone      => { class => 'Zone' },
     site      => { class => 'Site' },
@@ -23,9 +23,9 @@ our %TYPES = (
     person    => { class => 'Person' },
     rr        => { class => 'RR' },
     entity    => { class => 'Entity' },
-    service   => { class => 'Service' },
+    service   => { class => 'Service', nav => 0 },
     contactlist => { class => 'ContactList' },
-    physaddr  => { class => 'PhysAddr' },
+    physaddr  => { class => 'PhysAddr', nav => 0 },
     # Link-only objects (linksto targets): generic detail, no nav entry.
     product         => { class => 'Product',         nav => 0 },
     availability    => { class => 'Availability',    nav => 0 },
@@ -59,7 +59,7 @@ our %MENU = (
     management   => { title => 'Management',  types => [ qw(device asset vlan ipblock rr zone dhcscope) ] },
     contacts     => { title => 'Contacts',    types => [ qw(person entity contactlist) ] },
     cable_plant  => { title => 'Cable Plant', types => [ qw(site closet room floor) ] },
-    generic      => { title => 'Advanced',    types => [ qw(interface physaddr service) ] },
+    generic      => { title => 'Advanced',    types => [] },
     reports      => { title => 'Reports',     types => [] },
     # Export (write-rights; see Permissions::can_export). Single action page (/export).
     # The other exporter types (Nagios/Sysmon/Rancid/...) stay admin-only (out of scope).
