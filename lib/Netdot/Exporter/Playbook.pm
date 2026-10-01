@@ -50,6 +50,19 @@ sub new{
     return $self;
 }
 
+# Quote a value as a YAML single-quoted scalar. In YAML single-quoted style the
+# only escape needed is doubling the single quote (' -> ''), which makes this
+# safe for the single-line string values generated here (hostnames, field
+# values, dates, MACs, ...). It also forces string type, so a value like "123"
+# stays a string rather than a number. (Hand-crafting "'$value'" left embedded
+# single quotes unescaped and produced invalid YAML.)
+sub yaml_str {
+    my ($s) = @_;
+    $s = '' unless defined $s;
+    $s =~ s/'/''/g;
+    return "'$s'";
+}
+
 ############################################################################
 
 =head2 generate_configs - Commit changes to related repository
@@ -152,24 +165,24 @@ sub vlan_list {
 	my ($vid, $name, $nid) = @$row;
 
 	print $out "   - tag: $vid\n";
-	print $out "     name: \"$name\"\n"
+	    print $out "     name: ".yaml_str($name)."\n"
 	    if (defined $name);
 
 	if (defined $subnet{$nid}) {
 	    print $out "     ipv4:\n";
 	    foreach my $prefix (@{$subnet{$nid}}) {
-		print $out "      - subnet: \"".$prefix->{'subnet'}."\"\n";
+		print $out "      - subnet: ".yaml_str($prefix->{'subnet'})."\n";
 		if (defined $prefix->{'description'}) {
-		    print $out "        description: \"". encode('UTF-8', $prefix->{'description'})."\"\n";
+		    print $out "        description: ".yaml_str(encode('UTF-8', $prefix->{'description'}))."\n";
 	        }
 		if (defined $prefix->{'entity'}) {
-		    print $out "        entity: \"". encode('UTF-8', $prefix->{'entity'})."\"\n";
+		    print $out "        entity: ".yaml_str(encode('UTF-8', $prefix->{'entity'}))."\n";
 	        }
 		if (defined $prefix->{'site'}) {
 		    print $out "        site:\n";
 		    foreach my $site (@{$prefix->{'site'}}) {
-		        print $out "          - id: \"". encode('UTF-8', $site->{'id'}) ."\"\n";
-		        print $out "            name: \"". encode('UTF-8', $site->{'name'}) ."\"\n";
+		        print $out "          - id: ".yaml_str(encode('UTF-8', $site->{'id'}))."\n";
+		        print $out "            name: ".yaml_str(encode('UTF-8', $site->{'name'}))."\n";
 	            }
 	        }
 	    }
@@ -177,18 +190,18 @@ sub vlan_list {
 	if (defined $subnet6{$nid}) {
 	    print $out "     ipv6:\n";
 	    foreach my $prefix (@{$subnet6{$nid}}) {
-		print $out "      - subnet: \"".$prefix->{'subnet'}."\"\n";
+		print $out "      - subnet: ".yaml_str($prefix->{'subnet'})."\n";
 		if (defined $prefix->{'description'}) {
-		    print $out "        description: \"". encode('UTF-8', $prefix->{'description'})."\"\n";
+		    print $out "        description: ".yaml_str(encode('UTF-8', $prefix->{'description'}))."\n";
 	        }
 		if (defined $prefix->{'entity'}) {
-		    print $out "        entity: \"". encode('UTF-8', $prefix->{'entity'})."\"\n";
+		    print $out "        entity: ".yaml_str(encode('UTF-8', $prefix->{'entity'}))."\n";
 	        }
 		if (defined $prefix->{'site'}) {
 		    print $out "        site:\n";
 		    foreach my $site (@{$prefix->{'site'}}) {
-		        print $out "          - id: \"". encode('UTF-8', $site->{'id'}) ."\"\n";
-		        print $out "            name: \"". encode('UTF-8', $site->{'name'}) ."\"\n";
+		        print $out "          - id: ".yaml_str(encode('UTF-8', $site->{'id'}))."\n";
+		        print $out "            name: ".yaml_str(encode('UTF-8', $site->{'name'}))."\n";
 	            }
 	        }
 	    }
@@ -276,16 +289,16 @@ sub liste_verte {
 	    $key =~ s/^(.+)\.$self->{DEFAULT_DNSDOMAIN}/$1/g;
 	    $key = join '_', split /\./, $key; 
 	    print $out "   $key:\n";
-	    print $out "     dns: '$host'\n";
+	    print $out "     dns: ".yaml_str($host)."\n";
 	    if (defined $ipv{$host}) {
-		print $out "     ip:\n";
-		foreach my $ip (@{$ipv{$host}}) {
+	        print $out "     ip:\n";
+	        foreach my $ip (@{$ipv{$host}}) {
 		    print $out "      - $ip\n";
 		}
 	    }
-	    print $out "     date: '$date{$host}'\n"
+	    print $out "     date: ".yaml_str($date{$host})."\n"
 		if (defined $date{$host});
-	    print $out "     owner: '$owner{$host}'\n"
+	    print $out "     owner: ".yaml_str($owner{$host})."\n"
 		if (defined $owner{$host});
 	}
     }
@@ -395,31 +408,31 @@ sub ansible_form {
     print $out "Host:\n";
     my @order = ('CustomerUserID', 'CustomerID', 'Unit', 'FunctionExt', 'Faculty', 'Date', 'TicketNumber', 'Room');
     my @sorted = sort {
-	my $adate = str2time($list{$a}->{'Date'});
-	my $bdate = str2time($list{$b}->{'Date'});
+	my $adate = str2time( $list{$a}->{'Date'} // '' ) // 0;
+	my $bdate = str2time( $list{$b}->{'Date'} // '' ) // 0;
 	($adate == $bdate) ? $a cmp $b : $adate<=>$bdate;
     } keys %list;
 
     foreach my $hostname (@sorted) {
 	print $out "# BEGIN ANSIBLE MANAGED BLOCK $hostname\n";
-	print $out "- Name: '$hostname'\n";
+	print $out "- Name: ".yaml_str($hostname)."\n";
 	foreach my $row (@order) {
-	    print $out "  $row: '".$list{$hostname}->{$row}."'\n"
+	    print $out "  $row: ".yaml_str($list{$hostname}->{$row})."\n"
 		if ($list{$hostname}->{$row});
 	}
 	print $out "  Address:\n";
 	foreach my $row (sort @{$list{$hostname}->{'IP'}}) {
 	    if ($row =~ /:/) {
-	        print $out "   - IPv6: '$row'\n";
+	        print $out "   - IPv6: ".yaml_str($row)."\n";
 	    } else {
-	        print $out "   - IPv4: '$row'\n";
+	        print $out "   - IPv4: ".yaml_str($row)."\n";
 	    }
-	    print $out "     MAC: '". PhysAddr->format_address(address=>$rrmac{$row}, format_caseness=>'upper', format_delimiter_string=>':', format_delimiter_interval => 2) ."'\n" if ($rrmac{$row});
+	    print $out "     MAC: ".yaml_str(PhysAddr->format_address(address=>$rrmac{$row}, format_caseness=>'upper', format_delimiter_string=>':', format_delimiter_interval => 2))."\n" if ($rrmac{$row});
 	}
 	if ($list{$hostname}->{'CNAME'}) {
 	    print $out "  CNAME:\n";
 	    foreach my $row (sort @{$list{$hostname}->{'CNAME'}}) {
-		print $out "   - '$row'\n";
+		print $out "   - ".yaml_str($row)."\n";
 	    }
 	}
 	print $out "# END ANSIBLE MANAGED BLOCK $hostname\n";
@@ -464,20 +477,20 @@ sub ansible_form {
     print $out2 "CNAME:\n";
     my @order2 = ('CustomerUserID', 'CustomerID', 'Unit', 'FunctionExt', 'Faculty', 'Date', 'TicketNumber', 'Room');
     my @sorted2 = sort {
-	my $adate = str2time($list2{$a}->{'Date'});
-	my $bdate = str2time($list2{$b}->{'Date'});
+	my $adate = str2time( $list2{$a}->{'Date'} // '' ) // 0;
+	my $bdate = str2time( $list2{$b}->{'Date'} // '' ) // 0;
 	($adate == $bdate) ? $a cmp $b : $adate<=>$bdate;
     } keys %list2;
 
     foreach my $hostname (@sorted2) {
 	print $out2 "# BEGIN ANSIBLE MANAGED BLOCK $hostname\n";
-	print $out2 "- Name: '$hostname'\n";
+	print $out2 "- Name: ".yaml_str($hostname)."\n";
 	foreach my $row (@order2) {
-	    print $out2 "  $row: '".$list2{$hostname}->{$row}."'\n"
+	    print $out2 "  $row: ".yaml_str($list2{$hostname}->{$row})."\n"
 		if ($list2{$hostname}->{$row});
 	}
 	if ($list2{$hostname}->{'CNAME'}) {
-	    print $out2 "  Target: '".$list2{$hostname}->{'CNAME'}."'\n";
+	    print $out2 "  Target: ".yaml_str($list2{$hostname}->{'CNAME'})."\n";
 	}
 	print $out2 "# END ANSIBLE MANAGED BLOCK $hostname\n";
     }

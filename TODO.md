@@ -107,22 +107,29 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
       ex. device : Asset/Site/Ipblock) ; colonnes scalaires en texte brut. Helpers Registry
       `column_link_key` + `esc` ; template `list.html.ep` rend les cellules via `b()`.
 
-## 7. Export (actions réservées aux droits d'écriture) — ✅ portée (DNS + DHCP + RFC952)
+## 7. Export (réservé aux droits d'écriture ; le reste aux Admins) — ✅ porté (12 types)
 
 - [x] ✅ **Configurations** (`/export`, `Controller/Export.pm`) : export de configs tierces
-  via `Netdot::Exporter->generate_configs`. Types portés : **BIND, NAMED, RFC952** (DNS)
-  + **DHCPD** (DHCP). Formulaire (types, zones, scopes, force, options HINFO/TXT privées) ;
-  log de l'exporteur capturé (String appender) et affiché ; erreurs par type listées.
-- **Permission** : réservée aux droits d'écriture — `Permissions::can_export` =
-  `has_action('RR', edit) || has_action('RR', delete)` (grant Zone→RR). Admin = toujours ;
-  User/Operator si droits écriture sur au moins une zone. (Original : `access_admin_section` / Admin only.)
-- ⛔ Types restants (Nagios, Sysmon, Rancid, Smokeping, Apache, GIT, PLAYBOOK, UNILSTAT) :
-  réservés aux admins, **non portés**.
-- **Config/env** : ajout `REMOTE_EXEC => 0` dans `etc/Default.conf` (SCP vers serveurs
-  distants désactivé ; sans cette clé `config->get` levait « Unknown configuration item »).
-  Dirs locaux `export/{bind,dhcpd,named,rfc952}` créés.
-- Vérifié : admin + smobile (User, droits écriture zones 114/115/116) voient Export et
-  exportent (fichiers écrits) ; guest (sans droits) = 403 + nav masquée.
+  via `Netdot::Exporter->generate_configs`. Formulaire (types, zones, scopes, force, options
+  HINFO/TXT privées) ; log de l'exporteur capturé (String appender) et affiché ; erreurs par type listées.
+- **Types & permission** : les **12 types** de l'original sont tous câblés.
+  - **DNS (BIND, NAMED, RFC952) + DHCP (DHCPD)** : accessibles à qui a les droits d'écriture
+    sur les RR — `Permissions::can_export` = `has_action('RR', edit) || has_action('RR', delete)`
+    (grant Zone→RR). Un User à droits écriture (ex. smobile) n'en voit que ces 4.
+  - **Le reste** (GIT, PLAYBOOK, UNILSTAT, Nagios, Sysmon, Rancid, Smokeping, Apache) :
+    réservés aux **Admin** (le compte de test voit et exécute les 12).
+  - (Original : `access_admin_section` / Admin only pour tout.)
+- **Fix Playbook (YAML)** : les scalaires étaient écrits en guillemets simples sans échapper les
+  `'` internes → YAML invalide (ex. `Unit: 'Institut des Systèmes d'Information'`). Ajout du helper
+  `yaml_str` (échappement YAML : `'` → `''`) appliqué aux valeurs des 4 fichiers (CNAME, Host,
+  liste_verte, vlan_list) ; les 4 passent `YAML::XS::LoadFile`.
+- **Fix sort (warning)** : `str2time` renvoyait `undef` si `rr.modified` vide → warning
+  « uninitialized » dans les 2 blocs `sort` d'`ansible_form` (Host/CNAME). Corrigé : `str2time(...) // 0`.
+- **Config/env** : `REMOTE_EXEC => 0` + `CHECKBOX_CHECKED_EXCLUDE_{HINFO,TXT}_PRIVATE_DATA => 1`
+  dans `etc/Default.conf` (SCP distant off ; cases HINFO/TXT cochées par défaut, comme en prod).
+  Dirs locaux `export/{bind,dhcpd,named,rfc952,pb}` créés.
+- Vérifié : Admin + smobile (User, zones 114/115/116) voient Export et exportent (fichiers écrits) ;
+  guest (sans droits) = 403 + nav masquée. 12 types exécutés avec succès par l'Admin.
 
 ## 8. Help — ⬜ section entière manquante
 
@@ -155,8 +162,10 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 
 > ✅ **Cable Plant tranché (2026-10-01)** : on garde Sites, Closets, Rooms, Floors ;
 > backbone/horizontal/circuit **dépréciés** (non migrés) — cf. §4 + Netbox.
-> ✅ **Export tranché (2026-10-01)** : DNS (BIND/NAMED/RFC952) + DHCP (DHCPD) portés,
-> réservés aux droits d'écriture (RR) ; le reste (Nagios/Sysmon/…) réservé aux admins.
+> ✅ **Export tranché (2026-10-01)** : les **12 types** sont câblés — DNS (BIND/NAMED/RFC952)
+> + DHCP (DHCPD) pour les droits d'écriture (RR) ; le reste (Nagios/Sysmon/…) réservé aux
+> **Admins** (le compte de test voit les 12). Fixes Playbook : échappement YAML (`yaml_str`) + warning
+> `str2time` dans le `sort` (Host/CNAME).
 
 ---
 
@@ -171,5 +180,7 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 - Détail générique OK (ex. `/management/zone/2` = 200).
 - Reports = **200** (Admin) / **403** (User sans droits).
 - **Export** (`/export`) = **200** (Admin, User avec droits écriture RR) / **403** (User sans droits) ;
-  4 types exportés avec succès (BIND, NAMED, RFC952, DHCPD) — fichiers écrits dans `export/`.
+  **12 types** exécutés avec succès par l'Admin (BIND, NAMED, RFC952, GIT, PLAYBOOK, UNILSTAT,
+  DHCPD, Nagios, Sysmon, Rancid, Smokeping, Apache) — fichiers écrits dans `export/` ;
+  un User à droits écriture n'accède qu'aux 4 types DNS/DHCP.
 - `tablesort.js` : 15/15 tests unitaires, servi en 200, référencé par le layout.

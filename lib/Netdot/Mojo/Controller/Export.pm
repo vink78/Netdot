@@ -8,11 +8,14 @@ use Netdot::Util::Log;
 use Netdot::Mojo::Permissions;
 use Log::Log4perl;
 
-# Exporter types in scope for this port. The original config_tasks.html also offers
-# GIT/PLAYBOOK/UNILSTAT/Nagios/Sysmon/Rancid/Smokeping/Apache -- those stay admin-only
-# (out of scope). DNS: BIND, NAMED, RFC952. DHCP: DHCPD.
-my @TYPES   = qw(BIND NAMED RFC952 DHCPD);
-my $APPENDER = 'mojo_export';
+# All exporter types (original config_tasks.html order).
+my @ALL_TYPES = qw(BIND NAMED RFC952 GIT PLAYBOOK UNILSTAT DHCPD Nagios Sysmon Rancid Smokeping Apache);
+# Types available to anyone holding WRITE rights on DNS records (create/modify/delete
+# on a Zone/RR). The remaining types (GIT/PLAYBOOK/UNILSTAT/Nagios/Sysmon/Rancid/
+# Smokeping/Apache) are ADMIN-only.
+my @WRITE_TYPES = qw(BIND NAMED RFC952 DHCPD);
+my %WRITE_TYPE  = map { $_ => 1 } @WRITE_TYPES;
+my $APPENDER    = 'mojo_export';
 
 # HTML-escape.
 sub _esc {
@@ -98,32 +101,46 @@ sub index ($c) {
     my $def_hinfo = Netdot->config->get( 'CHECKBOX_CHECKED_EXCLUDE_HINFO_PRIVATE_DATA' ) == 1 ? 1 : 0;
     my $def_txt   = Netdot->config->get( 'CHECKBOX_CHECKED_EXCLUDE_TXT_PRIVATE_DATA' )   == 1 ? 1 : 0;
 
-    my ( $log, $errors );
+    # Which exporter types this user may run: Admins get all; other (write-rights)
+    # users get the DNS + DHCP set only (see @WRITE_TYPES).
+    my $is_admin = Netdot::Mojo::Permissions->user_type( $c->current_person ) eq 'Admin';
+    my @types    = $is_admin ? @ALL_TYPES : @WRITE_TYPES;
+    my %allowed  = map { $_ => 1 } @types;
+
+    my ( $log, @errs );
     if ( $c->req->method eq 'POST' && $c->param( 'submit' ) ) {
-        my @types = grep { defined && $_ ne '' } $c->param( 'config_types' );
-        $errors = [ 'Please select an export type.' ] unless @types;
-        ( $log, $errors ) = _run( $c, {
-            # Filter out empty values (an unselected multi-field can yield an empty
-            # string; an empty zone id would make BIND throw "Zone  not found").
-            types              => \@types,
-            zones              => [ grep { defined && $_ ne '' } $c->param( 'zones' ) ],
-            scopes             => [ grep { defined && $_ ne '' } $c->param( 'scopes' ) ],
-            bind_force         => $c->param( 'bind_force' ) ? 1 : 0,
-            bind_no_priv_hinfo => $c->param( 'bind_no_priv_hinfo' ) ? 1 : 0,
-            bind_no_priv_txt   => $c->param( 'bind_no_priv_txt' )   ? 1 : 0,
-            dhcpd_force        => $c->param( 'dhcpd_force' ) ? 1 : 0,
-        } ) if @types;
+        my @req = grep { defined && $_ ne '' } $c->param( 'config_types' );
+        my @bad = grep { !$allowed{$_} } @req;
+        my @ok  = grep {  $allowed{$_} } @req;
+        push @errs, map { "Export type '$_' is not available for your user type." } @bad;
+        if ( @ok ) {
+            my ( $l, $e ) = _run( $c, {
+                # Filter out empty values (an unselected multi-field can yield an empty
+                # string; an empty zone id would make BIND throw "Zone  not found").
+                types              => \@ok,
+                zones              => [ grep { defined && $_ ne '' } $c->param( 'zones' ) ],
+                scopes             => [ grep { defined && $_ ne '' } $c->param( 'scopes' ) ],
+                bind_force         => $c->param( 'bind_force' ) ? 1 : 0,
+                bind_no_priv_hinfo => $c->param( 'bind_no_priv_hinfo' ) ? 1 : 0,
+                bind_no_priv_txt   => $c->param( 'bind_no_priv_txt' )   ? 1 : 0,
+                dhcpd_force        => $c->param( 'dhcpd_force' ) ? 1 : 0,
+            } );
+            $log     = $l;
+            push @errs, @$e;
+        }
+        push @errs, 'Please select an export type.' unless @req;
     }
+    my $errors = @errs ? \@errs : undef;
 
     $c->render(
-        template => 'export',
-        layout   => 'default',
-        title    => 'Export Configurations',
-        types    => \@TYPES,
-        zones    => \@zones,
-        scopes   => \@scopes,
-        log      => $log,
-        errors   => $errors,
+        template  => 'export',
+        layout    => 'default',
+        title     => 'Export Configurations',
+        types     => \@types,
+        zones     => \@zones,
+        scopes    => \@scopes,
+        log       => $log,
+        errors    => $errors,
         def_hinfo => $def_hinfo,
         def_txt   => $def_txt,
     );
