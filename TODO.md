@@ -18,6 +18,9 @@ des 3 types d'utilisateurs (Admin / Operator / User) via permissions.
 - [x] Tri de colonnes : `tablesort.js` (délégation d'événements → sûr htmx ; IPv4/CIDR, nombres, case-insensitive)
 - [x] Pagination des listes
 - [x] Export CSV par type (Browse#csv) + reports
+- [x] Pages d'erreur brandées : `error_403.html.ep`, `error_404.html.ep`, `error_500.html.ep`
+      (+ helpers `reply.html_not_found` / `reply.html_exception` dans Mojo.pm —
+      remplacement des pages debug Mojolicious par défaut, layout `default`)
 
 ## 2. Management
 
@@ -184,3 +187,6 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   DHCPD, Nagios, Sysmon, Rancid, Smokeping, Apache) — fichiers écrits dans `export/` ;
   un User à droits écriture n'accède qu'aux 4 types DNS/DHCP.
 - `tablesort.js` : 15/15 tests unitaires, servi en 200, référencé par le layout.
+- **Pages d'erreur** : 403 (Access denied) / 404 (Page Not Found) / 500 (Internal Server Error)
+  brandées Netdot (layout default : header, navbar, CSS) — helpers `reply.html_not_found`
+  et `reply.html_exception` dans `Netdot::Mojo.pm` remplacent les pages debug Mojolicious.

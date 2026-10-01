@@ -32,7 +32,7 @@ sub _esc {
 sub _guard {
     my ($c) = @_;
     return 0 if Netdot::Mojo::Permissions->can_export( $c->current_person );
-    $c->render( template => 'forbidden', layout => 'default', title => 'Access denied', status => 403 );
+    $c->render( template => 'error_403', layout => 'default', title => 'Access denied', status => 403 );
     return 1;
 }
 

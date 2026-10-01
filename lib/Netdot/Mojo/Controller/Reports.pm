@@ -101,7 +101,7 @@ sub _guard {
     my ($c) = @_;
     my $ut = Netdot::Mojo::Permissions->user_type( $c->current_person );
     return 0 if $ut eq 'Admin' || $ut eq 'Operator';
-    $c->render( template => 'forbidden', layout => 'default', title => 'Access denied', status => 403 );
+    $c->render( template => 'error_403', layout => 'default', title => 'Access denied', status => 403 );
     return 1;
 }
 

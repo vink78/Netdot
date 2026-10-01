@@ -71,6 +71,16 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
   browser), otherwise the old version is served.
 - **Code** comments are in **English** (international project).
 
+### 2b. Mojolicious helper gotchas
+- **Permission helper is named `perm`** (NOT `can`): `can` clashes with
+  `UNIVERSAL::can`, which Mojolicious uses for dispatch resolution. Always
+  call `$c->perm('view', 'Device')`, never `$c->can(...)`.
+- **2-arg stash**: `$c->stash('key', $value)` is the correct form.
+  `$c->stash(key => $value)` (named-arg form) does NOT work in Mojolicious.
+- **String appender for log capture** (Export): `Log::Log4perl::Logger->get_logger`
+  + a `Log::Log4perl::Appender::String` appender captures the exporter's log
+  output into a variable for display in the template.
+
 ### 3. Models
 - `Registry::link_for($obj)` returns an **arrayref** `[text, href]` →
   dereference with `@{ }`. Generates `/management/<type>/<id>` for any type
@@ -126,13 +136,29 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
    returns a **hash** and `get_labels` a **list** → use `my %h; eval { %h = ... }` /
    `my @l; eval { @l = ... }` (the `eval {...} || ()` wantarray trap breaks both).
    `Browse#list` page size also comes from `DEFAULT_PERPAGE`.
+- `lib/Netdot/Mojo/Controller/Browse.pm` — generic list (all types): `%FILTERS`
+  per-type filter whitelist, `search_like()` re-application, FK links via
+  `Registry::column_link_key`/`esc`, CSV export, batch delete.
+- `lib/Netdot/Mojo/Controller/Reports.pm` — all 10 reports: `_obj_html`,
+  `_normalize_rows`, `_skey`, per-report row builders, CSV export.
+- `lib/Netdot/Mojo/Controller/Export.pm` — Export form (GET) + run (POST):
+  type-gating (Admin→12, write-rights→4), `generate_configs`, String appender
+  log capture, per-type error list.
 - `lib/Netdot/Mojo/Registry.pm` — type catalogue, `link_for`, `format_value`,
-  `spec`, `display_columns`, `is_sensitive`, `csv_field`.
-- `lib/Netdot/Mojo.pm` — app, routes per type, auth hook.
+  `spec`, `display_columns`, `is_sensitive`, `csv_field`, `column_link_key`,
+  `esc`, `%MENU` + `@MENU_ORDER` (5 sections incl. Export).
+- `lib/Netdot/Mojo/Permissions.pm` — `user_type`, `can`, `allowed_objects`,
+  `has_action_on`, `has_action`, `can_export` (write rights on RR).
+- `lib/Netdot/Mojo.pm` — app, routes per type, auth hook, `before_render`
+  nav hook, `deny_unless` helper, `reply.html_not_found` / `reply.html_exception`
+  (error page branding).
 - `htdocs/management/{ipblock,rr,ipaddress,detail,search_results}.html.ep` — templates.
+- `htdocs/export.html.ep` — Export form (types, zones, scopes, force, HINFO/TXT).
+- `htdocs/error_{403,404,500}.html.ep` — branded error pages (layout `default`).
 - `htdocs/management/host.html` (1136 l.), `container.mhtml`,
   `htdocs/generic/view.html` — Mason references.
 - `etc/netdot.meta` — FK/relations schema (`linksto`, `views`, `label`).
+- `etc/Default.conf` — `REMOTE_EXEC`, `CHECKBOX_CHECKED_EXCLUDE_*`, export dirs.
 
 ## Status (to be updated)
 - Done: responsive/htmx, Bootstrap, Auth, generic nav, design,
@@ -165,8 +191,23 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
      `modules`, `get_circuits`, `get_audit_records`, `hosted_devices` → list
      (`my @l; eval { @l = $o->m };`).
  - Deferred (Device): Topology (graph), Access Rights, and all write/edit actions.
+- Done: **Reports — 10/10** (`Controller/Reports.pm`): device, asset, ip, macs,
+  topology, pollstats, database, custom (hinfo/usedby), ipbat, security.
+  Gated by `access_section` (Admin+Operator). Generic FK-cell linking
+  (`_obj_html` + `_normalize_rows`). Filter re-application via `search_like()`.
+- Done: **Export** (`Controller/Export.pm`, `/export`): 12 types via
+  `Netdot::Exporter->generate_configs`. Permission: `Permissions::can_export`
+  (write rights on RR). Admin sees all 12; write-rights users see 4 (BIND,
+  NAMED, RFC952, DHCPD). Log captured via Log4perl String appender.
+  Config: `REMOTE_EXEC => 0` + `CHECKBOX_CHECKED_EXCLUDE_*` in `etc/Default.conf`.
+  Playbook fix: `yaml_str` helper (YAML single-quote escaping) + `str2time // 0`
+  sort fix.
+- Done: **Error pages** (`error_403.html.ep`, `error_404.html.ep`,
+  `error_500.html.ep`): branded Netdot (layout `default`). Helpers
+  `reply.html_not_found` / `reply.html_exception` in `Netdot::Mojo.pm`
+  override Mojolicious default debug pages.
 - Deferred: Access Rights tab; all write functions; minor read-only omissions
   (ASN link, v4/v6 selector, utilization toggle); search for the remaining
   types (VLAN, Zone, DHCP, Devices, Assets); NS/MX/TXT/NAPTR related-record
   navigation (register RRNS/RRMX/RRTXT/RRNAPTR, point host-page links at their
-  detail pages).
+  detail pages); Help section (Manual + Database Help).

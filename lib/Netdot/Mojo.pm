@@ -56,12 +56,35 @@ sub startup ($self) {
         my $p = $c->current_person;
         return 0 if $p && Netdot::Mojo::Permissions->can($p, $action, $resource);
         $c->render(
-            template => 'forbidden',
+            template => 'error_403',
             layout   => 'default',
             title    => 'Access denied',
             status   => 403,
         );
         return 1;
+    });
+
+    # Brand the generic Mojolicious error pages with Netdot. The framework's
+    # default handlers render its own "mojo/debug"/"mojo/not_found" templates;
+    # override the HTML variants to render our error_<code> pages instead.
+    # (JSON/Text variants are left as-is for API clients.)
+    $self->helper('reply.html_not_found' => sub ($c) {
+        $c->render(
+            template => 'error_404',
+            layout   => 'default',
+            title    => 'Page not found (404)',
+            status   => 404,
+        );
+    });
+    $self->helper('reply.html_exception' => sub ($c, $e) {
+        $c->app->log->error( ref $e ? $e->inspect : "unhandled exception: $e" );
+        $c->stash( exception => $e );
+        $c->render(
+            template => 'error_500',
+            layout   => 'default',
+            title    => 'Internal Server Error (500)',
+            status   => 500,
+        );
     });
 
     # ---- Routes ----
