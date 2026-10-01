@@ -1,0 +1,18 @@
+<h1>Database Schema</h1>
+
+% if (my $err = $c->stash('error')) {
+<div class="container">
+  <div class="containerhead">Error</div>
+  <div class="containerbody"><p><%= $err %></p></div>
+</div>
+% } else {
+<div class="container">
+  <div class="containerhead">Netdot Schema</div>
+  <div class="containerbody">
+    <p><a href="/help/database/graph">View as GraphViz graph &rarr;</a></p>
+    <div class="tablescroll" style="max-height:80vh;overflow:auto">
+      <%== $c->stash('schema') // '' %>
+    </div>
+  </div>
+</div>
+% }

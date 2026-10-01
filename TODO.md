@@ -137,10 +137,17 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
 - Vérifié : Admin + smobile (User, zones 114/115/116) voient Export et exportent (fichiers écrits) ;
   guest (sans droits) = 403 + nav masquée. 12 types exécutés avec succès par l'Admin.
 
-## 8. Help — ⬜ section entière manquante
+## 8. Help — ✅ terminé
 
-- [ ] ⬜ **User Manual** (`htdocs/help/`)
-- [ ] ⬜ **Database Help** (schéma/relations)
+- [x] ✅ **User Manual** (`/help/manual`, `Controller/Help.pm`) : sert le fichier
+  pandoc `doc/manual/netdot-manual.html` via `reply->file()` (HTML brut, sans layout).
+- [x] ✅ **Database Schema HTML** (`/help/database`) : `Netdot::Meta::SQLT->html_schema()`
+  (table HTML des relations DB, 323 tables).
+- [x] ✅ **Database Graph** (`/help/database/graph`) : `Netdot::Meta::SQLT->graphviz_schema()`
+  → PNG dans `htdocs/img/graphs/schema.png` (GraphViz 2.24).
+- [x] ✅ **Nav** : section "Help" (Admin+Operator) — 3 items : User Manual, Database Schema,
+  Database Graph. Guest/User : masquée.
+- [x] ✅ **Landing** (`/help`) : page d'index avec liens vers les 3 sous-pages.
 
 ---
 

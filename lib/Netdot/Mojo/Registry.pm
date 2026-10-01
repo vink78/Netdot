@@ -64,8 +64,9 @@ our %MENU = (
     # Export (write-rights; see Permissions::can_export). Single action page (/export).
     # The other exporter types (Nagios/Sysmon/Rancid/...) stay admin-only (out of scope).
     export       => { title => 'Export',      types => [] },
+    help         => { title => 'Help',        types => [] },
 );
-our @MENU_ORDER = qw(management contacts cable_plant generic reports export);
+our @MENU_ORDER = qw(management contacts cable_plant generic reports export help);
 # Ordered (key, meta) pairs for the navigation.
 sub menu { map { [ $_, $MENU{$_} ] } @MENU_ORDER }
 

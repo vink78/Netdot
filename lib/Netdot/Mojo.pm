@@ -124,6 +124,11 @@ sub startup ($self) {
     $r->get('/changelog')->to('advanced#changelog')->name('changelog');
     # Global search (IP / MAC / hostname detection).
     $r->get('/search')->to('search#index')->name('search');
+    # Help: manual + database schema (Admin + Operator; see Help controller).
+    $r->get('/help')->to('help#index')->name('help_index');
+    $r->get('/help/manual')->to('help#manual')->name('help_manual');
+    $r->get('/help/database')->to('help#database')->name('help_database');
+    $r->get('/help/database/graph')->to('help#graph')->name('help_graph');
 
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');
@@ -179,6 +184,18 @@ sub startup ($self) {
             # Advanced: changelog (audit log). Single item, all users.
             if ( $key eq 'generic' ) {
                 my @items = ( { label => 'Changelog', url => '/changelog' } );
+                push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
+                next;
+            }
+
+            # Help: manual + database schema. Admin + Operator only.
+            if ( $key eq 'help' ) {
+                next unless $utype eq 'Admin' || $utype eq 'Operator';
+                my @items = (
+                    { label => 'User Manual',       url => '/help/manual' },
+                    { label => 'Database Schema',   url => '/help/database' },
+                    { label => 'Database Graph',    url => '/help/database/graph' },
+                );
                 push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
                 next;
             }
