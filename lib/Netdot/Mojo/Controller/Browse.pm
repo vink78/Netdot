@@ -12,7 +12,8 @@ use Netdot::Mojo::Permissions;
 # is done through the model's own search_like() (no hand-written SQL); the
 # per-user 'view' rule is re-applied to the match set.
 my %FILTERS = (
-    device => { site => 'num', product => 'num', os => 'str' },
+    device   => { site => 'num', product => 'num', os => 'str' },
+    physaddr => { address => 'str' },
 );
 
 # BOUNDED, paginated list of one object type (SQL LIMIT/OFFSET + retrieve by id).

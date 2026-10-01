@@ -96,7 +96,10 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
       étendu (site + product + os combinés). Rapport device : cellule *OS* cliquable (`siteos`
       → site+product+os ; `os` → product+os), `_devlink` encode l'URL (string-safe). Rapport
       device **SNMP Down**/**Downtime** : colonnes corrigées = vue `row` Mason (Name, Asset,
-      Site, SNMP Target Address) avec liens FK (`_device_rows`). CSV reste en texte brut.
+      Site, SNMP Target Address) avec liens FK (`_device_rows`). Rapport device **OS Mismatches** :
+      Manufacturer/Model en **nom** (pas l'ID) + cellule **OS** cliquable (→ device?product+os).
+      Rapport **macs** : colonne **OUI** cliquable → `/management/physaddr?address=<OUI>*`
+      (filtre `physaddr.address` string via `search_like`/`format_address_db`, LIKE préfixe). CSV reste en texte brut.
 - [x] **Listes génériques (Browse#list)** : en-têtes = `tag` meta, cellules FK (via
       `links_to` meta) rendues en **lien** vers l'objet lié (`/management/<classe>/<id>` ;
       ex. device : Asset/Site/Ipblock) ; colonnes scalaires en texte brut. Helpers Registry

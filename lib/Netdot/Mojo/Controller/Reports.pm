@@ -378,26 +378,35 @@ sub _device_report {
     if ( $rt eq 'os_mismatches' ) {
         my %t;
         for my $dev ( Device->search_for_os_mismatches() ) {
-            my $prod  = ( $dev->product ) ? $dev->product->id : 'Unset';
-            my $manuf = ( $dev->product && $dev->product->manufacturer ) ? $dev->product->manufacturer->id : 'Unset';
+            my $prod     = $dev->product;
+            my $prodid   = $prod ? $prod->id : 'Unset';
+            my $prodname = $prod ? eval { $prod->name } // 'Unset' : 'Unset';
+            my $manuf    = $prod ? $prod->manufacturer : undef;
+            my $manufid   = $manuf ? $manuf->id : 'Unset';
+            my $manufname = $manuf ? ( eval { $manuf->get_label } // $manuf->name ) : 'Unset';
             my $os    = $dev->os;
-            $t{$manuf}{os}     = $dev->product ? $dev->product->latest_os : '';
-            $t{$manuf}{total}++;
-            $t{$manuf}{product}{$prod}{total}++;
-            $t{$manuf}{product}{$prod}{latest} = $dev->product ? $dev->product->latest_os : '';
-            $t{$manuf}{product}{$prod}{os}{$os}{dev}{ $dev->id }{total}++;
+            $t{$manufid}{name}      = $manufname;
+            $t{$manufid}{os}        = $prod ? $prod->latest_os : '';
+            $t{$manufid}{total}++;
+            $t{$manufid}{product}{$prodid}{name}   = $prodname;
+            $t{$manufid}{product}{$prodid}{total}++;
+            $t{$manufid}{product}{$prodid}{latest} = $prod ? $prod->latest_os : '';
+            $t{$manufid}{product}{$prodid}{os}{$os}{dev}{ $dev->id }{total}++;
         }
         @headers = ( 'Manufacturer', 'Model', 'Device', 'OS' );
         for my $m ( keys %t ) {
-            push @rows, [ ( $m ne 'Unset' ? _link('entity', $m, $m) : $m ),
+            push @rows, [ ( $m ne 'Unset' ? _link( 'entity', $m, $t{$m}{name} ) : $m ),
                           ' ', ' ', $t{$m}{os} // '' ];
             for my $prod ( keys %{ $t{$m}{product} } ) {
-                push @rows, [ ' ', ( $prod ne 'Unset' ? _link('product', $prod, $prod) : $prod ),
+                push @rows, [ ' ', ( $prod ne 'Unset' ? _link( 'product', $prod, $t{$m}{product}{$prod}{name} ) : $prod ),
                               ' ', $t{$m}{product}{$prod}{latest} // '' ];
                 for my $os ( keys %{ $t{$m}{product}{$prod}{os} } ) {
                     for my $devid ( keys %{ $t{$m}{product}{$prod}{os}{$os}{dev} } ) {
-                        my $d = Device->retrieve($devid);
-                        push @rows, [ ' ', ' ', _link('device', $devid, $d ? $d->fqdn : $devid), _esc($os) ];
+                        my $d      = Device->retrieve( $devid );
+                        my $oscell = ( $prod =~ /^\d+$/ && defined $os && length $os )
+                                  ? sprintf( '<a href="%s">%s</a>', _devlink( product => $prod, os => $os ), _esc( $os ) )
+                                  : _esc( $os // '' );
+                        push @rows, [ ' ', ' ', _link( 'device', $devid, $d ? $d->fqdn : $devid ), $oscell ];
                     }
                 }
             }
@@ -684,7 +693,11 @@ sub macs ($c) {
     for my $oui ( sort { $stats->{$b}{total} <=> $stats->{$a}{total} } keys %$stats ) {
         $i++;
         my $count = $stats->{$oui}{total};
-        push @rows, [ _esc($oui), _esc( $stats->{$oui}{vendor} ), $count, sprintf( '%02.2f', $count / $total * 100 ) ];
+        # OUI -> filtered PhysAddr list (address LIKE <OUI>%), Mason
+        # search_obj.html?table=PhysAddr&address=<OUI>*&res=1 equivalent.
+        my $addr_q   = url_escape( $oui . '*' );
+        my $oui_cell = sprintf( '<a href="/management/physaddr?address=%s">%s</a>', $addr_q, _esc( $oui ) );
+        push @rows, [ $oui_cell, _esc( $stats->{$oui}{vendor} ), $count, sprintf( '%02.2f', $count / $total * 100 ) ];
         last if $i == $topn;
     }
 
