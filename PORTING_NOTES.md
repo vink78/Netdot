@@ -135,7 +135,21 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
    detail page, rows capped at config `DEFAULT_PERPAGE` (50). NOTE: `get_links_from`
    returns a **hash** and `get_labels` a **list** → use `my %h; eval { %h = ... }` /
    `my @l; eval { @l = ... }` (the `eval {...} || ()` wantarray trap breaks both).
-   `Browse#list` page size also comes from `DEFAULT_PERPAGE`.
+    `Browse#list` page size also comes from `DEFAULT_PERPAGE`.
+ - `lib/Netdot/Mojo/Detail.pm` — shared builders used by Show + the dedicated
+   detail controllers: `build_attrs` (all-view attrs, FK→link), `build_relations`
+   (has_many tables, paginated), `rel_columns`, `obj_text`.
+ - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
+   `management/zone.html`): record count (per type), apex record (A/NS/MX with
+   links), generic has_many (subnets/records/aliases), recent changes (HostAudit).
+ - `lib/Netdot/Mojo/Controller/Contactlist.pm` — ContactList detail (port of
+   `generic/contactlist.html`): **contacts** rendered as a dedicated table (role
+   sorted by person label: Person link + contacttype + notify_email/pager/voice
+   + escalation_level), other has_many as generic tables (`contacts` excluded).
+ - `lib/Netdot/Mojo/Controller/Closet.pm` — Closet detail (port of
+   `cable_plant/closet.html`): curated two-column info + `info`, Device List
+   (room→floor→site), Backbone Cable (start+end merged), Horizontal Cable
+   (read-only; cable names plain text, no deep link to deprecated pages).
 - `lib/Netdot/Mojo/Controller/Browse.pm` — generic list (all types): `%FILTERS`
   per-type filter whitelist, `search_like()` re-application, FK links via
   `Registry::column_link_key`/`esc`, CSV export, batch delete.
@@ -219,9 +233,25 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
 - Done: **Global search** (`Controller/Search.pm`, `/search`): search box on
   home page. Detects IPv4/IPv6 → redirect to ipblock search; MAC → redirect to
   physaddr search; text → `RR->search_like(name)` (redirect if 1 match, else
-  results table with Name + Zone).
-- Deferred: Access Rights tab; all write functions; minor read-only omissions
-  (ASN link, v4/v6 selector, utilization toggle); search for the remaining
-  types (VLAN, Zone, DHCP, Devices, Assets); NS/MX/TXT/NAPTR related-record
-  navigation (register RRNS/RRMX/RRTXT/RRNAPTR, point host-page links at their
-  detail pages); Help section (Manual + Database Help).
+   results table with Name + Zone).
+ - Done: **Zone / ContactList / Closet — dedicated detail pages** (ports of the
+   original per-type Mason `view` pages). Only 3 of the 11 generic-detail types
+   had a real dedicated Mason page (`%VIEWPAGE` in `lib/Netdot/UI.pm`); the other
+   8 use the generic `view.html`, already handled by `Show.pm`.
+   - Zone (`Controller/Zone.pm`, `management/zone.html.ep`): per-type record count,
+     apex record (A/NS/MX), generic has_many, recent changes.
+   - ContactList (`Controller/Contactlist.pm`, `management/contactlist.html.ep`):
+     contacts table (sorted by person) + generic has_many.
+   - Closet (`Controller/Closet.pm`, `management/closet.html.ep`): two-column
+     physical info, device list, backbone + horizontal cable (read-only).
+   Registered in the `%show_ctrl` dispatch map in `Netdot::Mojo.pm`.
+ - Done: **Help section** (`Controller/Help.pm`, `/help*`): manual
+   (`reply->file` on `doc/manual/netdot-manual.html`), database schema
+   (`SQLT->html_schema`), GraphViz schema graph (`SQLT->graphviz_schema` → PNG).
+   Gated Admin+Operator; uses `NETDOT_PATH` for file paths.
+ - Deferred: Access Rights tab; all write functions; minor read-only omissions
+   (ASN link, v4/v6 selector, utilization toggle; Closet picture display —
+   binary serving not migrated); search for the remaining
+   types (VLAN, Zone, DHCP, Devices, Assets); NS/MX/TXT/NAPTR related-record
+   navigation (register RRNS/RRMX/RRTXT/RRNAPTR, point host-page links at their
+   detail pages).

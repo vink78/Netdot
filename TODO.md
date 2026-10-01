@@ -34,7 +34,7 @@ Le détail est soit **dédié** (✅) soit **générique** (🔶).
 | vlan                | VLANs (VLANS)          | 🔶 gén.  | ✅          |
 | ipblock             | Address Space (ADDRESS)| ✅ dédié  | ✅          |
 | rr                  | DNS Records (HOSTS)    | ✅ dédié  | ✅          |
-| zone                | DNS Zones (ZONES)      | 🔶 gén.  | ✅          |
+| zone                | DNS Zones (ZONES)      | ✅ dédié  | ✅          |
 | dhcscope            | DHCP (DHCP)            | 🔶 gén. (cols dédiées) | ✅          |
 
 > `dhcscope` : dans le nav (Management → DHCP), liste avec colonnes dédiées
@@ -49,7 +49,7 @@ Le détail est soit **dédié** (✅) soit **générique** (🔶).
 |--------------|------------------------|--------|-------------|
 | person       | People (PEOPLE)        | 🔶 gén.| ✅          |
 | entity       | Entities (ENTITIES)    | 🔶 gén.| ✅          |
-| contactlist  | Contact Lists (CLISTS) | 🔶 gén.| ✅          |
+| contactlist  | Contact Lists (CLISTS) | ✅ dédié| ✅          |
 
 ## 4. Cable Plant — ✅ tranché : Sites, Closets, Rooms, Floors
 
@@ -59,7 +59,7 @@ Seuls **Sites**, **Closets**, **Rooms** et **Floors** sont utiles (portés). Le 
 | Type (route)        | État                          |
 |---------------------|-------------------------------|
 | site                | 🔶 gén. (utile)               |
-| closet              | 🔶 gén. (utile)               |
+| closet              | ✅ dédié (utile)             |
 | room                | 🔶 gén. (utile)               |
 | floor               | 🔶 gén. (utile)               |
 | ~~backbonecable~~   | ⛔ **déprécié** — non migré    |
@@ -70,6 +70,12 @@ Seuls **Sites**, **Closets**, **Rooms** et **Floors** sont utiles (portés). Le 
 > à **ne pas migrer / ne pas maintenir** (routables (200) aujourd'hui mais non listés). Un produit
 > dédié comme **Netbox** est mieux adapté à la gestion du câblage / des circuits ; il ne sert à
 > rien de maintenir cette partie dans Netdot.
+
+> **Détail dédié Closet** (`Controller/Closet.pm`, port de `cable_plant/closet.html`) :
+> info physique en 2 colonnes (name/room/dimensions/racks/… + ru_avail/patch_panels/…) +
+> `info`, **Device List** (devices du room via room→floor→site), **Backbone Cable**
+> (start+end fusionnés) et **Horizontal Cable** (read-only). Les noms de câbles sont en
+> texte brut (pas de lien vers les pages dépréciées). Upload de photos non migré.
 
 ## 5. Advanced / Generic — ✅ Changelog (Audit)
 
@@ -168,16 +174,24 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 
 ## Prochaines étapes suggérées (par priorité)
 
-1. ⬜ **Section Help** (Manual + Database Help).
-2. ⬜ **Détails spécialisés** (si parité) pour : asset, vlan, zone, person, entity, contactlist, site, closet, room, floor, service.
-3. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
+> Le portage **lecture seule est essentiellement complet**. Il ne reste que du polish.
 
-> ✅ **Cable Plant tranché (2026-10-01)** : on garde Sites, Closets, Rooms, Floors ;
-> backbone/horizontal/circuit **dépréciés** (non migrés) — cf. §4 + Netbox.
-> ✅ **Export tranché (2026-10-01)** : les **12 types** sont câblés — DNS (BIND/NAMED/RFC952)
-> + DHCP (DHCPD) pour les droits d'écriture (RR) ; le reste (Nagios/Sysmon/…) réservé aux
-> **Admins** (le compte de test voit les 12). Fixes Playbook : échappement YAML (`yaml_str`) + warning
-> `str2time` dans le `sort` (Host/CNAME).
+1. ⬜ **Recherche par type** : action `search` manquante pour tout type hormis
+   RR, Ipblock, Physaddr. Soit ajouter `search` aux controllers dédiés (device,
+   zone, vlan, asset, …) + un `search` générique dans `Show.pm`, soit masquer le
+   champ de recherche des listes qui n'en ont pas (le search global home couvre IP/MAC/texte).
+2. ⬜ **Polish lecture seule** : tab *Access Rights* (device) ; navigation
+   *NS/MX/TXT/NAPTR* depuis la page host ; lien ASN, sélecteur v4/v6, toggle
+   utilisation (ipblock) ; affichage des photos de closet (binaire).
+3. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
+4. ⛔ **Câblage/circuits** — dépréciés (Netbox).
+
+> ✅ **Détails spécialisés tranchés (2026-10-01)** : seuls **3** des 11 types du
+> détail générique avaient une vraie page Mason dédiée (`%VIEWPAGE` dans
+> `lib/Netdot/UI.pm`) : **zone**, **contactlist**, **closet** — tous portés (✅ dédié).
+> Les 8 autres (asset, vlan, person, entity, site, room, floor, service) utilisent la
+> page générique `view.html`, déjà portée par `Show.pm`.
+> ✅ **Help tranché (2026-10-01)** : Manual + Database Schema + Graph — cf. §8.
 
 ---
 

@@ -60,7 +60,11 @@
   <table class="sortable"><tbody>
     % for my $r ( @{ $apex->{a} } ) {
     <tr>
-      <td><%= $r->[0] %>% if ($r->[1]) { <a href="<%= $r->[1] %>" style="display:none"></a> %}</td>
+      % if ($r->[1]) {
+      <td><a href="<%= $r->[1] %>"><%= $r->[0] %></a></td>
+      % } else {
+      <td><%= $r->[0] %></td>
+      % }
     </tr>
     % }
   </tbody></table>
