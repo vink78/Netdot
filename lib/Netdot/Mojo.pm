@@ -93,6 +93,9 @@ sub startup ($self) {
     for my $rep ( qw(device asset ip macs topology pollstats poll database custom ipbat security hinfo usedby) ) {
         $r->get("/reports/$rep")->to("reports#$rep")->name("reports_${rep}");
     }
+    # Export 3rd-party configs (BIND/NAMED/RFC952/DHCPD); write-rights (Permissions::can_export).
+    # GET renders the form; POST runs the requested exports and shows the captured log.
+    $r->any('/export')->to('export#index')->name('export');
 
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');
@@ -132,6 +135,15 @@ sub startup ($self) {
                 my @items = map { { label => $_->{label}, url => "/reports/$_->{key}" } }
                             Netdot::Mojo::Registry::reports_menu();
                 next unless @items;
+                push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
+                next;
+            }
+
+            # Export: write-rights section (single "Configurations" action). Shown only
+            # to people who hold write rights on DNS records (Permissions::can_export).
+            if ( $key eq 'export' ) {
+                next unless Netdot::Mojo::Permissions->can_export( $person );
+                my @items = ( { label => 'Configurations', url => '/export' } );
                 push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
                 next;
             }

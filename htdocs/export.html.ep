@@ -1,0 +1,72 @@
+<h1>Export Configurations</h1>
+<p>Export third-party configurations (DNS zones, DHCP) from Netdot.</p>
+
+% my $types  = $types  // [];
+% my $zones  = $zones  // [];
+% my $scopes = $scopes // [];
+
+<div class="container">
+  <div class="containerhead">Config Tasks</div>
+  <div class="containerbody">
+
+    % if ( my $err = $errors ) {
+    <p style="color:#a00"><strong>Error:</strong></p>
+    <ul style="color:#a00">
+      % for my $e (@$err) {
+      <li><%= $e %></li>
+      % }
+    </ul>
+    % }
+
+    % if ( defined $log && length $log ) {
+    <p><strong>Exporter Output:</strong></p>
+    <pre style="background:#f4f4f4;padding:8px;max-height:420px;overflow:auto;font-size:12px"><%= $log %></pre>
+    % }
+
+    <form action="/export" method="POST">
+      <table style="border-collapse:separate">
+        <tr>
+          <td valign="top">
+            <fieldset class="small">
+              <legend>Export Classes</legend>
+              <p><label>Select one or more of:</label></p>
+              <select name="config_types" size="6" multiple>
+                % for my $t (@$types) {
+                <option value="<%= $t %>"><%= $t %></option>
+                % }
+              </select>
+            </fieldset>
+          </td>
+          <td valign="top">
+            <fieldset class="small">
+              <legend>DNS (BIND) Options</legend>
+              <p><label>Select specific zones <strong>(default is ALL)</strong>:</label></p>
+              <select name="zones" size="6" multiple>
+                % for my $z (@$zones) {
+                <option value="<%= $z->{id} %>"><%= $z->{name} %></option>
+                % }
+              </select>
+              <p><label><input type="checkbox" name="bind_force"> Force export even if no pending changes</label></p>
+              <p><label><input type="checkbox" name="bind_no_priv_hinfo"<%= $def_hinfo ? ' checked' : '' %>> Exclude HINFO private data</label></p>
+              <p><label><input type="checkbox" name="bind_no_priv_txt"<%= $def_txt ? ' checked' : '' %>> Exclude TXT private data</label></p>
+            </fieldset>
+          </td>
+          <td valign="top">
+            <fieldset class="small">
+              <legend>DHCPD Options</legend>
+              <p><label>Select specific scopes <strong>(default is ALL)</strong>:</label></p>
+              <select name="scopes" size="6" multiple>
+                % for my $s (@$scopes) {
+                <option value="<%= $s %>"><%= $s %></option>
+                % }
+              </select>
+              <p><label><input type="checkbox" name="dhcpd_force"> Force export even if no pending changes</label></p>
+            </fieldset>
+          </td>
+        </tr>
+      </table>
+      <p><input type="submit" name="submit" class="btn" value="Export"></p>
+    </form>
+
+  </div>
+</div>

@@ -129,6 +129,19 @@ sub has_action_on {
     return 0;
 }
 
+# May $person trigger the Export section (generate 3rd-party configs)?
+# Reserved to people holding WRITE rights on DNS records: 'edit' (create/modify)
+# or 'delete' on a Zone or RR (Zone rights apply to their records; has_action
+# already resolves the Zone->RR grant and short-circuits to "yes" for Admins).
+# (Original: access_admin_section / Admin only; relaxed to "DNS write" on request.)
+sub can_export {
+    my ( $class, $person ) = @_;
+    return 0 unless defined $person && ref $person;
+    return 1 if __PACKAGE__->has_action( 'RR', $person, 'edit' );
+    return 1 if __PACKAGE__->has_action( 'RR', $person, 'delete' );
+    return 0;
+}
+
 ##################################################################
 # Main entry point
 ##################################################################

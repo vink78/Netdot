@@ -61,8 +61,11 @@ our %MENU = (
     cable_plant  => { title => 'Cable Plant', types => [ qw(site closet room floor) ] },
     generic      => { title => 'Advanced',    types => [ qw(interface physaddr service) ] },
     reports      => { title => 'Reports',     types => [] },
+    # Export (write-rights; see Permissions::can_export). Single action page (/export).
+    # The other exporter types (Nagios/Sysmon/Rancid/...) stay admin-only (out of scope).
+    export       => { title => 'Export',      types => [] },
 );
-our @MENU_ORDER = qw(management contacts cable_plant generic reports);
+our @MENU_ORDER = qw(management contacts cable_plant generic reports export);
 # Ordered (key, meta) pairs for the navigation.
 sub menu { map { [ $_, $MENU{$_} ] } @MENU_ORDER }
 

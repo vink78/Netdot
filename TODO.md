@@ -107,9 +107,22 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
       ex. device : Asset/Site/Ipblock) ; colonnes scalaires en texte brut. Helpers Registry
       `column_link_key` + `esc` ; template `list.html.ep` rend les cellules via `b()`.
 
-## 7. Export (section Admin) — ⬜ section entière manquante
+## 7. Export (actions réservées aux droits d'écriture) — ✅ portée (DNS + DHCP + RFC952)
 
-- [ ] ⬜ **Configurations** : export des configs devices (`htdocs/export/`). Pas de route/controller.
+- [x] ✅ **Configurations** (`/export`, `Controller/Export.pm`) : export de configs tierces
+  via `Netdot::Exporter->generate_configs`. Types portés : **BIND, NAMED, RFC952** (DNS)
+  + **DHCPD** (DHCP). Formulaire (types, zones, scopes, force, options HINFO/TXT privées) ;
+  log de l'exporteur capturé (String appender) et affiché ; erreurs par type listées.
+- **Permission** : réservée aux droits d'écriture — `Permissions::can_export` =
+  `has_action('RR', edit) || has_action('RR', delete)` (grant Zone→RR). Admin = toujours ;
+  User/Operator si droits écriture sur au moins une zone. (Original : `access_admin_section` / Admin only.)
+- ⛔ Types restants (Nagios, Sysmon, Rancid, Smokeping, Apache, GIT, PLAYBOOK, UNILSTAT) :
+  réservés aux admins, **non portés**.
+- **Config/env** : ajout `REMOTE_EXEC => 0` dans `etc/Default.conf` (SCP vers serveurs
+  distants désactivé ; sans cette clé `config->get` levait « Unknown configuration item »).
+  Dirs locaux `export/{bind,dhcpd,named,rfc952}` créés.
+- Vérifié : admin + smobile (User, droits écriture zones 114/115/116) voient Export et
+  exportent (fichiers écrits) ; guest (sans droits) = 403 + nav masquée.
 
 ## 8. Help — ⬜ section entière manquante
 
@@ -135,14 +148,15 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 
 ## Prochaines étapes suggérées (par priorité)
 
-1. ⬜ **Section Export** (Configurations) — Admin.
-2. ⬜ **Section Help** (Manual + Database Help).
-3. ⬜ **Détails spécialisés** (si parité) pour : asset, vlan, zone, person, entity, contactlist, site, closet, room, floor, service.
-4. ⬜ **Page Advanced DB-ops** (si on conserve la structure originale).
-5. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
+1. ⬜ **Section Help** (Manual + Database Help).
+2. ⬜ **Détails spécialisés** (si parité) pour : asset, vlan, zone, person, entity, contactlist, site, closet, room, floor, service.
+3. ⬜ **Page Advanced DB-ops** (si on conserve la structure originale).
+4. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
 
 > ✅ **Cable Plant tranché (2026-10-01)** : on garde Sites, Closets, Rooms, Floors ;
 > backbone/horizontal/circuit **dépréciés** (non migrés) — cf. §4 + Netbox.
+> ✅ **Export tranché (2026-10-01)** : DNS (BIND/NAMED/RFC952) + DHCP (DHCPD) portés,
+> réservés aux droits d'écriture (RR) ; le reste (Nagios/Sysmon/…) réservé aux admins.
 
 ---
 
@@ -156,4 +170,6 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   dhcscope, circuit, backbonecable, horizontalcable.
 - Détail générique OK (ex. `/management/zone/2` = 200).
 - Reports = **200** (Admin) / **403** (User sans droits).
+- **Export** (`/export`) = **200** (Admin, User avec droits écriture RR) / **403** (User sans droits) ;
+  4 types exportés avec succès (BIND, NAMED, RFC952, DHCPD) — fichiers écrits dans `export/`.
 - `tablesort.js` : 15/15 tests unitaires, servi en 200, référencé par le layout.
