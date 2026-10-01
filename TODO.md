@@ -48,23 +48,25 @@ Le détail est soit **dédié** (✅) soit **générique** (🔶).
 | entity       | Entities (ENTITIES)    | 🔶 gén.| ✅          |
 | contactlist  | Contact Lists (CLISTS) | 🔶 gén.| ✅          |
 
-## 4. Cable Plant — ⚠️ divergence avec l'original
+## 4. Cable Plant — ✅ tranché : Sites, Closets, Rooms, Floors
 
-Le nav Mojo ≠ le menu original.
+Seuls **Sites**, **Closets**, **Rooms** et **Floors** sont utiles (portés). Le câblage
+(backbone/horizontal) et les **Circuits** sont **dépréciés**.
 
-| Type (route)       | Dans le nav Mojo | Dans l'original | État |
-|--------------------|------------------|-----------------|------|
-| site               | ✅               | ✅ (SITES)      | 🔶 gén. |
-| closet             | ✅               | ✅ (CLOSETS)    | 🔶 gén. |
-| room               | ✅               | — (ajout)       | 🔶 gén. |
-| floor              | ✅               | — (ajout)       | 🔶 gén. |
-| **backbonecable**  | ⬜ **absent**    | ✅ (BACKBONE)   | 🔶 routable, non listé |
-| **horizontalcable**| ⬜ **absent**    | ✅ (HORIZONTAL) | 🔶 routable, non listé |
-| **circuit**        | ⬜ **absent**    | ✅ (CIRCUITS)   | 🔶 routable, non listé |
+| Type (route)        | État                          |
+|---------------------|-------------------------------|
+| site                | 🔶 gén. (utile)               |
+| closet              | 🔶 gén. (utile)               |
+| room                | 🔶 gén. (utile)               |
+| floor               | 🔶 gén. (utile)               |
+| ~~backbonecable~~   | ⛔ **déprécié** — non migré    |
+| ~~horizontalcable~~ | ⛔ **déprécié** — non migré    |
+| ~~circuit~~         | ⛔ **déprécié** — non migré    |
 
-> `backbonecable`, `horizontalcable`, `circuit` sont **routables (200)** mais absents du nav.
-> **Décision à prendre** : Cable Plant = {Sites, Closets, Rooms, Floors} (actuel) ou
-> {Sites, Closets, Backbone, Horizontal, Circuits} (original) ?
+> **Décision (2026-10-01)** : `backbonecable`, `horizontalcable`, `circuit` sont **dépréciés** —
+> à **ne pas migrer / ne pas maintenir** (routables (200) aujourd'hui mais non listés). Un produit
+> dédié comme **Netbox** est mieux adapté à la gestion du câblage / des circuits ; il ne sert à
+> rien de maintenir cette partie dans Netdot.
 
 ## 5. Advanced / Generic — ⚠️ réinterprété
 
@@ -123,16 +125,24 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 `address_tasks`, `addneighbor`, `addservice`, `choose_ip`, `updatedevice`, `template_edit`,
 `ip-rec`.
 
+## Déprécié / non migré — ⛔
+
+- **Câblage & Circuits** : `backbonecable`, `horizontalcable`, `circuit` — dépréciés,
+  **non migrés / non maintenus**. Un produit dédié comme **Netbox** est mieux adapté ;
+  inutile de maintenir cette partie dans Netdot (cf. §4 Cable Plant).
+
 ---
 
 ## Prochaines étapes suggérées (par priorité)
 
-1. ⬜ **Nav** : ajouter Backbone/Horizontal/Circuits (Cable Plant) ; trancher la divergence Cable Plant. (DHCP ✅ fait)
-2. ⬜ **Détails spécialisés** (si parité avec l'original) pour : asset, vlan, zone, person, entity, contactlist, site, closet, room, floor, service.
-3. ⬜ **Section Export** (Configurations) — Admin.
-4. ⬜ **Section Help** (Manual + Database Help).
-5. ⬜ **Page Advanced DB-ops** (si on conserve la structure originale).
-6. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
+1. ⬜ **Section Export** (Configurations) — Admin.
+2. ⬜ **Section Help** (Manual + Database Help).
+3. ⬜ **Détails spécialisés** (si parité) pour : asset, vlan, zone, person, entity, contactlist, site, closet, room, floor, service.
+4. ⬜ **Page Advanced DB-ops** (si on conserve la structure originale).
+5. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
+
+> ✅ **Cable Plant tranché (2026-10-01)** : on garde Sites, Closets, Rooms, Floors ;
+> backbone/horizontal/circuit **dépréciés** (non migrés) — cf. §4 + Netbox.
 
 ---
 
