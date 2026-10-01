@@ -130,6 +130,20 @@ sub startup ($self) {
     $r->get('/help/database')->to('help#database')->name('help_database');
     $r->get('/help/database/graph')->to('help#graph')->name('help_graph');
 
+    # ---- JSON API (port of the legacy /rest handlers + Netdot::REST) ----
+    # Specific / static endpoints first (so they win over the generic
+    # /api/:table placeholders), then the generic resource router.
+    $r->get('/api/openapi.yaml')->to('api#spec')->name('api_spec');
+    $r->get('/api/docs')->to('api#docs')->name('api_docs');
+    $r->get('/api/devinfo')->to('api#devinfo');
+    $r->get('/api/host_contacts')->to('api#host_contacts');
+    $r->get('/api/ipattr')->to('api#ipattr');
+    $r->any('/api/host')->to('api#host');
+    $r->any('/api/host_like')->to('api#host_like');
+    $r->post('/api/updatedev')->to('api#updatedev');
+    $r->any('/api/:table')->to('api#generic');
+    $r->any('/api/:table/:id')->to('api#generic');
+
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');
     $r->get('/logout')->to('auth#logout')->name('logout');
@@ -142,6 +156,9 @@ sub startup ($self) {
         return if $path eq '/login' || $path eq '/logout';
         return if $path =~ m{^/(?:css|img|java_script)(?:/|$)};
         return if $path eq '/favicon.ico';
+        # The JSON API handles auth itself (JSON 401) rather than the HTML login
+        # redirect.
+        return if $path =~ m{^/api(?:/|$)};
         $c->redirect_to( $c->url_for('login') ) unless $c->session('username');
     });
 

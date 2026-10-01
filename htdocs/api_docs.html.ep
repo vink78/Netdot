@@ -1,0 +1,30 @@
+<h1>Netdot API</h1>
+<p>
+  JSON API (port de l'ancien <code>/rest</code>). Documentation interactive
+  (Swagger UI). La spec OpenAPI est disponible au
+  <a href="/api/openapi.yaml"><code>/api/openapi.yaml</code></a>.
+  Authentification : session Netdot (connectez-vous via <a href="/login">/login</a>).
+</p>
+<p style="font-size:0.85em; color:#666">
+  Si l'interface ne s'affiche pas (pas d'accès au CDN Swagger UI), la spec brute
+  reste lisible à <a href="/api/openapi.yaml">/api/openapi.yaml</a>.
+</p>
+
+<div id="swagger-ui"></div>
+
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+<script>
+  window.onload = function () {
+    const ui = SwaggerUIBundle({
+      url: '/api/openapi.yaml',
+      dom_id: '#swagger-ui',
+      presets: [ SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset ],
+      layout: 'StandaloneLayout',
+      deepLinking: true,
+      requestInterceptor: function (req) { return req; }
+    });
+    window.ui = ui;
+  };
+</script>
