@@ -7,11 +7,12 @@ use Netdot::Mojo::Registry;
 use Netdot::Mojo::Permissions;
 
 # Per-type filter columns for list pages (equivalent of Mason's
-# search_obj.html?table=..&<col>=..&res=1). Only these columns may be passed and
-# values must be numeric ids. Filtering is done through the model's own
-# search_like() (no hand-written SQL); the per-user 'view' rule is re-applied.
+# search_obj.html?table=..&<col>=..&res=1). Only these columns may be passed.
+# 'num' = numeric id only; 'str' = free string (the model quotes it). Filtering
+# is done through the model's own search_like() (no hand-written SQL); the
+# per-user 'view' rule is re-applied to the match set.
 my %FILTERS = (
-    device => [ 'site', 'product' ],
+    device => { site => 'num', product => 'num', os => 'str' },
 );
 
 # BOUNDED, paginated list of one object type (SQL LIMIT/OFFSET + retrieve by id).
@@ -76,10 +77,15 @@ sub list ($c) {
     # the model's own search_like(); the per-user 'view' rule is re-applied to the
     # (unbounded) match set, which is then paginated.
     my @filters;
-    if ( my $allowed = $FILTERS{$type} ) {
-        for my $col ( @$allowed ) {
+    if ( my $spec = $FILTERS{$type} ) {
+        for my $col ( keys %$spec ) {
             my $v = $c->param( $col );
-            push @filters, ( $col => $v ) if defined $v && $v =~ /^\d+$/;
+            next unless defined $v && length $v;
+            if ( $spec->{$col} eq 'num' ) {
+                push @filters, ( $col => $v ) if $v =~ /^\d+$/;
+            } else {   # 'str' - free string; the model quotes the value
+                push @filters, ( $col => $v );
+            }
         }
     }
 

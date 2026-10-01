@@ -8,6 +8,7 @@ use Netdot::Mojo::Permissions;
 use NetAddr::IP;
 use File::stat;
 use Scalar::Util qw(blessed);
+use Mojo::Util qw(url_escape);
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -56,12 +57,12 @@ sub _skey {
 }
 
 # Link to the (filtered) Device list - equivalent of Mason's
-# search_obj.html?table=Device&<col>=<id>&res=1. %f holds numeric-id filters
-# (site => id, product => id); only numeric values are kept (ids, no escaping).
+# search_obj.html?table=Device&<col>=<value>&res=1. %f holds filters (site/id,
+# product/id, os/string); values are URL-escaped so strings (os) are safe.
 sub _devlink {
     my (%f) = @_;
-    my @kv = grep { defined $f{$_} && $f{$_} =~ /^\d+$/ } sort keys %f;
-    my $q  = join '&', map { "$_=$f{$_}" } @kv;
+    my @kv = grep { defined $f{$_} && length $f{$_} } sort keys %f;
+    my $q  = join '&', map { "$_=" . url_escape( $f{$_} ) } @kv;
     return $q ? "/management/device?$q" : '/management/device';
 }
 
@@ -322,7 +323,12 @@ sub _device_report {
                             : _esc( $p->{name} );
                     my $vil = _link( 'entity',  $p->{manuf_id}, $p->{manuf} );
                     my @r2  = ( '', '', $mil, $vil );
-                    push @r2, $p->{os} if $rt eq 'siteos';
+                    if ( $rt eq 'siteos' ) {
+                        my $osv = $p->{os} // '';
+                        push @r2, ( $osv ne 'Unset' && $p->{id} =~ /^\d+$/ )
+                            ? sprintf( '<a href="%s">%s</a>', _devlink( %mf, os => $osv ), _esc( $osv ) )
+                            : _esc( $osv );
+                    }
                     push @r2, '<strong>' . $p->{count} . '</strong>';
                     push @rows, \@r2;
                 }
@@ -357,7 +363,11 @@ sub _device_report {
                 for my $os ( sort keys %{ $t{$manuf}{product}{$prod}{os} } ) {
                     my $warn = ( $t{$manuf}{product}{$prod}{latest_os} && $os ne $t{$manuf}{product}{$prod}{latest_os} )
                               ? ' style="color:#c00"' : '';
-                    push @rows, [ ' ', ' ', _esc($os) . $warn,
+                    my $pid    = $t{$manuf}{product}{$prod}{id};
+                    my $oscell = ( defined $pid && $pid =~ /^\d+$/ && length $os )
+                              ? sprintf( '<a href="%s"%s>%s</a>', _devlink( product => $pid, os => $os ), $warn, _esc( $os ) )
+                              : _esc( $os ) . $warn;
+                    push @rows, [ ' ', ' ', $oscell,
                                   $t{$manuf}{product}{$prod}{os}{$os}{total} ];
                 }
             }

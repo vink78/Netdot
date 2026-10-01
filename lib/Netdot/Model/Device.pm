@@ -214,16 +214,19 @@ sub search_like {
 	return $class->search_by_type($argv{producttype});
 
     }elsif ( exists $argv{product} ){
-	my $dbh = $class->db_Main;
-	my $p_bind = defined($argv{product})? "= $argv{product}" : 'IS NULL';
-	my $crit;
-	if ( exists $argv{site} ){
-	    my $s_bind = defined($argv{site})? "= ".$dbh->quote($argv{site}) : 'IS NULL';
-	    $crit = " AND d.site $s_bind";
-	}elsif ( exists $argv{os} ){
-	    my $o_bind = defined($argv{os})? "= ".$dbh->quote($argv{os}) : 'IS NULL';
-	    $crit = " AND d.os $o_bind";
-	}
+        my $dbh = $class->db_Main;
+        my $p_bind = defined($argv{product})? "= $argv{product}" : 'IS NULL';
+        # site and/or os may each narrow the product match (all keys combine).
+        my @crit;
+        if ( exists $argv{site} ){
+            my $s_bind = defined($argv{site})? "= ".$dbh->quote($argv{site}) : 'IS NULL';
+            push @crit, "d.site $s_bind";
+        }
+        if ( exists $argv{os} ){
+            my $o_bind = defined($argv{os})? "= ".$dbh->quote($argv{os}) : 'IS NULL';
+            push @crit, "d.os $o_bind";
+        }
+        my $crit = @crit ? " AND " . join( " AND ", @crit ) : '';
 	my @objs;
 	my $rows = Netdot::Model->raw_sql("
         SELECT d.id
