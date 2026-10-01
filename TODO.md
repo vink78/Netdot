@@ -91,8 +91,12 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
       (→entity) cliquables. Rapport **device** Site/Type/Model (+OS) : fidèle à Mason →
       *Site* et *Model* pointent vers la **liste Device filtrée** (`/management/device?site=&product=`),
       *Vendor* →entity. Filtre de liste réutilisant le Model : `Browse#list` honore des
-      colonnes blanches par type via `search_like()` (`%FILTERS`), réapplication de la règle
-      'view' par-user. CSV reste en texte brut.
+      colonnes blanches par type via `search_like()` (`%FILTERS` : num/str), réapplication de
+      la règle 'view' par-user. Filtre 3 keys + string : `os` (string) ajouté ; `Device->search_like`
+      étendu (site + product + os combinés). Rapport device : cellule *OS* cliquable (`siteos`
+      → site+product+os ; `os` → product+os), `_devlink` encode l'URL (string-safe). Rapport
+      device **SNMP Down**/**Downtime** : colonnes corrigées = vue `row` Mason (Name, Asset,
+      Site, SNMP Target Address) avec liens FK (`_device_rows`). CSV reste en texte brut.
 - [x] **Listes génériques (Browse#list)** : en-têtes = `tag` meta, cellules FK (via
       `links_to` meta) rendues en **lien** vers l'objet lié (`/management/<classe>/<id>` ;
       ex. device : Asset/Site/Ipblock) ; colonnes scalaires en texte brut. Helpers Registry

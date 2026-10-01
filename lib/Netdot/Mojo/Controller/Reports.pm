@@ -447,17 +447,35 @@ sub _device_report {
     return ( [ 'Report' ], [ ['Unknown report type'] ], '' );
 }
 
-# Render a list of Device objects as a small table.
+# Render a list of Device objects using the brief-view columns (Name, Asset, Site,
+# SNMP Target Address) - matches the Mason snmp_down / downtime "row" view. FK
+# cells link to the related object's detail page (same as the device list).
 sub _device_rows {
     my ( $devices, $desc ) = @_;
+    my @cols    = ( 'name', 'asset_id', 'site', 'snmp_target' );
+    my @headers = map { Netdot::Mojo::Registry::column_tag( 'Device', $_ ) } @cols;
+    my %linkkey = map { $_ => Netdot::Mojo::Registry::column_link_key( 'Device', $_ ) } @cols;
     my @rows;
     for my $d ( @$devices ) {
-        my $prod  = eval { $d->product }      ? _link('product', $d->product->id, $d->product->name) : '';
-        my $site  = eval { $d->site }         ? _link('site', $d->site->id, $d->site->name)          : '';
-        push @rows, [ _link('device', $d->id, $d->id), $d->name // '', $d->fqdn // '', $prod, $site,
-                      $d->os // '', ( $d->monitored ? 'yes' : 'no' ), ( $d->snmp_down ? 'yes' : 'no' ) ];
+        my @cells;
+        for my $col (@cols) {
+            my $v = eval { $d->$col };
+            $v = undef if $@;
+            my $label = Netdot::Mojo::Registry::format_value( $v );
+            my $id    = ref( $v ) ? eval { $v->id } : $v;
+            if ( $col eq 'name' ) {
+                push @cells, sprintf( '<a href="/management/device/%s">%s</a>',
+                                      $d->id, Netdot::Mojo::Registry::esc( $label ) );
+                next;
+            }
+            push @cells, ( $linkkey{$col} && defined $id && $id =~ /^\d+$/ )
+                ? sprintf( '<a href="/management/%s/%s">%s</a>',
+                            $linkkey{$col}, $id, Netdot::Mojo::Registry::esc( $label ) )
+                : Netdot::Mojo::Registry::esc( $label );
+        }
+        push @rows, \@cells;
     }
-    return ( [ 'ID', 'Name', 'FQDN', 'Product', 'Site', 'OS', 'Monitored', 'SNMP_Down' ], \@rows, $desc );
+    return ( \@headers, \@rows, $desc );
 }
 
 # ---------------------------------------------------------------------------
