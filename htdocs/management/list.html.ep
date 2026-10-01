@@ -4,6 +4,7 @@
 <p style="color:#006600"><%= $msg %></p>
 % }
 
+% my $coltags    = $c->stash('coltags') // {};
 % my $search_url = $c->stash('search_url');
 % my $zones      = $c->stash('zones') // [];
 % my $s_title    = $c->stash('search_title') // 'Search';
@@ -45,9 +46,9 @@
     <table class="sortable">
       <thead>
         <tr>
-          % for my $col (@$cols) {
-          <th><%= $col %></th>
-          % }
+           % for my $col (@$cols) {
+           <th><%= $coltags->{$col} // $col %></th>
+           % }
 % if ($can_delete) {
           <th></th>
 % }
@@ -60,9 +61,9 @@
         % $label = $row->{id} if !defined $label || $label eq '';
         <tr>
           <td><a href="<%= url_for( $type . '_show', id => $row->{id} ) %>"><%= $label %></a></td>
-          % for my $col ( @{$cols}[1..$#$cols] ) {
-          <td><%= $row->{$col} // '' %></td>
-          % }
+           % for my $col ( @{$cols}[1..$#$cols] ) {
+           <td><%= b( $row->{$col} // '' ) %></td>
+           % }
 % if ($can_delete) {
           <td style="text-align:center"><input type="checkbox" name="<%= $type %>__<%= $row->{id} %>"></td>
 % }

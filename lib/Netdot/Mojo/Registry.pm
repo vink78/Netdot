@@ -152,6 +152,29 @@ sub column_tag {
     return ( defined $tag && length $tag ) ? $tag : $col;
 }
 
+# Registry key of the object a column links to (from the meta links_to), or
+# undef when the column is not a foreign key. Lets a list render FK cells as
+# links to the related object's detail page.
+sub column_link_key {
+    my ( $class, $col ) = @_;
+    my $meta = eval { $class->meta_data };
+    return undef unless $meta;
+    my $tbl  = eval { $meta->get_column( $col )->links_to };
+    return undef unless defined $tbl && length $tbl;
+    return class_key( $tbl );
+}
+
+# HTML-escape a value for interpolation into raw (b()) cell HTML.
+sub esc {
+    my ($s) = @_;
+    $s = '' unless defined $s;
+    $s =~ s/&/&amp;/g;
+    $s =~ s/</&lt;/g;
+    $s =~ s/>/&gt;/g;
+    $s =~ s/"/&quot;/g;
+    return $s;
+}
+
 # Ordered display columns for a class's "all" view (from netdot.meta "views"), as
 # [ [col, tag], ... ]. The tag is the user-friendly label (e.g. serial_number ->
 # "S/N", product_id -> "Product", info -> "Comments"). Falls back to the raw

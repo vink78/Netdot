@@ -93,6 +93,10 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
       *Vendor* →entity. Filtre de liste réutilisant le Model : `Browse#list` honore des
       colonnes blanches par type via `search_like()` (`%FILTERS`), réapplication de la règle
       'view' par-user. CSV reste en texte brut.
+- [x] **Listes génériques (Browse#list)** : en-têtes = `tag` meta, cellules FK (via
+      `links_to` meta) rendues en **lien** vers l'objet lié (`/management/<classe>/<id>` ;
+      ex. device : Asset/Site/Ipblock) ; colonnes scalaires en texte brut. Helpers Registry
+      `column_link_key` + `esc` ; template `list.html.ep` rend les cellules via `b()`.
 
 ## 7. Export (section Admin) — ⬜ section entière manquante
 

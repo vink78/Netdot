@@ -106,13 +106,30 @@ sub list ($c) {
     # May the current user delete objects of this type? (controls the delete form)
     my $can_delete = Netdot::Mojo::Permissions->has_action( $class, $person, 'delete' );
 
-    # Build display rows: id (for the link) + the type's display columns.
+    # Per-column meta tags (headers) and foreign-key targets (for cell links).
+    my %coltag  = map { $_ => Netdot::Mojo::Registry::column_tag( $class, $_ ) } @$cols;
+    my %linkkey = map { $_ => Netdot::Mojo::Registry::column_link_key( $class, $_ ) } @$cols;
+    my $first   = $cols->[0];
+
+    # Build display rows: id (for the link) + the type's display columns. FK
+    # columns render as links to the related object's detail page; the first
+    # column stays raw (the template links it to the type's own detail page).
     my @rows;
     for my $obj (@objs) {
         my %row = ( id => $obj->id );
         for my $col (@$cols) {
             my $v = eval { $obj->$col };
-            $row{$col} = $@ ? '' : Netdot::Mojo::Registry::format_value($v);
+            $v = undef if $@;
+            my $label = Netdot::Mojo::Registry::format_value( $v );
+            if ( $col eq $first ) {
+                $row{$col} = $label;
+                next;
+            }
+            my $id = ref( $v ) ? eval { $v->id } : $v;
+            $row{$col} = ( $linkkey{$col} && defined $id && $id =~ /^\d+$/ )
+                ? sprintf( '<a href="/management/%s/%s">%s</a>',
+                            $linkkey{$col}, $id, Netdot::Mojo::Registry::esc( $label ) )
+                : Netdot::Mojo::Registry::esc( $label );
         }
         push @rows, \%row;
     }
@@ -142,6 +159,7 @@ sub list ($c) {
         title     => ucfirst($type),
         type      => $type,
         cols      => $cols,
+        coltags   => \%coltag,
         rows      => \@rows,
         total     => $total,
         per       => $per,
