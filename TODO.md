@@ -84,6 +84,16 @@ Le nav Mojo a réinterprété « Advanced » comme liste des types « en vrac »
 device · asset · ip · macs · topology · pollstats · database · custom (hinfo/usedby) ·
 ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section` (Admin+Operator).
 
+- [x] **Lien générique des cellules-objets** : `_obj_html($obj)` + `_normalize_rows`
+      (Reports.pm) branchés dans `_render`/`_csv` → n'importe quel objet Netdot passé comme
+      cellule devient un lien détail (type résolu par `link_for`/`class_key`) ou son libellé si
+      non navigable. Rapport **asset** (récap + détaillée) : *Model* (→product) + *Vendor*
+      (→entity) cliquables. Rapport **device** Site/Type/Model (+OS) : fidèle à Mason →
+      *Site* et *Model* pointent vers la **liste Device filtrée** (`/management/device?site=&product=`),
+      *Vendor* →entity. Filtre de liste réutilisant le Model : `Browse#list` honore des
+      colonnes blanches par type via `search_like()` (`%FILTERS`), réapplication de la règle
+      'view' par-user. CSV reste en texte brut.
+
 ## 7. Export (section Admin) — ⬜ section entière manquante
 
 - [ ] ⬜ **Configurations** : export des configs devices (`htdocs/export/`). Pas de route/controller.

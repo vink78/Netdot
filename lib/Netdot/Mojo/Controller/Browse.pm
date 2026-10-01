@@ -6,6 +6,14 @@ use Netdot::Model;
 use Netdot::Mojo::Registry;
 use Netdot::Mojo::Permissions;
 
+# Per-type filter columns for list pages (equivalent of Mason's
+# search_obj.html?table=..&<col>=..&res=1). Only these columns may be passed and
+# values must be numeric ids. Filtering is done through the model's own
+# search_like() (no hand-written SQL); the per-user 'view' rule is re-applied.
+my %FILTERS = (
+    device => [ 'site', 'product' ],
+);
+
 # BOUNDED, paginated list of one object type (SQL LIMIT/OFFSET + retrieve by id).
 # Reuses the Netdot model, out of Apache. Works for every type in the Registry.
 sub list ($c) {
@@ -64,12 +72,36 @@ sub list ($c) {
     my $offset = int( $c->param('offset') // 0 );
     $offset = 0 if $offset < 0;
 
-    my $wc = $where_sql // '';
-    my ($total) = $dbh->selectrow_array( "SELECT COUNT(*) FROM $table $wc", undef, @binds );
+    # Optional column filters (Mason search_obj.html equivalent): resolved through
+    # the model's own search_like(); the per-user 'view' rule is re-applied to the
+    # (unbounded) match set, which is then paginated.
+    my @filters;
+    if ( my $allowed = $FILTERS{$type} ) {
+        for my $col ( @$allowed ) {
+            my $v = $c->param( $col );
+            push @filters, ( $col => $v ) if defined $v && $v =~ /^\d+$/;
+        }
+    }
 
-    my $sth = $dbh->prepare( "SELECT id FROM $table $wc ORDER BY id LIMIT ? OFFSET ?" );
-    $sth->execute( @binds, $per, $offset );
-    my @objs = map { $class->retrieve( $_->[0] ) } @{ $sth->fetchall_arrayref };
+    my ( @objs, $total );
+    if ( @filters ) {
+        @objs  = $class->search_like( @filters );
+        $total = scalar @objs;
+        if ( Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
+            my $access = Netdot::Mojo::Permissions->allowed_objects( $class, $person );
+            @objs = grep { Netdot::Mojo::Permissions->can( $class, $person, 'view', $_, $access ) } @objs;
+            $total = scalar @objs;
+        }
+        my $end = $offset + $per;
+        $end     = $total if $end > $total;
+        @objs    = $offset < $total ? @objs[ $offset .. $end - 1 ] : ();
+    } else {
+        my $wc = $where_sql // '';
+        ( $total ) = $dbh->selectrow_array( "SELECT COUNT(*) FROM $table $wc", undef, @binds );
+        my $sth = $dbh->prepare( "SELECT id FROM $table $wc ORDER BY id LIMIT ? OFFSET ?" );
+        $sth->execute( @binds, $per, $offset );
+        @objs    = map { $class->retrieve( $_->[0] ) } @{ $sth->fetchall_arrayref };
+    }
 
     # May the current user delete objects of this type? (controls the delete form)
     my $can_delete = Netdot::Mojo::Permissions->has_action( $class, $person, 'delete' );

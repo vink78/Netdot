@@ -7,6 +7,7 @@ use Netdot::Mojo::Registry;
 use Netdot::Mojo::Permissions;
 use NetAddr::IP;
 use File::stat;
+use Scalar::Util qw(blessed);
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -29,6 +30,39 @@ sub _link {
     $text = '' unless defined $text;
     return _esc($text) unless defined $id && $id ne '' && $id =~ /^\d+$/;
     return sprintf('<a href="/management/%s/%s">%s</a>', $type, $id, _esc($text));
+}
+
+# Generic: render ANY Netdot object as a detail link (type resolved via link_for),
+# or its plain label when the type is not browsable / has no numeric id.
+sub _obj_html {
+    my ($obj) = @_;
+    return '' unless $obj;
+    my ( $text, $href ) = @{ Netdot::Mojo::Registry::link_for( $obj ) };
+    return $href ? sprintf( '<a href="%s">%s</a>', $href, _esc( $text ) ) : _esc( $text );
+}
+
+# Walk rows: any blessed (Netdot) cell becomes link HTML; every other cell passes
+# through untouched. Lets a report pass relationship objects directly as cells.
+sub _normalize_rows {
+    my ($rows) = @_;
+    return [ map { [ map { blessed( $_ ) ? _obj_html( $_ ) : $_ } @$_ ] } @$rows ];
+}
+
+# Display string for a cell (object -> its label) used as a sort key.
+sub _skey {
+    my ($x) = @_;
+    return '' unless defined $x;
+    return blessed( $x ) ? ( eval { $x->get_label } // '' ) : $x;
+}
+
+# Link to the (filtered) Device list - equivalent of Mason's
+# search_obj.html?table=Device&<col>=<id>&res=1. %f holds numeric-id filters
+# (site => id, product => id); only numeric values are kept (ids, no escaping).
+sub _devlink {
+    my (%f) = @_;
+    my @kv = grep { defined $f{$_} && $f{$_} =~ /^\d+$/ } sort keys %f;
+    my $q  = join '&', map { "$_=$f{$_}" } @kv;
+    return $q ? "/management/device?$q" : '/management/device';
 }
 
 # Byte count -> human readable (port of Netdot::UI->format_size).
@@ -86,6 +120,7 @@ sub _strip_html {
 # Stream a report table as a CSV attachment (cells are the raw HTML cells -> stripped).
 sub _csv {
     my ( $c, $headers, $rows, $name ) = @_;
+    $rows = _normalize_rows( $rows );   # object cells -> link HTML (stripped to label below)
     my @hdr = map { Netdot::Mojo::Registry::csv_field( _strip_html($_) ) } @$headers;
     my $csv = join( ',', @hdr ) . "\n";
     for my $row ( @$rows ) {
@@ -112,7 +147,7 @@ sub _render {
         desc      => $a{desc},
         form_html => $a{form_html},
         headers   => $a{headers},
-        rows      => $a{rows} // [],
+        rows      => _normalize_rows( $a{rows} // [] ),
         sortable  => $a{sortable},
     );
 }
@@ -225,7 +260,8 @@ sub _device_report {
         my $sql = "
             SELECT device.site, asset.product_id,
                    site.name AS site_name, product.name AS product_name,
-                   producttype.name AS product_type, entity.name AS manufacturer
+                   producttype.name AS product_type, entity.name AS manufacturer,
+                   entity.id AS manufacturer_id
                    $sel_os
             FROM   device
             LEFT JOIN  site ON site.id=device.site
@@ -243,39 +279,49 @@ sub _device_report {
             $t{$site}{types}{$type}{count}++;
             if ( $rt eq 'site' ) {
                 my $product = $r->[1] || '_unset';
-                $t{$site}{types}{$type}{prods}{$product}{name}  = $r->[3] || 'Unset';
-                $t{$site}{types}{$type}{prods}{$product}{manuf} = $r->[5] || 'Unset';
+                $t{$site}{types}{$type}{prods}{$product}{id}       = $r->[1] || '_unset';
+                $t{$site}{types}{$type}{prods}{$product}{name}     = $r->[3] || 'Unset';
+                $t{$site}{types}{$type}{prods}{$product}{manuf}    = $r->[5] || 'Unset';
+                $t{$site}{types}{$type}{prods}{$product}{manuf_id} = $r->[6] || '_unset';
                 $t{$site}{types}{$type}{prods}{$product}{count}++;
             }
             else {
-                my $pkey = $r->[7] || 'Unset';
-                $t{$site}{types}{$type}{prods}{$pkey}{id}    = $r->[1] || 'Unset';
-                $t{$site}{types}{$type}{prods}{$pkey}{name}  = $r->[3] || 'Unset';
-                $t{$site}{types}{$type}{prods}{$pkey}{manuf} = $r->[5] || 'Unset';
-                $t{$site}{types}{$type}{prods}{$pkey}{os}    = $r->[6] || 'Unset';
+                my $pkey = $r->[8] || 'Unset';
+                $t{$site}{types}{$type}{prods}{$pkey}{id}       = $r->[1] || '_unset';
+                $t{$site}{types}{$type}{prods}{$pkey}{name}     = $r->[3] || 'Unset';
+                $t{$site}{types}{$type}{prods}{$pkey}{manuf}    = $r->[5] || 'Unset';
+                $t{$site}{types}{$type}{prods}{$pkey}{manuf_id} = $r->[6] || '_unset';
+                $t{$site}{types}{$type}{prods}{$pkey}{os}       = $r->[7] || 'Unset';
                 $t{$site}{types}{$type}{prods}{$pkey}{count}++;
             }
             $t{$site}{total}++;
         }
-        @headers = ( $rt eq 'site' ? ( 'Site', 'Type', 'Model', 'Count' )
-                                    : ( 'Site', 'Type', 'Model', 'OS', 'Count' ) );
+        @headers = ( $rt eq 'site' ? ( 'Site', 'Type', 'Model', 'Vendor', 'Count' )
+                                    : ( 'Site', 'Type', 'Model', 'Vendor', 'OS', 'Count' ) );
         for my $site ( sort { $t{$a}{name} cmp $t{$b}{name} } keys %t ) {
             my $sn  = $t{$site}{name};
-            my @hdr = ( _link('site', $site eq '_unset' ? undef : $site, $sn) );
-            push @hdr, ('' ) x ( $rt eq 'site' ? 2 : 3 );
+            my $sln = ( $site ne '_unset' )
+                    ? sprintf( '<a href="%s">%s</a>', _devlink( site => $site ), _esc( $sn ) )
+                    : _esc( $sn );
+            my @hdr = ( $sln );
+            push @hdr, ('' ) x ( $rt eq 'site' ? 3 : 4 );
             push @hdr, $t{$site}{total};
             push @rows, \@hdr;
             for my $type ( keys %{ $t{$site}{types} } ) {
                 my @row = ( '' );
                 push @row, $type;
-                push @row, ('' ) x ( $rt eq 'site' ? 1 : 2 );
+                push @row, ('' ) x ( $rt eq 'site' ? 2 : 3 );
                 push @row, $t{$site}{types}{$type}{count};
                 push @rows, \@row;
                 for my $product ( keys %{ $t{$site}{types}{$type}{prods} } ) {
                     my $p   = $t{$site}{types}{$type}{prods}{$product};
-                    my $lbl = $p->{manuf} . ' ' . $p->{name};
-                    my @r2  = ( '', '' );
-                    push @r2, '<strong>' . _esc($lbl) . '</strong>';
+                    my %mf  = ( product => $p->{id} );
+                    $mf{site} = $site if $site ne '_unset';
+                    my $mil = ( $p->{id} =~ /^\d+$/ )
+                            ? sprintf( '<a href="%s">%s</a>', _devlink( %mf ), _esc( $p->{name} ) )
+                            : _esc( $p->{name} );
+                    my $vil = _link( 'entity',  $p->{manuf_id}, $p->{manuf} );
+                    my @r2  = ( '', '', $mil, $vil );
                     push @r2, $p->{os} if $rt eq 'siteos';
                     push @r2, '<strong>' . $p->{count} . '</strong>';
                     push @rows, \@r2;
@@ -435,6 +481,7 @@ sub _asset_report {
     my ( $rt, $sort ) = @_;
     my ( @headers, @rows, @assets );
     my %t;
+    my ( %pobj, %manuf );
     my $grandtotal = 0;
 
     my $dbh    = Netdot::Model->db_Main;
@@ -455,26 +502,34 @@ sub _asset_report {
         $t{$ptype}{prod}{$pname}{assets}{$sn}{inv}       = $inv;
         $t{$ptype}{prod}{$pname}{assets}{$sn}{res}       = $res;
         $grandtotal++;
+        if ( !exists $pobj{$pid} ) {
+            $pobj{$pid}  = eval { Product->retrieve( $pid ) };
+            $manuf{$pid} = $pobj{$pid} ? eval { $pobj{$pid}->manufacturer } : undef;
+        }
     }
 
     if ( $rt eq 'type_product' ) {
-        @headers = ( 'Type', 'Model', 'Count' );
-        push @rows, [ 'Total Assets:', '&nbsp;', $grandtotal ];
+        @headers = ( 'Type', 'Model', 'Vendor', 'Count' );
+        push @rows, [ 'Total Assets:', '&nbsp;', '&nbsp;', $grandtotal ];
         for my $ptype ( sort keys %t ) {
-            push @rows, [ "<strong>$ptype</strong>", '&nbsp;', '<strong>' . $t{$ptype}{total} . '</strong>' ];
+            push @rows, [ "<strong>$ptype</strong>", '&nbsp;', '&nbsp;', '<strong>' . $t{$ptype}{total} . '</strong>' ];
             for my $pname ( sort keys %{ $t{$ptype}{prod} } ) {
-                push @rows, [ '&nbsp;', _esc($pname), $t{$ptype}{prod}{$pname}{total} ];
+                my $pid = $t{$ptype}{prod}{$pname}{id};
+                push @rows, [ '&nbsp;', _link( 'product', $pid, $pname ),
+                              _obj_html( $manuf{$pid} ), $t{$ptype}{prod}{$pname}{total} ];
             }
         }
     }
     else { # detailed
-        my @colhdr = ( 'Type', 'Model', 'S/N', 'Inventory', 'Installed?', 'Reserved For' );
+        my @colhdr = ( 'Type', 'Model', 'Vendor', 'S/N', 'Inventory', 'Installed?', 'Reserved For' );
         @headers   = map { _esc($_) } @colhdr;
         for my $ptype ( sort keys %t ) {
             for my $pname ( sort keys %{ $t{$ptype}{prod} } ) {
+                my $pid = $t{$ptype}{prod}{$pname}{id};
                 for my $sn ( sort keys %{ $t{$ptype}{prod}{$pname}{assets} } ) {
                     my $a = $t{$ptype}{prod}{$pname}{assets}{$sn};
-                    push @rows, [ $ptype, $pname, _link('asset', $a->{id}, $sn),
+                    push @rows, [ $ptype, _link( 'product', $pid, $pname ), _obj_html( $manuf{$pid} ),
+                                  _link( 'asset', $a->{id}, $sn ),
                                   $a->{inv} // '', ( $a->{installed} ? 'yes' : 'no' ), $a->{res} // '' ];
                 }
             }
