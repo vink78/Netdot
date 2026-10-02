@@ -33,6 +33,13 @@ sub build_spec {
     my @tabs = Netdot->meta->get_tables();
     my ( %schemas, %paths );
 
+    # Public base (config WEB_BASE_URL when set, else relative) so "servers"
+    # points at the real API root (matters behind a sub-path proxy).
+    my $cfg = eval { Netdot->config->get('WEB_BASE_URL') };
+    $cfg = '' unless defined $cfg && !ref $cfg;
+    $cfg =~ s{/+$}{};
+    my $server = ( $cfg ne '' ) ? "$cfg/api" : '/api';
+
     for my $t ( sort { $a->db_name cmp $b->db_name } @tabs ) {
         my $table = $t->db_name;
         my $class = $t->name;
@@ -157,7 +164,7 @@ sub build_spec {
                 'requests get 401.',
             ),
         },
-        servers => [ { url => '/api', description => 'Relative to the Netdot base URL' } ],
+        servers => [ { url => $server, description => ( $cfg ne '' ? 'Absolute public API root (from WEB_BASE_URL).' : 'Relative to the Netdot base URL.' ) } ],
         tags    => [
             { name => 'generic',     description => 'Generic per-table resource access' },
             { name => 'specific',    description => 'Purpose-built endpoints' },

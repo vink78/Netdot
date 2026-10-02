@@ -18,6 +18,21 @@ sub startup ($self) {
     push @{ $self->renderer->paths }, $htdocs;
     push @{ $self->static->paths },   $htdocs;    # static assets (css, img, js)
 
+    # ---- Public path prefix (base path) ----
+    # WEB_BASE_URL is the prefix the app is mounted under (dev + prod). It may be
+    # a bare path ('/netdot') or a full URL (https://host/netdot); keep the path
+    # part. '' = served at the domain root.
+    my $wbu  = eval { Netdot->config->get('WEB_BASE_URL') };
+    $wbu     = '' unless defined $wbu && !ref $wbu;
+    my $base = $wbu;
+    $base    =~ s{^https?://[^/]+}{};   # full URL -> keep only the path
+    $base    =~ s{/+$}{};               # strip trailing slash(es)
+    $base    = '' if $base eq '/';
+    # Templates use web_prefix() to prefix the few hard-coded root asset/route
+    # links (url_for() already carries the prefix because routes are mounted under
+    # $base).
+    $self->helper( web_prefix => sub { $base } );
+
     # ---- Sessions / cookies ----
     $self->secrets([ $ENV{NETDOT_MOCK} // 'netdot-mojo-dev-change-me' ]);
 
@@ -67,28 +82,48 @@ sub startup ($self) {
     # Brand the generic Mojolicious error pages with Netdot. The framework's
     # default handlers render its own "mojo/debug"/"mojo/not_found" templates;
     # override the HTML variants to render our error_<code> pages instead.
-    # (JSON/Text variants are left as-is for API clients.)
+    #
+    # The JSON API is JSON-aware end to end: ANY path under /api answers with
+    # JSON (404/405/500), whatever the Accept header, so /api behaves like a
+    # pure REST API even for HTML clients. Non-API paths keep the branded HTML
+    # error pages; the JSON variants share the same {error,path} shape.
+    $self->helper( api_json_err => sub ( $c, $code, $msg ) {
+        $c->render( json => { error => $msg, path => $c->req->url->path }, status => $code );
+    } );
+    my $is_api = sub { $_[0]->req->url->path =~ m{^\Q$base\E/api(?:/|$)} };
+
     $self->helper('reply.html_not_found' => sub ($c) {
-        $c->render(
-            template => 'error_404',
-            layout   => 'default',
-            title    => 'Page not found (404)',
-            status   => 404,
-        );
+        return $c->api_json_err( 404, 'Not found' ) if $is_api->($c);
+        $c->render( template => 'error_404', layout => 'default', title => 'Page not found (404)', status => 404 );
     });
-    $self->helper('reply.html_exception' => sub ($c, $e) {
+    $self->helper('reply.json_not_found' => sub ($c) {
+        $c->api_json_err( 404, 'Not found' );
+    });
+    $self->helper(
+        'reply.html_method_not_allowed' => sub ($c) {
+            return $c->api_json_err( 405, 'Method not allowed' ) if $is_api->($c);
+            $c->render( text => 'Method not allowed', status => 405 );
+        }
+    );
+    $self->helper('reply.json_method_not_allowed' => sub ($c) {
+        $c->api_json_err( 405, 'Method not allowed' );
+    });
+    $self->helper('reply.html_exception' => sub ( $c, $e ) {
         $c->app->log->error( ref $e ? $e->inspect : "unhandled exception: $e" );
+        return $c->api_json_err( 500, 'Internal server error' ) if $is_api->($c);
         $c->stash( exception => $e );
-        $c->render(
-            template => 'error_500',
-            layout   => 'default',
-            title    => 'Internal Server Error (500)',
-            status   => 500,
-        );
+        $c->render( template => 'error_500', layout => 'default', title => 'Internal Server Error (500)', status => 500 );
+    });
+    $self->helper('reply.json_exception' => sub ( $c, $e ) {
+        $c->app->log->error( ref $e ? $e->inspect : "unhandled exception: $e" );
+        $c->api_json_err( 500, 'Internal server error' );
     });
 
     # ---- Routes ----
-    my $r = $self->routes;
+    # Mount every route under the public prefix ($base) when set, so url_for()
+    # (and thus every generated link) carries it. With no prefix, routes are at
+    # the domain root as before.
+    my $r = $base ne '' ? $self->routes->under( $base ) : $self->routes;
     $r->get('/')->to('home#index')->name('home');
 
     # Per browsable type: list, search, CSV export, batch delete, then detail.
@@ -133,6 +168,8 @@ sub startup ($self) {
     # ---- JSON API (port of the legacy /rest handlers + Netdot::REST) ----
     # Specific / static endpoints first (so they win over the generic
     # /api/:table placeholders), then the generic resource router.
+    # Bare /api -> JSON index (a "real API" landing point).
+    $r->any('/api')->to('api#root')->name('api_index');
     $r->get('/api/openapi.yaml')->to('api#spec')->name('api_spec');
     $r->get('/api/docs')->to('api#docs')->name('api_docs');
     $r->get('/api/devinfo')->to('api#devinfo');

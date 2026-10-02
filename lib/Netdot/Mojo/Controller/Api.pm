@@ -105,6 +105,47 @@ sub _search {
 }
 
 # ---------------------------------------------------------------------------
+# API index (GET /api)
+# ---------------------------------------------------------------------------
+
+# Public base URL (no trailing slash): WEB_BASE_URL from the config when set
+# (covers HTTPS + sub-path proxy deployments), else derived from the request
+# (correct when the app is served at the domain root).
+sub _base_url {
+    my ($c) = @_;
+    my $cfg = eval { Netdot->config->get('WEB_BASE_URL') };
+    $cfg = '' unless defined $cfg && !ref $cfg;
+    my $b = ( $cfg ne '' ) ? $cfg : $c->req->url->base->to_string;
+    $b =~ s{/+$}{};
+    return $b;
+}
+
+# A machine-readable landing point, Netbox-style: a flat {resource: absolute-url}
+# map. Every model table plus the purpose-built endpoints and the docs/spec.
+# GET only (else 405 JSON).
+sub root {
+    my ($c) = @_;
+    return $c->render( json => { error => 'Method not allowed', path => '/api' }, status => 405 )
+        unless $c->req->method eq 'GET';
+
+    my $base = _base_url($c);
+    my $url  = sub { $base . $_[0] };
+
+    my %index;
+    my %tables = _model_tables();
+    $index{$_} = $url->("/api/$_") for sort keys %tables;
+
+    # Purpose-built endpoints (same flat name -> url style).
+    for my $ep (qw(devinfo host_contacts host host_like ipattr updatedev)) {
+        $index{$ep} = $url->("/api/$ep");
+    }
+    $index{docs}           = $url->('/api/docs');
+    $index{'openapi.yaml'} = $url->('/api/openapi.yaml');
+
+    $c->render( json => \%index, status => 200 );
+}
+
+# ---------------------------------------------------------------------------
 # generic resource router
 # ---------------------------------------------------------------------------
 
@@ -638,9 +679,11 @@ sub spec {
 }
 
 # Swagger UI page at /api/docs (loads /api/openapi.yaml via the Swagger UI CDN).
+# Standalone (no Netdot layout) so it works at the root or behind a sub-path
+# proxy without pulling in site CSS/nav that assume a root deployment.
 sub docs {
     my ($c) = @_;
-    $c->render( template => 'api_docs', layout => 'default', title => 'Netdot API' );
+    $c->render( template => 'api_docs', layout => undef );
 }
 
 # ---------------------------------------------------------------------------
