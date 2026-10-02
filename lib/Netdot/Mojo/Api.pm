@@ -5,11 +5,14 @@ package Netdot::Mojo::Api;
 # plain hashrefs suitable for Mojolicious `render(json => ...)`.
 #
 # FK columns are rendered as a nested lightweight reference:
-#   "col"        => { id => <id>, url => "/api/<table>/<id>/", name => <label> }
+#   "col" => { id, url, ...label fields }
+# i.e. the target's id/url plus its label fields (get_hashref): e.g.
+#   { id, url, name } for a Zone, { id, url, address, prefix } for an Ipblock.
 # A foreign key that points at nothing (null FK) is rendered as null.
 # With depth > 0 the FK value becomes the full nested object instead.
 # `linked_from => 1` adds a "linked_from" key with back-references
-# (arrays of the same {id,url,name} references, or nested objects when depth > 0).
+# (arrays of the same {id, url, ...label fields} references, or nested objects
+#  when depth > 0).
 #
 # Errors are signalled by `die Netdot::Mojo::Api::Error->new(code=>,msg=>)`,
 # caught by the controller and turned into a JSON error response.
@@ -56,20 +59,26 @@ sub _api_url {
     return _api_base() . '/' . lc( $obj->short_class ) . '/' . $obj->id . '/';
 }
 
-# A lightweight nested reference for a foreign key: { id, url, name }.
+# A lightweight nested reference for a foreign key: { id, url, ...label fields }.
+# The id/url plus the target's label fields (get_hashref): e.g. {name} for a Zone,
+# {address, prefix} for an Ipblock, {name, zone} for an RR.
 #   $fobj   - the referenced object (may be undef if the FK id is set but the
 #             object cannot be loaded)
 #   $fclass - short class of the target (e.g. 'Zone'), used to build the URL
 #             when $fobj is unavailable
 #   $fid    - the referenced object id
-# "name" is the target's label (get_label): the zone name for a Zone, the
-# address/cidr for an Ipblock, the FQDN for an RR, etc.
 sub _ref {
     my ( $fobj, $fclass, $fid ) = @_;
-    my $url  = $fobj ? _api_url( $fobj )
-                     : _api_base() . '/' . lc( $fclass ) . '/' . $fid . '/';
-    my $name = $fobj ? ( eval { $fobj->get_label } // '' ) : '';
-    return { id => $fid, url => $url, name => $name };
+    my %r = (
+        id  => $fid,
+        url => $fobj ? _api_url( $fobj ) : _api_base() . '/' . lc( $fclass ) . '/' . $fid . '/',
+    );
+    if ($fobj) {
+        my $h = eval { $fobj->get_hashref } // {};
+        $h = {} unless ref $h eq 'HASH';
+        %r = ( %r, %$h );
+    }
+    return \%r;
 }
 
 # Serialize a Netdot object to a JSON-ready hashref.

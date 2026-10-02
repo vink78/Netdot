@@ -66,6 +66,14 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
   …) : `my @x = eval { $o->rel } // ()` degrades wantarray → 1 iterator/count
   (renders as `Iterator#0` / a bare number). Correct form:
   `my @x; eval { @x = $o->rel };` (list context preserved inside the eval).
+- **Same trap on ANY list-returning method + `|| ()`** (returns the list COUNT):
+  `my @l = $obj->get_labels() || ();` calls `get_labels()` in **scalar** context → it
+  returns the label COUNT (`1`), not the list → `@l = (1)` → `get_column(1)` →
+  `croak "column 1 does not exist in table Zone"`. Applies to plain list-returning
+  methods too (not just CDBI iterators): `Meta/Table.pm::get_labels` returns
+  `@labels ? @labels : undef`. Fix: plain list assignment `my @l = $obj->get_labels();`
+  (+ filter `undef`), exactly as `Model::get_label` does. Bitten by this in
+  `Model::get_ref_field_spec`.
 
 ### 2. Templates `.ep`
 - **Preamble**: every stash variable used in the body must be declared
@@ -239,8 +247,16 @@ from the arg-shifting.
   `reply.{html,json}_{not_found,method_not_allowed,exception}` (JSON errors under
   `/api`, branded HTML elsewhere).
 - `lib/Netdot/Mojo/Api.pm` — JSON API serializer (port of `Netdot::REST::get`):
-  `get($obj,$user,$manager,%opts)` (FK→label + `_xlink`, `depth`, `linked_from`),
-  `Netdot::Mojo::Api::Error` (code+msg). No Apache dependency.
+  `get($obj,$user,$manager,%opts)`. FK → **nested reference** `{id, url, …label fields}`
+  (via `_ref` = `{id,url}` + `Model::get_hashref`); FK null → `null`; `depth>0` → full
+  nested object; `linked_from` → arrays of the same refs. `Netdot::Mojo::Api::Error`
+  (code+msg). No Apache dependency.
+- `lib/Netdot/Model.pm` — `get_ref_field_spec` (class; the reference/label-field spec,
+  single source of truth, base = `meta_data->get_labels` → `[{name,is_fk,sql_type}]`) +
+  `get_hashref` (instance; `{field=>value}`, an FK field → the related object's `get_label`
+  **one level** — mirroring `get_label`, so no unbounded recursion). Consumed by the API
+  serializer (`_ref`) and the OpenAPI generator (per-class `FkReference_<Classe>`); a class
+  overrides `get_ref_field_spec` to customise its reference fields and both stay in sync.
 - `lib/Netdot/Mojo/Controller/Api.pm` — JSON API controller: `generic` (GET list +
   object, POST/PATCH/PUT, DELETE per table) with **per-verb permission checks** —
   GET `can('view')`, update `can('edit')`, DELETE `can('delete')`, create `_can_create`
@@ -254,7 +270,10 @@ from the arg-shifting.
   `docs` (Swagger UI, standalone).
 - `lib/Netdot/Mojo/OpenAPI.pm` — `build_spec()`: OpenAPI 3.0.3 from `Netdot->meta`
   (88 typed schemas + per-table paths + dedicated endpoints); `servers` from the
-  `WEB_BASE_URL` prefix.
+  `WEB_BASE_URL` prefix. Per-class **reference schemas** `FkReference_<Classe>` (`{id,url}`
+  + the class's label fields from `Model::get_ref_field_spec`, built only for classes some
+  FK points at) so the docs match the runtime nested reference; a FK property =
+  `anyOf [integer, $ref FkReference_<Classe>]`.
 - `api/gen_openapi.pl` — regenerator → `api/openapi.yaml` (re-run after model/spec changes).
 - `htdocs/management/{ipblock,rr,ipaddress,detail,search_results}.html.ep` — templates.
 - `htdocs/export.html.ep` — Export form (types, zones, scopes, force, HINFO/TXT).
@@ -342,6 +361,12 @@ from the arg-shifting.
     permission filter (own entries for non-admins) + `REMOTE_USER` from session so
     web/API writes are audited. Verified: smobile (zones 114/115/116) adds hostnames
     to 127.0.0.1 and creates TXT/CNAME in zone 114; guest / non-editable zone → 403.
+  - Done: **Nested FK reference format** (`Model::get_ref_field_spec` + `get_hashref`,
+    `Api.pm::_ref`, `OpenAPI.pm` per-class `FkReference_<Classe>`): a foreign key renders on
+    read as `{id, url, …label fields}` (zone `{id,url,name}`, ipblock `{id,url,address,prefix}`,
+    rr `{id,url,name,zone}`) instead of `label` + `<col>_xlink`. `get_hashref` derives from
+    `get_ref_field_spec` (one source, so docs and runtime can't drift); an FK label field →
+    `get_label` one level (no infinite loop); FK null → `null`; `depth>0` → full object.
   - Deferred: Access Rights tab; HTML write/edit pages (the **API** now covers
     authorized writes); minor read-only omissions
    (ASN link, v4/v6 selector, utilization toggle; Closet picture display —

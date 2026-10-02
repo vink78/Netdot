@@ -190,8 +190,17 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
   endpoints dédiés + `docs` + `openapi.yaml`).
 - [x] ✅ **Erreurs JSON-aware** : tout `/api/…` répond en JSON (404/405/500), quel que soit
   l'`Accept` (handlers `reply.*` path-aware) ; hors `/api` → pages HTML Netdot.
+- [x] ✅ **Format des FK = référence imbriquée** : en lecture, une FK = `{id, url, …champs
+  de label}` (ex. `zone → {id,url,name}`, `ipblock → {id,url,address,prefix}`, `rr → {id,url,
+  name,zone}`) au lieu de `label` + `<col>_xlink`. Source unique `Netdot::Model::get_ref_field_spec`
+  (= `meta_data->get_labels`) ; `get_hashref` (valeurs ; champ FK → `get_label` **1 niveau**, pas
+  de boucle infinie) ; FK nulle → `null` ; `depth>0` = objet complet imbriqué ; `linked_from` =
+  mêmes références.
 - [x] ✅ **OpenAPI 3** généré depuis `netdot.meta` : `lib/Netdot/Mojo/OpenAPI.pm` +
   `api/gen_openapi.pl` → `api/openapi.yaml` ; Swagger UI en `/api/docs` (page standalone).
+  Schémas de référence **par classe** `FkReference_<Classe>` (id/url + champs de label, depuis
+  `get_ref_field_spec`) ; une FK = `anyOf [integer, $ref FkReference_<Classe>]` (id en écriture,
+  référence imbriquée en lecture).
 
 **Déploiement sous préfixe `/netdot`** (Apache/nginx en front) :
 - [x] ✅ **`WEB_BASE_URL` = préfixe de chemin** (`/netdot`) dans la config (pas une URL

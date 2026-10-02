@@ -142,18 +142,17 @@ sub build_spec {
         };
     }
 
-    # Shared schema for a foreign-key reference ({id, url, name}), emitted on
-    # read for every FK column and inside "linked_from" back-references.
-    $schemas{FkReference} = {
-        type        => 'object',
-        description => 'A foreign-key reference: {id, url, name} pointing at the referenced object.',
-        properties  => {
-            id   => { type => 'integer', description => 'Id of the referenced object.' },
-            url  => { type => 'string',  description => 'Resource URL of the referenced object (e.g. /netdot/api/<table>/<id>/).' },
-            name => { type => 'string',  description => 'Label of the referenced object (zone name, FQDN, or IP address for an ipblock).' },
-        },
-        required => [ 'id' ],
-    };
+    # Per-class reference schemas: a foreign key to class X is rendered on read
+    # as a nested {id, url, ...label fields} reference (schema FkReference_X).
+    # Build one for every class that some FK points at, so the docs match the
+    # runtime get_hashref exactly (both derive from get_ref_field_spec).
+    my %referenced;
+    for my $t (@tabs) {
+        my %lt;
+        eval { %lt = $t->get_links_to };
+        $referenced{$_} = 1 for values %lt;
+    }
+    $schemas{ "FkReference_$_" } = _ref_schema($_) for sort keys %referenced;
 
     _add_specific_endpoints(\%paths);
 
@@ -177,9 +176,10 @@ sub build_spec {
                 'Use ?limit=N (default 50, max 1000) and ?offset=N; follow "next"/"previous".',
                 '',
                 'Foreign keys: on write pass the target id (integer); on read the field is a',
-                'nested reference object {id, url, name} pointing at the target, e.g.',
+                'nested reference object: {id, url} plus the target\'s label fields, e.g.',
                 '  "zone": {"id":2,"url":"/netdot/api/zone/2/","name":"example.com"}.',
-                '"name" is the target\'s label (zone name, FQDN, or the IP address for an ipblock).',
+                'The label fields are the columns that identify the object (e.g. "name" for a',
+                'zone/device, "address" + "prefix" for an ipblock, "name" + "zone" for an rr).',
                 'Every object also carries a "url" field (e.g. /netdot/api/<table>/<id>/).',
                 'Use ?depth=N to inline full referenced objects, ?linked_from=1 for back-references.',
                 '',
@@ -238,9 +238,9 @@ sub _schema {
             my $target = $lt->{$colname};
             $p{type} = undef;
             # On write: the target id (integer). On read: a nested reference object.
-            $p{anyOf} = [ { type => 'integer' }, { '$ref' => '#/components/schemas/FkReference' } ];
+            $p{anyOf} = [ { type => 'integer' }, { '$ref' => "#/components/schemas/FkReference_$target" } ];
             my $note = sprintf(
-                "Foreign key to %s (pass the id on write; on read a nested {id,url,name} reference).",
+                "Foreign key to %s (pass the id on write; on read a nested {id, url, ...label fields} reference).",
                 $target
             );
             $p{description} = ( $p{description} ? $p{description} . ' ' : '' ) . $note;
@@ -259,6 +259,38 @@ sub _schema {
         type        => 'object',
         description => $t->descr,
         properties  => \%props,
+    };
+}
+
+# OpenAPI type for a raw sql_type (used by _ref_schema for FK reference fields).
+sub _sql_type_to_openapi {
+    my ($st) = @_;
+    my $v = $TYPE_MAP{ lc( $st // '' ) };
+    return ( ref $v eq 'ARRAY' ) ? $v->[0] : ( defined $v ? $v : 'string' );
+}
+
+# The nested reference schema for a class: {id, url} plus its label fields.
+# Mirrors the runtime get_hashref (both derive from get_ref_field_spec).
+sub _ref_schema {
+    my ($class) = @_;
+    my %props = (
+        id  => { type => 'integer', description => 'Id of the referenced object.' },
+        url => { type => 'string',  description => 'Resource URL of the referenced object (e.g. /netdot/api/<table>/<id>/).' },
+    );
+    my @spec;
+    eval { @spec = $class->get_ref_field_spec() };
+    for my $f (@spec) {
+        my $type = $f->{is_fk} ? 'string' : _sql_type_to_openapi( $f->{sql_type} );
+        my $note = $f->{is_fk}
+            ? "Label field '$f->{name}' (label of the related object)."
+            : "Label field '$f->{name}' of the referenced object.";
+        $props{ $f->{name} } = { type => $type, description => $note };
+    }
+    return {
+        type        => 'object',
+        description => "Nested reference to a $class: {id, url} plus its label fields.",
+        properties  => \%props,
+        required    => [ 'id' ],
     };
 }
 
@@ -350,7 +382,7 @@ sub _depth_param {
         in          => 'query',
         required    => 0,
         schema      => { type => 'integer', default => 0 },
-        description => 'How many levels of referenced (FK) objects to inline as full objects (0 = nested {id,url,name} references only).',
+        description => 'How many levels of referenced (FK) objects to inline as full objects (0 = nested {id, url, ...label fields} references only).',
     };
 }
 
@@ -360,7 +392,7 @@ sub _linked_from_param {
         in          => 'query',
         required    => 0,
         schema      => { type => 'string' },
-        description => 'Set to 1 to include a "linked_from" key of back-references (arrays of {id,url,name} references).',
+        description => 'Set to 1 to include a "linked_from" key of back-references (arrays of {id, url, ...label fields} references).',
     };
 }
 

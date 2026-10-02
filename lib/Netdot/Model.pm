@@ -1098,6 +1098,64 @@ sub get_label {
 }
 
 
+=head2 get_ref_field_spec - Spec of the columns that make up this object's reference
+
+    Single source of truth for the columns used to identify / label an object.
+    Consumed by both get_hashref (runtime value) and the OpenAPI generator
+    (documentation), so a class that customises its reference fields overrides
+    this one method and both stay in sync. Base implementation: the metadata
+    "label" columns (get_labels). A label column that is itself a foreign key
+    reports is_fk => 1 (its value is the related object's label, one level deep).
+
+    Returns a list of specs: ( { name, is_fk, sql_type }, ... )
+
+=cut
+
+sub get_ref_field_spec {
+    my ($class) = @_;
+    # NB: no "|| ()" -- that would force get_labels() into scalar context and
+    # yield the label COUNT (e.g. 1) instead of the column list, exactly like
+    # get_label() relies on the plain list assignment.
+    my @lbls = $class->meta_data->get_labels();
+    my @spec;
+    for my $c ( grep { defined && length } @lbls ) {
+        my $mcol = $class->meta_data->get_column($c) or next;
+        push @spec, {
+            name     => $c,
+            is_fk    => $mcol->links_to() ? 1 : 0,
+            sql_type => lc( eval { $mcol->sql_type } // '' ),
+        };
+    }
+    return @spec;
+}
+
+
+=head2 get_hashref - The object's label as a hashref (not a joined string)
+
+    Mirrors get_label() but returns {field => value} instead of one joined string.
+    Iterates get_ref_field_spec(): a plain field -> its value; a field that is a
+    foreign key -> the related object's get_label() (one level only, mirroring
+    get_label, so there is no unbounded recursion / infinite loop).
+
+=cut
+
+sub get_hashref {
+    my ($self) = @_;
+    $self->isa_object_method('get_hashref');
+    my $class = ref($self) || $self;
+    my %ret;
+    for my $f ( $class->get_ref_field_spec() ) {
+        my $c   = $f->{name};
+        my $val = $self->$c;
+        next unless defined $val;
+        $val = $val->get_label if $f->{is_fk} && blessed($val);
+        next if !ref($val) && $val eq '';
+        $ret{$c} = $val;
+    }
+    return \%ret;
+}
+
+
 ############################################################################
 
 =head2 search_all_tables - Search for a string in all text fields from all tables
