@@ -8,6 +8,7 @@ use Netdot::Exporter;
 use Netdot::Mojo::Api;
 use Netdot::Mojo::Permissions;
 use Netdot::Mojo::OpenAPI;
+use Mojo::Util qw(url_escape);
 
 # JSON API (port of the legacy /rest handlers + Netdot::REST), served under
 # /api. Auth = the Netdot web session (same as the HTML views). Serializes to
@@ -83,7 +84,8 @@ sub _search_args {
     my ($a) = @_;
     my %c;
     for my $k ( keys %$a ) {
-        next if $k eq 'depth' || $k eq 'linked_from';
+        next if $k eq 'depth'     || $k eq 'linked_from';
+        next if $k eq 'limit'     || $k eq 'offset';
         next unless defined $a->{$k};
         next if ref $a->{$k};
         $c{$k} = $a->{$k} if $a->{$k} ne '';
@@ -129,6 +131,17 @@ sub _base_url {
     }
     $b =~ s{/+$}{};
     return $b;
+}
+
+# Paginated list URL for a table: <base>/<lc table>/?<search args>&limit=&offset=
+# Uses the relative API base (WEB_BASE_URL + /api) so the pointer is host-agnostic.
+sub _page_url {
+    my ( $class, $sargs, $limit, $offset ) = @_;
+    my @kv;
+    push @kv, url_escape($_) . '=' . url_escape($sargs->{$_}) for sort keys %$sargs;
+    push @kv, "limit=$limit", "offset=$offset";
+    my $base = Netdot::Mojo::Api::_api_base() . '/' . lc( $class->short_class ) . '/';
+    return $base . '?' . join( '&', @kv );
 }
 
 # A machine-readable landing point, Netbox-style: a flat {resource: absolute-url}
@@ -204,21 +217,42 @@ sub generic {
             }
         }
 
-        # plural (no id)
+        # plural (no id) -> paginated list (Netbox-style envelope)
         if ( $method eq 'GET' ) {
             my $depth       = ( defined $args->{depth} && $args->{depth} ne '' ) ? int( $args->{depth} ) : 0;
             my $linked_from = ( defined $args->{linked_from} && $args->{linked_from} ne '0' ) ? 1 : undef;
-            my $sargs       = _search_args($args);
-            my $results = keys %$sargs ? _search( $class, %$sargs ) : $class->retrieve_all();
-            my @objs;
-            while ( my $o = $results->next ) {
+            my $limit       = ( defined $args->{limit}   && $args->{limit}   ne '' ) ? int( $args->{limit}   ) : 50;
+            my $offset      = ( defined $args->{offset}  && $args->{offset}  ne '' ) ? int( $args->{offset}  ) : 0;
+            $limit  = 50   if $limit  < 1;
+            $limit  = 1000 if $limit  > 1000;
+            $offset = 0    if $offset < 0;
+
+            my $sargs = _search_args( $args );
+            my $count = $class->search_count( %$sargs );
+            my @page  = $class->search_page( %$sargs, limit => $limit, offset => $offset );
+
+            my @results;
+            for my $o (@page) {
                 # permission-safe list: skip objects the user may not view.
                 next unless Netdot::Mojo::Permissions->can( $p, 'view', $o );
                 my %ga = ( obj => $o, depth => $depth );
                 $ga{linked_from} = $linked_from if $linked_from;
-                push @objs, Netdot::Mojo::Api::get( $o, $p, undef, %ga );
+                push @results, Netdot::Mojo::Api::get( $o, $p, undef, %ga );
             }
-            return $c->render( json => { $class => \@objs }, status => 200 );
+
+            my $next = ( $offset + $limit < $count )
+                ? _page_url( $class, $sargs, $limit, $offset + $limit )
+                : undef;
+            my $prev = $offset > 0
+                ? _page_url( $class, $sargs, $limit, $offset - $limit )
+                : undef;
+
+            return $c->render( json => {
+                count    => $count,
+                next     => $next,
+                previous => $prev,
+                results  => \@results,
+            }, status => 200 );
         }
         elsif ( $method eq 'POST' ) {
             return $c->render( json => _post( $class, undef, $args, $p ), status => 200 );

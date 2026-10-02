@@ -665,6 +665,87 @@ sub raw_sql {
 
 ############################################################################
 
+=head2 search_count - Number of rows matching a plain column search
+
+    Arguments:
+        column => value pairs, e.g. site => 1, name => 'foo'
+    Returns:
+        Integer count of matching rows (before any LIMIT/OFFSET).
+    Example:
+        my $n = Device->search_count( site => 1 );
+
+    Only plain column=value criteria are supported (simpler than Class::DBI's
+    ->search) so it can be paired with search_page(). Values are bound (not
+    interpolated) and column names are validated against the table.
+
+=cut
+
+sub search_count {
+    my ( $class, %args ) = @_;
+    my ( $where, $binds ) = _pagination_where( $class, %args );
+    my ($n) = $class->db_Main()->selectrow_array(
+        "SELECT COUNT(*) FROM " . $class->table . $where,
+        {},
+        @$binds
+    );
+    return defined $n ? 0 + $n : 0;
+}
+
+############################################################################
+
+=head2 search_page - One page of objects matching a plain column search
+
+    Arguments:
+        column => value pairs, plus:
+          limit  => int   (default 50, max 1000)
+          offset => int   (default 0)
+    Returns:
+        List of blessed objects, ordered by primary key.
+    Example:
+        my @devs = Device->search_page( site => 1, limit => 50, offset => 0 );
+
+=cut
+
+sub search_page {
+    my ( $class, %all ) = @_;
+    my $limit  = defined $all{limit}  ? int( $all{limit}  ) : 50;
+    my $offset = defined $all{offset} ? int( $all{offset} ) : 0;
+    delete @all{ qw(limit offset) };
+    $limit  = 50   if $limit  < 1;
+    $limit  = 1000 if $limit  > 1000;
+    $offset = 0    if $offset < 0;
+
+    my ( $where, $binds ) = _pagination_where( $class, %all );
+    my $pk  = $class->primary_column;
+    my @ids = map { $_->[0] } @{ $class->db_Main()->selectall_arrayref(
+        "SELECT $pk FROM " . $class->table . $where
+            . " ORDER BY $pk LIMIT ? OFFSET ?",
+        {},
+        @$binds, $limit, $offset
+    ) };
+    return map { $class->retrieve( $_ ) } @ids;
+}
+
+# Build a validated WHERE clause + bound values from column=>value args.
+# Column names are checked against the table's real columns (so no SQL
+# injection via the name); values are bound, never interpolated.
+sub _pagination_where {
+    my ( $class, %args ) = @_;
+    my %cols = map { $_ => 1 } $class->columns;
+    my ( @w, @b );
+    for my $k ( sort keys %args ) {
+        my $v = $args{$k};
+        next unless defined $v && !ref $v;
+        die "Unknown search column: $k" unless $cols{$k};
+        push @w, $k . " = ?";
+        push @b,  $v;
+    }
+    my $where = @w ? " WHERE " . join( " AND ", @w ) : "";
+    return ( $where, \@b );
+}
+
+############################################################################
+
 =head2 do_transaction - Perform an operation "atomically".
     
     A reference to a subroutine is passed, together with its arguments.

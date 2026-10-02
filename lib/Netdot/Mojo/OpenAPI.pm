@@ -55,14 +55,18 @@ sub build_spec {
                 parameters => _list_search_params( $t, \%lt ),
                 responses => {
                     '200' => {
-                        description => "Array of $class objects under the \"$class\" key.",
+                        description => "Paginated list of $class objects (count / next / previous / results).",
                         content     => {
                             'application/json' => {
                                 schema => {
                                     type       => 'object',
                                     properties => {
-                                        $class => {
+                                        count    => { type => 'integer', description => 'Total number of matching objects (before paging).' },
+                                        next     => { type => 'string', nullable => 1, description => 'URL of the next page, or null.' },
+                                        previous => { type => 'string', nullable => 1, description => 'URL of the previous page, or null.' },
+                                        results  => {
                                             type  => 'array',
+                                            description => 'Objects on this page (up to "limit").',
                                             items => { '$ref' => "#/components/schemas/$class" },
                                         },
                                     },
@@ -156,8 +160,12 @@ sub build_spec {
                 '  POST   /api/{table}/{id}       update',
                 '  DELETE /api/{table}/{id}       delete',
                 '',
+                'List responses are paginated (Netbox-style): {count, next, previous, results}.',
+                'Use ?limit=N (default 50, max 1000) and ?offset=N; follow "next"/"previous".',
+                '',
                 'Foreign keys: on write pass the target id (integer); on read the field is the',
                 'target label (string) and a sibling "<column>_xlink" gives "{table}/{id}".',
+                'Every object also carries a "url" field (e.g. /netdot/api/<table>/<id>/).',
                 'Use ?depth=N to inline referenced objects, ?linked_from=1 for back-references.',
                 '',
                 'Authentication: the Netdot web session (log in at /login). Unauthenticated',
@@ -225,6 +233,12 @@ sub _schema {
         $props{$colname} = \%p;
     }
 
+    # Resource URL (always present): <prefix>/api/<table>/<id>/
+    $props{url} = {
+        type        => 'string',
+        description => 'URL of this resource, e.g. /netdot/api/<table>/<id>/.',
+    };
+
     return {
         type        => 'object',
         description => $t->descr,
@@ -261,6 +275,21 @@ sub _list_search_params {
         required    => 0,
         schema      => { type => 'string' },
         description => 'Any non-FK column can also be used as a ?column=value filter (e.g. ?name=foo&site=2).',
+    };
+    # Pagination.
+    push @params, {
+        name        => 'limit',
+        in          => 'query',
+        required    => 0,
+        schema      => { type => 'integer', default => 50, minimum => 1, maximum => 1000 },
+        description => 'Maximum results per page (default 50, max 1000).',
+    };
+    push @params, {
+        name        => 'offset',
+        in          => 'query',
+        required    => 0,
+        schema      => { type => 'integer', default => 0, minimum => 0 },
+        description => 'Number of results to skip (use the "next" pointer to page forward).',
     };
     return \@params;
 }

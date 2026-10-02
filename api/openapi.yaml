@@ -17,6 +17,9 @@ components:
           description: 'RIR: Regional Internet Registry from which ASN was obtained
             (AFRINIC, APNIC, ARIN, LACNIC, RIPE)'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     AccessRight:
       description: Acess rights for Netdot authorization.  Rights are tied to individual
@@ -32,6 +35,9 @@ components:
         object_id:
           description: 'Object ID: Object ID for which access right applies'
           type: integer
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     ArpCache:
       description: Device ARP Cache
@@ -47,6 +53,9 @@ components:
         tstamp:
           description: 'Timestamp: When this Cache was collected'
           format: date-time
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     ArpCacheEntry:
@@ -82,6 +91,9 @@ components:
             (pass the id on write; label on read, depth 0; sibling "physaddr_xlink"
             = "physaddr/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     Asset:
       description: Assets represent network hardware (devices or modules). If an asset
@@ -146,6 +158,9 @@ components:
         serial_number:
           description: 'S/N: Asset serial number'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     Audit:
       description: Audit Table to record database operations made by users
@@ -169,6 +184,9 @@ components:
           description: 'Timestamp: When this change happened'
           format: date-time
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         username:
           description: 'Username: User that made the change'
           type: string
@@ -184,6 +202,9 @@ components:
           type: string
         name:
           description: 'Time Period: Time period brief description. e.g. "24x7"'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     BGPPeering:
@@ -247,6 +268,9 @@ components:
         state:
           description: 'State: Peering state'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     BackboneCable:
       description: A Backbone cable that interconnects two sites.  Backbone cables
@@ -296,6 +320,9 @@ components:
           description: 'Cable Type: The type of cable Foreign key to CableType (pass
             the id on write; label on read, depth 0; sibling "type_xlink" = "cabletype/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     CableStrand:
       description: A single cable strand/pair
@@ -344,6 +371,9 @@ components:
             (pass the id on write; label on read, depth 0; sibling "status_xlink"
             = "strandstatus/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     CableType:
       description: Types of Cables
@@ -353,6 +383,9 @@ components:
           type: string
         name:
           description: 'Name: The name of this cable type'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     Circuit:
@@ -403,6 +436,9 @@ components:
             (pass the id on write; label on read, depth 0; sibling "type_xlink" =
             "circuittype/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         vendor:
           anyOf:
           - type: integer
@@ -421,6 +457,9 @@ components:
         name:
           description: 'Status: Circuit Status'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     CircuitType:
       description: Circuit Type
@@ -430,6 +469,9 @@ components:
           type: string
         name:
           description: 'Type: Circuit Type'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     Closet:
@@ -499,6 +541,9 @@ components:
         ss_blocks:
           description: 66 Blocks
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         work_needed:
           description: Work Needed
           type: string
@@ -528,6 +573,9 @@ components:
           type: string
         info:
           description: 'Comments: Comments'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     Contact:
@@ -598,6 +646,9 @@ components:
             (pass the id on write; label on read, depth 0; sibling "person_xlink"
             = "person/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     ContactList:
       description: A list of contacts
@@ -607,6 +658,9 @@ components:
           type: string
         name:
           description: 'Name: Name for this group'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     ContactType:
@@ -618,12 +672,18 @@ components:
         name:
           description: 'Name: The name for this Contact Type'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     DataCache:
       description: Cached data
       properties:
         name:
           description: 'Name: Name of the data'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     Device:
@@ -905,6 +965,9 @@ components:
         sysname:
           description: 'System Name: System Name.  Meant to be populated by SNMP.'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         used_by:
           anyOf:
           - type: integer
@@ -933,6 +996,9 @@ components:
             (pass the id on write; label on read, depth 0; sibling "name_xlink" =
             "deviceattrname/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         value:
           description: 'Value: Value for this attribute'
           type: string
@@ -945,6 +1011,9 @@ components:
           type: string
         name:
           description: Name
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     DeviceContacts:
@@ -964,6 +1033,9 @@ components:
           description: Device Foreign key to Device (pass the id on write; label on
             read, depth 0; sibling "device_xlink" = "device/{id}").
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     DeviceModule:
       description: A Device Physical Entity
@@ -1035,6 +1107,9 @@ components:
           description: 'Type: An indication of the vendor-specific hardware type of
             the physical entity'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     DhcpAttr:
       description: A DHCP Attribute or Parameter
@@ -1054,6 +1129,9 @@ components:
             key to DhcpScope (pass the id on write; label on read, depth 0; sibling
             "scope_xlink" = "dhcpscope/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         value:
           description: 'Value: Value for this attribute'
           type: string
@@ -1072,6 +1150,9 @@ components:
           type: string
         name:
           description: Name
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     DhcpScope:
@@ -1137,6 +1218,9 @@ components:
           description: 'Type: Type of this scope. Foreign key to DhcpScopeType (pass
             the id on write; label on read, depth 0; sibling "type_xlink" = "dhcpscopetype/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         version:
           description: 'Version (4|6): IP version (4 or 6). Only applies to global
             scopes'
@@ -1150,6 +1234,9 @@ components:
           type: string
         name:
           description: 'Name: The name of this Scope type.'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     DhcpScopeUse:
@@ -1170,6 +1257,9 @@ components:
           description: 'Template: DHCP template scope Foreign key to DhcpScope (pass
             the id on write; label on read, depth 0; sibling "template_xlink" = "dhcpscope/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     Entity:
       description: An organization related to the network in some way
@@ -1221,6 +1311,9 @@ components:
         short_name:
           description: 'Short Name: A short name for this Entity'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     EntityRole:
       description: An Entity might play different roles.  For example, the same Entity
@@ -1241,6 +1334,9 @@ components:
           description: 'Type: A type of Entity. Foreign key to EntityType (pass the
             id on write; label on read, depth 0; sibling "type_xlink" = "entitytype/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     EntitySite:
       description: Entity to Site join table
@@ -1259,6 +1355,9 @@ components:
           description: Site Foreign key to Site (pass the id on write; label on read,
             depth 0; sibling "site_xlink" = "site/{id}").
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     EntityType:
       description: Types of Entities
@@ -1268,6 +1367,9 @@ components:
           type: string
         name:
           description: Name
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     FWTable:
@@ -1285,6 +1387,9 @@ components:
         tstamp:
           description: Timestamp
           format: date-time
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     FWTableEntry:
@@ -1311,6 +1416,9 @@ components:
           description: Physical Address Foreign key to PhysAddr (pass the id on write;
             label on read, depth 0; sibling "physaddr_xlink" = "physaddr/{id}").
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     FiberType:
       description: Types of Fiber
@@ -1320,6 +1428,9 @@ components:
           type: string
         name:
           description: 'Name: A name for this Fiber Type'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     Floor:
@@ -1338,6 +1449,9 @@ components:
           description: Site Foreign key to Site (pass the id on write; label on read,
             depth 0; sibling "site_xlink" = "site/{id}").
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     FloorPicture:
       description: A Floor Picture.  Pictures are stored in the database in binary
@@ -1365,6 +1479,9 @@ components:
         info:
           description: 'Comments: Comments'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     GroupRight:
       description: Join between a ContactList and its Access Rights
@@ -1383,6 +1500,9 @@ components:
           description: Contact List Foreign key to ContactList (pass the id on write;
             label on read, depth 0; sibling "contactlist_xlink" = "contactlist/{id}").
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     HorizontalCable:
       description: Horizontal Cable
@@ -1445,6 +1565,9 @@ components:
           description: 'Type: Type of this cable Foreign key to CableType (pass the
             id on write; label on read, depth 0; sibling "type_xlink" = "cabletype/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     HostAudit:
       description: DNS and DHCP changes
@@ -1459,6 +1582,9 @@ components:
         tstamp:
           description: 'Timestamp: When this change happened'
           format: date-time
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
         zone:
           description: 'Zone: Name of zone where change happened'
@@ -1633,6 +1759,9 @@ components:
         type:
           description: 'Type: Type of Interface'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     InterfaceVlan:
       description: Interface to VLAN join table
@@ -1664,6 +1793,9 @@ components:
           description: 'STP State: The current Spanning Tree State of this port (dot1dStpPortState).
             It can be one of: 1 - disabled, 2 - blocking, 3 - listening, 4 - learning,
             5 - forwarding, 6 - broken'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
         vlan:
           anyOf:
@@ -1706,6 +1838,9 @@ components:
           description: Foreign key to Service (pass the id on write; label on read,
             depth 0; sibling "service_xlink" = "service/{id}").
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     Ipblock:
       description: An IP (v4 or v6) CIDR block, which can represent both individual
@@ -1779,6 +1914,9 @@ components:
             (pass the id on write; label on read, depth 0; sibling "status_xlink"
             = "ipblockstatus/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         use_network_broadcast:
           description: 'Use Network/Broadcast?: Whether the network and broadcast
             addresses in this IPv4 block should be marked as reserved or not'
@@ -1822,6 +1960,9 @@ components:
             (pass the id on write; label on read, depth 0; sibling "name_xlink" =
             "ipblockattrname/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         value:
           description: 'Value: Value for this attribute'
           type: string
@@ -1835,11 +1976,17 @@ components:
         name:
           description: Name
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     IpblockStatus:
       description: IP block status
       properties:
         name:
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     MaintContract:
@@ -1859,6 +2006,9 @@ components:
             (pass the id on write; label on read, depth 0; sibling "provider_xlink"
             = "entity/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     MonitorStatus:
       description: Status information for what is monitored
@@ -1869,6 +2019,9 @@ components:
         name:
           description: Status
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     OUI:
       description: Organizationally Unique Identifier
@@ -1876,6 +2029,9 @@ components:
         oui:
           description: 'OUI: Organizationally Unique Identifier.  Assigned by the
             IEEE to Ethernet hardware manufacturers.'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
         vendor:
           description: 'Vendor: Manufacturer of Ethernet hardware'
@@ -1951,6 +2107,9 @@ components:
             to Room (pass the id on write; label on read, depth 0; sibling "room_xlink"
             = "room/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         user_type:
           anyOf:
           - type: integer
@@ -1983,6 +2142,9 @@ components:
             and should not be removed, even if it has not been seen in the network
             for a given amount of time'
           type: boolean
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     PhysAddrAttr:
       description: Custom attributes can be assigned to physical (MAC) addresses
@@ -2003,6 +2165,9 @@ components:
             is assigned Foreign key to PhysAddr (pass the id on write; label on read,
             depth 0; sibling "physaddr_xlink" = "physaddr/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         value:
           description: 'Value: Value for this attribute'
           type: string
@@ -2015,6 +2180,9 @@ components:
           type: string
         name:
           description: Name
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     Product:
@@ -2058,6 +2226,9 @@ components:
             switches, hubs, etc. Foreign key to ProductType (pass the id on write;
             label on read, depth 0; sibling "type_xlink" = "producttype/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     ProductType:
       description: Types of network devices
@@ -2067,6 +2238,9 @@ components:
           type: string
         name:
           description: Name
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     RR:
@@ -2100,6 +2274,9 @@ components:
         name:
           description: 'Name: The identifier for this Record'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         zone:
           anyOf:
           - type: integer
@@ -2132,6 +2309,9 @@ components:
         ttl:
           description: 'TTL: Record TTL'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     RRCNAME:
       description: DNS CNAME records map an alias or nickname to the real or Canonical
@@ -2151,6 +2331,9 @@ components:
           type: ~
         ttl:
           description: 'TTL: Record TTL'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     RRDS:
@@ -2186,6 +2369,9 @@ components:
         ttl:
           description: 'TTL: Record TTL'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     RRHINFO:
       description: DNS HINFO records are used to acquire general information about
@@ -2210,6 +2396,9 @@ components:
           type: ~
         ttl:
           description: 'TTL: Record TTL'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     RRLOC:
@@ -2244,6 +2433,9 @@ components:
         size:
           description: 'Size: The diameter of a sphere enclosing the described entity.'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         vert_pre:
           description: 'Vertical Precision: The vertical precision of the data, in
             centimeters, expressed using the same representation as SIZE'
@@ -2276,6 +2468,9 @@ components:
           type: ~
         ttl:
           description: 'TTL: Record TTL'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     RRNAPTR:
@@ -2324,6 +2519,9 @@ components:
         ttl:
           description: 'TTL: Record TTL'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     RRNS:
       description: DNS NS Record
@@ -2341,6 +2539,9 @@ components:
           type: ~
         ttl:
           description: 'TTL: Record TTL'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     RRPTR:
@@ -2367,6 +2568,9 @@ components:
           type: ~
         ttl:
           description: 'TTL: Record TTL'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     RRSRV:
@@ -2398,6 +2602,9 @@ components:
         ttl:
           description: 'TTL: Record TTL'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         weight:
           description: 'Weight: A server selection mechanism.  The weight field specifies
             a relative weight for entries with the same priority. Larger weights SHOULD
@@ -2422,6 +2629,9 @@ components:
         txtdata:
           description: 'Text: One or more character-strings'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     Room:
       description: Room
@@ -2435,6 +2645,9 @@ components:
           type: ~
         name:
           description: Number
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     STPInstance:
@@ -2460,6 +2673,9 @@ components:
         root_port:
           description: 'Root Port: Root port (ifIndex) for this STP instance'
           type: integer
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     SavedQueries:
       description: Saved SQL queries
@@ -2470,6 +2686,9 @@ components:
         querytext:
           description: 'Saved SQL: Saved SQL query'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     SchemaInfo:
       description: Information about the database schema. This is used to verify that
@@ -2478,6 +2697,9 @@ components:
       properties:
         info:
           description: Comments
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
         version:
           description: Version
@@ -2491,6 +2713,9 @@ components:
           type: string
         name:
           description: Name
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     Site:
@@ -2545,6 +2770,9 @@ components:
         street2:
           description: 'Street (2): Street 2nd line'
           type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         zip:
           description: 'Zip/Postal Code: ZIP/Postal Code'
           type: string
@@ -2583,6 +2811,9 @@ components:
             Site (pass the id on write; label on read, depth 0; sibling "nearend_xlink"
             = "site/{id}").'
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     SitePicture:
       description: A Site Picture.  Pictures are stored in the database in binary
@@ -2610,6 +2841,9 @@ components:
           description: Site Foreign key to Site (pass the id on write; label on read,
             depth 0; sibling "site_xlink" = "site/{id}").
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     SiteSubnet:
       description: Site to Subnet join table
@@ -2628,6 +2862,9 @@ components:
           description: Subnet Foreign key to Ipblock (pass the id on write; label
             on read, depth 0; sibling "subnet_xlink" = "ipblock/{id}").
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     Splice:
       description: Cable Splices
@@ -2646,11 +2883,17 @@ components:
           description: Foreign key to CableStrand (pass the id on write; label on
             read, depth 0; sibling "strand2_xlink" = "cablestrand/{id}").
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     StrandStatus:
       description: Cable strand/pair status
       properties:
         name:
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     SubnetZone:
@@ -2663,6 +2906,9 @@ components:
           description: Subnet Foreign key to Ipblock (pass the id on write; label
             on read, depth 0; sibling "subnet_xlink" = "ipblock/{id}").
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
         zone:
           anyOf:
           - type: integer
@@ -2688,6 +2934,9 @@ components:
           description: User Foreign key to Person (pass the id on write; label on
             read, depth 0; sibling "person_xlink" = "person/{id}").
           type: ~
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     UserType:
       description: Types of Netdot users
@@ -2697,6 +2946,9 @@ components:
           type: string
         name:
           description: Name
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
     Vlan:
@@ -2710,6 +2962,9 @@ components:
           type: string
         name:
           description: 'Name: Human-defined Name for this VLAN'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
         vid:
           description: VLAN ID
@@ -2741,6 +2996,9 @@ components:
         start_vid:
           description: 'Start: First VLAN number'
           type: integer
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     Zone:
       description: A DNS Zone
@@ -2801,6 +3059,9 @@ components:
             copy of the zone.  Zone transfers preserve this value.  This value wraps
             and should be compared using sequence space arithmetic.'
           type: integer
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
       type: object
     ZoneAlias:
       description: An alias of an existing zone
@@ -2810,6 +3071,9 @@ components:
           type: string
         name:
           description: 'Domain Name: The zone or domain name'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
         zone:
           anyOf:
@@ -2837,8 +3101,12 @@ info:
       POST   /api/{table}/{id}       update
       DELETE /api/{table}/{id}       delete
 
+    List responses are paginated (Netbox-style): {count, next, previous, results}.
+    Use ?limit=N (default 50, max 1000) and ?offset=N; follow "next"/"previous".
+
     Foreign keys: on write pass the target id (integer); on read the field is the
     target label (string) and a sibling "<column>_xlink" gives "{table}/{id}".
+    Every object also carries a "url" field (e.g. /netdot/api/<table>/<id>/).
     Use ?depth=N to inline referenced objects, ?linked_from=1 for back-references.
 
     Authentication: the Netdot web session (log in at /login). Unauthenticated
@@ -2876,18 +3144,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  AccessRight:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/AccessRight'
                     type: array
                 type: object
-          description: Array of AccessRight objects under the "AccessRight" key.
+          description: Paginated list of AccessRight objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -3108,18 +3406,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  ArpCache:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/ArpCache'
                     type: array
                 type: object
-          description: Array of ArpCache objects under the "ArpCache" key.
+          description: Paginated list of ArpCache objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -3346,18 +3674,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  ArpCacheEntry:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/ArpCacheEntry'
                     type: array
                 type: object
-          description: Array of ArpCacheEntry objects under the "ArpCacheEntry" key.
+          description: Paginated list of ArpCacheEntry objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -3573,18 +3931,47 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  ASN:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/ASN'
                     type: array
                 type: object
-          description: Array of ASN objects under the "ASN" key.
+          description: Paginated list of ASN objects (count / next / previous / results).
         '401':
           '401':
             content:
@@ -3811,18 +4198,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Asset:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Asset'
                     type: array
                 type: object
-          description: Array of Asset objects under the "Asset" key.
+          description: Paginated list of Asset objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -4049,18 +4466,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Audit:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Audit'
                     type: array
                 type: object
-          description: Array of Audit objects under the "Audit" key.
+          description: Paginated list of Audit objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -4275,18 +4722,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Availability:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Availability'
                     type: array
                 type: object
-          description: Array of Availability objects under the "Availability" key.
+          description: Paginated list of Availability objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -4502,18 +4979,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  BackboneCable:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/BackboneCable'
                     type: array
                 type: object
-          description: Array of BackboneCable objects under the "BackboneCable" key.
+          description: Paginated list of BackboneCable objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -4735,18 +5242,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  BGPPeering:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/BGPPeering'
                     type: array
                 type: object
-          description: Array of BGPPeering objects under the "BGPPeering" key.
+          description: Paginated list of BGPPeering objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -4961,18 +5498,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  CableStrand:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/CableStrand'
                     type: array
                 type: object
-          description: Array of CableStrand objects under the "CableStrand" key.
+          description: Paginated list of CableStrand objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -5187,18 +5754,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  CableType:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/CableType'
                     type: array
                 type: object
-          description: Array of CableType objects under the "CableType" key.
+          description: Paginated list of CableType objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -5413,18 +6010,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Circuit:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Circuit'
                     type: array
                 type: object
-          description: Array of Circuit objects under the "Circuit" key.
+          description: Paginated list of Circuit objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -5639,18 +6266,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  CircuitStatus:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/CircuitStatus'
                     type: array
                 type: object
-          description: Array of CircuitStatus objects under the "CircuitStatus" key.
+          description: Paginated list of CircuitStatus objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -5866,18 +6523,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  CircuitType:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/CircuitType'
                     type: array
                 type: object
-          description: Array of CircuitType objects under the "CircuitType" key.
+          description: Paginated list of CircuitType objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -6098,18 +6785,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Closet:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Closet'
                     type: array
                 type: object
-          description: Array of Closet objects under the "Closet" key.
+          description: Paginated list of Closet objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -6324,18 +7041,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  ClosetPicture:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/ClosetPicture'
                     type: array
                 type: object
-          description: Array of ClosetPicture objects under the "ClosetPicture" key.
+          description: Paginated list of ClosetPicture objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -6557,18 +7304,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Contact:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Contact'
                     type: array
                 type: object
-          description: Array of Contact objects under the "Contact" key.
+          description: Paginated list of Contact objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -6783,18 +7560,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  ContactList:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/ContactList'
                     type: array
                 type: object
-          description: Array of ContactList objects under the "ContactList" key.
+          description: Paginated list of ContactList objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -7009,18 +7816,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  ContactType:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/ContactType'
                     type: array
                 type: object
-          description: Array of ContactType objects under the "ContactType" key.
+          description: Paginated list of ContactType objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -7235,18 +8072,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  DataCache:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/DataCache'
                     type: array
                 type: object
-          description: Array of DataCache objects under the "DataCache" key.
+          description: Paginated list of DataCache objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -7461,18 +8328,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Device:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Device'
                     type: array
                 type: object
-          description: Array of Device objects under the "Device" key.
+          description: Paginated list of Device objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -7699,18 +8596,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  DeviceAttr:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/DeviceAttr'
                     type: array
                 type: object
-          description: Array of DeviceAttr objects under the "DeviceAttr" key.
+          description: Paginated list of DeviceAttr objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -7925,19 +8852,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  DeviceAttrName:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/DeviceAttrName'
                     type: array
                 type: object
-          description: Array of DeviceAttrName objects under the "DeviceAttrName"
-            key.
+          description: Paginated list of DeviceAttrName objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -8153,19 +9109,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  DeviceContacts:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/DeviceContacts'
                     type: array
                 type: object
-          description: Array of DeviceContacts objects under the "DeviceContacts"
-            key.
+          description: Paginated list of DeviceContacts objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -8393,18 +9378,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  DeviceModule:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/DeviceModule'
                     type: array
                 type: object
-          description: Array of DeviceModule objects under the "DeviceModule" key.
+          description: Paginated list of DeviceModule objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -8626,18 +9641,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  DhcpAttr:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/DhcpAttr'
                     type: array
                 type: object
-          description: Array of DhcpAttr objects under the "DhcpAttr" key.
+          description: Paginated list of DhcpAttr objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -8852,18 +9897,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  DhcpAttrName:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/DhcpAttrName'
                     type: array
                 type: object
-          description: Array of DhcpAttrName objects under the "DhcpAttrName" key.
+          description: Paginated list of DhcpAttrName objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -9079,18 +10154,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  DhcpScope:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/DhcpScope'
                     type: array
                 type: object
-          description: Array of DhcpScope objects under the "DhcpScope" key.
+          description: Paginated list of DhcpScope objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -9305,18 +10410,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  DhcpScopeType:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/DhcpScopeType'
                     type: array
                 type: object
-          description: Array of DhcpScopeType objects under the "DhcpScopeType" key.
+          description: Paginated list of DhcpScopeType objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -9538,18 +10673,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  DhcpScopeUse:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/DhcpScopeUse'
                     type: array
                 type: object
-          description: Array of DhcpScopeUse objects under the "DhcpScopeUse" key.
+          description: Paginated list of DhcpScopeUse objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -9765,18 +10930,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Entity:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Entity'
                     type: array
                 type: object
-          description: Array of Entity objects under the "Entity" key.
+          description: Paginated list of Entity objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -9997,18 +11192,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  EntityRole:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/EntityRole'
                     type: array
                 type: object
-          description: Array of EntityRole objects under the "EntityRole" key.
+          description: Paginated list of EntityRole objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -10229,18 +11454,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  EntitySite:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/EntitySite'
                     type: array
                 type: object
-          description: Array of EntitySite objects under the "EntitySite" key.
+          description: Paginated list of EntitySite objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -10455,18 +11710,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  EntityType:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/EntityType'
                     type: array
                 type: object
-          description: Array of EntityType objects under the "EntityType" key.
+          description: Paginated list of EntityType objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -10681,18 +11966,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  FiberType:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/FiberType'
                     type: array
                 type: object
-          description: Array of FiberType objects under the "FiberType" key.
+          description: Paginated list of FiberType objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -10913,18 +12228,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Floor:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Floor'
                     type: array
                 type: object
-          description: Array of Floor objects under the "Floor" key.
+          description: Paginated list of Floor objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -11139,18 +12484,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  FloorPicture:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/FloorPicture'
                     type: array
                 type: object
-          description: Array of FloorPicture objects under the "FloorPicture" key.
+          description: Paginated list of FloorPicture objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -11372,18 +12747,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  FWTable:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/FWTable'
                     type: array
                 type: object
-          description: Array of FWTable objects under the "FWTable" key.
+          description: Paginated list of FWTable objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -11604,18 +13009,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  FWTableEntry:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/FWTableEntry'
                     type: array
                 type: object
-          description: Array of FWTableEntry objects under the "FWTableEntry" key.
+          description: Paginated list of FWTableEntry objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -11837,18 +13272,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  GroupRight:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/GroupRight'
                     type: array
                 type: object
-          description: Array of GroupRight objects under the "GroupRight" key.
+          description: Paginated list of GroupRight objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -12063,19 +13528,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  HorizontalCable:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/HorizontalCable'
                     type: array
                 type: object
-          description: Array of HorizontalCable objects under the "HorizontalCable"
-            key.
+          description: Paginated list of HorizontalCable objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -12291,18 +13785,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  HostAudit:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/HostAudit'
                     type: array
                 type: object
-          description: Array of HostAudit objects under the "HostAudit" key.
+          description: Paginated list of HostAudit objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -12523,18 +14047,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Interface:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Interface'
                     type: array
                 type: object
-          description: Array of Interface objects under the "Interface" key.
+          description: Paginated list of Interface objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -12755,18 +14309,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  InterfaceVlan:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/InterfaceVlan'
                     type: array
                 type: object
-          description: Array of InterfaceVlan objects under the "InterfaceVlan" key.
+          description: Paginated list of InterfaceVlan objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -12988,18 +14572,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Ipblock:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Ipblock'
                     type: array
                 type: object
-          description: Array of Ipblock objects under the "Ipblock" key.
+          description: Paginated list of Ipblock objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -13226,18 +14840,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  IpblockAttr:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/IpblockAttr'
                     type: array
                 type: object
-          description: Array of IpblockAttr objects under the "IpblockAttr" key.
+          description: Paginated list of IpblockAttr objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -13452,19 +15096,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  IpblockAttrName:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/IpblockAttrName'
                     type: array
                 type: object
-          description: Array of IpblockAttrName objects under the "IpblockAttrName"
-            key.
+          description: Paginated list of IpblockAttrName objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -13680,18 +15353,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  IpblockStatus:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/IpblockStatus'
                     type: array
                 type: object
-          description: Array of IpblockStatus objects under the "IpblockStatus" key.
+          description: Paginated list of IpblockStatus objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -13913,18 +15616,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  IpService:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/IpService'
                     type: array
                 type: object
-          description: Array of IpService objects under the "IpService" key.
+          description: Paginated list of IpService objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -14145,18 +15878,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  MaintContract:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/MaintContract'
                     type: array
                 type: object
-          description: Array of MaintContract objects under the "MaintContract" key.
+          description: Paginated list of MaintContract objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -14372,18 +16135,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  MonitorStatus:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/MonitorStatus'
                     type: array
                 type: object
-          description: Array of MonitorStatus objects under the "MonitorStatus" key.
+          description: Paginated list of MonitorStatus objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -14605,18 +16398,47 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  OUI:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/OUI'
                     type: array
                 type: object
-          description: Array of OUI objects under the "OUI" key.
+          description: Paginated list of OUI objects (count / next / previous / results).
         '401':
           '401':
             content:
@@ -14837,18 +16659,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Person:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Person'
                     type: array
                 type: object
-          description: Array of Person objects under the "Person" key.
+          description: Paginated list of Person objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -15063,18 +16915,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  PhysAddr:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/PhysAddr'
                     type: array
                 type: object
-          description: Array of PhysAddr objects under the "PhysAddr" key.
+          description: Paginated list of PhysAddr objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -15301,18 +17183,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  PhysAddrAttr:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/PhysAddrAttr'
                     type: array
                 type: object
-          description: Array of PhysAddrAttr objects under the "PhysAddrAttr" key.
+          description: Paginated list of PhysAddrAttr objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -15528,19 +17440,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  PhysAddrAttrName:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/PhysAddrAttrName'
                     type: array
                 type: object
-          description: Array of PhysAddrAttrName objects under the "PhysAddrAttrName"
-            key.
+          description: Paginated list of PhysAddrAttrName objects (count / next /
+            previous / results).
         '401':
           '401':
             content:
@@ -15763,18 +17704,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Product:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Product'
                     type: array
                 type: object
-          description: Array of Product objects under the "Product" key.
+          description: Paginated list of Product objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -15989,18 +17960,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  ProductType:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/ProductType'
                     type: array
                 type: object
-          description: Array of ProductType objects under the "ProductType" key.
+          description: Paginated list of ProductType objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -16221,18 +18222,47 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Room:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Room'
                     type: array
                 type: object
-          description: Array of Room objects under the "Room" key.
+          description: Paginated list of Room objects (count / next / previous / results).
         '401':
           '401':
             content:
@@ -16453,18 +18483,47 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RR:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RR'
                     type: array
                 type: object
-          description: Array of RR objects under the "RR" key.
+          description: Paginated list of RR objects (count / next / previous / results).
         '401':
           '401':
             content:
@@ -16685,18 +18744,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RRADDR:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RRADDR'
                     type: array
                 type: object
-          description: Array of RRADDR objects under the "RRADDR" key.
+          description: Paginated list of RRADDR objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -16917,18 +19006,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RRCNAME:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RRCNAME'
                     type: array
                 type: object
-          description: Array of RRCNAME objects under the "RRCNAME" key.
+          description: Paginated list of RRCNAME objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -17149,18 +19268,47 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RRDS:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RRDS'
                     type: array
                 type: object
-          description: Array of RRDS objects under the "RRDS" key.
+          description: Paginated list of RRDS objects (count / next / previous / results).
         '401':
           '401':
             content:
@@ -17387,18 +19535,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RRHINFO:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RRHINFO'
                     type: array
                 type: object
-          description: Array of RRHINFO objects under the "RRHINFO" key.
+          description: Paginated list of RRHINFO objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -17613,18 +19791,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RRLOC:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RRLOC'
                     type: array
                 type: object
-          description: Array of RRLOC objects under the "RRLOC" key.
+          description: Paginated list of RRLOC objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -17851,18 +20059,47 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RRMX:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RRMX'
                     type: array
                 type: object
-          description: Array of RRMX objects under the "RRMX" key.
+          description: Paginated list of RRMX objects (count / next / previous / results).
         '401':
           '401':
             content:
@@ -18095,18 +20332,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RRNAPTR:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RRNAPTR'
                     type: array
                 type: object
-          description: Array of RRNAPTR objects under the "RRNAPTR" key.
+          description: Paginated list of RRNAPTR objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -18327,18 +20594,47 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RRNS:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RRNS'
                     type: array
                 type: object
-          description: Array of RRNS objects under the "RRNS" key.
+          description: Paginated list of RRNS objects (count / next / previous / results).
         '401':
           '401':
             content:
@@ -18565,18 +20861,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RRPTR:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RRPTR'
                     type: array
                 type: object
-          description: Array of RRPTR objects under the "RRPTR" key.
+          description: Paginated list of RRPTR objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -18797,18 +21123,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RRSRV:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RRSRV'
                     type: array
                 type: object
-          description: Array of RRSRV objects under the "RRSRV" key.
+          description: Paginated list of RRSRV objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -19029,18 +21385,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  RRTXT:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/RRTXT'
                     type: array
                 type: object
-          description: Array of RRTXT objects under the "RRTXT" key.
+          description: Paginated list of RRTXT objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -19261,18 +21647,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  SavedQueries:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/SavedQueries'
                     type: array
                 type: object
-          description: Array of SavedQueries objects under the "SavedQueries" key.
+          description: Paginated list of SavedQueries objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -19488,18 +21904,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  SchemaInfo:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/SchemaInfo'
                     type: array
                 type: object
-          description: Array of SchemaInfo objects under the "SchemaInfo" key.
+          description: Paginated list of SchemaInfo objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -19714,18 +22160,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Service:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Service'
                     type: array
                 type: object
-          description: Array of Service objects under the "Service" key.
+          description: Paginated list of Service objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -19946,18 +22422,47 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Site:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Site'
                     type: array
                 type: object
-          description: Array of Site objects under the "Site" key.
+          description: Paginated list of Site objects (count / next / previous / results).
         '401':
           '401':
             content:
@@ -20172,18 +22677,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  SiteLink:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/SiteLink'
                     type: array
                 type: object
-          description: Array of SiteLink objects under the "SiteLink" key.
+          description: Paginated list of SiteLink objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -20398,18 +22933,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  SitePicture:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/SitePicture'
                     type: array
                 type: object
-          description: Array of SitePicture objects under the "SitePicture" key.
+          description: Paginated list of SitePicture objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -20630,18 +23195,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  SiteSubnet:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/SiteSubnet'
                     type: array
                 type: object
-          description: Array of SiteSubnet objects under the "SiteSubnet" key.
+          description: Paginated list of SiteSubnet objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -20862,18 +23457,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Splice:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Splice'
                     type: array
                 type: object
-          description: Array of Splice objects under the "Splice" key.
+          description: Paginated list of Splice objects (count / next / previous /
+            results).
         '401':
           '401':
             content:
@@ -21094,18 +23719,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  STPInstance:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/STPInstance'
                     type: array
                 type: object
-          description: Array of STPInstance objects under the "STPInstance" key.
+          description: Paginated list of STPInstance objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -21320,18 +23975,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  StrandStatus:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/StrandStatus'
                     type: array
                 type: object
-          description: Array of StrandStatus objects under the "StrandStatus" key.
+          description: Paginated list of StrandStatus objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -21553,18 +24238,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  SubnetZone:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/SubnetZone'
                     type: array
                 type: object
-          description: Array of SubnetZone objects under the "SubnetZone" key.
+          description: Paginated list of SubnetZone objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -21785,18 +24500,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  UserRight:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/UserRight'
                     type: array
                 type: object
-          description: Array of UserRight objects under the "UserRight" key.
+          description: Paginated list of UserRight objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -22011,18 +24756,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  UserType:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/UserType'
                     type: array
                 type: object
-          description: Array of UserType objects under the "UserType" key.
+          description: Paginated list of UserType objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -22237,18 +25012,47 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Vlan:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Vlan'
                     type: array
                 type: object
-          description: Array of Vlan objects under the "Vlan" key.
+          description: Paginated list of Vlan objects (count / next / previous / results).
         '401':
           '401':
             content:
@@ -22463,18 +25267,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  VlanGroup:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/VlanGroup'
                     type: array
                 type: object
-          description: Array of VlanGroup objects under the "VlanGroup" key.
+          description: Paginated list of VlanGroup objects (count / next / previous
+            / results).
         '401':
           '401':
             content:
@@ -22689,18 +25523,47 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  Zone:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/Zone'
                     type: array
                 type: object
-          description: Array of Zone objects under the "Zone" key.
+          description: Paginated list of Zone objects (count / next / previous / results).
         '401':
           '401':
             content:
@@ -22915,18 +25778,48 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
       responses:
         '200':
           content:
             application/json:
               schema:
                 properties:
-                  ZoneAlias:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
                     items:
                       $ref: '#/components/schemas/ZoneAlias'
                     type: array
                 type: object
-          description: Array of ZoneAlias objects under the "ZoneAlias" key.
+          description: Paginated list of ZoneAlias objects (count / next / previous
+            / results).
         '401':
           '401':
             content:

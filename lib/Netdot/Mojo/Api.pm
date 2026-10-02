@@ -37,6 +37,25 @@ sub as_string { $_[0]->{msg} }
 # ---------------------------------------------------------------------------
 package Netdot::Mojo::Api;
 
+# Cached API base path: WEB_BASE_URL + '/api' (e.g. '/netdot/api', or a full
+# URL when WEB_BASE_URL is an absolute URL). Computed once.
+my $_API_BASE;
+sub _api_base {
+    return $_API_BASE if defined $_API_BASE;
+    my $b = eval { Netdot->config->get('WEB_BASE_URL') };
+    $b = '' unless defined $b && !ref $b;
+    $b =~ s{/*$}{};
+    $_API_BASE = $b . '/api';
+    return $_API_BASE;
+}
+
+# Resource URL: <base>/<lc table>/<id>/  (matches the API routes, which key
+# tables by lc(db_name) == lc(short_class)).
+sub _api_url {
+    my ($obj) = @_;
+    return _api_base() . '/' . lc( $obj->short_class ) . '/' . $obj->id . '/';
+}
+
 # Serialize a Netdot object to a JSON-ready hashref.
 #   $obj        - Netdot::Model object
 #   $user       - Person (for permission checks)
@@ -56,7 +75,8 @@ sub get {
     $depth = 0 if $depth < 0;
 
     my %ret;
-    $ret{id} = $obj->id;
+    $ret{id}  = $obj->id;
+    $ret{url} = _api_url( $obj );
 
     my %order;
     eval { %order = $obj->meta_data->get_column_order };
