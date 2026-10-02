@@ -91,6 +91,31 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
   + a `Log::Log4perl::Appender::String` appender captures the exporter's log
   output into a variable for display in the template.
 
+### 2c. System `Mojo::Parameters` is patched (`names` returns an arrayref)
+The system `/usr/share/perl5/Mojo/Parameters.pm` is **patched**: `names` was
+replaced with `sub names { [sort keys %{shift->to_hash}] }`, so it returns an
+**arrayref** (sorted, deduped) instead of a list.
+- Never `for my $k ( $c->req->params->names )` → it loops once with the
+  arrayref as `$k`, so the hash key becomes the string `"ARRAY(0x..)"` and every
+  real param is lost.
+- Use `$c->req->params->to_hash` (unpatched; hashref, last value per key) or
+  `$c->param($name)` directly.
+- This silently broke `_args()` (hence the generic search + host endpoints):
+  `?address=…` was dropped → `host` fell into its "retrieve ALL RRs" branch →
+  the request looked like a "hang" (173k records + per-record expansion).
+
+### 2d. Relations passed as function args evaluate in **list context**
+`_list( $obj->rel )` (and any helper) evaluates `$obj->rel` in **list context**
+→ the FULL list of related objects arrives as a flat list, NOT an iterator. A
+helper doing `my $x = shift` keeps only the **first** element and silently drops
+the rest.
+- `_list` / `_first` must consume all of `@_` and branch: single iterator
+  (`can('next')`) → drain it; single arrayref → deref; else return `@_` as-is
+  (flat list, possibly empty).
+- Symptom: a relation with >1 element returned only the first (an IP with two A
+  records returned one RR). Scalar context (`my $it = $obj->rel`) yields a CDBI
+  iterator instead — both forms are valid, so the helper must accept both.
+
 ### 3. Models
 - `Registry::link_for($obj)` returns an **arrayref** `[text, href]` →
   dereference with `@{ }`. Generates `/management/<type>/<id>` for any type

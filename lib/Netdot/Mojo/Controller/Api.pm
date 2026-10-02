@@ -701,24 +701,37 @@ sub docs {
 # list helpers (CDBI iterators -> arrays / first)
 # ---------------------------------------------------------------------------
 
+# Accept any of: a CDBI iterator (relation/search called in scalar context),
+# an arrayref, or a flat list (relation called in list context, which is what
+# happens when it is passed directly as a function argument). Returns a flat
+# list of objects. NB: we must take all of @_, not just shift(1) -- a
+# list-context relation already arrives as a full list and shift would drop
+# every element after the first.
 sub _list {
-    my $it = shift;
-    return () unless defined $it;
-    # Relation called in scalar context returns a CDBI iterator; otherwise we
-    # may have received a plain list/arrayref value.
-    if ( ref $it && eval { $it->can('next') } ) {
+    my @in = @_;
+    # Single iterator argument: drain it fully.
+    if ( @in == 1 && ref $in[0] && eval { $in[0]->can('next') } ) {
         my @out;
-        while ( my $o = $it->next ) { push @out, $o }
+        while ( my $o = $in[0]->next ) { push @out, $o }
         return @out;
     }
-    return ( ref $it eq 'ARRAY' ) ? @$it : ( $it );
+    # Single arrayref argument: dereference.
+    if ( @in == 1 && ref $in[0] eq 'ARRAY' ) {
+        return @{ $in[0] };
+    }
+    # Otherwise it already arrived as a flat list (possibly empty): as-is.
+    return @in;
 }
 
+# Same accepted forms as _list; returns the first object (or undef).
 sub _first {
-    my $it = shift;
-    return undef unless defined $it;
-    return $it->first if ref $it && eval { $it->can('first') };
-    return ( ref $it eq 'ARRAY' ) ? $it->[0] : $it;
+    my @in = @_;
+    return undef unless @in;
+    my $it = $in[0];
+    if ( @in == 1 && ref $it && eval { $it->can('first') } ) {
+        return $it->first;
+    }
+    return ( @in == 1 && ref $it eq 'ARRAY' ) ? $it->[0] : $it;
 }
 
 1;
