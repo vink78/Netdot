@@ -114,7 +114,18 @@ the rest.
   (flat list, possibly empty).
 - Symptom: a relation with >1 element returned only the first (an IP with two A
   records returned one RR). Scalar context (`my $it = $obj->rel`) yields a CDBI
-  iterator instead — both forms are valid, so the helper must accept both.
+   iterator instead — both forms are valid, so the helper must accept both.
+
+### 2e. `Permissions::can` is a function called in a **method-call shape**
+`Netdot::Mojo::Permissions::can($class, $person, $action, $resource)` is a plain
+function, but the codebase calls it **as a method**: `Permissions->can($person,
+'action', $obj)` — the invocant fills the `$class` slot, so the real args line up as
+`($person, $action, $resource)`. Passing the class name as an **extra** first arg
+(`Permissions->can("Zone", $p, "edit", $z)`) shifts everything by one, so `$person`
+becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
+`has_action`, `viewable_predicate`. When debugging a `can` result, call the internal
+`_denies_object($type, $username, $action, $obj, $access)` directly to isolate the rule
+from the arg-shifting.
 
 ### 3. Models
 - `Registry::link_for($obj)` returns an **arrayref** `[text, href]` →
@@ -157,6 +168,12 @@ the rest.
   (record view); PTR → `host.html` (host view).
 - Styles: `htdocs/css/style.css` (`.ipaddr_*`, `.ipcontainertable`,
   `.tablescroll`, `.container*`, `.progress_bar`).
+- **Permission / rights-inheritance (original, still in the tree)**: the logic lives in
+  `lib/Netdot/ObjectAccessRule.pm` (`denies()` — per-object rule + inheritance), composed by
+  `lib/Netdot/NetdotPermissionFactory.pm` (`GrantAllRule` default-allow + `SectionAccessRule`
+  + `ObjectAccessRule`), with base rights from `lib/Netdot/Model/Person.pm`
+  `get_allowed_objects` (tables `accessright`/`groupright`/`userright` via contact lists).
+  `lib/Netdot/Mojo/Permissions.pm` is a direct port of this.
 
 ## Key files
 - `lib/Netdot/Mojo/Controller/Ipblock.pm` — block detail (show + helpers
@@ -193,27 +210,48 @@ the rest.
 - `lib/Netdot/Mojo/Controller/Export.pm` — Export form (GET) + run (POST):
   type-gating (Admin→12, write-rights→4), `generate_configs`, String appender
   log capture, per-type error list.
-- `lib/Netdot/Mojo/Controller/Advanced.pm` — Changelog: `Audit->search_where`
-  (200 most recent, `limit_dialect => 'LimitOffset'`), table display.
+- `lib/Netdot/Mojo/Controller/Advanced.pm` — Changelog: raw SQL on `audit`
+  (`SELECT COUNT(*)` + `SELECT … ORDER BY tstamp DESC LIMIT ? OFFSET ?`), `search`
+  (LIKE on `label`) + `operation` filter + `offset` pagination, and a **permission
+  filter** (Admin/Operator see all; otherwise `username = <self>`).
 - `lib/Netdot/Mojo/Controller/Search.pm` — Global search: IPv4/IPv6 → redirect
   ipblock search; MAC → redirect physaddr search; text → `RR->search_like(name)`.
 - `lib/Netdot/Mojo/Registry.pm` — type catalogue, `link_for`, `format_value`,
   `spec`, `display_columns`, `is_sensitive`, `csv_field`, `column_link_key`,
   `esc`, `%MENU` + `@MENU_ORDER` (5 sections incl. Export).
 - `lib/Netdot/Mojo/Permissions.pm` — `user_type`, `can`, `allowed_objects`,
-  `has_action_on`, `has_action`, `can_export` (write rights on RR).
+  `viewable_predicate` (SQL `WHERE` fragment for list filtering), `has_action_on`,
+  `has_action`, `can_export` (write rights on RR). **Faithful port of the original
+  Apache2::SiteControl permission system**:
+  `can()` = the rule composition of `lib/Netdot/NetdotPermissionFactory.pm`
+  (`GrantAllRule` default-allow → `SectionAccessRule` → `ObjectAccessRule`);
+  `allowed_objects()` = `Person->get_allowed_objects` (LOCAL: `groupright`/`userright`/
+  `accessright` via contact lists); `_denies_object()` = `ObjectAccessRule::denies` —
+  the full **inheritance**: **Zone→RR** (sub-types via parent `rr`), **Device→Interface**,
+  **ContactList→Contact/Person (roles)**, **parent Ipblock→IpblockAttr**, **Ipblock
+  ancestor chain** (`_deny_ip_access` via `get_ancestors`), RR→IP fallback, plus the special
+  denials (zone apex delete, NS records, device-linked RRs).
 - `lib/Netdot/Mojo.pm` — app, routes (mounted under the `WEB_BASE_URL` prefix via
-  `->under($base)`), auth hook, `before_render` nav hook, `web_prefix` helper,
-  `deny_unless` helper, `api_json_err` + path-aware
+  `->under($base)`), `before_dispatch` auth hook (redirects HTML to `/login`, exempts
+  `/api`, and **sets `$ENV{REMOTE_USER}` from the session user** so `Model::_audit`
+  records web/API writes — the old Apache layer provided this), `before_render` nav hook,
+  `web_prefix` helper, `deny_unless` helper, `api_json_err` + path-aware
   `reply.{html,json}_{not_found,method_not_allowed,exception}` (JSON errors under
   `/api`, branded HTML elsewhere).
 - `lib/Netdot/Mojo/Api.pm` — JSON API serializer (port of `Netdot::REST::get`):
   `get($obj,$user,$manager,%opts)` (FK→label + `_xlink`, `depth`, `linked_from`),
   `Netdot::Mojo::Api::Error` (code+msg). No Apache dependency.
-- `lib/Netdot/Mojo/Controller/Api.pm` — JSON API controller: `generic` (GET/POST/
-  DELETE per table), purpose-built `devinfo`/`host_contacts`/`ipattr`/`host`/
-  `host_like`/`updatedev`, `root` (GET `/api` Netbox-style flat index), `spec`
-  (`/api/openapi.yaml`), `docs` (Swagger UI, standalone).
+- `lib/Netdot/Mojo/Controller/Api.pm` — JSON API controller: `generic` (GET list +
+  object, POST/PATCH/PUT, DELETE per table) with **per-verb permission checks** —
+  GET `can('view')`, update `can('edit')`, DELETE `can('delete')`, create `_can_create`
+  (per-parent: `zone`/`rr`/`device`/`contactlist` FK; see `_create_parent`) — and
+  **Netbox pagination** (`limit`/`offset` → `{count,next,previous,results}` via
+  `Model::search_count`/`search_page`); purpose-built `devinfo`/`host_contacts`/`ipattr`/
+  `host`/`host_like`/`updatedev`. `_host_post`: create on a **new** IP = subnet
+  `can('edit'/'choose_ip')` + `RR->add_host`; create on an **existing** IP = insert an
+  **RRADDR** (no allocation) allowed iff `can('edit',$zone)` AND `can('edit',$ip)`.
+  Also `root` (GET `/api` Netbox-style flat index), `spec` (`/api/openapi.yaml`),
+  `docs` (Swagger UI, standalone).
 - `lib/Netdot/Mojo/OpenAPI.pm` — `build_spec()`: OpenAPI 3.0.3 from `Netdot->meta`
   (88 typed schemas + per-table paths + dedicated endpoints); `servers` from the
   `WEB_BASE_URL` prefix.
@@ -296,8 +334,16 @@ the rest.
  - Done: **Help section** (`Controller/Help.pm`, `/help*`): manual
    (`reply->file` on `doc/manual/netdot-manual.html`), database schema
    (`SQLT->html_schema`), GraphViz schema graph (`SQLT->graphviz_schema` → PNG).
-   Gated Admin+Operator; uses `NETDOT_PATH` for file paths.
- - Deferred: Access Rights tab; all write functions; minor read-only omissions
+    Gated Admin+Operator; uses `NETDOT_PATH` for file paths.
+  - Done: **JSON API writes + full permission model** (`Controller/Api.pm`): per-verb
+    checks (GET `view`, POST/PATCH/PUT `edit`, DELETE `delete`, create per-parent
+    `_can_create`), Netbox pagination (`limit`/`offset` → envelope), host creation on
+    existing IPs (insert an RRADDR, `can('edit',$zone)` + `can('edit',$ip)`). Changelog
+    permission filter (own entries for non-admins) + `REMOTE_USER` from session so
+    web/API writes are audited. Verified: smobile (zones 114/115/116) adds hostnames
+    to 127.0.0.1 and creates TXT/CNAME in zone 114; guest / non-editable zone → 403.
+  - Deferred: Access Rights tab; HTML write/edit pages (the **API** now covers
+    authorized writes); minor read-only omissions
    (ASN link, v4/v6 selector, utilization toggle; Closet picture display —
    binary serving not migrated); search for the remaining
    types (VLAN, Zone, DHCP, Devices, Assets); NS/MX/TXT/NAPTR related-record

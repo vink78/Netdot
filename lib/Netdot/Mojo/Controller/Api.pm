@@ -270,6 +270,41 @@ sub generic {
     });
 }
 
+# Parent class + FK column a CREATE must be gated on (per-parent enforcement).
+# Mirrors the inheritance the permission model applies on read (Interface->Device,
+# RR*->Zone, Contact->ContactList). Returns () if the class has no such parent ->
+# fall back to the class-level 'edit' right.
+sub _create_parent {
+    my ( $class ) = @_;
+    my $otype = eval { $class->short_class } // lc($class);
+    return ( 'Device',      'device' )      if $otype eq 'Interface';
+    return ( 'ContactList', 'contactlist' ) if $otype eq 'Contact';
+    # A base RR owns its zone directly; record sub-types (rrtxt, rrcname, rrns,
+    # ...) hang off a parent RR (fk `rr`), whose zone grants the rights.
+    return ( 'Zone',        'zone' )        if $otype eq 'RR';
+    return ( 'RR',          'rr' )          if $otype =~ /^RR/;
+    return ();
+}
+
+# May $p create an object of $class from args %a?
+#   - Admin: yes (insert validates required fields).
+#   - Parented class: require 'edit' on the SPECIFIC parent the record would
+#     belong to (e.g. an RR only if the zone it's created in is editable).
+#   - Otherwise: require 'edit' on the class as a whole (has_action).
+sub _can_create {
+    my ( $class, $p, $a ) = @_;
+    return 1 if Netdot::Mojo::Permissions->user_type( $p ) eq 'Admin';
+    my ( $parent_class, $fk ) = _create_parent( $class );
+    if ( $parent_class ) {
+        my $pid = $a->{$fk};
+        return 0 unless defined $pid && $pid =~ /^\d+$/;
+        my $parent = $parent_class->retrieve( $pid );
+        return 0 unless $parent;
+        return Netdot::Mojo::Permissions->can( $p, 'edit', $parent );
+    }
+    return Netdot::Mojo::Permissions->has_action( $class, $p, 'edit' );
+}
+
 # Create or update via the generic router. FK fields are passed as their id.
 sub _post {
     my ( $class, $id, $args, $p ) = @_;
@@ -286,9 +321,10 @@ sub _post {
         _err( 400, "Bad request: $@" ) if $@;
     }
     else {
-        # Create: require write ('edit') rights on this class (Admin unrestricted;
-        # a User e.g. needs edit on a Zone to create its RRs via Zone->RR grant).
-        unless ( Netdot::Mojo::Permissions->has_action( $class, $p, 'edit' ) ) {
+        # Per-parent enforcement: a User may create the object only if they hold
+        # 'edit' on the specific parent it belongs to (or, for parentless classes,
+        # on the class as a whole). Admin is unrestricted.
+        unless ( _can_create( $class, $p, \%a ) ) {
             _err( 403, 'User not allowed to create this object' );
         }
         my $new = eval { $class->insert(\%a) };
@@ -605,6 +641,52 @@ sub _host_post {
         $add_args{$_} = $A->{$_} for grep { defined $A->{$_} } qw(subnet expiration aliases cpu os info);
         $add_args{duid}     = $A->{duid} if $A->{duid};
         $add_args{ethernet} = $A->{ethernet} if ( $A->{ethernet} && !$add_args{duid} );
+
+        # If the requested address already exists, "add a host" means adding a
+        # new hostname (a new RRADDR) to that IP -- no new IP is allocated.
+        # Allowed iff the target zone AND the specific IP are both editable.
+        my $existing_ipb;
+        if ( defined $A->{address} && $A->{address} ne '' ) {
+            my $ver = Ipblock->matches_v4( $A->{address} ) ? 4
+                    : Ipblock->matches_v6( $A->{address} ) ? 6 : 0;
+            _err( 400, 'Bad request: invalid address' ) unless $ver;
+            $existing_ipb = Ipblock->search(
+                address => $A->{address}, version => $ver,
+                prefix  => $ver == 6 ? 128 : 32,
+            )->first;
+        }
+
+        if ( $existing_ipb ) {
+            my $zoneobj;
+            if ( defined $A->{zone} && $A->{zone} ne '' ) {
+                $zoneobj = Zone->objectify( $A->{zone} ) or _err( 400, 'Bad request: invalid zone' );
+            }
+            else {
+                $zoneobj = _first( Zone->search( name => $A->{name} ) );
+            }
+            _err( 400, 'Could not determine a zone' ) unless $zoneobj;
+            _err( 403, 'User not allowed to edit this zone' )
+                unless Netdot::Mojo::Permissions->can( $p, 'edit', $zoneobj );
+            _err( 403, 'User not allowed to edit this IP' )
+                unless Netdot::Mojo::Permissions->can( $p, 'edit', $existing_ipb );
+
+            my $zname = $zoneobj->name;
+            my $short = $add_args{name};
+            $short =~ s/\.$zname$// if defined $short;
+            my $rraddr = eval {
+                RR->insert( {
+                    type       => $existing_ipb->version == 6 ? 'AAAA' : 'A',
+                    ipblock    => $existing_ipb,
+                    name       => $short,
+                    zone       => $zoneobj,
+                    expiration => $add_args{expiration},
+                    info       => $add_args{info},
+                    update_ptr => 1,
+                } );
+            };
+            _err( 400, "Bad request: $@" ) if $@;
+            return $c->render( json => Netdot::Mojo::Api::get( $rraddr->rr, $p, undef, depth => 0 ), status => 200 );
+        }
 
         my $subnet = $A->{subnet};
         unless ($subnet) {

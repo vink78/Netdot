@@ -83,8 +83,15 @@ La section « Advanced » ne montre plus que le **Changelog** (table `audit`).
 Interface, physaddr, service sont **masqués du nav** (`nav => 0`) mais restent
 accessibles via URL (`/management/physaddr/…`, etc.).
 
-- [x] ✅ **Changelog** (`/changelog`, `Controller/Advanced.pm`) : 200 dernières
-  entrées d'audit (tstamp DESC), table : Timestamp / User / Table / Label / Operation / Fields / Values.
+- [x] ✅ **Changelog** (`/changelog`, `Controller/Advanced.pm`) : table `audit` (tstamp DESC),
+  colonnes Timestamp / User / Table / Label / Operation / Fields / Values ; recherche `search`
+  (LIKE sur `label`) + filtre `operation` (insert/update/delete) + pagination `offset`.
+- [x] ✅ **Filtre de permission** : feature Admin — Admin/Operator voient **tout** ; un autre
+  user ne voit que **ses propres** entrées (`audit.username = <user>`).
+- [x] ✅ **Enregistrement audit des écritures web/API** : `before_dispatch` (`Netdot::Mojo.pm`)
+  fixe `$ENV{REMOTE_USER}` = user de session (comme l'ancienne couche Apache) ; `Model::_audit`
+  l'utilise pour écrire dans `audit`. Sans ça, **aucune** entrée d'audit n'était créée pour les
+  écritures web. (Un host génère 2 entrées : le RR + l'association IP/host.)
 - [x] ✅ **Nav** : section « Advanced » = un seul item « Changelog » (hook `before_render`,
   cas spécial `generic` comme reports/export).
 - [x] ✅ **Recherche globale** (`/search`, `Controller/Search.pm`) : champ de recherche
@@ -161,7 +168,22 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
 
 **API JSON** (port de l'ancien `/rest` + `Netdot::REST`) — auth = session web, JSON uniquement :
 - [x] ✅ **Routeur générique** `/api/{table}` (88 tables) : GET liste (`?col=valeur`, `?depth=`,
-  `?linked_from=1`), GET `/api/{table}/{id}`, `meta_data`, POST créer/mettre à jour, DELETE.
+  `?linked_from=1`, `?limit=`, `?offset=`), GET `/api/{table}/{id}`, `meta_data`,
+  POST/PATCH/PUT créer + mettre à jour, DELETE.
+- [x] ✅ **Pagination Netbox** : `limit` (défaut 50, max 1000) / `offset` (défaut 0) → enveloppe
+  `{count, next, previous, results}` (`next`/`previous` préservent la recherche). Backend
+  `Netdot::Model::search_count` / `search_page` (SQL `LIMIT ? OFFSET ?`, colonnes validées,
+  valeurs liées). Champ `url` (absolu : `<préfixe>/api/<table>/<id>/`) sur chaque objet.
+- [x] ✅ **Permissions sur TOUS les verbes** (port de l'héritage `ObjectAccessRule`) :
+  GET liste = `viewable_predicate` (pré-filtre SQL FK) + `can('view')` par objet (safety net) ;
+  GET objet = `can('view')` ; POST/PATCH/PUT update = `can('edit')` ; DELETE = `can('delete')`.
+  **Création** = `_can_create` (l'objet cible n'existe pas → pas de `can()` direct) :
+  `can('edit', $parent)` avec `zone` (pour `rr`), `rr` (pour `rrtxt`/`rrcname`/… → leur RR),
+  `device` (interface), `contactlist` (contact) ; sinon `has_action(class, 'edit')`. Admin illimité.
+- [x] ✅ **Création de host sur IP existante** (`_host_post`) : `address` déjà présente =
+  ajout d'un **RRADDR** (aucune allocation d'IP, pas de `choose_ip`) → autorisé si
+  `can('edit', $zone)` ET `can('edit', $ip)`. IP neuve / sous-réseau = allouement
+  (`can('edit'/'choose_ip', $subnet)` + `RR->add_host`).
 - [x] ✅ **Endpoints dédiés** : `devinfo`, `host_contacts`, `ipattr`, `host`, `host_like`,
   `updatedev`.
 - [x] ✅ **Index** (`GET /api`) : flat-map Netbox-style `{resource: url-absolute}` (tables +
@@ -190,6 +212,10 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 `address_tasks`, `addneighbor`, `addservice`, `choose_ip`, `updatedevice`, `template_edit`,
 `ip-rec`.
 
+> **Nuance (2026-10-02)** : l'**UI HTML** reste lecture seule, mais l'**API JSON** `/api`
+> supporte les **écritures autorisées** (create / update / delete + host) avec le modèle de
+> permissions complet — l'écriture se fait via l'API, pas via des pages HTML. Cf. §9.
+
 ## Déprécié / non migré — ⛔
 
 - **Câblage & Circuits** : `backbonecable`, `horizontalcable`, `circuit` — dépréciés,
@@ -211,6 +237,10 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
    utilisation (ipblock) ; affichage des photos de closet (binaire).
 3. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
 4. ⛔ **Câblage/circuits** — dépréciés (Netbox).
+5. 🔶 **Création — raffiner la permission par parent** : `_can_create` est une approximation
+   (l'objet cible n'existe pas → `can('edit', $parent)` sur le parent FK) ; couvre zone→rr,
+   rr→rrtxt/rrcname, device→interface, contactlist→contact. À évaluer : faut-il aussi couvrir
+   le fallback « IP dans un bloc autorisé » (héritage complet `ObjectAccessRule`) pour la création ?
 
 > ✅ **Détails spécialisés tranchés (2026-10-01)** : seuls **3** des 11 types du
 > détail générique avaient une vraie page Mason dédiée (`%VIEWPAGE` dans
