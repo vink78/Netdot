@@ -208,9 +208,6 @@ components:
     BGPPeering:
       description: A BGP Peering
       properties:
-        authkey:
-          description: 'Auth key: The authentication key for this BGP session'
-          type: string
         bgppeeraddr:
           description: 'Peer Adress: BGP Peer Address'
           type: string
@@ -876,9 +873,6 @@ components:
             is set manually. Foreign key to Site (pass the id on write; on read a
             nested {id, url, ...label fields} reference).'
           type: ~
-        snmp_authkey:
-          description: 'AuthKey: SNMPv3 Authentication Key'
-          type: string
         snmp_authprotocol:
           description: 'AuthProtocol: SNMPv3 Authentication Protocol (MD5|SHA)'
           type: string
@@ -901,9 +895,6 @@ components:
           description: 'SNMP Polling?: Enable or Disable SNMP polling from management
             tools which get their configurations from Netdot'
           type: boolean
-        snmp_privkey:
-          description: 'PrivKey: SNMPv3 Privacy Key'
-          type: string
         snmp_privprotocol:
           description: 'PrivProtocol: SNMPv3 Privacy Protocol (AES|DES)'
           type: string
@@ -2837,10 +2828,6 @@ components:
           type: string
         pager:
           description: 'Pager: Pager number'
-          type: string
-        password:
-          description: 'Password: User Password.  Not necessary if this person is
-            not a Netdot user.'
           type: string
         position:
           description: 'Position: Position within the organization'

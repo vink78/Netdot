@@ -104,7 +104,12 @@ our @REPORTS = (
 sub reports_menu { @REPORTS }
 
 # Columns that must never be displayed (secrets / raw credentials).
-our %SENSITIVE = map { $_ => 1 } qw(password snmp_authkey snmp_privkey);
+#   password       - Person login password (SHA-256 digest)
+#   snmp_authkey / snmp_privkey - SNMPv3 auth/priv credentials
+#   authkey        - BGP session authentication key (BGPPeering)
+# NOTE: Device `community` (SNMP v1/v2c community) is intentionally NOT listed —
+# it is operational config shown in the HTML Device detail (the API mirrors that).
+our %SENSITIVE = map { $_ => 1 } qw(password snmp_authkey snmp_privkey authkey);
 
 # Accessors (avoid the "PKG::HASH{$x}" parse-as-method pitfall).
 sub is_sensitive { exists $SENSITIVE{ $_[0] } }

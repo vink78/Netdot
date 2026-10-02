@@ -134,9 +134,13 @@ sub startup ($self) {
     my %search_ctrl = ( ipblock => 'ipblock', rr => 'rr', physaddr => 'physaddr' );
     for my $t ( Netdot::Mojo::Registry::types() ) {
         $r->get("/management/$t")->to('browse#list', type => $t)->name("${t}_list");
-        if ( my $sc = $search_ctrl{$t} ) {
-            $r->get("/management/$t/search")->to("$sc#search", type => $t)->name("${t}_search");
-        }
+        # Per-type search: dedicated controllers for the rich multi-field ones
+        # (ipblock/rr/physaddr); a generic free-text search (browse#search) for
+        # every other type.
+        my $sc = $search_ctrl{$t};
+        $r->get("/management/$t/search")
+           ->to( $sc ? "$sc#search" : 'browse#search', type => $t )
+           ->name("${t}_search");
         $r->get("/management/$t/csv")->to('browse#csv', type => $t)->name("${t}_csv");
         $r->post("/management/$t/delete")->to('browse#delete', type => $t)->name("${t}_delete");
         my $ctrl = $show_ctrl{$t} // 'show';

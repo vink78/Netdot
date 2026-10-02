@@ -23,6 +23,7 @@ use warnings;
 use Netdot;
 use Netdot::Model;
 use Netdot::Mojo::Permissions;
+use Netdot::Mojo::Registry;
 
 # ---------------------------------------------------------------------------
 # Tiny exception carrying an HTTP status code + message.
@@ -113,6 +114,9 @@ sub get {
     }
 
     for my $col ( keys %order ) {
+        # Never serialize secrets / raw credentials (password, snmp keys, ...) —
+        # same guard the HTML detail views use (Registry::is_sensitive).
+        next if Netdot::Mojo::Registry::is_sensitive( $col );
         if ( grep { $_ eq $col } keys %linksto ) {
             # Foreign key -> nested lightweight reference {id, url, name}.
             my $fid = eval { int( $obj->$col // 0 ) };

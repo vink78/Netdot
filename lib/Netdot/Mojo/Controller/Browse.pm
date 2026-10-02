@@ -90,6 +90,14 @@ sub list ($c) {
         }
     }
 
+    # Free-text search box (?search=, see list.html.ep): match the type's primary
+    # display column via search_like (LIKE %v%; quote for exact, */? for wildcards).
+    # The dedicated rr/physaddr/ipblock searches override this for richer logic.
+    if ( my $q = $c->param('search') ) {
+        $q =~ s/^\s+|\s+$//g;
+        push @filters, ( $cols->[0] => $q ) if length $q;
+    }
+
     my ( @objs, $total );
     if ( @filters ) {
         @objs  = $class->search_like( @filters );
@@ -144,18 +152,20 @@ sub list ($c) {
     my $start     = @rows ? $offset + 1 : 0;
     my $last_item = $offset + scalar(@rows);
 
-    # Search boxes on the list page (mac.html / host_tasks.html). The box is
-    # generic (see list.html.ep); "Names within" only shows when zones are given.
+    # Search box on the list page (list.html.ep): shown for every type. Generic
+    # types search the primary column via ?search= (see search()); rr/physaddr
+    # keep their dedicated richer searches; "Names within" shows only for rr.
     my %extra;
+    $extra{search_url}         = $c->url_for( "${type}_search" );
+    $extra{search_title}       = 'Search ' . $spec->{label};
+    $extra{search_placeholder} = 'Filter by ' . Netdot::Mojo::Registry::column_tag( $class, $cols->[0] );
     if ( $type eq 'rr' ) {
         my @zones = Zone->retrieve_all;
         @zones = sort { $a->name cmp $b->name } @zones;
         $extra{zones}              = \@zones;
-        $extra{search_url}         = $c->url_for( 'rr_search' );
         $extra{search_title}       = 'Search DNS Records';
         $extra{search_placeholder} = 'Name / IP / MAC';
     } elsif ( $type eq 'physaddr' ) {
-        $extra{search_url}         = $c->url_for( 'physaddr_search' );
         $extra{search_title}       = 'Search MAC addresses';
         $extra{search_placeholder} = 'MAC address / OUI';
     }
@@ -177,6 +187,14 @@ sub list ($c) {
         %extra,
     );
 }
+
+# Generic per-type search box (route /management/<type>/search). Delegates to
+# list(), which reads ?search= and filters the primary display column through
+# the model's search_like(); the per-user 'view' rule is re-applied and the
+# results are paginated and rendered by the same list template. The dedicated
+# rr/physaddr/ipblock controllers override this for their richer multi-field
+# searches (name / IP / MAC, hierarchical IP blocks, ...).
+sub search ($c) { $c->list; }
 
 # CSV export of ALL objects of one type (header line + every row), streamed from
 # the model iterator. Relationships are rendered via ->get_label (like viewtext.html).

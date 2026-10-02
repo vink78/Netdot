@@ -247,10 +247,16 @@ from the arg-shifting.
   `reply.{html,json}_{not_found,method_not_allowed,exception}` (JSON errors under
   `/api`, branded HTML elsewhere).
 - `lib/Netdot/Mojo/Api.pm` — JSON API serializer (port of `Netdot::REST::get`):
-  `get($obj,$user,$manager,%opts)`. FK → **nested reference** `{id, url, …label fields}`
+  `get($obj,$user,$manager,%opts)`. FK → **nested reference** `{id, url, ...label fields}`
   (via `_ref` = `{id,url}` + `Model::get_hashref`); FK null → `null`; `depth>0` → full
-  nested object; `linked_from` → arrays of the same refs. `Netdot::Mojo::Api::Error`
-  (code+msg). No Apache dependency.
+  nested object; `linked_from` → arrays of the same refs. **Sensitive columns are skipped**
+  (`Registry::is_sensitive` — password, snmp_authkey/privkey, authkey) so secrets are never
+  serialized (same guard the HTML views use). `Netdot::Mojo::Api::Error` (code+msg). No Apache
+  dependency.
+- `lib/Netdot/Mojo/Registry.pm` — `is_sensitive` / `%SENSITIVE` (never-display columns:
+  `password`, `snmp_authkey`, `snmp_privkey`, `authkey`). Used by the HTML detail controllers
+  AND the API serializer + OpenAPI generator so secrets stay hidden in all three. `community`
+  (SNMP v1/v2c) is deliberately NOT listed (operational, shown in the HTML Device detail).
 - `lib/Netdot/Model.pm` — `get_ref_field_spec` (class; the reference/label-field spec,
   single source of truth, base = `meta_data->get_labels` → `[{name,is_fk,sql_type}]`) +
   `get_hashref` (instance; `{field=>value}`, an FK field → the related object's `get_label`

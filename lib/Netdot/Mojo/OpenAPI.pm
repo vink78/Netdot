@@ -14,6 +14,7 @@ use warnings;
 
 use Netdot;
 use Netdot::Model;
+use Netdot::Mojo::Registry;
 
 # sql_type -> OpenAPI type (+ optional format)
 my %TYPE_MAP = (
@@ -220,6 +221,9 @@ sub _schema {
 
     my %props;
     for my $colname ( sort { ( $order{$a} // 999 ) <=> ( $order{$b} // 999 ) } keys %order ) {
+        # Never document secrets / raw credentials (matches the serializer, which
+        # omits them from the response).
+        next if Netdot::Mojo::Registry::is_sensitive( $colname );
         my $col = eval { $t->get_column($colname) } or next;
         my ( $otype, $ofmt ) = _type($col);
 

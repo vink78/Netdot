@@ -196,6 +196,11 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
   (= `meta_data->get_labels`) ; `get_hashref` (valeurs ; champ FK → `get_label` **1 niveau**, pas
   de boucle infinie) ; FK nulle → `null` ; `depth>0` = objet complet imbriqué ; `linked_from` =
   mêmes références.
+- [x] ✅ **Champs sensibles masqués** : le serializer saute les colonnes
+  `Registry::is_sensitive` (`password`, `snmp_authkey`, `snmp_privkey`, `authkey`) → **jamais**
+  exposées en JSON (ni documentées dans le spec OpenAPI) — même garde que la couche HTML.
+  `authkey` (clé de session BGP, `BGPPeering`) **ajouté** à la liste ; `community` (SNMP v1/v2c,
+  `Device`) volontairement **visible** (config opérationnelle, montrée dans le détail Device HTML).
 - [x] ✅ **OpenAPI 3** généré depuis `netdot.meta` : `lib/Netdot/Mojo/OpenAPI.pm` +
   `api/gen_openapi.pl` → `api/openapi.yaml` ; Swagger UI en `/api/docs` (page standalone).
   Schémas de référence **par classe** `FkReference_<Classe>` (id/url + champs de label, depuis
