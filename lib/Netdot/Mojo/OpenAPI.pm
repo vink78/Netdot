@@ -48,7 +48,9 @@ sub build_spec {
 
         $schemas{$class} = _schema( $t, $class, \%lt );
 
-        $paths{ "/api/$table" } = {
+        # Path is relative to the API root server (<base>/api or /api); the
+        # "/api" prefix lives in `servers`, so it must NOT be repeated here.
+        $paths{ "/$table" } = {
             get => {
                 summary   => "List $table objects (all, or filtered with ?column=value)",
                 operationId => "list_$table",
@@ -90,7 +92,7 @@ sub build_spec {
             },
         };
 
-        $paths{ "/api/$table/{id}" } = {
+        $paths{ "/$table/{id}" } = {
             parameters => [ _id_param() ],
             get => {
                 summary     => "Get a $class by id (options: depth, linked_from)",
@@ -127,7 +129,7 @@ sub build_spec {
             },
         };
 
-        $paths{ "/api/$table/meta_data" } = {
+        $paths{ "/$table/meta_data" } = {
             get => {
                 summary     => "Class metadata for $table (columns, order, labels, links)",
                 operationId => "meta_$table",
