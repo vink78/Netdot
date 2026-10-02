@@ -82,9 +82,17 @@ sub viewable_predicate {
     for my $p (@pairs) {
         my ( $col, $acl ) = @$p;
         next unless exists $access->{$acl};
+        # Only object ids that grant the 'view' action (a User may hold edit/
+        # delete without view on a given object; we must not list those).
         # Object ids are integers: build a single literal IN list (one string),
         # rather than one placeholder per value.
-        my @ids = grep { defined && /^\d+$/ } keys %{ $access->{$acl} };
+        my @ids;
+        for my $id ( keys %{ $access->{$acl} } ) {
+            next unless defined $id && $id =~ /^\d+$/;
+            my $a = $access->{$acl}{$id};
+            next unless ref $a && !exists $a->{none};
+            push @ids, $id if exists $a->{view};
+        }
         next unless @ids;
         push @clauses, "$col IN (" . join( ',', @ids ) . ")";
     }

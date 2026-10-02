@@ -228,12 +228,16 @@ sub generic {
             $offset = 0    if $offset < 0;
 
             my $sargs = _search_args( $args );
-            my $count = $class->search_count( %$sargs );
-            my @page  = $class->search_page( %$sargs, limit => $limit, offset => $offset );
+            # Permission filter at the query level (fast count + paging): a User
+            # sees only objects they may 'view'; Admin/Operator are unrestricted.
+            my ( $pwhere ) = Netdot::Mojo::Permissions->viewable_predicate( $class, $p );
+            my $count = $class->search_count( %$sargs, where => $pwhere );
+            my @page  = $class->search_page( %$sargs, limit => $limit, offset => $offset, where => $pwhere );
 
             my @results;
             for my $o (@page) {
-                # permission-safe list: skip objects the user may not view.
+                # Safety net: skip anything the query-level predicate let through
+                # that the fine-grained rule does not actually allow viewing.
                 next unless Netdot::Mojo::Permissions->can( $p, 'view', $o );
                 my %ga = ( obj => $o, depth => $depth );
                 $ga{linked_from} = $linked_from if $linked_from;

@@ -682,7 +682,10 @@ sub raw_sql {
 
 sub search_count {
     my ( $class, %args ) = @_;
+    my $frag = delete $args{where};              # trusted permission fragment (or undef)
+    return 0 if defined $frag && $frag eq '0';   # nothing viewable
     my ( $where, $binds ) = _pagination_where( $class, %args );
+    $where = _combine_where( $where, $frag );
     my ($n) = $class->db_Main()->selectrow_array(
         "SELECT COUNT(*) FROM " . $class->table . $where,
         {},
@@ -710,12 +713,15 @@ sub search_page {
     my ( $class, %all ) = @_;
     my $limit  = defined $all{limit}  ? int( $all{limit}  ) : 50;
     my $offset = defined $all{offset} ? int( $all{offset} ) : 0;
+    my $frag   = delete $all{where};
     delete @all{ qw(limit offset) };
     $limit  = 50   if $limit  < 1;
     $limit  = 1000 if $limit  > 1000;
     $offset = 0    if $offset < 0;
+    return () if defined $frag && $frag eq '0';   # nothing viewable
 
     my ( $where, $binds ) = _pagination_where( $class, %all );
+    $where = _combine_where( $where, $frag );
     my $pk  = $class->primary_column;
     my @ids = map { $_->[0] } @{ $class->db_Main()->selectall_arrayref(
         "SELECT $pk FROM " . $class->table . $where
@@ -724,6 +730,16 @@ sub search_page {
         @$binds, $limit, $offset
     ) };
     return map { $class->retrieve( $_ ) } @ids;
+}
+
+# Combine the column WHERE (from _pagination_where, '' or ' WHERE ...') with a
+# trusted permission fragment ($frag: undef = none, or an AND-able predicate).
+# The fragment is built by Netdot::Mojo::Permissions::viewable_predicate (integer
+# IN lists only) -- never from user input.
+sub _combine_where {
+    my ( $where, $frag ) = @_;
+    return $where unless defined $frag && $frag ne '';
+    return $where eq '' ? " WHERE $frag" : "$where AND $frag";
 }
 
 # Build a validated WHERE clause + bound values from column=>value args.
