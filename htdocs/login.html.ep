@@ -5,7 +5,7 @@
 % if ( defined( my $err = $c->stash('error') ) ) {
       <p class="error"><%= $err %></p>
 % }
-      <form method="post" action="/login">
+      <form method="post" action="<%= $c->web_prefix %>/login">
         <p>
           <label>Username
             <input type="text" name="username" value="<%= $username // '' %>" autofocus>

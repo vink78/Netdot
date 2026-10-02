@@ -43,7 +43,7 @@
   <div class="containerbody">
   % if ($covering) {
     <p>Closest covering block:</p>
-    <p><a href="/management/ipblock/<%= $covering->{id} %>"><%= $covering->{label} %></a></p>
+    <p><a href="<%= $c->web_prefix %>/management/ipblock/<%= $covering->{id} %>"><%= $covering->{label} %></a></p>
   % }
   </div>
 </div>

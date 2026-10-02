@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link rel="stylesheet" href="/css/style.css" type="text/css">
-  <link rel="stylesheet" href="/css/datechooser.css" type="text/css">
-  <link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon">
+  <link rel="stylesheet" href="<%= $c->web_prefix %>/css/style.css" type="text/css">
+  <link rel="stylesheet" href="<%= $c->web_prefix %>/css/datechooser.css" type="text/css">
+  <link rel="shortcut icon" href="<%= $c->web_prefix %>/img/favicon.ico" type="image/x-icon">
   <title>Netdot: <%= $c->stash('title') // 'Netdot' %></title>
-  <script src="/java_script/dynamic_list.js"></script>
-  <script src="/java_script/select.js"></script>
-  <script src="/java_script/jsrsClient.js"></script>
-  <script src="/java_script/toggle.js"></script>
-  <script src="/java_script/datechooser.js"></script>
-  <script src="/java_script/tablesort.js"></script>
-  <script src="/java_script/htmx.min.js"></script>
+  <script src="<%= $c->web_prefix %>/java_script/dynamic_list.js"></script>
+  <script src="<%= $c->web_prefix %>/java_script/select.js"></script>
+  <script src="<%= $c->web_prefix %>/java_script/jsrsClient.js"></script>
+  <script src="<%= $c->web_prefix %>/java_script/toggle.js"></script>
+  <script src="<%= $c->web_prefix %>/java_script/datechooser.js"></script>
+  <script src="<%= $c->web_prefix %>/java_script/tablesort.js"></script>
+  <script src="<%= $c->web_prefix %>/java_script/htmx.min.js"></script>
   <script>
     /* htmx: opt-out non-navigable links/forms (images, downloads, login/logout) for safe degradation. */
     htmx.onLoad(function(body){
@@ -32,7 +32,7 @@
 </head>
 <body>
   <div id="header">
-    <a href="<%= url_for('home') %>"><img border="0" class="headleft" src="/img/title.png" alt="Netdot: Network Documentation Tool"></a>
+    <a href="<%= url_for('home') %>"><img border="0" class="headleft" src="<%= $c->web_prefix %>/img/title.png" alt="Netdot: Network Documentation Tool"></a>
     <span class="headright">
       % if (my $u = $c->session('username')) {
         <strong>user</strong>: <%= $u %> &nbsp;

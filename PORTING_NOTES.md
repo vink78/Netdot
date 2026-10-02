@@ -36,6 +36,16 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
 - Template per type: `htdocs/management/<type>.html.ep`.
 - Root/breadcrumb pages are rendered by `Browse#list`; they do NOT expose the
   detail-page variables (e.g. `$block_attrs`) → hence the preamble rule below.
+- **Base path `/netdot`**: the app is mounted under a configurable prefix —
+  `WEB_BASE_URL` in `etc/Site.conf` is a **bare path** (e.g. `/netdot`), host-agnostic
+  so dev and prod share one value. All routes are wrapped in `->under($base)`;
+  static assets (`css|img|java_script`) are served under the prefix; `before_dispatch`,
+  the nav builder, and the `web_prefix()` helper are prefix-aware. `url_for` picks the
+  prefix up automatically (routes are under it) — only a handful of hard-coded template
+  links use `$c->web_prefix`. The reverse proxy must **preserve** the prefix:
+  `ProxyPass /netdot → http://127.0.0.1:3000/netdot` (nginx: `location /netdot/
+  { proxy_pass http://127.0.0.1:3000; }` **without a trailing slash**). Dev =
+  `http://127.0.0.1:3000/netdot/`. The JSON API lives under the same prefix (`/netdot/api`).
 
 ## Pitfalls (critical)
 
@@ -167,9 +177,22 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
   `esc`, `%MENU` + `@MENU_ORDER` (5 sections incl. Export).
 - `lib/Netdot/Mojo/Permissions.pm` — `user_type`, `can`, `allowed_objects`,
   `has_action_on`, `has_action`, `can_export` (write rights on RR).
-- `lib/Netdot/Mojo.pm` — app, routes per type, auth hook, `before_render`
-  nav hook, `deny_unless` helper, `reply.html_not_found` / `reply.html_exception`
-  (error page branding).
+- `lib/Netdot/Mojo.pm` — app, routes (mounted under the `WEB_BASE_URL` prefix via
+  `->under($base)`), auth hook, `before_render` nav hook, `web_prefix` helper,
+  `deny_unless` helper, `api_json_err` + path-aware
+  `reply.{html,json}_{not_found,method_not_allowed,exception}` (JSON errors under
+  `/api`, branded HTML elsewhere).
+- `lib/Netdot/Mojo/Api.pm` — JSON API serializer (port of `Netdot::REST::get`):
+  `get($obj,$user,$manager,%opts)` (FK→label + `_xlink`, `depth`, `linked_from`),
+  `Netdot::Mojo::Api::Error` (code+msg). No Apache dependency.
+- `lib/Netdot/Mojo/Controller/Api.pm` — JSON API controller: `generic` (GET/POST/
+  DELETE per table), purpose-built `devinfo`/`host_contacts`/`ipattr`/`host`/
+  `host_like`/`updatedev`, `root` (GET `/api` Netbox-style flat index), `spec`
+  (`/api/openapi.yaml`), `docs` (Swagger UI, standalone).
+- `lib/Netdot/Mojo/OpenAPI.pm` — `build_spec()`: OpenAPI 3.0.3 from `Netdot->meta`
+  (88 typed schemas + per-table paths + dedicated endpoints); `servers` from the
+  `WEB_BASE_URL` prefix.
+- `api/gen_openapi.pl` — regenerator → `api/openapi.yaml` (re-run after model/spec changes).
 - `htdocs/management/{ipblock,rr,ipaddress,detail,search_results}.html.ep` — templates.
 - `htdocs/export.html.ep` — Export form (types, zones, scopes, force, HINFO/TXT).
 - `htdocs/advanced/changelog.html.ep` — Changelog (audit log) table.

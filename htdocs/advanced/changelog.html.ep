@@ -4,7 +4,7 @@
   <div class="containerheadleft">Search</div>
   <div class="containerheadright">&nbsp;</div>
   <div class="containerbody" style="padding:0.6em">
-    <form method="get" action="/changelog">
+    <form method="get" action="<%= $c->web_prefix %>/changelog">
       <p>
         <label>Label:</label>
         <input type="text" name="search" class="longtxt" value="<%= $c->stash('search') // '' %>">

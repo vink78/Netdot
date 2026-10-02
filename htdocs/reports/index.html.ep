@@ -9,7 +9,7 @@
     <table border="0" width="100%">
       % for my $r (@$reports) {
       <tr>
-        <td style="white-space:nowrap"><a href="/reports/<%= $r->{key} %>"><strong><%= $r->{label} %></strong></a></td>
+        <td style="white-space:nowrap"><a href="<%= $c->web_prefix %>/reports/<%= $r->{key} %>"><strong><%= $r->{label} %></strong></a></td>
         <td><%= $r->{desc} %></td>
       </tr>
       % }

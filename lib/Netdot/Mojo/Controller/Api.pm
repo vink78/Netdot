@@ -108,14 +108,22 @@ sub _search {
 # API index (GET /api)
 # ---------------------------------------------------------------------------
 
-# Public base URL (no trailing slash): WEB_BASE_URL from the config when set
-# (covers HTTPS + sub-path proxy deployments), else derived from the request
-# (correct when the app is served at the domain root).
+# Public base (no trailing slash) for absolute API URLs. If WEB_BASE_URL is a
+# full URL, use it; if it is a bare path prefix (/netdot), build <request
+# origin><prefix> so the result is correct on dev and prod alike (Netbox-style).
 sub _base_url {
     my ($c) = @_;
     my $cfg = eval { Netdot->config->get('WEB_BASE_URL') };
     $cfg = '' unless defined $cfg && !ref $cfg;
-    my $b = ( $cfg ne '' ) ? $cfg : $c->req->url->base->to_string;
+    my $b;
+    if ( $cfg =~ m{^https?://} ) {
+        $b = $cfg;
+    }
+    else {
+        my $origin = $c->req->url->base->to_string;   # scheme://host[:port]/
+        $origin =~ s{/+$}{};
+        $b = $origin . $cfg;                          # <origin> + prefix
+    }
     $b =~ s{/+$}{};
     return $b;
 }
@@ -125,7 +133,7 @@ sub _base_url {
 # GET only (else 405 JSON).
 sub root {
     my ($c) = @_;
-    return $c->render( json => { error => 'Method not allowed', path => '/api' }, status => 405 )
+    return $c->render( json => { error => 'Method not allowed', path => $c->web_prefix . '/api' }, status => 405 )
         unless $c->req->method eq 'GET';
 
     my $base = _base_url($c);

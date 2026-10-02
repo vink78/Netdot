@@ -4,7 +4,7 @@
 % my $sections = $c->stash->{sections} // [];
 
 <h1>DNS Record: <strong><%= $rr->get_label %></strong></h1>
-<p style="margin:0 0 1em 0; font-size:0.95em"><a href="/management/rr">All DNS Records</a></p>
+<p style="margin:0 0 1em 0; font-size:0.95em"><a href="<%= $c->web_prefix %>/management/rr">All DNS Records</a></p>
 
 %# The record's own attributes.
 % if ($rr_attrs && @$rr_attrs) {

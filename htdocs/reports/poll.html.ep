@@ -1,7 +1,7 @@
 % use Mojo::ByteStream qw(b);
 <h1><%= $title %></h1>
 <p>Aggregated over time from the polling RRD database
-   (<a href="/reports/pollstats">back to polling stats</a>).</p>
+   (<a href="<%= $c->web_prefix %>/reports/pollstats">back to polling stats</a>).</p>
 
 % if ($rrd_avail) {
 %   my $cards = $cards // [];
@@ -10,7 +10,7 @@
   <div class="containerhead"><%= $card->{label} %></div>
   <div class="containerbody">
     % if ($card->{ok}) {
-    <img src="/img/graphs/<%= $card->{img} %>" alt="poll stats" style="max-width:100%">
+    <img src="<%= $c->web_prefix %>/img/graphs/<%= $card->{img} %>" alt="poll stats" style="max-width:100%">
     % } else {
     <p>RRD graph could not be generated (<%= $card->{label} %>)</p>
     % }

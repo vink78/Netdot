@@ -185,17 +185,30 @@ sub startup ($self) {
     $r->post('/login')->to('auth#login_submit');
     $r->get('/logout')->to('auth#logout')->name('logout');
 
+    # Static assets under the prefix (css, img, java_script). The default static
+    # fallback only serves the raw request path, so with a prefix we serve these
+    # explicitly. Guarded: a missing file -> not_found (reply->static would croak).
+    for my $d (qw(css img java_script)) {
+        $r->get( "$d/*file" )->to(
+            cb => sub ($c) {
+                my $file = "$d/" . $c->stash('file');
+                return $c->reply->not_found unless $c->app->static->file($file);
+                $c->reply->static($file);
+            }
+        );
+    }
+
     # ---- Authentication: redirect (302) unauthenticated requests to /login ----
     # Public paths (login/logout and static assets) are exempt.
     $self->hook( before_dispatch => sub {
         my ($c)  = @_;
         my $path = $c->req->url->path;
-        return if $path eq '/login' || $path eq '/logout';
-        return if $path =~ m{^/(?:css|img|java_script)(?:/|$)};
-        return if $path eq '/favicon.ico';
+        return if $path eq "$base/login" || $path eq "$base/logout";
+        return if $path =~ m{^\Q$base\E(?:/(?:css|img|java_script))(?:/|$)};
+        return if $path eq "$base/favicon.ico";
         # The JSON API handles auth itself (JSON 401) rather than the HTML login
         # redirect.
-        return if $path =~ m{^/api(?:/|$)};
+        return if $path =~ m{^\Q$base\E/api(?:/|$)};
         $c->redirect_to( $c->url_for('login') ) unless $c->session('username');
     });
 
@@ -219,7 +232,7 @@ sub startup ($self) {
             # (the original gates it with the access_section permission).
             if ( $key eq 'reports' ) {
                 next unless $utype eq 'Admin' || $utype eq 'Operator';
-                my @items = map { { label => $_->{label}, url => "/reports/$_->{key}" } }
+                my @items = map { { label => $_->{label}, url => $base . "/reports/$_->{key}" } }
                             Netdot::Mojo::Registry::reports_menu();
                 next unless @items;
                 push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
@@ -230,14 +243,14 @@ sub startup ($self) {
             # to people who hold write rights on DNS records (Permissions::can_export).
             if ( $key eq 'export' ) {
                 next unless Netdot::Mojo::Permissions->can_export( $person );
-                my @items = ( { label => 'Configurations', url => '/export' } );
+                my @items = ( { label => 'Configurations', url => $base . '/export' } );
                 push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
                 next;
             }
 
             # Advanced: changelog (audit log). Single item, all users.
             if ( $key eq 'generic' ) {
-                my @items = ( { label => 'Changelog', url => '/changelog' } );
+                my @items = ( { label => 'Changelog', url => $base . '/changelog' } );
                 push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
                 next;
             }
@@ -246,9 +259,9 @@ sub startup ($self) {
             if ( $key eq 'help' ) {
                 next unless $utype eq 'Admin' || $utype eq 'Operator';
                 my @items = (
-                    { label => 'User Manual',       url => '/help/manual' },
-                    { label => 'Database Schema',   url => '/help/database' },
-                    { label => 'Database Graph',    url => '/help/database/graph' },
+                    { label => 'User Manual',       url => $base . '/help/manual' },
+                    { label => 'Database Schema',   url => $base . '/help/database' },
+                    { label => 'Database Graph',    url => $base . '/help/database/graph' },
                 );
                 push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
                 next;

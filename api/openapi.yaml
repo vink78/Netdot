@@ -23451,8 +23451,8 @@ paths:
 security:
 - session: []
 servers:
-- description: Absolute public API root (from WEB_BASE_URL).
-  url: https://netdot.localdomain/netdot/api
+- description: Public API root (from WEB_BASE_URL prefix).
+  url: /netdot/api
 tags:
 - description: Generic per-table resource access
   name: generic

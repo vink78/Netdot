@@ -1,6 +1,6 @@
 <h1>Netdot <small>(Mojolicious)</small></h1>
 
-<form action="/search" method="get" style="margin:1em 0">
+<form action="<%= $c->web_prefix %>/search" method="get" style="margin:1em 0">
   <input type="text" name="q" size="50" placeholder="Search: IP, MAC, or hostname" />
   <input type="submit" value="Search" />
 </form>

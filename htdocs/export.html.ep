@@ -23,7 +23,7 @@
     <pre style="background:#f4f4f4;padding:8px;max-height:420px;overflow:auto;font-size:12px"><%= $log %></pre>
     % }
 
-    <form action="/export" method="POST">
+    <form action="<%= $c->web_prefix %>/export" method="POST">
       <table style="border-collapse:separate">
         <tr>
           <td valign="top">

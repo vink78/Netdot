@@ -91,7 +91,7 @@
     <div style="margin:0.5em 0 1em 0; padding-bottom:0.4em; border-bottom:2px solid #ddeedd; font-size:0.95em">
     % for my $i (0 .. $#$tabs) {
         % my $t = $tabs->[$i];
-        <a href="/management/ipblock/<%= $current->id %>?view=<%= $t->[0] %>" style="<%= $view eq $t->[0] ? 'font-weight:bold; color:#000' : '' %>"><%= $t->[1] %></a>
+        <a href="<%= $c->web_prefix %>/management/ipblock/<%= $current->id %>?view=<%= $t->[0] %>" style="<%= $view eq $t->[0] ? 'font-weight:bold; color:#000' : '' %>"><%= $t->[1] %></a>
         <span style="color:#ccc"><%= $i < $#$tabs ? ' | ' : '' %></span>
     % }
     </div>
@@ -103,7 +103,7 @@
     <div style="margin:0 0 1em 0; font-size:0.9em">
     % for my $i (0 .. $#$modes) {
         % my $m = $modes->[$i];
-        <a href="/management/ipblock/<%= $current->id %>?view_format=<%= $m %>" style="<%= $viewformat eq $m ? 'font-weight:bold' : '' %>"><%= $m eq 'list' ? 'List' : $m eq 'block' ? 'Block' : 'Tree' %> View</a>
+        <a href="<%= $c->web_prefix %>/management/ipblock/<%= $current->id %>?view_format=<%= $m %>" style="<%= $viewformat eq $m ? 'font-weight:bold' : '' %>"><%= $m eq 'list' ? 'List' : $m eq 'block' ? 'Block' : 'Tree' %> View</a>
         <span style="color:#ccc"><%= $i < $#$modes ? ' | ' : '' %></span>
     % }
     </div>
@@ -152,14 +152,14 @@
     % for my $o (@$blocks) {
         <tr>
         % if ($is_addr) {
-            <td><a href="/management/ipblock/<%= $o->id %>"><%= $o->address %></a></td>
+            <td><a href="<%= $c->web_prefix %>/management/ipblock/<%= $o->id %>"><%= $o->address %></a></td>
             % my @names = eval { $o->a_records } // ();
             % my $name  = join( ', ', map { eval { $_->rr->get_label } // '' } @names );
             <td><%= $name %></td>
             % my $did = $devs ? ( $devs->{ $o->address_numeric } // undef ) : undef;
             <td>
             % if ( my $dev = $did ? Device->retrieve( $did ) : undef ) {
-                <a href="/management/device/<%= $dev->id %>"><%= $dev->fqdn %></a>
+                <a href="<%= $c->web_prefix %>/management/device/<%= $dev->id %>"><%= $dev->fqdn %></a>
             % }
             </td>
             <td><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
@@ -167,7 +167,7 @@
             <td><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
             <td><%= Netdot::Mojo::Registry::format_value( $o->last_seen ) %></td>
         % } else {
-            <td><a href="/management/ipblock/<%= $o->id %>"><%= $o->get_label %></a></td>
+            <td><a href="<%= $c->web_prefix %>/management/ipblock/<%= $o->id %>"><%= $o->get_label %></a></td>
             % my $st = eval { $o->status->get_label } // '';
             <td><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
             <td>

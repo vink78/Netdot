@@ -22,13 +22,13 @@
   <div class="containerhead"><%= $card->{title} %></div>
   <div class="containerbody">
     % if ($card->{exists}) {
-      <img src="/img/graphs/<%= $card->{file} %>" alt="topology" style="max-width:100%">
+      <img src="<%= $c->web_prefix %>/img/graphs/<%= $card->{file} %>" alt="topology" style="max-width:100%">
       <p><em>Generated at: <%= $card->{mtime} %> &middot; Size: <%= $card->{size} %> bytes</em></p>
     % } else {
       <p>Graph has not been generated yet.</p>
     % }
     <p>
-      <a class="btn" href="/reports/topology?regen=<%= $card->{key} %>&show_names=<%= $show_names %>&minlen=<%= $minlen %>">Regenerate</a>
+      <a class="btn" href="<%= $c->web_prefix %>/reports/topology?regen=<%= $card->{key} %>&show_names=<%= $show_names %>&minlen=<%= $minlen %>">Regenerate</a>
     </p>
   </div>
 </div>
@@ -37,7 +37,7 @@
 <div class="container">
   <div class="containerhead">Options</div>
   <div class="containerbody" style="padding:0.6em">
-    <form method="get" action="/reports/topology">
+    <form method="get" action="<%= $c->web_prefix %>/reports/topology">
       <label>Show Interface Names
         <input type="checkbox" name="show_names" value="1"<%= ($c->stash('show_names')) ? ' checked' : '' %>>
       </label>

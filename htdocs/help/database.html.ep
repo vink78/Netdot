@@ -9,7 +9,7 @@
 <div class="container">
   <div class="containerhead">Netdot Schema</div>
   <div class="containerbody">
-    <p><a href="/help/database/graph">View as GraphViz graph &rarr;</a></p>
+    <p><a href="<%= $c->web_prefix %>/help/database/graph">View as GraphViz graph &rarr;</a></p>
     <div class="tablescroll" style="max-height:80vh;overflow:auto">
       <%== $c->stash('schema') // '' %>
     </div>

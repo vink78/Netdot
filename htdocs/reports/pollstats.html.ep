@@ -5,11 +5,11 @@
   <div class="containerhead">Polling Statistics</div>
   <div class="containerbody">
     <table border="0">
-      <tr><td style="white-space:nowrap"><a href="/reports/poll?type=addr"><strong>Network Addresses</strong></a></td>
+      <tr><td style="white-space:nowrap"><a href="<%= $c->web_prefix %>/reports/poll?type=addr"><strong>Network Addresses</strong></a></td>
           <td>MAC and IP addresses active on the network</td></tr>
-      <tr><td style="white-space:nowrap"><a href="/reports/poll?type=dev"><strong>Devices</strong></a></td>
+      <tr><td style="white-space:nowrap"><a href="<%= $c->web_prefix %>/reports/poll?type=dev"><strong>Devices</strong></a></td>
           <td>Devices being polled for ARP caches and forwarding tables</td></tr>
-      <tr><td style="white-space:nowrap"><a href="/reports/poll?type=time"><strong>Poll Time</strong></a></td>
+      <tr><td style="white-space:nowrap"><a href="<%= $c->web_prefix %>/reports/poll?type=time"><strong>Poll Time</strong></a></td>
           <td>Device polling time</td></tr>
     </table>
   </div>

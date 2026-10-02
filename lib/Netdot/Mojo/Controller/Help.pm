@@ -74,7 +74,7 @@ sub graph {
         template => 'help/graph',
         layout   => 'default',
         title    => 'Database Schema (Graph)',
-        img      => $err ? undef : '/img/graphs/schema.png',
+        img      => $err ? undef : $c->web_prefix . '/img/graphs/schema.png',
         error    => $err,
     );
 }

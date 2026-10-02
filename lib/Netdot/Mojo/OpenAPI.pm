@@ -164,7 +164,7 @@ sub build_spec {
                 'requests get 401.',
             ),
         },
-        servers => [ { url => $server, description => ( $cfg ne '' ? 'Absolute public API root (from WEB_BASE_URL).' : 'Relative to the Netdot base URL.' ) } ],
+        servers => [ { url => $server, description => ( $cfg ne '' ? 'Public API root (from WEB_BASE_URL prefix).' : 'Relative to the Netdot base URL.' ) } ],
         tags    => [
             { name => 'generic',     description => 'Generic per-table resource access' },
             { name => 'specific',    description => 'Purpose-built endpoints' },

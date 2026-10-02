@@ -157,6 +157,32 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
 
 ---
 
+## 9. JSON API (`/api`) + déploiement sous `/netdot` — ✅ porté
+
+**API JSON** (port de l'ancien `/rest` + `Netdot::REST`) — auth = session web, JSON uniquement :
+- [x] ✅ **Routeur générique** `/api/{table}` (88 tables) : GET liste (`?col=valeur`, `?depth=`,
+  `?linked_from=1`), GET `/api/{table}/{id}`, `meta_data`, POST créer/mettre à jour, DELETE.
+- [x] ✅ **Endpoints dédiés** : `devinfo`, `host_contacts`, `ipattr`, `host`, `host_like`,
+  `updatedev`.
+- [x] ✅ **Index** (`GET /api`) : flat-map Netbox-style `{resource: url-absolute}` (tables +
+  endpoints dédiés + `docs` + `openapi.yaml`).
+- [x] ✅ **Erreurs JSON-aware** : tout `/api/…` répond en JSON (404/405/500), quel que soit
+  l'`Accept` (handlers `reply.*` path-aware) ; hors `/api` → pages HTML Netdot.
+- [x] ✅ **OpenAPI 3** généré depuis `netdot.meta` : `lib/Netdot/Mojo/OpenAPI.pm` +
+  `api/gen_openapi.pl` → `api/openapi.yaml` ; Swagger UI en `/api/docs` (page standalone).
+
+**Déploiement sous préfixe `/netdot`** (Apache/nginx en front) :
+- [x] ✅ **`WEB_BASE_URL` = préfixe de chemin** (`/netdot`) dans la config (pas une URL
+  absolue) → identique en dev et en prod. L'app est montée sous ce préfixe **des deux côtés** :
+  routes (`->under($base)`), static (`css|img|java_script` sous le préfixe), `before_dispatch`
+  et nav path-aware, helper `web_prefix()` pour les liens durs restants.
+- [x] ✅ **Proxy (préservation du préfixe)** : `ProxyPass /netdot → http://127.0.0.1:3000/netdot`
+  (nginx : `location /netdot/ { proxy_pass http://127.0.0.1:3000; }` **sans slash final**).
+- [x] ✅ **Dev** : `http://127.0.0.1:3000/netdot/` ; **Prod** : `https://netdot.localdomain/netdot/`.
+  URLs absolues de l'API = `<origin de la requête><préfixe>` (ex. `…/netdot/api/device`).
+
+---
+
 ## Hors périmètre (écriture) — ⛔
 
 Objectif = vues lecture seule. Pages de création/édition/suppression **non portées** :
