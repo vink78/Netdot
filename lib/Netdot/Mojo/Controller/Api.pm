@@ -66,10 +66,13 @@ sub _err {
 }
 
 # Merge query params + JSON body (body wins) into one hashref.
+# NB: use params->to_hash, NOT params->names: the system Mojo::Parameters is
+# patched so names() returns an arrayref (not a list), which would corrupt the
+# hash (single key "ARRAY(0x..)"). to_hash() is unpatched and returns the last
+# value per key, matching the original intent.
 sub _args {
     my ($c) = @_;
-    my %a;
-    for my $k ( $c->req->params->names ) { $a{$k} = $c->param($k) }
+    my %a = %{ $c->req->params->to_hash };
     my $body = eval { $c->req->json };
     %a = ( %a, %$body ) if ref $body eq 'HASH';
     return \%a;
@@ -391,10 +394,10 @@ sub _host {
 
     return _run( $c, sub {
         if ( $method eq 'GET' ) {
-            my ( %rrs, %ips ) = _host_collect( \%A, $p, $like );
+            my ( $rrs, $ips ) = _host_collect( \%A, $p, $like );
             my %ret;
-            for my $rr ( values %rrs ) { push @{ $ret{RR} }, Netdot::Mojo::Api::get( $rr, $p, undef, depth => 0 ) }
-            for my $ip ( values %ips ) { push @{ $ret{Ipblock} }, Netdot::Mojo::Api::get( $ip, $p, undef, depth => 0 ) }
+            for my $rr ( values %$rrs ) { push @{ $ret{RR} }, Netdot::Mojo::Api::get( $rr, $p, undef, depth => 0 ) }
+            for my $ip ( values %$ips ) { push @{ $ret{Ipblock} }, Netdot::Mojo::Api::get( $ip, $p, undef, depth => 0 ) }
             $c->render( json => \%ret, status => 200 );
         }
         elsif ( $method eq 'POST' ) {
