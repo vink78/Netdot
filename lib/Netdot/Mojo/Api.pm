@@ -4,12 +4,12 @@ package Netdot::Mojo::Api;
 # Netdot::REST::get / _get_linked_from, which are Apache2-based). Produces
 # plain hashrefs suitable for Mojolicious `render(json => ...)`.
 #
-# FK columns are rendered as:
-#   "col"        => <label>          (depth 0)
-#   "col_xlink"  => "Class/<id>"     (a resource path usable on this API)
+# FK columns are rendered as a nested lightweight reference:
+#   "col"        => { id => <id>, url => "/api/<table>/<id>/", name => <label> }
+# A foreign key that points at nothing (null FK) is rendered as null.
 # With depth > 0 the FK value becomes the full nested object instead.
 # `linked_from => 1` adds a "linked_from" key with back-references
-# (arrays of "Class/<id>", or nested objects when depth > 0).
+# (arrays of the same {id,url,name} references, or nested objects when depth > 0).
 #
 # Errors are signalled by `die Netdot::Mojo::Api::Error->new(code=>,msg=>)`,
 # caught by the controller and turned into a JSON error response.
@@ -56,6 +56,22 @@ sub _api_url {
     return _api_base() . '/' . lc( $obj->short_class ) . '/' . $obj->id . '/';
 }
 
+# A lightweight nested reference for a foreign key: { id, url, name }.
+#   $fobj   - the referenced object (may be undef if the FK id is set but the
+#             object cannot be loaded)
+#   $fclass - short class of the target (e.g. 'Zone'), used to build the URL
+#             when $fobj is unavailable
+#   $fid    - the referenced object id
+# "name" is the target's label (get_label): the zone name for a Zone, the
+# address/cidr for an Ipblock, the FQDN for an RR, etc.
+sub _ref {
+    my ( $fobj, $fclass, $fid ) = @_;
+    my $url  = $fobj ? _api_url( $fobj )
+                     : _api_base() . '/' . lc( $fclass ) . '/' . $fid . '/';
+    my $name = $fobj ? ( eval { $fobj->get_label } // '' ) : '';
+    return { id => $fid, url => $url, name => $name };
+}
+
 # Serialize a Netdot object to a JSON-ready hashref.
 #   $obj        - Netdot::Model object
 #   $user       - Person (for permission checks)
@@ -89,7 +105,7 @@ sub get {
 
     for my $col ( keys %order ) {
         if ( grep { $_ eq $col } keys %linksto ) {
-            # Foreign key
+            # Foreign key -> nested lightweight reference {id, url, name}.
             my $fid = eval { int( $obj->$col // 0 ) };
             $fid = 0 if !defined $fid || $fid < 0;
             if ($fid) {
@@ -101,12 +117,11 @@ sub get {
                         : undef;
                 }
                 else {
-                    $ret{$col} = $fobj ? eval { $fobj->get_label } // '' : '';
-                    $ret{ $col . '_xlink' } = $fclass . '/' . $fid;
+                    $ret{$col} = _ref( $fobj, $fclass, $fid );
                 }
             }
             else {
-                $ret{$col} = 0;
+                $ret{$col} = undef;   # null FK -> no reference object
             }
         }
         else {
@@ -140,7 +155,7 @@ sub _get_linked_from {
             map { push @{ $results{$i} }, get( $_, $user, undef, depth => $depth - 1 ) } @robjs;
         }
         else {
-            map { push @{ $results{$i} }, $rtable . '/' . $_->id } @robjs;
+            map { push @{ $results{$i} }, _ref( $_, $rtable, $_->id ) } @robjs;
         }
     }
     return \%results if %results;

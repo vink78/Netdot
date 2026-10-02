@@ -45,10 +45,9 @@ components:
         device:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Device: Device where this Arp Cache was found Foreign key
-            to Device (pass the id on write; label on read, depth 0; sibling "device_xlink"
-            = "device/{id}").'
+            to Device (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         tstamp:
           description: 'Timestamp: When this Cache was collected'
@@ -64,32 +63,30 @@ components:
         arpcache:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'ARP Cache: ARP Cache where this entry belongs Foreign key
-            to ArpCache (pass the id on write; label on read, depth 0; sibling "arpcache_xlink"
-            = "arpcache/{id}").'
+            to ArpCache (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         interface:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Interface: Interface Foreign key to Interface (pass the id
-            on write; label on read, depth 0; sibling "interface_xlink" = "interface/{id}").'
+            on write; on read a nested {id,url,name} reference).'
           type: ~
         ipaddr:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'IP: IP address Foreign key to Ipblock (pass the id on write;
-            label on read, depth 0; sibling "ipaddr_xlink" = "ipblock/{id}").'
+            on read a nested {id,url,name} reference).'
           type: ~
         physaddr:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Physical Address: Physical Address (MAC) Foreign key to PhysAddr
-            (pass the id on write; label on read, depth 0; sibling "physaddr_xlink"
-            = "physaddr/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -118,11 +115,10 @@ components:
         maint_contract:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Maint Contract: Reference to a maintenance or support contract
             with hardware vendor or third party. Foreign key to MaintContract (pass
-            the id on write; label on read, depth 0; sibling "maint_contract_xlink"
-            = "maintcontract/{id}").'
+            the id on write; on read a nested {id,url,name} reference).'
           type: ~
         maint_from:
           description: 'Maint Start: Device covered in maintenance from this date
@@ -136,10 +132,9 @@ components:
         physaddr:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Base MAC: The base MAC address of this Asset. Foreign key
-            to PhysAddr (pass the id on write; label on read, depth 0; sibling "physaddr_xlink"
-            = "physaddr/{id}").'
+            to PhysAddr (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         po_number:
           description: 'PO Number: Purchase order number'
@@ -147,9 +142,9 @@ components:
         product_id:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Product: product key Foreign key to Product (pass the id on
-            write; label on read, depth 0; sibling "product_id_xlink" = "product/{id}").'
+            write; on read a nested {id,url,name} reference).'
           type: ~
         reserved_for:
           description: 'Reserved For: For hardware that is not installed, specify
@@ -222,26 +217,25 @@ components:
         contactlist:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Contact List: Who to contact about this peering session. Also
             used for Nagios alarms. Foreign key to ContactList (pass the id on write;
-            label on read, depth 0; sibling "contactlist_xlink" = "contactlist/{id}").'
+            on read a nested {id,url,name} reference).'
           type: ~
         device:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Device: Device where BGP peering exists (the local device,
-            that is) Foreign key to Device (pass the id on write; label on read, depth
-            0; sibling "device_xlink" = "device/{id}").'
+            that is) Foreign key to Device (pass the id on write; on read a nested
+            {id,url,name} reference).'
           type: ~
         entity:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Entity: Entity with which Peering Exists Foreign key to Entity
-            (pass the id on write; label on read, depth 0; sibling "entity_xlink"
-            = "entity/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         info:
           description: 'Comments: Comments'
@@ -279,10 +273,9 @@ components:
         end_closet:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Destination Closet: Closet where this cable terminates Foreign
-            key to Closet (pass the id on write; label on read, depth 0; sibling "end_closet_xlink"
-            = "closet/{id}").'
+            key to Closet (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         info:
           description: 'Comments: Comments'
@@ -300,25 +293,23 @@ components:
         owner:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Owned by: Entity that owns this cable Foreign key to Entity
-            (pass the id on write; label on read, depth 0; sibling "owner_xlink" =
-            "entity/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         start_closet:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Origin Closet: Closet where this cable originates Foreign
-            key to Closet (pass the id on write; label on read, depth 0; sibling "start_closet_xlink"
-            = "closet/{id}").'
+            key to Closet (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         type:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Cable Type: The type of cable Foreign key to CableType (pass
-            the id on write; label on read, depth 0; sibling "type_xlink" = "cabletype/{id}").'
+            the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -330,18 +321,17 @@ components:
         cable:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Cable ID: Cable to which this strand belongs Foreign key to
-            BackboneCable (pass the id on write; label on read, depth 0; sibling "cable_xlink"
-            = "backbonecable/{id}").'
+            BackboneCable (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         circuit_id:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Circuit: ID of the circuit which this strand is a part of
-            Foreign key to Circuit (pass the id on write; label on read, depth 0;
-            sibling "circuit_id_xlink" = "circuit/{id}").'
+            Foreign key to Circuit (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         description:
           description: 'Description: A text description of this strand'
@@ -349,10 +339,9 @@ components:
         fiber_type:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: The type of fiber that this strand is made of Foreign key to
-            FiberType (pass the id on write; label on read, depth 0; sibling "fiber_type_xlink"
-            = "fibertype/{id}").
+            FiberType (pass the id on write; on read a nested {id,url,name} reference).
           type: ~
         info:
           description: 'Comments: Comments'
@@ -366,10 +355,9 @@ components:
         status:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Status: Status of this strand Foreign key to StrandStatus
-            (pass the id on write; label on read, depth 0; sibling "status_xlink"
-            = "strandstatus/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -409,10 +397,10 @@ components:
         linkid:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Site Link: Site Link to which this circuit belongs Foreign
-            key to SiteLink (pass the id on write; label on read, depth 0; sibling
-            "linkid_xlink" = "sitelink/{id}").'
+            key to SiteLink (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         loss:
           description: 'Loss: Tested loss (dbm)'
@@ -423,18 +411,16 @@ components:
         status:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Status: Status of this circuit Foreign key to CircuitStatus
-            (pass the id on write; label on read, depth 0; sibling "status_xlink"
-            = "circuitstatus/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         type:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Type: The type of this circuit Foreign key to CircuitType
-            (pass the id on write; label on read, depth 0; sibling "type_xlink" =
-            "circuittype/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -442,10 +428,10 @@ components:
         vendor:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Provider: Who provides this circuit, if it is not internal
-            Foreign key to Entity (pass the id on write; label on read, depth 0; sibling
-            "vendor_xlink" = "entity/{id}").'
+            Foreign key to Entity (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
       type: object
     CircuitStatus:
@@ -527,10 +513,9 @@ components:
         room:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Room: The Room number where the closet is located Foreign
-            key to Room (pass the id on write; label on read, depth 0; sibling "room_xlink"
-            = "room/{id}").'
+            key to Room (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         ru_avail:
           description: Rack Units Available
@@ -558,9 +543,9 @@ components:
         closet:
           anyOf:
           - type: integer
-          - type: string
-          description: Closet Foreign key to Closet (pass the id on write; label on
-            read, depth 0; sibling "closet_xlink" = "closet/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Closet Foreign key to Closet (pass the id on write; on read
+            a nested {id,url,name} reference).
           type: ~
         filename:
           description: File Name
@@ -587,18 +572,17 @@ components:
         contactlist:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Contact List: The list or group of Contacts to which this
-            Contact belongs Foreign key to ContactList (pass the id on write; label
-            on read, depth 0; sibling "contactlist_xlink" = "contactlist/{id}").'
+            Contact belongs Foreign key to ContactList (pass the id on write; on read
+            a nested {id,url,name} reference).'
           type: ~
         contacttype:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Type of Contact: The type of this Contact Foreign key to ContactType
-            (pass the id on write; label on read, depth 0; sibling "contacttype_xlink"
-            = "contacttype/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         escalation_level:
           description: 'Escalation Level: This level defines when this contact will
@@ -613,38 +597,37 @@ components:
         notify_email:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Email Notifications: Set this field to the desired Time Period
             to receive e-mail notifications when monitoring devices or services Foreign
-            key to Availability (pass the id on write; label on read, depth 0; sibling
-            "notify_email_xlink" = "availability/{id}").'
+            key to Availability (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         notify_pager:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Pager Notifications: Set this field to the desired Time Period
             to receive pager notifications when monitoring devices or services Foreign
-            key to Availability (pass the id on write; label on read, depth 0; sibling
-            "notify_pager_xlink" = "availability/{id}").'
+            key to Availability (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         notify_voice:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Voice Notifications: Set this field to the desired Time Period
             to receive voice notifications when monitoring devices or services Foreign
-            key to Availability (pass the id on write; label on read, depth 0; sibling
-            "notify_voice_xlink" = "availability/{id}").'
+            key to Availability (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         person:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Person: The actual Person that this contact refers to.  The
             Person table holds the actual contact information Foreign key to Person
-            (pass the id on write; label on read, depth 0; sibling "person_xlink"
-            = "person/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -697,9 +680,9 @@ components:
         asset_id:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Asset: asset fk Foreign key to Asset (pass the id on write;
-            label on read, depth 0; sibling "asset_id_xlink" = "asset/{id}").'
+            on read a nested {id,url,name} reference).'
           type: ~
         auto_dns:
           description: 'Auto DNS?: Whether a DNS name should be auto generated for
@@ -712,10 +695,10 @@ components:
         bgplocalas:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'BGP Local AS: Border Gateway Protocol Local Autonomous System
-            number Foreign key to ASN (pass the id on write; label on read, depth
-            0; sibling "bgplocalas_xlink" = "asn/{id}").'
+            number Foreign key to ASN (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         canautoupdate:
           description: 'Auto Update?: If SNMP updates are automated, this value determines
@@ -760,11 +743,11 @@ components:
         host_device:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Host Device: Another device which this one is part of, such
             as a virtual machine host. Host device will be used as parent device in
-            monitoring exports. Foreign key to Device (pass the id on write; label
-            on read, depth 0; sibling "host_device_xlink" = "device/{id}").'
+            monitoring exports. Foreign key to Device (pass the id on write; on read
+            a nested {id,url,name} reference).'
           type: ~
         info:
           description: 'Comments: Comments'
@@ -819,19 +802,19 @@ components:
         monitorstatus:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Monitored Status: The monitoring status of this Device.  This
             values is supposed to be fed back into Netdot by an external process Foreign
-            key to MonitorStatus (pass the id on write; label on read, depth 0; sibling
-            "monitorstatus_xlink" = "monitorstatus/{id}").'
+            key to MonitorStatus (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         name:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Name: The Device name is a reference to a DNS Resource Record
-            (RR) Foreign key to RR (pass the id on write; label on read, depth 0;
-            sibling "name_xlink" = "rr/{id}").'
+            (RR) Foreign key to RR (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         oobname:
           description: 'OOB Hostname #1: A name or command used to connect to this
@@ -855,10 +838,9 @@ components:
         owner:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Owner: Entity that owns this Device Foreign key to Entity
-            (pass the id on write; label on read, depth 0; sibling "owner_xlink" =
-            "entity/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         power_outlet:
           description: 'Power #1: ID of the power outlet in a power distribution unit
@@ -874,18 +856,17 @@ components:
         room:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Room: Room where this Device is installed Foreign key to Room
-            (pass the id on write; label on read, depth 0; sibling "room_xlink" =
-            "room/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         site:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Site: Site or Building where this Device is located.  This
-            is set manually. Foreign key to Site (pass the id on write; label on read,
-            depth 0; sibling "site_xlink" = "site/{id}").'
+            is set manually. Foreign key to Site (pass the id on write; on read a
+            nested {id,url,name} reference).'
           type: ~
         snmp_authkey:
           description: 'AuthKey: SNMPv3 Authentication Key'
@@ -927,11 +908,10 @@ components:
         snmp_target:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'SNMP Target Address: SNMP target IP address.  Netdot will
             try to always use this IP address when snmp-querying the device Foreign
-            key to Ipblock (pass the id on write; label on read, depth 0; sibling
-            "snmp_target_xlink" = "ipblock/{id}").'
+            key to Ipblock (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         snmp_version:
           description: 'SNMP Version: Simple Network Management Protocol Version (1|2|3)'
@@ -971,10 +951,9 @@ components:
         used_by:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Used by: Entity that uses this Device Foreign key to Entity
-            (pass the id on write; label on read, depth 0; sibling "used_by_xlink"
-            = "entity/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
       type: object
     DeviceAttr:
@@ -983,18 +962,16 @@ components:
         device:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Device: Device to which this attribute is assigned Foreign
-            key to Device (pass the id on write; label on read, depth 0; sibling "device_xlink"
-            = "device/{id}").'
+            key to Device (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         name:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Name: Name of this attribute Foreign key to DeviceAttrName
-            (pass the id on write; label on read, depth 0; sibling "name_xlink" =
-            "deviceattrname/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1022,16 +999,16 @@ components:
         contactlist:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: Contact List Foreign key to ContactList (pass the id on write;
-            label on read, depth 0; sibling "contactlist_xlink" = "contactlist/{id}").
+            on read a nested {id,url,name} reference).
           type: ~
         device:
           anyOf:
           - type: integer
-          - type: string
-          description: Device Foreign key to Device (pass the id on write; label on
-            read, depth 0; sibling "device_xlink" = "device/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Device Foreign key to Device (pass the id on write; on read
+            a nested {id,url,name} reference).
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1043,9 +1020,9 @@ components:
         asset_id:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Asset: asset fk Foreign key to Asset (pass the id on write;
-            label on read, depth 0; sibling "asset_id_xlink" = "asset/{id}").'
+            on read a nested {id,url,name} reference).'
           type: ~
         class:
           description: 'Class: Module Class'
@@ -1064,10 +1041,9 @@ components:
         device:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Device: Device where this Module belongs Foreign key to Device
-            (pass the id on write; label on read, depth 0; sibling "device_xlink"
-            = "device/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         fru:
           description: 'FRU?: Whether or not this physical entity is considered a
@@ -1117,17 +1093,17 @@ components:
         name:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Name: Name of this attribute Foreign key to DhcpAttrName (pass
-            the id on write; label on read, depth 0; sibling "name_xlink" = "dhcpattrname/{id}").'
+            the id on write; on read a nested {id,url,name} reference).'
           type: ~
         scope:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Scope: DHCP scope where this attribute will be applied Foreign
-            key to DhcpScope (pass the id on write; label on read, depth 0; sibling
-            "scope_xlink" = "dhcpscope/{id}").'
+            key to DhcpScope (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1165,11 +1141,10 @@ components:
         container:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Container Scope: Reference to the container (parent) scope
             in the hierarchy.  Global scopes are at the top. Foreign key to DhcpScope
-            (pass the id on write; label on read, depth 0; sibling "container_xlink"
-            = "dhcpscope/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         duid:
           description: 'DUID: DHCP Unique Identifier. Only applies to host scopes.
@@ -1190,10 +1165,10 @@ components:
         ipblock:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'IP block: Reference to an IPblock object.  This only applies
             to host and subnet scopes. Foreign key to Ipblock (pass the id on write;
-            label on read, depth 0; sibling "ipblock_xlink" = "ipblock/{id}").'
+            on read a nested {id,url,name} reference).'
           type: ~
         name:
           description: 'Name: Name of the Scope.  For example, a host name is the
@@ -1202,10 +1177,10 @@ components:
         physaddr:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Ethernet: Reference to a MAC object.  Only useful within host
-            scopes. Foreign key to PhysAddr (pass the id on write; label on read,
-            depth 0; sibling "physaddr_xlink" = "physaddr/{id}").'
+            scopes. Foreign key to PhysAddr (pass the id on write; on read a nested
+            {id,url,name} reference).'
           type: ~
         text:
           description: 'Include Text: The contents of this field will be included
@@ -1214,9 +1189,9 @@ components:
         type:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Type: Type of this scope. Foreign key to DhcpScopeType (pass
-            the id on write; label on read, depth 0; sibling "type_xlink" = "dhcpscopetype/{id}").'
+            the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1245,17 +1220,16 @@ components:
         scope:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Scope: DHCP scope where template will be used Foreign key
-            to DhcpScope (pass the id on write; label on read, depth 0; sibling "scope_xlink"
-            = "dhcpscope/{id}").'
+            to DhcpScope (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         template:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Template: DHCP template scope Foreign key to DhcpScope (pass
-            the id on write; label on read, depth 0; sibling "template_xlink" = "dhcpscope/{id}").'
+            the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1279,10 +1253,10 @@ components:
         availability:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Availability: Time Period at which this Entity is available
-            Foreign key to Availability (pass the id on write; label on read, depth
-            0; sibling "availability_xlink" = "availability/{id}").'
+            Foreign key to Availability (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         config_type:
           description: 'Config Type: Device type to use when monitoring configuration
@@ -1291,9 +1265,9 @@ components:
         contactlist:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: Contact List Foreign key to ContactList (pass the id on write;
-            label on read, depth 0; sibling "contactlist_xlink" = "contactlist/{id}").
+            on read a nested {id,url,name} reference).
           type: ~
         info:
           description: 'Comments: Comments'
@@ -1322,17 +1296,16 @@ components:
         entity:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Entity: The Entity that performs this role. Foreign key to
-            Entity (pass the id on write; label on read, depth 0; sibling "entity_xlink"
-            = "entity/{id}").'
+            Entity (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         type:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Type: A type of Entity. Foreign key to EntityType (pass the
-            id on write; label on read, depth 0; sibling "type_xlink" = "entitytype/{id}").'
+            id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1344,16 +1317,16 @@ components:
         entity:
           anyOf:
           - type: integer
-          - type: string
-          description: Entity Foreign key to Entity (pass the id on write; label on
-            read, depth 0; sibling "entity_xlink" = "entity/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Entity Foreign key to Entity (pass the id on write; on read
+            a nested {id,url,name} reference).
           type: ~
         site:
           anyOf:
           - type: integer
-          - type: string
-          description: Site Foreign key to Site (pass the id on write; label on read,
-            depth 0; sibling "site_xlink" = "site/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Site Foreign key to Site (pass the id on write; on read a nested
+            {id,url,name} reference).
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1380,9 +1353,9 @@ components:
         device:
           anyOf:
           - type: integer
-          - type: string
-          description: Device Foreign key to Device (pass the id on write; label on
-            read, depth 0; sibling "device_xlink" = "device/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Device Foreign key to Device (pass the id on write; on read
+            a nested {id,url,name} reference).
           type: ~
         tstamp:
           description: Timestamp
@@ -1398,23 +1371,23 @@ components:
         fwtable:
           anyOf:
           - type: integer
-          - type: string
-          description: Table Foreign key to FWTable (pass the id on write; label on
-            read, depth 0; sibling "fwtable_xlink" = "fwtable/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Table Foreign key to FWTable (pass the id on write; on read
+            a nested {id,url,name} reference).
           type: ~
         interface:
           anyOf:
           - type: integer
-          - type: string
-          description: Interface Foreign key to Interface (pass the id on write; label
-            on read, depth 0; sibling "interface_xlink" = "interface/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Interface Foreign key to Interface (pass the id on write; on
+            read a nested {id,url,name} reference).
           type: ~
         physaddr:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: Physical Address Foreign key to PhysAddr (pass the id on write;
-            label on read, depth 0; sibling "physaddr_xlink" = "physaddr/{id}").
+            on read a nested {id,url,name} reference).
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1433,6 +1406,23 @@ components:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
           type: string
       type: object
+    FkReference:
+      description: 'A foreign-key reference: {id, url, name} pointing at the referenced
+        object.'
+      properties:
+        id:
+          description: Id of the referenced object.
+          type: integer
+        name:
+          description: Label of the referenced object (zone name, FQDN, or IP address
+            for an ipblock).
+          type: string
+        url:
+          description: Resource URL of the referenced object (e.g. /netdot/api/<table>/<id>/).
+          type: string
+      required:
+      - id
+      type: object
     Floor:
       description: Floor Table
       properties:
@@ -1445,9 +1435,9 @@ components:
         site:
           anyOf:
           - type: integer
-          - type: string
-          description: Site Foreign key to Site (pass the id on write; label on read,
-            depth 0; sibling "site_xlink" = "site/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Site Foreign key to Site (pass the id on write; on read a nested
+            {id,url,name} reference).
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1472,9 +1462,9 @@ components:
         floor:
           anyOf:
           - type: integer
-          - type: string
-          description: Floor Foreign key to Floor (pass the id on write; label on
-            read, depth 0; sibling "floor_xlink" = "floor/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Floor Foreign key to Floor (pass the id on write; on read a
+            nested {id,url,name} reference).
           type: ~
         info:
           description: 'Comments: Comments'
@@ -1489,16 +1479,16 @@ components:
         accessright:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: Access Right Foreign key to AccessRight (pass the id on write;
-            label on read, depth 0; sibling "accessright_xlink" = "accessright/{id}").
+            on read a nested {id,url,name} reference).
           type: ~
         contactlist:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: Contact List Foreign key to ContactList (pass the id on write;
-            label on read, depth 0; sibling "contactlist_xlink" = "contactlist/{id}").
+            on read a nested {id,url,name} reference).
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1514,18 +1504,18 @@ components:
         closet:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Closet: The communications closet where this cable originates
-            Foreign key to Closet (pass the id on write; label on read, depth 0; sibling
-            "closet_xlink" = "closet/{id}").'
+            Foreign key to Closet (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         contactlist:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Contact List: A group of people that manages this cable Foreign
-            key to ContactList (pass the id on write; label on read, depth 0; sibling
-            "contactlist_xlink" = "contactlist/{id}").'
+            key to ContactList (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         datetested:
           description: 'Date Tested: Date this cable was last tested (YYYY-MM-DD)'
@@ -1550,10 +1540,9 @@ components:
         room:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Room: Room where this cable terminates Foreign key to Room
-            (pass the id on write; label on read, depth 0; sibling "room_xlink" =
-            "room/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         testpassed:
           description: 'Passed Test?: Cable test result (pass/fail)'
@@ -1561,9 +1550,9 @@ components:
         type:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Type: Type of this cable Foreign key to CableType (pass the
-            id on write; label on read, depth 0; sibling "type_xlink" = "cabletype/{id}").'
+            id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1613,16 +1602,16 @@ components:
         circuit:
           anyOf:
           - type: integer
-          - type: string
-          description: Circuit Foreign key to Circuit (pass the id on write; label
-            on read, depth 0; sibling "circuit_xlink" = "circuit/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Circuit Foreign key to Circuit (pass the id on write; on read
+            a nested {id,url,name} reference).
           type: ~
         contactlist:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: Contact List Foreign key to ContactList (pass the id on write;
-            label on read, depth 0; sibling "contactlist_xlink" = "contactlist/{id}").
+            on read a nested {id,url,name} reference).
           type: ~
         description:
           description: 'Description: A short description for this Interface.'
@@ -1630,10 +1619,9 @@ components:
         device:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Device: Device to which this Interface belongs to Foreign
-            key to Device (pass the id on write; label on read, depth 0; sibling "device_xlink"
-            = "device/{id}").'
+            key to Device (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         dlci:
           description: 'DLCI: Data Link Connection Identifier'
@@ -1673,10 +1661,10 @@ components:
         jack:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Jack: Reference to a Jack or Cable where this Interface is
-            connected Foreign key to HorizontalCable (pass the id on write; label
-            on read, depth 0; sibling "jack_xlink" = "horizontalcable/{id}").'
+            connected Foreign key to HorizontalCable (pass the id on write; on read
+            a nested {id,url,name} reference).'
           type: ~
         jack_char:
           description: 'Jack(char): The ID of the Jack where this Interface is connected'
@@ -1691,10 +1679,10 @@ components:
         monitorstatus:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Monitored Status: The status of this Interface given by an
             external monitoring process Foreign key to MonitorStatus (pass the id
-            on write; label on read, depth 0; sibling "monitorstatus_xlink" = "monitorstatus/{id}").'
+            on write; on read a nested {id,url,name} reference).'
           type: ~
         name:
           description: 'Name: The name of this Interface'
@@ -1702,10 +1690,10 @@ components:
         neighbor:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Neighbor: Another Interface to which this one is physically
-            connected Foreign key to Interface (pass the id on write; label on read,
-            depth 0; sibling "neighbor_xlink" = "interface/{id}").'
+            connected Foreign key to Interface (pass the id on write; on read a nested
+            {id,url,name} reference).'
           type: ~
         neighbor_fixed:
           description: 'Neighbor Fixed?: Determines whether this link can be modified
@@ -1733,10 +1721,10 @@ components:
         physaddr:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Physical (MAC) Address: MAC address of this Interface Foreign
-            key to PhysAddr (pass the id on write; label on read, depth 0; sibling
-            "physaddr_xlink" = "physaddr/{id}").'
+            key to PhysAddr (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         room_char:
           description: 'Room(char): Room number where this Interface is connected'
@@ -1769,9 +1757,9 @@ components:
         interface:
           anyOf:
           - type: integer
-          - type: string
-          description: Interface Foreign key to Interface (pass the id on write; label
-            on read, depth 0; sibling "interface_xlink" = "interface/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Interface Foreign key to Interface (pass the id on write; on
+            read a nested {id,url,name} reference).
           type: ~
         stp_des_bridge:
           description: 'STP Des. Bridge: The Bridge ID of the bridge that this port
@@ -1784,10 +1772,10 @@ components:
         stp_instance:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'STP Instance: The Spanning Tree Protocol instance that this
             port belongs to, for this VLAN Foreign key to STPInstance (pass the id
-            on write; label on read, depth 0; sibling "stp_instance_xlink" = "stpinstance/{id}").'
+            on write; on read a nested {id,url,name} reference).'
           type: ~
         stp_state:
           description: 'STP State: The current Spanning Tree State of this port (dot1dStpPortState).
@@ -1800,9 +1788,9 @@ components:
         vlan:
           anyOf:
           - type: integer
-          - type: string
-          description: Vlan Foreign key to Vlan (pass the id on write; label on read,
-            depth 0; sibling "vlan_xlink" = "vlan/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Vlan Foreign key to Vlan (pass the id on write; on read a nested
+            {id,url,name} reference).
           type: ~
       type: object
     IpService:
@@ -1811,32 +1799,32 @@ components:
         contactlist:
           anyOf:
           - type: integer
-          - type: string
-          description: Foreign key to ContactList (pass the id on write; label on
-            read, depth 0; sibling "contactlist_xlink" = "contactlist/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Foreign key to ContactList (pass the id on write; on read a
+            nested {id,url,name} reference).
           type: ~
         ip:
           anyOf:
           - type: integer
-          - type: string
-          description: Foreign key to Ipblock (pass the id on write; label on read,
-            depth 0; sibling "ip_xlink" = "ipblock/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Foreign key to Ipblock (pass the id on write; on read a nested
+            {id,url,name} reference).
           type: ~
         monitored:
           type: boolean
         monitorstatus:
           anyOf:
           - type: integer
-          - type: string
-          description: Foreign key to MonitorStatus (pass the id on write; label on
-            read, depth 0; sibling "monitorstatus_xlink" = "monitorstatus/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Foreign key to MonitorStatus (pass the id on write; on read
+            a nested {id,url,name} reference).
           type: ~
         service:
           anyOf:
           - type: integer
-          - type: string
-          description: Foreign key to Service (pass the id on write; label on read,
-            depth 0; sibling "service_xlink" = "service/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Foreign key to Service (pass the id on write; on read a nested
+            {id,url,name} reference).
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1853,10 +1841,10 @@ components:
         asn:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'ASN: Autonomous System Number where this block originates
-            from Foreign key to ASN (pass the id on write; label on read, depth 0;
-            sibling "asn_xlink" = "asn/{id}").'
+            from Foreign key to ASN (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         description:
           description: 'Description: A short description for this IP address or block'
@@ -1871,10 +1859,10 @@ components:
         interface:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Interface: Device interface where this address is configured
-            Foreign key to Interface (pass the id on write; label on read, depth 0;
-            sibling "interface_xlink" = "interface/{id}").'
+            Foreign key to Interface (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         last_seen:
           description: 'Last Seen: Last time when this address or block was seen'
@@ -1887,17 +1875,17 @@ components:
         owner:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Owner: Entity that owns this block Foreign key to Entity (pass
-            the id on write; label on read, depth 0; sibling "owner_xlink" = "entity/{id}").'
+            the id on write; on read a nested {id,url,name} reference).'
           type: ~
         parent:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Parent: Smallest IP block that contains this address or block.
-            Foreign key to Ipblock (pass the id on write; label on read, depth 0;
-            sibling "parent_xlink" = "ipblock/{id}").'
+            Foreign key to Ipblock (pass the id on write; on read a nested {id,url,name}
+            reference).'
           type: ~
         prefix:
           description: 'Prefix Length: Prefix length of this IP block'
@@ -1909,10 +1897,9 @@ components:
         status:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Status: Status of this IP block Foreign key to IpblockStatus
-            (pass the id on write; label on read, depth 0; sibling "status_xlink"
-            = "ipblockstatus/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -1924,10 +1911,9 @@ components:
         used_by:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Used by: Entity that uses this block Foreign key to Entity
-            (pass the id on write; label on read, depth 0; sibling "used_by_xlink"
-            = "entity/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         version:
           description: 'Version(4/6): IP version (4 or 6)'
@@ -1935,10 +1921,9 @@ components:
         vlan:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Vlan: VLAN to which this subnet is associated Foreign key
-            to Vlan (pass the id on write; label on read, depth 0; sibling "vlan_xlink"
-            = "vlan/{id}").'
+            to Vlan (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
       type: object
     IpblockAttr:
@@ -1947,18 +1932,16 @@ components:
         ipblock:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Ipblock: Ipblock to which this attribute is assigned Foreign
-            key to Ipblock (pass the id on write; label on read, depth 0; sibling
-            "ipblock_xlink" = "ipblock/{id}").'
+            key to Ipblock (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         name:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Name: Name of this attribute Foreign key to IpblockAttrName
-            (pass the id on write; label on read, depth 0; sibling "name_xlink" =
-            "ipblockattrname/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -2001,10 +1984,9 @@ components:
         provider:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Provider: Maintenace Contract Provider Foreign key to Entity
-            (pass the id on write; label on read, depth 0; sibling "provider_xlink"
-            = "entity/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -2055,10 +2037,9 @@ components:
         entity:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Employer: The entity that this person works for Foreign key
-            to Entity (pass the id on write; label on read, depth 0; sibling "entity_xlink"
-            = "entity/{id}").'
+            to Entity (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         extension:
           description: 'Work Phone Extension: Work Telephone number extension'
@@ -2081,10 +2062,10 @@ components:
         location:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Site: Site where this Person is located.  The Site is used
-            instead of an Address Foreign key to Site (pass the id on write; label
-            on read, depth 0; sibling "location_xlink" = "site/{id}").'
+            instead of an Address Foreign key to Site (pass the id on write; on read
+            a nested {id,url,name} reference).'
           type: ~
         office:
           description: 'Work Phone: Office or Work telephone number'
@@ -2102,10 +2083,9 @@ components:
         room:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Room: Room where person is located, if available Foreign key
-            to Room (pass the id on write; label on read, depth 0; sibling "room_xlink"
-            = "room/{id}").'
+            to Room (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -2113,9 +2093,9 @@ components:
         user_type:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'User Type: User type Foreign key to UserType (pass the id
-            on write; label on read, depth 0; sibling "user_type_xlink" = "usertype/{id}").'
+            on write; on read a nested {id,url,name} reference).'
           type: ~
         username:
           description: 'Username: User name.  Only necessary if this person needs
@@ -2152,18 +2132,17 @@ components:
         name:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Name: Name of this attribute Foreign key to PhysAddrAttrName
-            (pass the id on write; label on read, depth 0; sibling "name_xlink" =
-            "physaddrattrname/{id}").'
+            (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         physaddr:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Physical Address: Physiscal Address to which this attribute
-            is assigned Foreign key to PhysAddr (pass the id on write; label on read,
-            depth 0; sibling "physaddr_xlink" = "physaddr/{id}").'
+            is assigned Foreign key to PhysAddr (pass the id on write; on read a nested
+            {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -2204,10 +2183,10 @@ components:
         manufacturer:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Manufacturer: Reference to an Entity which manufactures this
-            product Foreign key to Entity (pass the id on write; label on read, depth
-            0; sibling "manufacturer_xlink" = "entity/{id}").'
+            product Foreign key to Entity (pass the id on write; on read a nested
+            {id,url,name} reference).'
           type: ~
         name:
           description: 'Name: Product Name'
@@ -2221,10 +2200,10 @@ components:
         type:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Type: Product Type. Types of network products include routers,
             switches, hubs, etc. Foreign key to ProductType (pass the id on write;
-            label on read, depth 0; sibling "type_xlink" = "producttype/{id}").'
+            on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -2280,10 +2259,9 @@ components:
         zone:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Zone: Zone or Domain to which this record belongs Foreign
-            key to Zone (pass the id on write; label on read, depth 0; sibling "zone_xlink"
-            = "zone/{id}").'
+            key to Zone (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
       type: object
     RRADDR:
@@ -2295,16 +2273,16 @@ components:
         ipblock:
           anyOf:
           - type: integer
-          - type: string
-          description: Ipblock Foreign key to Ipblock (pass the id on write; label
-            on read, depth 0; sibling "ipblock_xlink" = "ipblock/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Ipblock Foreign key to Ipblock (pass the id on write; on read
+            a nested {id,url,name} reference).
           type: ~
         rr:
           anyOf:
           - type: integer
-          - type: string
-          description: Resource Record Foreign key to RR (pass the id on write; label
-            on read, depth 0; sibling "rr_xlink" = "rr/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Resource Record Foreign key to RR (pass the id on write; on
+            read a nested {id,url,name} reference).
           type: ~
         ttl:
           description: 'TTL: Record TTL'
@@ -2325,9 +2303,9 @@ components:
         rr:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Alias: Alias Name Foreign key to RR (pass the id on write;
-            label on read, depth 0; sibling "rr_xlink" = "rr/{id}").'
+            on read a nested {id,url,name} reference).'
           type: ~
         ttl:
           description: 'TTL: Record TTL'
@@ -2362,9 +2340,9 @@ components:
         rr:
           anyOf:
           - type: integer
-          - type: string
-          description: Resource Record Foreign key to RR (pass the id on write; label
-            on read, depth 0; sibling "rr_xlink" = "rr/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Resource Record Foreign key to RR (pass the id on write; on
+            read a nested {id,url,name} reference).
           type: ~
         ttl:
           description: 'TTL: Record TTL'
@@ -2390,9 +2368,9 @@ components:
         rr:
           anyOf:
           - type: integer
-          - type: string
-          description: Resource Record Foreign key to RR (pass the id on write; label
-            on read, depth 0; sibling "rr_xlink" = "rr/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Resource Record Foreign key to RR (pass the id on write; on
+            read a nested {id,url,name} reference).
           type: ~
         ttl:
           description: 'TTL: Record TTL'
@@ -2426,9 +2404,9 @@ components:
         rr:
           anyOf:
           - type: integer
-          - type: string
-          description: Resource Record Foreign key to RR (pass the id on write; label
-            on read, depth 0; sibling "rr_xlink" = "rr/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Resource Record Foreign key to RR (pass the id on write; on
+            read a nested {id,url,name} reference).
           type: ~
         size:
           description: 'Size: The diameter of a sphere enclosing the described entity.'
@@ -2462,9 +2440,9 @@ components:
         rr:
           anyOf:
           - type: integer
-          - type: string
-          description: Resource Record Foreign key to RR (pass the id on write; label
-            on read, depth 0; sibling "rr_xlink" = "rr/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Resource Record Foreign key to RR (pass the id on write; on
+            read a nested {id,url,name} reference).
           type: ~
         ttl:
           description: 'TTL: Record TTL'
@@ -2507,9 +2485,9 @@ components:
         rr:
           anyOf:
           - type: integer
-          - type: string
-          description: Resource Record Foreign key to RR (pass the id on write; label
-            on read, depth 0; sibling "rr_xlink" = "rr/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Resource Record Foreign key to RR (pass the id on write; on
+            read a nested {id,url,name} reference).
           type: ~
         services:
           description: 'Services: A <character-string> that specifies the Service
@@ -2533,9 +2511,9 @@ components:
         rr:
           anyOf:
           - type: integer
-          - type: string
-          description: Resource Record Foreign key to RR (pass the id on write; label
-            on read, depth 0; sibling "rr_xlink" = "rr/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Resource Record Foreign key to RR (pass the id on write; on
+            read a nested {id,url,name} reference).
           type: ~
         ttl:
           description: 'TTL: Record TTL'
@@ -2551,9 +2529,9 @@ components:
         ipblock:
           anyOf:
           - type: integer
-          - type: string
-          description: IP Foreign key to Ipblock (pass the id on write; label on read,
-            depth 0; sibling "ipblock_xlink" = "ipblock/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: IP Foreign key to Ipblock (pass the id on write; on read a
+            nested {id,url,name} reference).
           type: ~
         ptrdname:
           description: 'Domain Name: A domain-name which points to some location in
@@ -2562,9 +2540,9 @@ components:
         rr:
           anyOf:
           - type: integer
-          - type: string
-          description: Resource Record Foreign key to RR (pass the id on write; label
-            on read, depth 0; sibling "rr_xlink" = "rr/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Resource Record Foreign key to RR (pass the id on write; on
+            read a nested {id,url,name} reference).
           type: ~
         ttl:
           description: 'TTL: Record TTL'
@@ -2589,10 +2567,9 @@ components:
         rr:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Name: The domain this SRV record refers to. Foreign key to
-            RR (pass the id on write; label on read, depth 0; sibling "rr_xlink" =
-            "rr/{id}").'
+            RR (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         target:
           description: 'Target: The domain name of the target host.  There MUST be
@@ -2619,9 +2596,9 @@ components:
         rr:
           anyOf:
           - type: integer
-          - type: string
-          description: Resource Record Foreign key to RR (pass the id on write; label
-            on read, depth 0; sibling "rr_xlink" = "rr/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Resource Record Foreign key to RR (pass the id on write; on
+            read a nested {id,url,name} reference).
           type: ~
         ttl:
           description: 'TTL: Record TTL'
@@ -2639,9 +2616,9 @@ components:
         floor:
           anyOf:
           - type: integer
-          - type: string
-          description: Floor Foreign key to Floor (pass the id on write; label on
-            read, depth 0; sibling "floor_xlink" = "floor/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Floor Foreign key to Floor (pass the id on write; on read a
+            nested {id,url,name} reference).
           type: ~
         name:
           description: Number
@@ -2659,10 +2636,9 @@ components:
         device:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Device: Device where this STP instance exists Foreign key
-            to Device (pass the id on write; label on read, depth 0; sibling "device_xlink"
-            = "device/{id}").'
+            to Device (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         number:
           description: 'Number: STP Instance number'
@@ -2727,10 +2703,10 @@ components:
         availability:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Availability: Time Period during which people at this Site
-            will be available Foreign key to Availability (pass the id on write; label
-            on read, depth 0; sibling "availability_xlink" = "availability/{id}").'
+            will be available Foreign key to Availability (pass the id on write; on
+            read a nested {id,url,name} reference).'
           type: ~
         city:
           description: 'City: City where this Site is located'
@@ -2738,10 +2714,9 @@ components:
         contactlist:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Contact List: List of contacts for this Site Foreign key to
-            ContactList (pass the id on write; label on read, depth 0; sibling "contactlist_xlink"
-            = "contactlist/{id}").'
+            ContactList (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         country:
           description: 'Country: Country where this Site is located'
@@ -2784,18 +2759,16 @@ components:
         entity:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Entity: External Entity which we connect to Foreign key to
-            Entity (pass the id on write; label on read, depth 0; sibling "entity_xlink"
-            = "entity/{id}").'
+            Entity (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         farend:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Destination (Site): The remote Site for this Link Foreign
-            key to Site (pass the id on write; label on read, depth 0; sibling "farend_xlink"
-            = "site/{id}").'
+            key to Site (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         info:
           description: 'Comments: Comments'
@@ -2806,10 +2779,9 @@ components:
         nearend:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Origin (Site): The local Site for this Link Foreign key to
-            Site (pass the id on write; label on read, depth 0; sibling "nearend_xlink"
-            = "site/{id}").'
+            Site (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -2837,9 +2809,9 @@ components:
         site:
           anyOf:
           - type: integer
-          - type: string
-          description: Site Foreign key to Site (pass the id on write; label on read,
-            depth 0; sibling "site_xlink" = "site/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Site Foreign key to Site (pass the id on write; on read a nested
+            {id,url,name} reference).
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -2851,16 +2823,16 @@ components:
         site:
           anyOf:
           - type: integer
-          - type: string
-          description: Site Foreign key to Site (pass the id on write; label on read,
-            depth 0; sibling "site_xlink" = "site/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Site Foreign key to Site (pass the id on write; on read a nested
+            {id,url,name} reference).
           type: ~
         subnet:
           anyOf:
           - type: integer
-          - type: string
-          description: Subnet Foreign key to Ipblock (pass the id on write; label
-            on read, depth 0; sibling "subnet_xlink" = "ipblock/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Subnet Foreign key to Ipblock (pass the id on write; on read
+            a nested {id,url,name} reference).
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -2872,16 +2844,16 @@ components:
         strand1:
           anyOf:
           - type: integer
-          - type: string
-          description: Foreign key to CableStrand (pass the id on write; label on
-            read, depth 0; sibling "strand1_xlink" = "cablestrand/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Foreign key to CableStrand (pass the id on write; on read a
+            nested {id,url,name} reference).
           type: ~
         strand2:
           anyOf:
           - type: integer
-          - type: string
-          description: Foreign key to CableStrand (pass the id on write; label on
-            read, depth 0; sibling "strand2_xlink" = "cablestrand/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Foreign key to CableStrand (pass the id on write; on read a
+            nested {id,url,name} reference).
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -2902,9 +2874,9 @@ components:
         subnet:
           anyOf:
           - type: integer
-          - type: string
-          description: Subnet Foreign key to Ipblock (pass the id on write; label
-            on read, depth 0; sibling "subnet_xlink" = "ipblock/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Subnet Foreign key to Ipblock (pass the id on write; on read
+            a nested {id,url,name} reference).
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -2912,9 +2884,9 @@ components:
         zone:
           anyOf:
           - type: integer
-          - type: string
-          description: Zone Foreign key to Zone (pass the id on write; label on read,
-            depth 0; sibling "zone_xlink" = "zone/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: Zone Foreign key to Zone (pass the id on write; on read a nested
+            {id,url,name} reference).
           type: ~
       type: object
     UserRight:
@@ -2923,16 +2895,16 @@ components:
         accessright:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: Access Right Foreign key to AccessRight (pass the id on write;
-            label on read, depth 0; sibling "accessright_xlink" = "accessright/{id}").
+            on read a nested {id,url,name} reference).
           type: ~
         person:
           anyOf:
           - type: integer
-          - type: string
-          description: User Foreign key to Person (pass the id on write; label on
-            read, depth 0; sibling "person_xlink" = "person/{id}").
+          - $ref: '#/components/schemas/FkReference'
+          description: User Foreign key to Person (pass the id on write; on read a
+            nested {id,url,name} reference).
           type: ~
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -2972,10 +2944,9 @@ components:
         vlangroup:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: 'Group: VLAN group to which this VLAN belongs Foreign key to
-            VlanGroup (pass the id on write; label on read, depth 0; sibling "vlangroup_xlink"
-            = "vlangroup/{id}").'
+            VlanGroup (pass the id on write; on read a nested {id,url,name} reference).'
           type: ~
       type: object
     VlanGroup:
@@ -3010,9 +2981,9 @@ components:
         contactlist:
           anyOf:
           - type: integer
-          - type: string
+          - $ref: '#/components/schemas/FkReference'
           description: Contact List Foreign key to ContactList (pass the id on write;
-            label on read, depth 0; sibling "contactlist_xlink" = "contactlist/{id}").
+            on read a nested {id,url,name} reference).
           type: ~
         default_ttl:
           description: 'Default TTL: Default TTL to apply to records when exporting
@@ -3078,9 +3049,9 @@ components:
         zone:
           anyOf:
           - type: integer
-          - type: string
-          description: 'Zone: Zone Foreign key to Zone (pass the id on write; label
-            on read, depth 0; sibling "zone_xlink" = "zone/{id}").'
+          - $ref: '#/components/schemas/FkReference'
+          description: 'Zone: Zone Foreign key to Zone (pass the id on write; on read
+            a nested {id,url,name} reference).'
           type: ~
       type: object
   securitySchemes:
@@ -3104,10 +3075,12 @@ info:
     List responses are paginated (Netbox-style): {count, next, previous, results}.
     Use ?limit=N (default 50, max 1000) and ?offset=N; follow "next"/"previous".
 
-    Foreign keys: on write pass the target id (integer); on read the field is the
-    target label (string) and a sibling "<column>_xlink" gives "{table}/{id}".
+    Foreign keys: on write pass the target id (integer); on read the field is a
+    nested reference object {id, url, name} pointing at the target, e.g.
+      "zone": {"id":2,"url":"/netdot/api/zone/2/","name":"example.com"}.
+    "name" is the target's label (zone name, FQDN, or the IP address for an ipblock).
     Every object also carries a "url" field (e.g. /netdot/api/<table>/<id>/).
-    Use ?depth=N to inline referenced objects, ?linked_from=1 for back-references.
+    Use ?depth=N to inline full referenced objects, ?linked_from=1 for back-references.
 
     Authentication: the Netdot web session (log in at /login). Unauthenticated
     requests get 401.
@@ -3287,15 +3260,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -3549,15 +3523,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -3817,15 +3792,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -4073,15 +4049,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -4341,15 +4318,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -4609,15 +4587,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -4865,15 +4844,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -5122,15 +5102,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -5385,15 +5366,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -5641,15 +5623,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -5897,15 +5880,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -6153,15 +6137,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -6409,15 +6394,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -6666,15 +6652,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -6928,15 +6915,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -7184,15 +7172,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -7447,15 +7436,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -7703,15 +7693,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -7959,15 +7950,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -8215,15 +8207,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -8471,15 +8464,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -8739,15 +8733,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -8995,15 +8990,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -9252,15 +9248,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -9521,15 +9518,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -9784,15 +9782,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -10040,15 +10039,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -10297,15 +10297,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -10553,15 +10554,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -10816,15 +10818,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -11073,15 +11076,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -11335,15 +11339,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -11597,15 +11602,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -11853,15 +11859,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -12109,15 +12116,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -12371,15 +12379,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -12627,15 +12636,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -12890,15 +12900,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -13152,15 +13163,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -13415,15 +13427,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -13671,15 +13684,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -13928,15 +13942,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -14190,15 +14205,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -14452,15 +14468,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -14715,15 +14732,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -14983,15 +15001,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -15239,15 +15258,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -15496,15 +15516,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -15759,15 +15780,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -16021,15 +16043,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -16278,15 +16301,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -16540,15 +16564,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -16802,15 +16827,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -17058,15 +17084,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -17326,15 +17353,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -17584,15 +17612,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -17847,15 +17876,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -18103,15 +18133,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -18364,15 +18395,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -18625,15 +18657,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -18887,15 +18920,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -19149,15 +19183,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -19410,15 +19445,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -19678,15 +19714,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -19934,15 +19971,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -20201,15 +20239,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -20475,15 +20514,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -20736,15 +20776,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -21004,15 +21045,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -21266,15 +21308,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -21528,15 +21571,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -21790,15 +21834,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -22047,15 +22092,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -22303,15 +22349,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -22564,15 +22611,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -22820,15 +22868,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -23076,15 +23125,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -23338,15 +23388,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -23600,15 +23651,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -23862,15 +23914,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -24118,15 +24171,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -24381,15 +24435,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -24643,15 +24698,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -24899,15 +24955,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -25154,15 +25211,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -25410,15 +25468,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -25665,15 +25724,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0
@@ -25921,15 +25981,16 @@ paths:
         required: 1
         schema:
           type: string
-      - description: How many levels of referenced (FK) objects to inline (0 = labels
-          only).
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id,url,name} references only).
         in: query
         name: depth
         required: 0
         schema:
           default: 0
           type: integer
-      - description: Set to 1 to include a "linked_from" key of back-references.
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id,url,name} references).
         in: query
         name: linked_from
         required: 0

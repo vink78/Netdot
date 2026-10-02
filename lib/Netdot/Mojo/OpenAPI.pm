@@ -142,6 +142,19 @@ sub build_spec {
         };
     }
 
+    # Shared schema for a foreign-key reference ({id, url, name}), emitted on
+    # read for every FK column and inside "linked_from" back-references.
+    $schemas{FkReference} = {
+        type        => 'object',
+        description => 'A foreign-key reference: {id, url, name} pointing at the referenced object.',
+        properties  => {
+            id   => { type => 'integer', description => 'Id of the referenced object.' },
+            url  => { type => 'string',  description => 'Resource URL of the referenced object (e.g. /netdot/api/<table>/<id>/).' },
+            name => { type => 'string',  description => 'Label of the referenced object (zone name, FQDN, or IP address for an ipblock).' },
+        },
+        required => [ 'id' ],
+    };
+
     _add_specific_endpoints(\%paths);
 
     return {
@@ -163,10 +176,12 @@ sub build_spec {
                 'List responses are paginated (Netbox-style): {count, next, previous, results}.',
                 'Use ?limit=N (default 50, max 1000) and ?offset=N; follow "next"/"previous".',
                 '',
-                'Foreign keys: on write pass the target id (integer); on read the field is the',
-                'target label (string) and a sibling "<column>_xlink" gives "{table}/{id}".',
+                'Foreign keys: on write pass the target id (integer); on read the field is a',
+                'nested reference object {id, url, name} pointing at the target, e.g.',
+                '  "zone": {"id":2,"url":"/netdot/api/zone/2/","name":"example.com"}.',
+                '"name" is the target\'s label (zone name, FQDN, or the IP address for an ipblock).',
                 'Every object also carries a "url" field (e.g. /netdot/api/<table>/<id>/).',
-                'Use ?depth=N to inline referenced objects, ?linked_from=1 for back-references.',
+                'Use ?depth=N to inline full referenced objects, ?linked_from=1 for back-references.',
                 '',
                 'Authentication: the Netdot web session (log in at /login). Unauthenticated',
                 'requests get 401.',
@@ -222,10 +237,11 @@ sub _schema {
         elsif ( exists $lt->{$colname} ) {
             my $target = $lt->{$colname};
             $p{type} = undef;
-            $p{anyOf} = [ { type => 'integer' }, { type => 'string' } ];
+            # On write: the target id (integer). On read: a nested reference object.
+            $p{anyOf} = [ { type => 'integer' }, { '$ref' => '#/components/schemas/FkReference' } ];
             my $note = sprintf(
-                "Foreign key to %s (pass the id on write; label on read, depth 0; sibling \"%s_xlink\" = \"%s/{id}\").",
-                $target, $colname, lc($target)
+                "Foreign key to %s (pass the id on write; on read a nested {id,url,name} reference).",
+                $target
             );
             $p{description} = ( $p{description} ? $p{description} . ' ' : '' ) . $note;
         }
@@ -334,7 +350,7 @@ sub _depth_param {
         in          => 'query',
         required    => 0,
         schema      => { type => 'integer', default => 0 },
-        description => 'How many levels of referenced (FK) objects to inline (0 = labels only).',
+        description => 'How many levels of referenced (FK) objects to inline as full objects (0 = nested {id,url,name} references only).',
     };
 }
 
@@ -344,7 +360,7 @@ sub _linked_from_param {
         in          => 'query',
         required    => 0,
         schema      => { type => 'string' },
-        description => 'Set to 1 to include a "linked_from" key of back-references.',
+        description => 'Set to 1 to include a "linked_from" key of back-references (arrays of {id,url,name} references).',
     };
 }
 
