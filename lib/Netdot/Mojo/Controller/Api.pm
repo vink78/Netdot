@@ -200,12 +200,15 @@ sub generic {
             if ( $method eq 'GET' ) {
                 my $obj = $class->retrieve($id);
                 _err( 404, "$class/$id not found" ) unless $obj;
+                unless ( Netdot::Mojo::Permissions->can( $p, 'view', $obj ) ) {
+                    _err( 403, 'User not allowed to view this object' );
+                }
                 my %ga = ( obj => $obj );
                 $ga{depth}       = int( $args->{depth} ) if defined $args->{depth} && $args->{depth} ne '';
                 $ga{linked_from} = 1                   if defined $args->{linked_from} && $args->{linked_from} ne '0';
                 return $c->render( json => Netdot::Mojo::Api::get( $obj, $p, undef, %ga ), status => 200 );
             }
-            elsif ( $method eq 'POST' ) {
+            elsif ( $method eq 'POST' || $method eq 'PATCH' || $method eq 'PUT' ) {
                 return $c->render( json => _post( $class, $id, $args, $p ), status => 200 );
             }
             elsif ( $method eq 'DELETE' ) {
@@ -283,6 +286,11 @@ sub _post {
         _err( 400, "Bad request: $@" ) if $@;
     }
     else {
+        # Create: require write ('edit') rights on this class (Admin unrestricted;
+        # a User e.g. needs edit on a Zone to create its RRs via Zone->RR grant).
+        unless ( Netdot::Mojo::Permissions->has_action( $class, $p, 'edit' ) ) {
+            _err( 403, 'User not allowed to create this object' );
+        }
         my $new = eval { $class->insert(\%a) };
         _err( 400, "Bad request: $@" ) if $@;
         $obj = $new;
