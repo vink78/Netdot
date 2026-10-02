@@ -206,6 +206,10 @@ sub startup ($self) {
         return if $path eq "$base/login" || $path eq "$base/logout";
         return if $path =~ m{^\Q$base\E(?:/(?:css|img|java_script))(?:/|$)};
         return if $path eq "$base/favicon.ico";
+        # Set REMOTE_USER from the session for the audit trail (Model::_audit
+        # reads it; the old Apache layer provided it). Covers both the HTML app
+        # and the JSON API, which both authenticate via the session.
+        $ENV{REMOTE_USER} = $c->session('username') if $c->session('username');
         # The JSON API handles auth itself (JSON 401) rather than the HTML login
         # redirect.
         return if $path =~ m{^\Q$base\E/api(?:/|$)};

@@ -2,6 +2,7 @@ package Netdot::Mojo::Controller::Advanced;
 
 use Mojo::Base 'Mojolicious::Controller';
 use Netdot::Model;
+use Netdot::Mojo::Permissions;
 
 # Changelog: audit records with search (label LIKE) + operation filter + pagination.
 sub changelog {
@@ -18,6 +19,22 @@ sub changelog {
     # WHERE clause (same pattern as Browse#list).
     my @where;
     my @binds;
+
+    # Changelog is an admin feature: Admin/Operator see every entry; any other
+    # user sees only their own (audit.username == their username).
+    my $person = $c->current_person;
+    my $type   = Netdot::Mojo::Permissions->user_type( $person );
+    if ( $type ne 'Admin' && $type ne 'Operator' ) {
+        my $u = ( defined $person && ref $person ) ? eval { $person->username } : undef;
+        if ( defined $u && length $u ) {
+            push @where, 'username = ?';
+            push @binds, $u;
+        }
+        else {
+            push @where, '1 = 0';    # cannot determine user -> show nothing
+        }
+    }
+
     if ( length $search ) {
         push @where, 'label LIKE ?';
         push @binds, "%$search%";
