@@ -275,12 +275,14 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
        « Local AS » → `asn` (corrigé `as/`→`asn/`) ; ipblock Owner/Used by → entité ;
        détail générique : colonnes-label scalaires liées à l'objet (cas `show_label=0`,
        `Detail.pm`).
-     - **Tri par la 1ère colonne** : listes génériques + CSV triées par la **1ère
-       colonne d'affichage** (tie-break `id`), plus par `id`. Le `tablesort.js` ne trie
-       que la page courante → il faut un tri serveur. Colonne scalaire →
-       `ORDER BY <col> ASC, id` (collation DB : insensible casse/accents) ; colonne
-       **FK** (seul `device.name`→RR) → `LEFT JOIN` + tri par le label lié (`_ordered_ids`
-       + `_kcmp`), prédicat per-user mis en sous-requête pour éviter l'ambiguïté.
+      - **Tri par la 1ère colonne** : listes + CSV + racines ipblock triées par la **1ère
+        colonne d'affichage** (tie-break `id`), plus par `id`. Le `tablesort.js` ne trie
+        que la page courante → il faut un tri serveur. **Tout le SQL est dans le modèle**
+        (`Model::search_page`/`search_count`, `order_by => $first`, helper `_order_clause`),
+        appelé aussi bien par l'API que par la liste HTML (aucun SQL brut dans les
+        contrôleurs) : colonne scalaire → `ORDER BY <col> ASC, id` (collation DB) ; colonne
+        **FK** (seul `device.name`→RR) → `LEFT JOIN` + tri par le label lié, prédicat
+        per-user mis en sous-requête pour éviter l'ambiguïté.
  3. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
 4. ⛔ **Câblage/circuits** — dépréciés (Netbox).
 5. 🔶 **Création — raffiner la permission par parent** : `_can_create` est une approximation

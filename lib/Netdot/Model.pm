@@ -683,8 +683,11 @@ sub raw_sql {
 sub search_count {
     my ( $class, %args ) = @_;
     my $frag = delete $args{where};              # trusted permission fragment (or undef)
+    my $like = delete $args{like};               # [ col, q ] free-text
+    delete $args{order_by};                      # irrelevant to a count
     return 0 if defined $frag && $frag eq '0';   # nothing viewable
     my ( $where, $binds ) = _pagination_where( $class, %args );
+    ( $where, $binds ) = _list_add_like( $class, $where, $binds, $like );
     $where = _combine_where( $where, $frag );
     my ($n) = $class->db_Main()->selectrow_array(
         "SELECT COUNT(*) FROM " . $class->table . $where,
@@ -700,10 +703,15 @@ sub search_count {
 
     Arguments:
         column => value pairs, plus:
-          limit  => int   (default 50, max 1000)
-          offset => int   (default 0)
+          limit    => int    (default 50, max 1000; 0 = all rows, e.g. CSV)
+          offset   => int    (default 0)
+          order_by => column (default primary key). If the column is a
+                             relationship, order by the related object's first
+                             label (LEFT JOIN) -- see _order_clause.
+          like     => [ col, q ]  free-text LIKE %q% on $col (bound)
+          where    => frag   trusted permission predicate (or undef)
     Returns:
-        List of blessed objects, ordered by primary key.
+        List of blessed objects, ordered by order_by (default primary key).
     Example:
         my @devs = Device->search_page( site => 1, limit => 50, offset => 0 );
 
@@ -711,24 +719,35 @@ sub search_count {
 
 sub search_page {
     my ( $class, %all ) = @_;
-    my $limit  = defined $all{limit}  ? int( $all{limit}  ) : 50;
-    my $offset = defined $all{offset} ? int( $all{offset} ) : 0;
-    my $frag   = delete $all{where};
+    my $limit    = defined $all{limit}    ? int( $all{limit}    ) : 50;
+    my $offset   = defined $all{offset}   ? int( $all{offset}   ) : 0;
+    my $frag     = delete $all{where};
+    my $order_by = delete $all{order_by};
+    my $like     = delete $all{like};
     delete @all{ qw(limit offset) };
-    $limit  = 50   if $limit  < 1;
+    $limit  = 50   if $limit  < 0;
     $limit  = 1000 if $limit  > 1000;
     $offset = 0    if $offset < 0;
     return () if defined $frag && $frag eq '0';   # nothing viewable
 
     my ( $where, $binds ) = _pagination_where( $class, %all );
+    ( $where, $binds )   = _list_add_like( $class, $where, $binds, $like );
     $where = _combine_where( $where, $frag );
-    my $pk  = $class->primary_column;
-    my @ids = map { $_->[0] } @{ $class->db_Main()->selectall_arrayref(
-        "SELECT $pk FROM " . $class->table . $where
-            . " ORDER BY $pk LIMIT ? OFFSET ?",
-        {},
-        @$binds, $limit, $offset
-    ) };
+
+    my ( $from, $order, $is_fk ) = _order_clause( $class, $order_by );
+    my $table = $class->table;
+    my $pk    = $class->primary_column;
+    my $lim   = $limit > 0 ? " LIMIT ? OFFSET ?" : "";
+    my @tail  = $limit > 0 ? ( $limit, $offset ) : ();
+    my $sel;
+    if ( $is_fk ) {    # wrap the WHERE in a subquery: bare cols would be ambiguous
+        my $sub  = $where eq '' ? "SELECT id FROM $table" : "SELECT id FROM $table $where";
+        my $pred = $where eq '' ? "" : " WHERE d.id IN ( $sub )";
+        $sel = "SELECT d.id FROM $from$pred ORDER BY $order$lim";
+    } else {
+        $sel = "SELECT $pk FROM $from $where ORDER BY $order$lim";
+    }
+    my @ids = map { $_->[0] } @{ $class->db_Main()->selectall_arrayref( $sel, {}, @$binds, @tail ) };
     return map { $class->retrieve( $_ ) } @ids;
 }
 
@@ -758,6 +777,42 @@ sub _pagination_where {
     }
     my $where = @w ? " WHERE " . join( " AND ", @w ) : "";
     return ( $where, \@b );
+}
+
+# Add a free-text LIKE %q% on a validated column to a WHERE clause. $like is
+# [ $col, $q ]; $q is bound (never interpolated). Returns ($where, $binds).
+sub _list_add_like {
+    my ( $class, $where, $binds, $like ) = @_;
+    return ( $where, $binds ) unless $like && defined $like->[1] && length $like->[1];
+    my $col = $like->[0];
+    $col = $class->primary_column unless grep { $_ eq $col } $class->columns;
+    $where = $where eq '' ? " WHERE $col LIKE ?" : "$where AND $col LIKE ?";
+    push @$binds, "%$like->[1]";
+    return ( $where, $binds );
+}
+
+# FROM (with a LEFT JOIN when the order column is a relationship) + ORDER BY for
+# the list/CSV views. The order column is validated against the table's real
+# columns. If it is a relationship, order by the related object's first label
+# (e.g. device.name -> rr.name) and flag $is_fk so the caller wraps the WHERE in
+# a subquery (its bare column names would otherwise be ambiguous across the
+# JOIN). Returns ( $from, $order, $is_fk ).
+sub _order_clause {
+    my ( $class, $order_col ) = @_;
+    my $table = $class->table;
+    my $pk    = $class->primary_column;
+    my $oc    = $order_col // $pk;
+    $oc = $pk unless $oc =~ /^[A-Za-z_][A-Za-z0-9_]*$/;
+    $oc = $pk unless grep { $_ eq $oc } $class->columns;
+    my $links = eval { $class->meta_data->get_column( $oc )->links_to };
+    if ( $links && $links =~ /^[A-Za-z_][A-Za-z0-9_]*$/ ) {
+        my $reltab = $links->table;
+        my @lbl;  @lbl = eval { $links->meta_data->get_labels };
+        my $relcol = ( grep { /^[A-Za-z_][A-Za-z0-9_]*$/ } @lbl )[0] // 'id';
+        return ( "$table d LEFT JOIN $reltab ON d.$oc = $reltab.id",
+                 "$reltab.$relcol ASC, d.$pk", 1 );
+    }
+    return ( $table, "$oc ASC, $pk", 0 );
 }
 
 ############################################################################

@@ -261,14 +261,16 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
     free-text `?search` = raw parameterised `LIKE %q%` on `cols[0]` + view predicate
     (NOT `search_like` — see Models pitfall); the list template's search box +
     query-preserving pagination live here.
-    - **Ordering** (2026-10-03): list + CSV are ordered by the **first display
-      column** (id tie-break), not `id`. Client-side `tablesort.js` only sorts the
-      current page, so a paginated list needs a server order. Scalar first column →
-      `ORDER BY <col> ASC, id` (DB collation: case/accent-insensitive). A
-      **relationship first column** (only `device.name` → RR) sorts by the related
-      label via `LEFT JOIN` + numeric-aware `_kcmp`; the per-user predicate is wrapped
-      in a subquery so its bare column names stay unambiguous. Helper `_ordered_ids`
-      (shared list+CSV) + `_kcmp`.
+    - **Ordering** (2026-10-03): list + CSV + the ipblock root filter are ordered by the
+      **first display column** (id tie-break), not `id`. Client-side `tablesort.js` only
+      sorts the current page, so a paginated list needs a server order. **All of this SQL
+      lives in the Model** (`Model::search_page`/`search_count`, `order_by => $first`): a
+      scalar first column → `ORDER BY <col> ASC, id` (DB collation, case/accent-insensitive);
+      a **relationship first column** (only `device.name` → RR) → related label via a
+      `LEFT JOIN` (predicate wrapped in a subquery, see `Model::_order_clause`). The
+      controller only builds the `where` (per-user predicate) and calls the Model; `_kcmp`
+      (numeric-aware text compare) remains here only to order the `search_like()` filter
+      path in memory.
  - `lib/Netdot/Mojo/Controller/Reports.pm` — all 10 reports: `_obj_html`,
    `_link` (via `set_uri`), `_normalize_rows`, `_skey`, per-report row builders,
    CSV export.
@@ -320,8 +322,16 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   single source of truth, base = `meta_data->get_labels` → `[{name,is_fk,sql_type}]`) +
   `get_hashref` (instance; `{field=>value}`, an FK field → the related object's `get_label`
   **one level** — mirroring `get_label`, so no unbounded recursion). Consumed by the API
-  serializer (`_ref`) and the OpenAPI generator (per-class `FkReference_<Classe>`); a class
-  overrides `get_ref_field_spec` to customise its reference fields and both stay in sync.
+   serializer (`_ref`) and the OpenAPI generator (per-class `FkReference_<Classe>`); a class
+   overrides `get_ref_field_spec` to customise its reference fields and both stay in sync.
+   Also the **list data-access layer**: `search_count` / `search_page` (bound column filters +
+   trusted `where` permission fragment + optional free-text `like`) and their helpers
+   `_pagination_where` / `_combine_where` / `_list_add_like` / `_order_clause`. `search_page`
+   accepts `order_by` (a validated column; if it is a **relationship** it orders by the
+   related object's first label via a `LEFT JOIN`, wrapping the `where` in a subquery so its
+   bare columns stay unambiguous) and `limit => 0` (all rows, for CSV). This is the single
+   place for list SQL — both the JSON API (`Api.pm`) and the HTML list (`Browse.pm`) call it,
+   so no raw SQL lives in the controllers.
 - `lib/Netdot/Mojo/Controller/Api.pm` — JSON API controller: `generic` (GET list +
   object, POST/PATCH/PUT, DELETE per table) with **per-verb permission checks** —
   GET `can('view')`, update `can('edit')`, DELETE `can('delete')`, create `_can_create`

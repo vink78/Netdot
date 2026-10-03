@@ -26,40 +26,6 @@ sub _kcmp {
     return lc( $x ) cmp lc( $y );
 }
 
-# All ids of $table ordered by the first display column (id tie-break), applying
-# $wc (a " WHERE ..." clause, or '') with @binds. A relationship first column
-# (FK) is ordered by the related object's label via a LEFT JOIN (the predicate is
-# wrapped in a subquery so its bare column names stay unambiguous); a scalar
-# column is ordered in SQL. Returns (\@ids, $total).
-sub _ordered_ids {
-    my ( $dbh, $table, $first, $linkkey0, $sort_col, $wc, @binds ) = @_;
-    my $w  = defined $wc ? $wc : '';
-    my @all;
-    if ( $linkkey0 ) {
-        my $rel    = Netdot::Mojo::Registry::spec( $linkkey0 )->{class};
-        my $reltab = $rel->table;
-        my @lbl;
-        @lbl = eval { $rel->meta_data->get_labels };    # list context (no || ())
-        my $rellab = ( grep { /^[A-Za-z_][A-Za-z0-9_]*$/ } @lbl )[0] // 'id';
-        my $pred   = $w ne '' ? " WHERE d.id IN ( SELECT id FROM $table $w )" : '';
-        my $sql    = "SELECT d.id, $reltab.$rellab AS sk FROM $table d "
-                    . "LEFT JOIN $reltab ON d.$first = $reltab.id $pred";
-        my $sth    = $dbh->prepare( $sql );
-        $sth->execute( @binds );
-        my $rows   = $sth->fetchall_arrayref || [];
-        my @pairs  = map { [ $_->[0], defined $_->[1] ? $_->[1] : '' ] } @$rows;
-        @pairs     = sort { _kcmp( $a->[1], $b->[1] ) } @pairs;
-        @all       = map { $_->[0] } @pairs;
-    }
-    else {
-        my $sql  = "SELECT id FROM $table $w ORDER BY $sort_col ASC, id";
-        my $sth  = $dbh->prepare( $sql );
-        $sth->execute( @binds );
-        @all = map { $_->[0] } @{ $sth->fetchall_arrayref || [] };
-    }
-    return ( \@all, scalar @all );
-}
-
 # BOUNDED, paginated list of one object type (SQL LIMIT/OFFSET + retrieve by id).
 # Reuses the Netdot model, out of Apache. Works for every type in the Registry.
 sub list ($c) {
@@ -69,30 +35,27 @@ sub list ($c) {
     my $class = $spec->{class};
     my $cols  = $spec->{cols};
     my $table  = $class->table;
-    my $dbh    = Netdot::Model->db_Main;
 
     # Default server-side ordering: the type's FIRST display column (the label),
     # id as a stable tie-breaker. Needed because the list is paginated -- the
     # client-side tablesort.js only sorts the current page, so a global order must
-    # come from the data. If the first column is a relationship (FK, e.g.
-    # device.name -> RR) the raw column holds the FK id, so ordering by it would
-    # be wrong; instead sort by the related object's label via a LEFT JOIN. The
-    # column names come from the trusted spec/meta (never the user) and are
-    # validated anyway.
+    # come from the data. All of that SQL lives in the MODEL layer
+    # (search_page/search_count, order_by => $first); a relationship first column
+    # (FK, e.g. device.name -> RR) is ordered by the related label via a JOIN there.
     my $first    = $cols->[0];
-    my $linkkey0 = Netdot::Mojo::Registry::column_link_key( $class, $first );
     my $sort_col = $first;
     $sort_col = 'id' unless $sort_col =~ /^[A-Za-z_][A-Za-z0-9_]*$/;
 
     # Per-user access: a User sees only the objects they may view (none by
     # default). Admin/Operator are unrestricted (view access to everything).
     my $person    = $c->current_person;
-    my $where_sql = undef;    # e.g. " WHERE (id IN (?,?) OR zone IN (?))"
-    my @binds;
+    my $where_sql = undef;    # e.g. " WHERE (id IN (1,2) OR zone IN (3))"
+    # The predicate is a literal IN list (no placeholders) -- see
+    # Permissions::viewable_predicate -- so search_page/search_count take it as
+    # a `where` string; there are no binds to pass.
     if ( Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
-        my ( $w, $b ) = Netdot::Mojo::Permissions->viewable_predicate( $class, $person );
+        my ( $w ) = Netdot::Mojo::Permissions->viewable_predicate( $class, $person );
         $where_sql = defined $w ? " WHERE $w" : undef;
-        @binds     = defined $b ? @$b : ();
     }
 
     # ipblock: hierarchical view. The list shows the ROOT blocks only (parent is
@@ -115,12 +78,11 @@ sub list ($c) {
             # ancestor path includes it: i.e. keep the roots that lead down to a
             # viewable block, so the user can drill in.
             my %keep;
-            my $sthv = $dbh->prepare( "SELECT id FROM $table $where_sql" );
-            $sthv->execute(@binds);
-            for my $row ( @{ $sthv->fetchall_arrayref } ) {
-                my $ip = eval { $class->retrieve( $row->[0] ) };
+            # Viewable block ids via the model layer (no raw SQL in the controller).
+            my @viewable = $class->search_page( where => $where_sql, limit => 0 );
+            for my $ip (@viewable) {
                 next unless $ip;
-                $keep{ $row->[0] } = 1;
+                $keep{ $ip->id } = 1;
                 $keep{ $_->id } = 1 for eval { $ip->get_ancestors } || ();
             }
             @roots = grep { $keep{ $_->id } } @roots;
@@ -169,30 +131,13 @@ sub list ($c) {
     $q =~ s/^\s+|\s+$//g;
 
     my ( @objs, $total );
-    if ( length $q ) {
-        my $like = "%$q%";
-        my $wc   = defined $where_sql
-                 ? "$where_sql AND ( $first LIKE ? )"
-                 : " WHERE $first LIKE ? ";
-        my @qb   = ( @binds, $like );
-        my ( $all, $t );
-        my $ok = eval { ( $all, $t ) = _ordered_ids( $dbh, $table, $first, $linkkey0, $sort_col, $wc, @qb ); 1 };
-        if ( $ok && defined $all ) {
-            my $last = $offset + $per - 1;
-            $last    = $#$all if $last > $#$all;
-            @objs   = map { $class->retrieve( $_ ) } @$all[ $offset .. $last ];
-            $total  = $t;
-        }
-        else {    # bad/missing column: show nothing (never leak the unfiltered set)
-            $c->app->log->error( "list search on $table.$first failed: $@" );
-            ( @objs, $total ) = ( (), 0 );
-        }
-    }
-    elsif ( @filters ) {
+    my $like = length $q ? [ $first, $q ] : undef;    # free-text on the first col
+    if ( @filters ) {
+        # Per-type filter columns go through the model's own search_like()
+        # (overridden per class), then ordered by the first column. No-op sort if
+        # @objs holds an iterator (->col fails -> '' keys), so it cannot break a
+        # non-list return some classes use.
         @objs  = $class->search_like( @filters );
-        # Same first-column order as the SQL paths above (search_like has no
-        # ORDER BY). No-op if @objs holds an iterator (->col fails -> '' keys),
-        # so it cannot break the non-list return some classes use.
         my $skey = sub { my $v = eval { $_[0] -> $sort_col }; $v = undef if $@;
                          Netdot::Mojo::Registry::format_value( $v ) // '' };
         @objs   = sort { _kcmp( $skey->($a), $skey->($b) ) } @objs;
@@ -205,19 +150,35 @@ sub list ($c) {
         my $end = $offset + $per;
         $end     = $total if $end > $total;
         @objs    = $offset < $total ? @objs[ $offset .. $end - 1 ] : ();
-    } else {
-        my ( $all, $t ) = _ordered_ids( $dbh, $table, $first, $linkkey0, $sort_col, $where_sql // '', @binds );
-        my $last = $offset + $per - 1;
-        $last    = $#$all if $last > $#$all;
-        @objs   = map { $class->retrieve( $_ ) } @$all[ $offset .. $last ];
-        $total  = $t;
+    }
+    else {    # default + free-text search: one query in the model layer (perms +
+              # LIKE + first-column/FK order + pagination all handled there).
+        my $ok = eval {
+            @objs  = $class->search_page(
+                where    => $where_sql,
+                order_by => $first,
+                like     => $like,
+                limit    => $per,
+                offset   => $offset,
+            );
+            $total = $class->search_count(
+                where    => $where_sql,
+                order_by => $first,
+                like     => $like,
+            );
+            1;
+        };
+        unless ( $ok ) {    # never leak an unfiltered set on an error
+            $c->app->log->error( "list on $table failed: $@" );
+            ( @objs, $total ) = ( (), 0 );
+        }
     }
 
     # May the current user delete objects of this type? (controls the delete form)
     my $can_delete = Netdot::Mojo::Permissions->has_action( $class, $person, 'delete' );
 
     # Per-column meta tags (headers) and foreign-key targets (for cell links).
-    # ($first / $linkkey0 / $sort_col are computed above, before the queries.)
+    # ($first / $sort_col are computed above, before the queries.)
     my %coltag  = map { $_ => Netdot::Mojo::Registry::column_tag( $class, $_ ) } @$cols;
     my %linkkey = map { $_ => Netdot::Mojo::Registry::column_link_key( $class, $_ ) } @$cols;
 
@@ -302,10 +263,6 @@ sub csv ($c) {
     my $cols  = $spec->{cols};
     my $meta  = $class->meta_data;
 
-    # Export in the same first-column order as the list view.
-    my $sort_col = $cols->[0];
-    $sort_col = 'id' unless $sort_col =~ /^[A-Za-z_][A-Za-z0-9_]*$/;
-
     # Pre-compute per-column metadata once (header tag + whether it is a relationship).
     my @colmeta;
     for my $col (@$cols) {
@@ -319,12 +276,10 @@ sub csv ($c) {
     # Per-user filter: a User exports only the objects they may view (none by
     # default). Admin/Operator export everything.
     my $person    = $c->current_person;
-    my $where_sql = undef;
-    my @binds;
+    my $where_sql = undef;    # literal IN list, no placeholders (see list)
     if ( Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
-        my ( $w, $b ) = Netdot::Mojo::Permissions->viewable_predicate( $class, $person );
+        my ( $w ) = Netdot::Mojo::Permissions->viewable_predicate( $class, $person );
         $where_sql = defined $w ? " WHERE $w" : undef;
-        @binds     = defined $b ? @$b : ();
     }
 
     my $emit = sub {
@@ -340,12 +295,10 @@ sub csv ($c) {
         $csv .= join( ',', @vals ) . "\n";
     };
 
-    my $table = $class->table;
-    my $dbh   = Netdot::Model->db_Main;
-    my $first    = $cols->[0];
-    my $linkkey0 = Netdot::Mojo::Registry::column_link_key( $class, $first );
-    my ( $ids )  = _ordered_ids( $dbh, $table, $first, $linkkey0, $sort_col, $where_sql // '', @binds );
-    $emit->( $class->retrieve( $_ ) ) for @$ids;
+    # All rows, in the list view's first-column order (order_by handles a
+    # relationship first column via a JOIN); limit 0 = no page window.
+    my @objs = $class->search_page( where => $where_sql, order_by => $cols->[0], limit => 0 );
+    $emit->($_) for @objs;
 
     my $h = $c->res->headers;
     $h->content_type( 'text/csv' );
