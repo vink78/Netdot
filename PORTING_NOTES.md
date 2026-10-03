@@ -254,13 +254,21 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
     **Pictures** section (`_pictures`, via `ClosetPicture->search`) + **binary
     route** `picture` action (`/management/closetpicture/:id`, serves the
     `bindata` BLOB — see pitfall 2f).
- - `lib/Netdot/Mojo/Controller/Browse.pm` — generic list (all types): `%FILTERS`
-   per-type filter whitelist, `search_like()` re-application, FK links via
-   `Registry::column_link_key`/`esc`, CSV export, batch delete. Also **generic
-   per-type search** (`search` action → `list`, route `/management/<type>/search`):
-   free-text `?search` = raw parameterised `LIKE %q%` on `cols[0]` + view predicate
-   (NOT `search_like` — see Models pitfall); the list template's search box +
-   query-preserving pagination live here.
+  - `lib/Netdot/Mojo/Controller/Browse.pm` — generic list (all types): `%FILTERS`
+    per-type filter whitelist, `search_like()` re-application, FK links via
+    `Registry::column_link_key`/`esc`, CSV export, batch delete. Also **generic
+    per-type search** (`search` action → `list`, route `/management/<type>/search`):
+    free-text `?search` = raw parameterised `LIKE %q%` on `cols[0]` + view predicate
+    (NOT `search_like` — see Models pitfall); the list template's search box +
+    query-preserving pagination live here.
+    - **Ordering** (2026-10-03): list + CSV are ordered by the **first display
+      column** (id tie-break), not `id`. Client-side `tablesort.js` only sorts the
+      current page, so a paginated list needs a server order. Scalar first column →
+      `ORDER BY <col> ASC, id` (DB collation: case/accent-insensitive). A
+      **relationship first column** (only `device.name` → RR) sorts by the related
+      label via `LEFT JOIN` + numeric-aware `_kcmp`; the per-user predicate is wrapped
+      in a subquery so its bare column names stay unambiguous. Helper `_ordered_ids`
+      (shared list+CSV) + `_kcmp`.
  - `lib/Netdot/Mojo/Controller/Reports.pm` — all 10 reports: `_obj_html`,
    `_link` (via `set_uri`), `_normalize_rows`, `_skey`, per-report row builders,
    CSV export.

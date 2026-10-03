@@ -16,6 +16,50 @@ my %FILTERS = (
     physaddr => { address => 'str' },
 );
 
+# Numeric-aware sort key for a display value: both-numeric -> numeric compare,
+# otherwise case-insensitive text compare (mirrors the client-side tablesort.js).
+sub _kcmp {
+    my ( $x, $y ) = @_;
+    $x = '' unless defined $x;
+    $y = '' unless defined $y;
+    if ( $x =~ /^-?\d+(?:\.\d+)?$/ && $y =~ /^-?\d+(?:\.\d+)?$/ ) { return $x <=> $y; }
+    return lc( $x ) cmp lc( $y );
+}
+
+# All ids of $table ordered by the first display column (id tie-break), applying
+# $wc (a " WHERE ..." clause, or '') with @binds. A relationship first column
+# (FK) is ordered by the related object's label via a LEFT JOIN (the predicate is
+# wrapped in a subquery so its bare column names stay unambiguous); a scalar
+# column is ordered in SQL. Returns (\@ids, $total).
+sub _ordered_ids {
+    my ( $dbh, $table, $first, $linkkey0, $sort_col, $wc, @binds ) = @_;
+    my $w  = defined $wc ? $wc : '';
+    my @all;
+    if ( $linkkey0 ) {
+        my $rel    = Netdot::Mojo::Registry::spec( $linkkey0 )->{class};
+        my $reltab = $rel->table;
+        my @lbl;
+        @lbl = eval { $rel->meta_data->get_labels };    # list context (no || ())
+        my $rellab = ( grep { /^[A-Za-z_][A-Za-z0-9_]*$/ } @lbl )[0] // 'id';
+        my $pred   = $w ne '' ? " WHERE d.id IN ( SELECT id FROM $table $w )" : '';
+        my $sql    = "SELECT d.id, $reltab.$rellab AS sk FROM $table d "
+                    . "LEFT JOIN $reltab ON d.$first = $reltab.id $pred";
+        my $sth    = $dbh->prepare( $sql );
+        $sth->execute( @binds );
+        my $rows   = $sth->fetchall_arrayref || [];
+        my @pairs  = map { [ $_->[0], defined $_->[1] ? $_->[1] : '' ] } @$rows;
+        @pairs     = sort { _kcmp( $a->[1], $b->[1] ) } @pairs;
+        @all       = map { $_->[0] } @pairs;
+    }
+    else {
+        my $sql  = "SELECT id FROM $table $w ORDER BY $sort_col ASC, id";
+        my $sth  = $dbh->prepare( $sql );
+        $sth->execute( @binds );
+        @all = map { $_->[0] } @{ $sth->fetchall_arrayref || [] };
+    }
+    return ( \@all, scalar @all );
+}
+
 # BOUNDED, paginated list of one object type (SQL LIMIT/OFFSET + retrieve by id).
 # Reuses the Netdot model, out of Apache. Works for every type in the Registry.
 sub list ($c) {
@@ -26,6 +70,19 @@ sub list ($c) {
     my $cols  = $spec->{cols};
     my $table  = $class->table;
     my $dbh    = Netdot::Model->db_Main;
+
+    # Default server-side ordering: the type's FIRST display column (the label),
+    # id as a stable tie-breaker. Needed because the list is paginated -- the
+    # client-side tablesort.js only sorts the current page, so a global order must
+    # come from the data. If the first column is a relationship (FK, e.g.
+    # device.name -> RR) the raw column holds the FK id, so ordering by it would
+    # be wrong; instead sort by the related object's label via a LEFT JOIN. The
+    # column names come from the trusted spec/meta (never the user) and are
+    # validated anyway.
+    my $first    = $cols->[0];
+    my $linkkey0 = Netdot::Mojo::Registry::column_link_key( $class, $first );
+    my $sort_col = $first;
+    $sort_col = 'id' unless $sort_col =~ /^[A-Za-z_][A-Za-z0-9_]*$/;
 
     # Per-user access: a User sees only the objects they may view (none by
     # default). Admin/Operator are unrestricted (view access to everything).
@@ -113,25 +170,32 @@ sub list ($c) {
 
     my ( @objs, $total );
     if ( length $q ) {
-        my $col  = $cols->[0];
         my $like = "%$q%";
-        my $pred = "$col LIKE ?";
-        my $wc   = defined $where_sql ? "$where_sql AND ($pred)" : " WHERE $pred";
+        my $wc   = defined $where_sql
+                 ? "$where_sql AND ( $first LIKE ? )"
+                 : " WHERE $first LIKE ? ";
         my @qb   = ( @binds, $like );
-        my $ok = eval {
-            ( $total ) = $dbh->selectrow_array( "SELECT COUNT(*) FROM $table $wc", undef, @qb );
-            my $sth  = $dbh->prepare( "SELECT id FROM $table $wc ORDER BY id LIMIT ? OFFSET ?" );
-            $sth->execute( @qb, $per, $offset );
-            @objs   = map { $class->retrieve( $_->[0] ) } @{ $sth->fetchall_arrayref };
-            1;
-        };
-        unless ( $ok ) {    # bad/missing column: show nothing (never leak the
-            $c->app->log->error( "list search on $table.$col failed: $@" );   # unfiltered set)
+        my ( $all, $t );
+        my $ok = eval { ( $all, $t ) = _ordered_ids( $dbh, $table, $first, $linkkey0, $sort_col, $wc, @qb ); 1 };
+        if ( $ok && defined $all ) {
+            my $last = $offset + $per - 1;
+            $last    = $#$all if $last > $#$all;
+            @objs   = map { $class->retrieve( $_ ) } @$all[ $offset .. $last ];
+            $total  = $t;
+        }
+        else {    # bad/missing column: show nothing (never leak the unfiltered set)
+            $c->app->log->error( "list search on $table.$first failed: $@" );
             ( @objs, $total ) = ( (), 0 );
         }
     }
     elsif ( @filters ) {
         @objs  = $class->search_like( @filters );
+        # Same first-column order as the SQL paths above (search_like has no
+        # ORDER BY). No-op if @objs holds an iterator (->col fails -> '' keys),
+        # so it cannot break the non-list return some classes use.
+        my $skey = sub { my $v = eval { $_[0] -> $sort_col }; $v = undef if $@;
+                         Netdot::Mojo::Registry::format_value( $v ) // '' };
+        @objs   = sort { _kcmp( $skey->($a), $skey->($b) ) } @objs;
         $total = scalar @objs;
         if ( Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
             my $access = Netdot::Mojo::Permissions->allowed_objects( $class, $person );
@@ -142,20 +206,20 @@ sub list ($c) {
         $end     = $total if $end > $total;
         @objs    = $offset < $total ? @objs[ $offset .. $end - 1 ] : ();
     } else {
-        my $wc = $where_sql // '';
-        ( $total ) = $dbh->selectrow_array( "SELECT COUNT(*) FROM $table $wc", undef, @binds );
-        my $sth = $dbh->prepare( "SELECT id FROM $table $wc ORDER BY id LIMIT ? OFFSET ?" );
-        $sth->execute( @binds, $per, $offset );
-        @objs    = map { $class->retrieve( $_->[0] ) } @{ $sth->fetchall_arrayref };
+        my ( $all, $t ) = _ordered_ids( $dbh, $table, $first, $linkkey0, $sort_col, $where_sql // '', @binds );
+        my $last = $offset + $per - 1;
+        $last    = $#$all if $last > $#$all;
+        @objs   = map { $class->retrieve( $_ ) } @$all[ $offset .. $last ];
+        $total  = $t;
     }
 
     # May the current user delete objects of this type? (controls the delete form)
     my $can_delete = Netdot::Mojo::Permissions->has_action( $class, $person, 'delete' );
 
     # Per-column meta tags (headers) and foreign-key targets (for cell links).
+    # ($first / $linkkey0 / $sort_col are computed above, before the queries.)
     my %coltag  = map { $_ => Netdot::Mojo::Registry::column_tag( $class, $_ ) } @$cols;
     my %linkkey = map { $_ => Netdot::Mojo::Registry::column_link_key( $class, $_ ) } @$cols;
-    my $first   = $cols->[0];
 
     # Build display rows: id (for the link) + the type's display columns. FK
     # columns render as links to the related object's detail page; the first
@@ -238,6 +302,10 @@ sub csv ($c) {
     my $cols  = $spec->{cols};
     my $meta  = $class->meta_data;
 
+    # Export in the same first-column order as the list view.
+    my $sort_col = $cols->[0];
+    $sort_col = 'id' unless $sort_col =~ /^[A-Za-z_][A-Za-z0-9_]*$/;
+
     # Pre-compute per-column metadata once (header tag + whether it is a relationship).
     my @colmeta;
     for my $col (@$cols) {
@@ -274,15 +342,10 @@ sub csv ($c) {
 
     my $table = $class->table;
     my $dbh   = Netdot::Model->db_Main;
-    if ( defined $where_sql ) {
-        my $sth = $dbh->prepare( "SELECT id FROM $table $where_sql ORDER BY id" );
-        $sth->execute(@binds);
-        my $ids = $sth->fetchall_arrayref;
-        $emit->( $class->retrieve( $_->[0] ) ) for @$ids;
-    } else {
-        my $iter = $class->retrieve_all;
-        while ( my $o = $iter->next ) { $emit->($o); }
-    }
+    my $first    = $cols->[0];
+    my $linkkey0 = Netdot::Mojo::Registry::column_link_key( $class, $first );
+    my ( $ids )  = _ordered_ids( $dbh, $table, $first, $linkkey0, $sort_col, $where_sql // '', @binds );
+    $emit->( $class->retrieve( $_ ) ) for @$ids;
 
     my $h = $c->res->headers;
     $h->content_type( 'text/csv' );
