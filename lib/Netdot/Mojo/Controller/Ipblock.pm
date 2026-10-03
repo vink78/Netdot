@@ -586,7 +586,7 @@ sub _build_subnet_grid {
                 my $inner = qq{<div class="$divclass" title="$divtitle" width="100%">$disp</div>};
                 my $aid   = $ids{ $net->numeric };
                 $cell = ( exists $used{ $net->numeric } && $aid )
-                    ? qq{<a href="} . Netdot::Mojo::Registry::set_uri( "/management/ipblock/$aid" ) . qq{ class="ipaddr">$inner</a>}
+                    ? qq{<a href="} . Netdot::Mojo::Registry::set_uri( "/management/ipblock/$aid" ) . qq{" class="ipaddr">$inner</a>}
                     : $inner;
             }
             push @row, $cell;
