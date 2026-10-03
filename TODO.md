@@ -211,8 +211,14 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
 - [x] ✅ **`WEB_BASE_URL` = préfixe de chemin** (`/netdot`) dans la config (pas une URL
   absolue) → identique en dev et en prod. L'app est montée sous ce préfixe **des deux côtés** :
   routes (`->under($base)`), static (`css|img|java_script` sous le préfixe), `before_dispatch`
-  et nav path-aware, helper `web_prefix()` pour les liens durs restants.
-- [x] ✅ **Proxy (préservation du préfixe)** : `ProxyPass /netdot → http://127.0.0.1:3000/netdot`
+   et nav path-aware, helper `web_prefix()` pour les liens durs restants.
+ - [x] ✅ **Helper `set_uri`** (`Registry::set_uri` + alias `$c->set_uri`) : préfixe **tout**
+   chemin interne root-absolu (`/management/…`, `/reports/…`) construit à la main. `url_for()`
+   (templates) porte déjà le préfixe ; c'est le **code Perl** des controllers/templates qui en
+   omettait (`link_for` + ~56 liens inline sur 10 controllers + 6 templates `device/contactlist/
+   zone/detail/ipblock/ipaddress`). Un hook `after_render` regex avait d'abord été envisagé mais
+   remplacé par `set_uri` (explicite, maintenable, no-op à la racine).
+ - [x] ✅ **Proxy (préservation du préfixe)** : `ProxyPass /netdot → http://127.0.0.1:3000/netdot`
   (nginx : `location /netdot/ { proxy_pass http://127.0.0.1:3000; }` **sans slash final**).
 - [x] ✅ **Dev** : `http://127.0.0.1:3000/netdot/` ; **Prod** : `https://netdot.localdomain/netdot/`.
   URLs absolues de l'API = `<origin de la requête><préfixe>` (ex. `…/netdot/api/device`).
@@ -242,10 +248,14 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 
 > Le portage **lecture seule est essentiellement complet**. Il ne reste que du polish.
 
-1. ⬜ **Recherche par type** : action `search` manquante pour tout type hormis
-   RR, Ipblock, Physaddr. Soit ajouter `search` aux controllers dédiés (device,
-   zone, vlan, asset, …) + un `search` générique dans `Show.pm`, soit masquer le
-   champ de recherche des listes qui n'en ont pas (le search global home couvre IP/MAC/texte).
+1. [x] ✅ **Recherche par type** (2026-10-03) : boîte de recherche sur **toutes** les
+   listes (`list.html.ep`) + route `/management/<type>/search`. RR/Ipblock/Physaddr gardent
+   leur search dédié (multi-champs name/IP/MAC, hiérarchie IP) ; les autres types passent par
+   `Browse#search` (→ `Browse#list`), qui applique un **`LIKE %q%` SQL brut et paramétré sur la
+   colonne primaire** (`cols[0]`), combiné à la règle 'view' par-user et paginé. ⚠️ **pas**
+   `search_like()` : cette méthode est **surchargée par classe** (ex. `Device::search_like(name)`
+   matche les noms RR/alias, pas `device.name`) → la recherche générique utilise du SQL direct.
+   La pagination préserve la requête (`?search=…&offset=…`).
 2. ⬜ **Polish lecture seule** : tab *Access Rights* (device) ; navigation
    *NS/MX/TXT/NAPTR* depuis la page host ; lien ASN, sélecteur v4/v6, toggle
    utilisation (ipblock) ; affichage des photos de closet (binaire).

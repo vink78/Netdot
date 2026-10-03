@@ -15,7 +15,7 @@
     <div class="breadcrumb" style="margin:0 0 1em 0; font-size:0.95em">
     % for my $i (0 .. $#$breadcrumb) {
         % my $cr = $breadcrumb->[$i];
-        <a href="<%= $cr->{id} ? "/management/ipblock/$cr->{id}" : '/management/ipblock' %>"><%= $cr->{label} %></a>
+        <a href="<%= $c->set_uri( $cr->{id} ? "/management/ipblock/$cr->{id}" : '/management/ipblock' ) %>"><%= $cr->{label} %></a>
         % if ($i < $#$breadcrumb) {
             <span style="color:#999"> » </span>
         % }

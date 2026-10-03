@@ -79,12 +79,15 @@
   % if ($total > $per) {
   % # Preserve the current query (search / filters) across pagination.
   % my %pq = %{ $c->req->params->to_hash }; delete $pq{offset};
+  % my $ppath = $c->req->url->path;
+  % my $qstr  = sub { my %h = ( %pq, offset => $_[0] );
+  %              return '?' . join( '&', map { $_ . '=' . Mojo::Util::url_escape( $h{$_} // '' ) } sort keys %h ); };
   <p>Results: [<%= $start %>-<%= $last_item %>] of <%= $total %>
     % if ($offset > 0) {
-    <a href="<%= $c->url_for( $c->req->url->path, %pq, offset => $offset - $per ) %>">[&laquo;]</a>
+    <a href="<%= $ppath %><%= $qstr->( $offset - $per ) %>">[&laquo;]</a>
     % }
     % if ($last_item < $total) {
-    <a href="<%= $c->url_for( $c->req->url->path, %pq, offset => $last_item ) %>">[&raquo;]</a>
+    <a href="<%= $ppath %><%= $qstr->( $last_item ) %>">[&raquo;]</a>
     % }
   </p>
   % }

@@ -1,7 +1,7 @@
 % my $attrs     = $c->stash('attrs')     // [];
 % my $contacts  = $c->stash('contacts')  // [];
 % my $relations = $c->stash('relations') // [];
-% my $dbase     = "/management/contactlist/" . ($c->stash('id') // '');
+% my $dbase     = $c->set_uri( "/management/contactlist/" . ($c->stash('id') // '') );
 
 <h1><%= $title %></h1>
 

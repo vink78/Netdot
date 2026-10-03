@@ -21,7 +21,7 @@
 % }
 
 % my $relations = $c->stash->{relations} // [];
-% my $dbase     = "/management/$type/$id";
+% my $dbase     = $c->set_uri( "/management/$type/$id" );
 % if (@$relations) {
 % for my $r (@$relations) {
 <div style="margin:1.2em 0 0.5em 0">

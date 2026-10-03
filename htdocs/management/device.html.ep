@@ -3,7 +3,7 @@
 <% my $view   = $c->stash->{view} // 'Basics'; %>
 <% my $fqdn   = $c->stash->{fqdn} // ''; %>
 <% my $title  = $c->stash->{title} // 'Device'; %>
-<% my $base   = "/management/device/$id"; %>
+<% my $base   = $c->set_uri( "/management/device/$id" ); %>
 
 <h1><%= $title %></h1>
 <p>

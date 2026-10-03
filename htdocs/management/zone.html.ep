@@ -3,7 +3,7 @@
 % my $apex      = $c->stash('apex');
 % my $relations = $c->stash('relations') // [];
 % my $recent    = $c->stash('recent')    // [];
-% my $dbase     = "/management/zone/" . ($c->stash('id') // '');
+% my $dbase     = $c->set_uri( "/management/zone/" . ($c->stash('id') // '') );
 
 <h1><%= $title %></h1>
 
@@ -50,7 +50,7 @@
 % }
 
 % if ($apex) {
-% my $apex_href = "/management/rr/" . $apex->{id};
+% my $apex_href = $c->set_uri( "/management/rr/" . $apex->{id} );
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">
     Apex Record (<a href="<%= $apex_href %>">@</a>)

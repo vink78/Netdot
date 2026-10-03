@@ -40,9 +40,15 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
   `WEB_BASE_URL` in `etc/Site.conf` is a **bare path** (e.g. `/netdot`), host-agnostic
   so dev and prod share one value. All routes are wrapped in `->under($base)`;
   static assets (`css|img|java_script`) are served under the prefix; `before_dispatch`,
-  the nav builder, and the `web_prefix()` helper are prefix-aware. `url_for` picks the
-  prefix up automatically (routes are under it) — only a handful of hard-coded template
-  links use `$c->web_prefix`. The reverse proxy must **preserve** the prefix:
+   the nav builder, and the `web_prefix()` helper are prefix-aware. `url_for` picks the
+   prefix up automatically (routes are under it) — but **hand-built links in controller
+   Perl** (e.g. `sprintf '<a href="/management/…">'`, `href => "/…"` in row hashes,
+   `redirect_to`, `sort_base`) do NOT, so they go through **`set_uri`** (`Registry::set_uri`,
+   alias `$c->set_uri`) which prepends the base (reads `WEB_BASE_URL`, no-op at root,
+   single source with `web_prefix`). `link_for` (Registry) uses it internally; templates
+   build a `$base` var via `$c->set_uri`. ⚠️ `url_for('/abs/path', k=>v)` **drops the query**
+   (absolute path ⇒ static URL) — build the query string by hand for such links. The reverse
+   proxy must **preserve** the prefix:
   `ProxyPass /netdot → http://127.0.0.1:3000/netdot` (nginx: `location /netdot/
   { proxy_pass http://127.0.0.1:3000; }` **without a trailing slash**). Dev =
   `http://127.0.0.1:3000/netdot/`. The JSON API lives under the same prefix (`/netdot/api`).
@@ -156,9 +162,23 @@ from the arg-shifting.
   `sort { $o{$a}<=>$o{$b} } keys %o` (else `wantarray` is degraded).
 - **Generic detail title**: `$obj->get_label` (built from
   `label => [...]` in `netdot.meta`), fallback `Type #id`.
-- FK of the "domain name → RR" type: resolve with `RR->search({name=>...})`
-  (helper `_name_link`).
-- Dates: hide null/empty values (`_dt_ok`).
+ - FK of the "domain name → RR" type: resolve with `RR->search({name=>...})`
+   (helper `_name_link`).
+ - Dates: hide null/empty values (`_dt_ok`).
+ - **`search_like()` is NOT a uniform `LIKE` primitive — it is overridden per class**
+   (Device, Zone, RR, Asset, PhysAddr, Ipblock each redefine it). E.g.
+   `Device::search_like(name=>$q)` matches **RR names / device aliases**, not
+   `device.name`. A generic free-text box therefore must NOT call `search_like`
+   on the primary column — `Browse#list`'s `?search` uses a **raw parameterised
+   `LIKE %q%`** on `cols[0]` instead (see Pitfalls / search). The per-column
+   `Browse#list` filters (`%FILTERS`: device site/product/os, physaddr address)
+   still use `search_like` because those are exact column filters.
+ - **`Device->name` is DEFLATED to an RR object** (the device's host record):
+   `ref($d->name)` = `Netdot::Model::RR`, it stringifies to the raw `device.name`
+   (often numeric, e.g. `272885`) but `->get_label`/`format_value` show the
+   **FQDN** (`netdot.localdomain`). So the list's first column displays the
+   FQDN while `?search` matches the raw `device.name` column. Expect the same
+   stored-vs-displayed split on other deflated columns.
 
 ### 4. Container grid (port of Mason `container.mhtml`)
 - Unit base = **/32** (not /28), otherwise finer children (e.g. /29)
@@ -210,11 +230,16 @@ from the arg-shifting.
    `cable_plant/closet.html`): curated two-column info + `info`, Device List
    (room→floor→site), Backbone Cable (start+end merged), Horizontal Cable
    (read-only; cable names plain text, no deep link to deprecated pages).
-- `lib/Netdot/Mojo/Controller/Browse.pm` — generic list (all types): `%FILTERS`
-  per-type filter whitelist, `search_like()` re-application, FK links via
-  `Registry::column_link_key`/`esc`, CSV export, batch delete.
-- `lib/Netdot/Mojo/Controller/Reports.pm` — all 10 reports: `_obj_html`,
-  `_normalize_rows`, `_skey`, per-report row builders, CSV export.
+ - `lib/Netdot/Mojo/Controller/Browse.pm` — generic list (all types): `%FILTERS`
+   per-type filter whitelist, `search_like()` re-application, FK links via
+   `Registry::column_link_key`/`esc`, CSV export, batch delete. Also **generic
+   per-type search** (`search` action → `list`, route `/management/<type>/search`):
+   free-text `?search` = raw parameterised `LIKE %q%` on `cols[0]` + view predicate
+   (NOT `search_like` — see Models pitfall); the list template's search box +
+   query-preserving pagination live here.
+ - `lib/Netdot/Mojo/Controller/Reports.pm` — all 10 reports: `_obj_html`,
+   `_link` (via `set_uri`), `_normalize_rows`, `_skey`, per-report row builders,
+   CSV export.
 - `lib/Netdot/Mojo/Controller/Export.pm` — Export form (GET) + run (POST):
   type-gating (Admin→12, write-rights→4), `generate_configs`, String appender
   log capture, per-type error list.
@@ -224,9 +249,10 @@ from the arg-shifting.
   filter** (Admin/Operator see all; otherwise `username = <self>`).
 - `lib/Netdot/Mojo/Controller/Search.pm` — Global search: IPv4/IPv6 → redirect
   ipblock search; MAC → redirect physaddr search; text → `RR->search_like(name)`.
-- `lib/Netdot/Mojo/Registry.pm` — type catalogue, `link_for`, `format_value`,
-  `spec`, `display_columns`, `is_sensitive`, `csv_field`, `column_link_key`,
-  `esc`, `%MENU` + `@MENU_ORDER` (5 sections incl. Export).
+- `lib/Netdot/Mojo/Registry.pm` — type catalogue, `link_for`, `set_uri` (base-prefix
+   for hand-built internal paths; core behind the `$c->set_uri` helper), `format_value`,
+   `spec`, `display_columns`, `is_sensitive`, `csv_field`, `column_link_key`,
+   `esc`, `%MENU` + `@MENU_ORDER` (5 sections incl. Export).
 - `lib/Netdot/Mojo/Permissions.pm` — `user_type`, `can`, `allowed_objects`,
   `viewable_predicate` (SQL `WHERE` fragment for list filtering), `has_action_on`,
   `has_action`, `can_export` (write rights on RR). **Faithful port of the original
@@ -243,7 +269,8 @@ from the arg-shifting.
   `->under($base)`), `before_dispatch` auth hook (redirects HTML to `/login`, exempts
   `/api`, and **sets `$ENV{REMOTE_USER}` from the session user** so `Model::_audit`
   records web/API writes — the old Apache layer provided this), `before_render` nav hook,
-  `web_prefix` helper, `deny_unless` helper, `api_json_err` + path-aware
+   `web_prefix` + `set_uri` helpers (base-prefix for hand-built links), `deny_unless`
+   helper, `api_json_err` + path-aware
   `reply.{html,json}_{not_found,method_not_allowed,exception}` (JSON errors under
   `/api`, branded HTML elsewhere).
 - `lib/Netdot/Mojo/Api.pm` — JSON API serializer (port of `Netdot::REST::get`):
