@@ -149,6 +149,8 @@ sub startup ($self) {
     }
     # Interface sub-views: FDB / ARP entries at a given timestamp (ports of
     # i_fdb.html / i_arp.html).
+    # Closet picture binary (read-only): serves the ClosetPicture bindata BLOB.
+    $r->get('/management/closetpicture/:id')->to('closet#picture')->name('closet_picture');
     $r->get('/management/interface/:id/fdb')->to('interface#fdb')->name('interface_fdb');
     $r->get('/management/interface/:id/arp')->to('interface#arp')->name('interface_arp');
     # Reports (Admin + Operator; see Reports controller guard).

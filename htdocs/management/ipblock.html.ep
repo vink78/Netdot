@@ -24,7 +24,12 @@
 % my $audit      = $c->stash->{audit}    // [];
 %# Children (list/grid/tree) show on the roots page (no current) or on Children/All.
 % my $show_children = $current ? ( $view eq 'Children' || $view eq 'All' ) : 1;
-% my @hdrs = $is_addr ? ( 'Address', 'Name', 'Device', 'Status', 'Used by', 'Description', 'Last Seen' ) : ( 'Address/Prefix', 'Status', 'Utilization', 'Owner', 'Used by', 'Description' );
+% my $rootversion = $c->stash->{rootversion} // 'all';
+% my $show_util   = $c->stash->{show_util} ? 1 : 0;
+%# Utilization column: always on a block's Children view; on the roots list it is
+%# toggled by show_util (the "Show Utilization" checkbox).
+% my $util = $is_addr ? 0 : ( $current ? 1 : $show_util );
+% my @hdrs = $is_addr ? ( 'Address', 'Name', 'Device', 'Status', 'Used by', 'Description', 'Last Seen' ) : ( 'Address/Prefix', 'Status', ( $util ? ('Utilization') : () ), 'Owner', 'Used by', 'Description' );
 %# Breadcrumb: Roots > a > b > (current, bold). Only when viewing a block.
 % if ($current) {
     <div class="breadcrumb" style="margin:0 0 1em 0; font-size:0.95em">
@@ -42,6 +47,20 @@
 
 %# Search box (Address Space) — shown on the list/roots view only.
 % unless ($current) {
+<div style="margin:0 0 1em 0; font-size:0.9em">
+  <form method="get" action="<%= url_for('ipblock_list') %>" style="display:inline">
+    Version:
+    <select name="rootversion" onchange="this.form.submit()">
+      <option value="4"   <%= $rootversion eq '4'   ? 'selected' : '' %>>IPv4</option>
+      <option value="6"   <%= $rootversion eq '6'   ? 'selected' : '' %>>IPv6</option>
+      <option value="all" <%= $rootversion eq 'all' ? 'selected' : '' %>>All</option>
+    </select>
+    &nbsp;&nbsp;
+    <input type="checkbox" name="show_ch_util" value="1" onchange="this.form.submit()" <%= $show_util ? 'checked' : '' %>>
+    <input type="hidden" name="show_ch_util" value="0">
+    <label>Show Utilization</label>
+  </form>
+</div>
 <div class="container" style="margin-bottom:1em">
   <div class="containerheadleft">Search Address Space</div>
   <div class="containerheadright">&nbsp;</div>
@@ -170,6 +189,7 @@
             <td><a href="<%= $c->web_prefix %>/management/ipblock/<%= $o->id %>"><%= $o->get_label %></a></td>
             % my $st = eval { $o->status->get_label } // '';
             <td><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
+            % if ($util) {
             <td>
             % if ( $st eq 'Subnet' && $o->num_addr ) {
                 <b><%= int( $o->num_children * 1000 / $o->num_addr ) / 10 %>%</b>
@@ -177,8 +197,9 @@
                 <b><%= int( $o->address_usage * 1000 / $o->num_addr ) / 10 %>%</b> / <b><%= int( $o->subnet_usage * 1000 / $o->num_addr ) / 10 %>%</b>
             % }
             </td>
-            <td><%= Netdot::Mojo::Registry::format_value( $o->owner ) %></td>
-            <td><%= Netdot::Mojo::Registry::format_value( $o->used_by ) %></td>
+            % }
+            <td><%== Netdot::Mojo::Registry::link_html( eval { $o->owner } ) %></td>
+            <td><%== Netdot::Mojo::Registry::link_html( eval { $o->used_by } ) %></td>
             <td><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
         % }
         </tr>

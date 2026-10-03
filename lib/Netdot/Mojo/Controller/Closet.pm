@@ -43,9 +43,57 @@ sub show ($c) {
         devices    => _devices( $o ),
         backbones  => _backbones( $o ),
         horizontal => _horizontal( $o ),
+        pictures   => _pictures( $o ),
         perpage    => $perpage,
         offset     => $offset,
     );
+}
+
+# Serve a closet picture's binary data (ClosetPicture->bindata BLOB) with its
+# stored content type. Read-only; gated on viewing the owning closet.
+sub picture ($c) {
+    my $id = $c->param('id');
+    $id =~ /^\d+$/ or return $c->reply->not_found;
+    my $pic = eval { ClosetPicture->retrieve($id) };
+    return $c->reply->not_found unless $pic;
+    my $closet = eval { $pic->closet };
+    return $c->reply->not_found unless $closet;
+    return if $c->deny_unless( 'view', $closet );
+    my $data = eval { $pic->bindata } // '';
+    my $type = eval { $pic->filetype } // '';
+    $type = 'application/octet-stream' unless $type =~ /^\w+(?:\/\w+)*$/;
+    my $fn   = eval { $pic->filename } // '';
+    $c->res->headers->content_type( $type );
+    $c->res->headers->content_disposition( qq{inline; filename="$fn"} ) if $fn;
+    return $c->render( data => $data );
+}
+
+# Closet pictures (ClosetPicture rows): filename (links to the binary route),
+# size, type and comment. Read-only port of the closet.html picture table.
+sub _pictures {
+    my ($o) = @_;
+    # Closet->pictures (CDBI has_many) is unreliable here; query the related table
+    # directly and slurp the iterator (see Rr::_search_all).
+    my $it   = eval { ClosetPicture->search(closet => $o->id) };
+    my @pics;
+    if ( $it && $it->isa( 'Class::DBI::Iterator' ) ) {
+        while ( my $k = $it->next ) { push @pics, $k; }
+    }
+    elsif ( ref $it eq 'ARRAY' ) {
+        @pics = @$it;
+    }
+    @pics = sort { ( $a->filename // '' ) cmp ( $b->filename // '' ) } @pics;
+    my @rows;
+    for my $p (@pics) {
+        push @rows, [
+            [ Netdot::Mojo::Registry::_hesc( eval { $p->filename } // '' ),
+              Netdot::Mojo::Registry::set_uri( '/management/closetpicture/' . $p->id ) ],
+            [ ( eval { $p->filesize } // '' ), '' ],
+            [ ( eval { $p->filetype } // '' ), '' ],
+            [ Netdot::Mojo::Registry::_hesc( eval { $p->info } // '' ), '' ],
+        ];
+    }
+    return \@rows;
 }
 
 # Curated field list -> [tag, text, href] rows (empty values shown blank).

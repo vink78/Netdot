@@ -139,9 +139,30 @@ function, but the codebase calls it **as a method**: `Permissions->can($person,
 becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
 `has_action`, `viewable_predicate`. When debugging a `can` result, call the internal
 `_denies_object($type, $username, $action, $obj, $access)` directly to isolate the rule
-from the arg-shifting.
+ from the arg-shifting.
 
-### 3. Models
+ ### 2f. Serving **binary** data (images/BLOBs)
+ - **`rendered($data)` does NOT exist here.** In this env
+   `Mojolicious::Controller::rendered` is `sub rendered($self, $status)` — it takes
+   ONLY a status code and finishes the transaction; it does **not** render data. Calling
+   `rendered($binary, status=>200, …)` passes `$binary` as `$status` →
+   `$self->res->code($binary)` → `->code` returns the binary → `is_empty`/`_status_class`
+   do a numeric compare on it → "isn't numeric" + broken/aborted response. **Serve raw
+   bytes with `render(data => $bytes)`** (same pattern as the CSV export in `Show.pm`).
+ - Set headers via `$c->res->headers->content_type(…)` / `->content_disposition(…)`
+   (NOT `$c->res->header(…)` — `Mojo::Message::Response->header` is not available here;
+   `->headers->header(…)` / `->content_type(…)` work).
+ - The **Closet picture** feature uses this: `Closet.pm#picture` serves
+   `ClosetPicture->bindata` (a `longblob`) with its stored `filetype`. Route
+   `/management/closetpicture/:id`.
+ - **CDBI `has_many` relationship methods can return 0 rows** even when the FK rows
+   exist (`Closet->pictures` returned `()` while `closetpicture` had rows). Workaround:
+   query the related table directly — `ClosetPicture->search(closet => $id)` — and slurp
+   the iterator (see pitfall #1).
+ - `Registry::link_html($obj)` returns a ready-to-emit, escaped `<a href>` string (empty
+   when no route) for raw `<%== %>` output in templates.
+
+ ### 3. Models
 - `Registry::link_for($obj)` returns an **arrayref** `[text, href]` →
   dereference with `@{ }`. Generates `/management/<type>/<id>` for any type
   registered in `lib/Netdot/Mojo/Registry.pm` (`%TYPES`, `@ORDER`).
@@ -226,10 +247,13 @@ from the arg-shifting.
    `generic/contactlist.html`): **contacts** rendered as a dedicated table (role
    sorted by person label: Person link + contacttype + notify_email/pager/voice
    + escalation_level), other has_many as generic tables (`contacts` excluded).
- - `lib/Netdot/Mojo/Controller/Closet.pm` — Closet detail (port of
-   `cable_plant/closet.html`): curated two-column info + `info`, Device List
-   (room→floor→site), Backbone Cable (start+end merged), Horizontal Cable
-   (read-only; cable names plain text, no deep link to deprecated pages).
+  - `lib/Netdot/Mojo/Controller/Closet.pm` — Closet detail (port of
+    `cable_plant/closet.html`): curated two-column info + `info`, Device List
+    (room→floor→site), Backbone Cable (start+end merged), Horizontal Cable
+    (read-only; cable names plain text, no deep link to deprecated pages),
+    **Pictures** section (`_pictures`, via `ClosetPicture->search`) + **binary
+    route** `picture` action (`/management/closetpicture/:id`, serves the
+    `bindata` BLOB — see pitfall 2f).
  - `lib/Netdot/Mojo/Controller/Browse.pm` — generic list (all types): `%FILTERS`
    per-type filter whitelist, `search_like()` re-application, FK links via
    `Registry::column_link_key`/`esc`, CSV export, batch delete. Also **generic

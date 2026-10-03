@@ -20,7 +20,7 @@ sub show {
 
     my $view = $c->param('view') || 'Basics';
     my %views = map { $_ => 1 }
-        qw(Basics Interfaces IP BGP Hosted Circuits STP Modules Audit);
+        qw(Basics Interfaces IP BGP Hosted Circuits STP Modules Audit Rights);
     $view = 'Basics' unless $views{$view};
 
     my ($name, $fqdn) = ('', '');
@@ -317,6 +317,7 @@ sub _table_view {
     elsif ($view eq 'STP')      { return _stp_view( $o, $c, $id ); }
     elsif ($view eq 'Modules')  { return _modules_view( $o, $c, $id ); }
     elsif ($view eq 'Audit')    { return _audit_view( $o, $c, $id ); }
+    elsif ($view eq 'Rights')   { return _rights_view( $o, $c, $id ); }
     return { view => $view, cols => [], rows => [] };
 }
 
@@ -417,7 +418,8 @@ sub _bgp_view {
     my @info;
     push @info, [ 'BGP ID', _fmt($bgpid), '' ] if defined $bgpid && length $bgpid;
     if ( $localas && ( eval { $localas->number } ) ) {
-        push @info, [ 'Local AS', $localas->number, Netdot::Mojo::Registry::set_uri( "/management/as/" . $localas->id ) ];
+        my ( $at, $ah ) = @{ Netdot::Mojo::Registry::link_for( $localas ) };
+        push @info, [ 'Local AS', $localas->number, $ah ];
     }
 
     my ( $peers, $ptype );
@@ -427,6 +429,20 @@ sub _bgp_view {
         if ( @$r ) { $peers = $r; $ptype = $t; last; }
     }
     $peers = [] unless $peers;
+
+    # Remote IP: link each peer address to its /32 ipblock when that address is a
+    # Netdot block (Ipblock->search(address=>..)); memoised per address.
+    my %ip_cache;
+    my $ip_link = sub {
+        my ($addr) = @_;
+        return [ ( $addr // '' ), '' ] unless defined $addr && length $addr;
+        return $ip_cache{$addr} if exists $ip_cache{$addr};
+        my $ipb = eval { Ipblock->search( address => $addr )->first };
+        $ip_cache{$addr} = $ipb
+            ? [ $addr, Netdot::Mojo::Registry::set_uri( '/management/ipblock/' . $ipb->id ) ]
+            : [ $addr, '' ];
+        return $ip_cache{$addr};
+    };
 
     my @rows;
     for my $p (@$peers) {
@@ -439,7 +455,7 @@ sub _bgp_view {
             push @clinks, [ ( $cn || '#' . $cl->id ), Netdot::Mojo::Registry::set_uri( "/management/contactlist/" . $cl->id ) ];
         }
         push @rows, [
-            [ [ ( eval { $p->bgppeeraddr } // '' ), '' ] ],
+            [ $ip_link->( eval { $p->bgppeeraddr } ) ],
             [ [ ( eval { $p->bgppeerid } // '' ),   '' ] ],
             [ [ ( eval { $ent->name } // '' ),       '' ] ],
             [ [ ( eval { $ent->asname } // '' ),     '' ] ],
@@ -583,6 +599,55 @@ sub _audit_view {
         cols      => [ [ 'Date', undef ], [ 'User', undef ], [ 'Operation', undef ], [ 'Target', undef ] ],
         rows      => \@rows,
         empty_msg => 'No audit records.',
+    };
+}
+
+# Rights view: who holds which access rights on this device (read-only port of
+# the Mason list_rights.mhtml / device.html "Rights" view). AccessRight->search
+# (object_class=>'Device', object_id) yields the AccessRight rows; each expands
+# to UserRight (person) / GroupRight (contactlist) via user_rights/group_rights.
+# Rows are grouped by subject name; rights joined as display names.
+sub _rights_view {
+    my ( $o, $c, $id ) = @_;
+    my %anames = ( view => 'View', edit => 'Edit', delete => 'Delete',
+                   choose_ip => 'Choose IP', none => 'None' );
+    my @arights;
+    @arights = eval { AccessRight->search( object_class => 'Device', object_id => $id ) };
+    my %r;
+    for my $ar (@arights) {
+        my @ur  = eval { $ar->user_rights };
+        my @gr  = eval { $ar->group_rights };
+        my @sub = ( @ur, @gr );
+        for my $right (@sub) {
+            my $type = ( ref($right) =~ /User/ ) ? 'User' : 'Group';
+            my $subj = ( $type eq 'User' ) ? eval { $right->person }
+                                           : eval { $right->contactlist };
+            next unless $subj;
+            my $name = eval { $subj->get_label } // '';
+            next unless length $name;
+            $r{$name}{type}    = $type;
+            $r{$name}{subject} = $subj;
+            $r{$name}{rights}{ $ar->access } = 1;
+        }
+    }
+    my @rows;
+    for my $name ( sort keys %r ) {
+        my $e     = $r{$name};
+        my $table = $e->{type} eq 'User' ? 'person' : 'contactlist';
+        my $href  =
+            Netdot::Mojo::Registry::set_uri( "/management/$table" ) . '/' . $e->{subject}->id;
+        my $rights = join( ', ', map { $anames{$_} // $_ } sort keys %{ $e->{rights} } );
+        push @rows, [
+            [ [ $e->{type}, '' ] ],
+            [ [ $name, $href ] ],
+            [ [ $rights, '' ] ],
+        ];
+    }
+    return {
+        view      => 'Rights',
+        cols      => [ [ 'Type', undef ], [ 'Name', undef ], [ 'Rights', undef ] ],
+        rows      => \@rows,
+        empty_msg => 'No access rights for this device.',
     };
 }
 

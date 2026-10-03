@@ -3,6 +3,19 @@ package Netdot::Mojo::Registry;
 use strict;
 use warnings;
 
+# HTML-escape a string for safe embedding in markup. (Mojo::Util::escape_html is
+# not reliably callable in this environment, so keep a local copy.)
+sub _hesc {
+    my ($s) = @_;
+    return '' unless defined $s;
+    $s =~ s/&/&amp;/g;
+    $s =~ s/</&lt;/g;
+    $s =~ s/>/&gt;/g;
+    $s =~ s/"/&quot;/g;
+    $s =~ s/'/&#39;/g;
+    return $s;
+}
+
 # Browsable object types: key => { class, [nav => 0], [label => display override] }.
 # The list columns, the object label and the description are DERIVED from the model
 # meta (netdot.meta: "views" { brief / all }, table name/description) — not stored
@@ -40,14 +53,21 @@ our %TYPES = (
     dhcscope      => { class => 'DhcpScope',
                        cols => [ qw(name type container version ipblock physaddr active) ] },
     producttype     => { class => 'ProductType',     nav => 0 },
+    # RR subclasses (related records shown on the host/RR page): reached from the
+    # host page, not the top-level nav. Registered so their detail route exists.
+    rrns      => { class => 'RRNS',      label => 'Name Server Record',  nav => 0 },
+    rrmx      => { class => 'RRMX',      label => 'Mail Exchange Record', nav => 0 },
+    rrtxt     => { class => 'RRTXT',     label => 'Text Record',         nav => 0 },
+    rrnaptr   => { class => 'RRNAPTR',   label => 'NAPTR Record',        nav => 0 },
+    asn         => { class => 'ASN',         label => 'Autonomous System', nav => 0 },
 );
 
 # Ordered list of browsable types (drives routes and the generic listing logic).
 our @ORDER = qw(
     ipblock device asset interface vlan zone site room floor closet person
-    rr entity service contactlist physaddr
+    rr rrns rrmx rrtxt rrnaptr entity service contactlist physaddr
     product availability ipblockstatus circuit arpcache sitelink fwtable stpinstance
-    horizontalcable backbonecable dhcscope producttype
+    horizontalcable backbonecable dhcscope producttype asn
 );
 sub types { @ORDER }
 
@@ -249,6 +269,15 @@ sub link_for {
     $text = class_key( $class ) . " #$id" unless defined $text && length $text;
     my $href  = ( exists $TYPES{$type} && $id =~ /^\d+$/ ) ? set_uri( "/management/$type/$id" ) : undef;
     return [ $text, $href ];
+}
+
+# link_for() as a ready-to-emit HTML anchor: escaped label, prefixed href; empty
+# string when there is no route. Safe for raw (<%== %>) output in templates.
+sub link_html {
+    my ($v) = @_;
+    my ( $t, $h ) = link_for( $v );
+    return '' unless $h;
+    return '<a href="' . $h . '">' . _hesc( $t ) . '</a>';
 }
 
 # Prefix an internal root-absolute path with the app's base URL (WEB_BASE_URL):

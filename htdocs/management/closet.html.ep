@@ -4,6 +4,7 @@
 % my $devices    = $c->stash('devices')    // [];
 % my $backbones  = $c->stash('backbones')  // [];
 % my $horizontal = $c->stash('horizontal') // [];
+% my $pictures   = $c->stash('pictures')   // [];
 
 <h1><%= $title %></h1>
 
@@ -119,6 +120,31 @@
         <td>
           % if ($h) {
           <a href="<%= $h %>"><%= $t %></a>
+          % } else {
+          <%= $t // '' %>
+          % }
+        </td>
+        % }
+      </tr>
+      % }
+    </tbody>
+  </table>
+</div>
+% }
+
+% if (@$pictures) {
+<div style="margin:1.2em 0 0.5em 0">
+  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Pictures (<%= scalar @$pictures %>)</h2>
+  <table class="sortable">
+    <thead><tr><th>File Name</th><th>Size</th><th>File Type</th><th>Comments</th></tr></thead>
+    <tbody>
+      % for my $row (@$pictures) {
+      <tr>
+        % for my $cell (@$row) {
+        % my ($t, $h) = @$cell;
+        <td>
+          % if ($h) {
+          <a href="<%= $h %>" target="_blank"><%= $t %></a>
           % } else {
           <%= $t // '' %>
           % }

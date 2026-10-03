@@ -55,6 +55,11 @@ sub build_relations {
         next unless @objs;
 
         my ( $cols, $show_label ) = rel_columns($related);
+        # In the no-label-column case (all brief cols are label cols), the object's
+        # own scalar label column links to its detail page (FK label cols still
+        # link to their target via the ref branch below).
+        my %islabel;
+        eval { %islabel = map { $_ => 1 } $related->meta_data->get_labels } unless $show_label;
         my $total = scalar @objs;
         my $first = $offset;
         my $last  = $offset + $per - 1;
@@ -78,7 +83,13 @@ sub build_relations {
                     $ct = obj_text($v);
                     push @cells, [ $ct // '', $ch // '' ];
                 } else {
-                    push @cells, [ Netdot::Mojo::Registry::format_value($v) // '', '' ];
+                    my $text = Netdot::Mojo::Registry::format_value($v) // '';
+                    my $href = '';
+                    if ( !$show_label && $islabel{$col} ) {
+                        my ( $lt, $lh ) = @{ Netdot::Mojo::Registry::link_for($o2) };
+                        $href = $lh // '';
+                    }
+                    push @cells, [ $text, $href ];
                 }
             }
             push @rows, \@cells;

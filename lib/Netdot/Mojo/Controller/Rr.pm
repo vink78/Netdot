@@ -234,6 +234,7 @@ sub _rr_sections {
     my @txts = $o->txt_records;
     push @sections, { title => 'Text Records (TXT)',
         records => [ map { [
+            [ 'Record', _obj_link($_) ],
             [ 'TXT', _esc($_->txtdata) ], [ 'TTL', _esc($_->ttl) ],
         ] } @txts ] } if @txts;
 
@@ -241,6 +242,7 @@ sub _rr_sections {
     my @mxs = sort { $a->preference <=> $b->preference } $o->mx_records;
     push @sections, { title => 'Mail Exchangers (MX)',
         records => [ map { [
+            [ 'Record',   _obj_link($_) ],
             [ 'Preference', _esc($_->preference) ],
             [ 'Exchange',   _name_link($_->exchange) ],
             [ 'TTL',        _esc($_->ttl) ],
@@ -313,6 +315,7 @@ sub _rr_sections {
     if ( $show_ns && @nsrs ) {
         push @sections, { title => 'Name Servers (NS)',
             records => [ map { [
+                [ 'Record',      _obj_link($_) ],
                 [ 'Name Server', _name_link($_->nsdname) ], [ 'TTL', _esc($_->ttl) ],
             ] } @nsrs ] };
     }
@@ -335,6 +338,7 @@ sub _rr_sections {
     if ( ! @ptrs && @naptrs ) {
         push @sections, { title => 'Name Authority Pointer (NAPTR)',
             records => [ map { [
+                [ 'Record',      _obj_link($_) ],
                 [ 'Order',       _esc($_->order_field) ],
                 [ 'Preference',  _esc($_->preference) ],
                 [ 'Flags',       _esc($_->flags) ],

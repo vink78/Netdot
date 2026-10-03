@@ -23,6 +23,7 @@
 %   [ 'STP',        'STP' ],
 %   [ 'Modules',    'Modules' ],
 %   [ 'Audit',      'Audit' ],
+%   [ 'Rights',     'Access Rights' ],
 % );
 <div style="margin:0.5em 0 1em 0; padding-bottom:0.4em; border-bottom:2px solid #ddeedd; font-size:0.95em">
 % for my $i (0 .. $#tabs) {
@@ -165,7 +166,7 @@
 </table>
 % }
 % elsif ($view eq 'IP' || $view eq 'BGP' || $view eq 'Hosted' || $view eq 'Circuits'
-%        || $view eq 'STP' || $view eq 'Modules' || $view eq 'Audit') {
+%        || $view eq 'STP' || $view eq 'Modules' || $view eq 'Audit' || $view eq 'Rights') {
 % my $cols       = $c->stash->{cols}       // [];
 % my $rows       = $c->stash->{rows}       // [];
 % my $info       = $c->stash->{info}       // [];

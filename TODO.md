@@ -256,9 +256,25 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
    `search_like()` : cette méthode est **surchargée par classe** (ex. `Device::search_like(name)`
    matche les noms RR/alias, pas `device.name`) → la recherche générique utilise du SQL direct.
    La pagination préserve la requête (`?search=…&offset=…`).
-2. ⬜ **Polish lecture seule** : tab *Access Rights* (device) ; navigation
-   *NS/MX/TXT/NAPTR* depuis la page host ; lien ASN, sélecteur v4/v6, toggle
-   utilisation (ipblock) ; affichage des photos de closet (binaire).
+ 2. [x] ✅ **Polish lecture seule** (2026-10-03) — tout porté :
+    - **Tab Access Rights** (device) : vue `Rights` dans `Device.pm` (`AccessRight->search`
+      object_class=Device → `user_rights`/`group_rights`), rendu via la table générique.
+    - **Navigation NS/MX/TXT/NAPTR** (page host/RR) : types `rrns/rrmx/rrtxt/rrnaptr`
+      enregistrés (`Registry %TYPES`+`@ORDER`, `nav=>0`) + lien « Record » → page détail
+      de chaque record (`link_for`).
+    - **Ipblock** : lien **ASN** (type `asn` enregistré → `/management/asn/<id>`) ;
+      **sélecteur v4/v6/all** (`rootversion` → `get_roots`) + **toggle utilisation**
+      (`show_ch_util`, checkbox + champ caché =0) sur la vue racines.
+    - **Photos de closet** : route binaire `/management/closetpicture/:id`
+      (`Closet.pm#picture`, sert le BLOB `bindata` via `render(data=>)`) + section
+      « Pictures » sur le détail closet. ⚠️ `Closet->pictures` (has_many CDBI) est cassé
+      → `ClosetPicture->search(closet=>id)`. ⚠️ **`rendered($data)` n'existe pas** dans cet
+      env (`sub rendered($self,$status)` ne prend QUE le statut) → servir du binaire avec
+      `render(data => $data)` (cf. export CSV).
+    - **Liens cliquables** : BGP « Remote IP » → `/management/ipblock/<id>` ;
+      « Local AS » → `asn` (corrigé `as/`→`asn/`) ; ipblock Owner/Used by → entité ;
+      détail générique : colonnes-label scalaires liées à l'objet (cas `show_label=0`,
+      `Detail.pm`).
 3. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
 4. ⛔ **Câblage/circuits** — dépréciés (Netbox).
 5. 🔶 **Création — raffiner la permission par parent** : `_can_create` est une approximation

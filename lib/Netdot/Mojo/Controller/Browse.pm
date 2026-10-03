@@ -41,9 +41,18 @@ sub list ($c) {
     # ipblock: hierarchical view. The list shows the ROOT blocks only (parent is
     # NULL, version 4); clicking one shows its children (see Show#show).
     if ( $type eq 'ipblock' ) {
+        # Root filters (port of ip.html rootversion + show_ch_util): an IPv4/IPv6
+        # selector and a utilization toggle. Defaults keep the current behaviour
+        # (all versions, utilization shown). show_ch_util is a checkbox backed by
+        # a hidden =0 field, so it is present after any submit; absent on a fresh
+        # load (default ON).
+        my $rootversion = $c->param('rootversion') // 'all';
+        $rootversion = '4' unless $rootversion =~ /^(?:4|6|all)$/;
+        my $su        = $c->param('show_ch_util');
+        my $show_util = defined $su ? ( $su eq '1' ? 1 : 0 ) : 1;
         # Direct list-context call: get_roots() uses wantarray, so it must NOT
         # be wrapped in eval{} // () (that degrades to scalar -> first root only).
-        my @roots = $class->get_roots('all');
+        my @roots = $class->get_roots($rootversion);
         if ( defined $where_sql ) {
             # A root is visible if it, any descendant, or an allowed block's
             # ancestor path includes it: i.e. keep the roots that lead down to a
@@ -60,12 +69,14 @@ sub list ($c) {
             @roots = grep { $keep{ $_->id } } @roots;
         }
         $c->render(
-            template   => 'management/ipblock',
-            layout     => 'default',
-            title      => 'IP Blocks',
-            viewtype   => 'block',
-            blocks     => \@roots,
-            breadcrumb => [],
+            template    => 'management/ipblock',
+            layout      => 'default',
+            title       => 'IP Blocks',
+            viewtype    => 'block',
+            blocks      => \@roots,
+            breadcrumb  => [],
+            rootversion => $rootversion,
+            show_util   => $show_util,
         );
         return;
     }
