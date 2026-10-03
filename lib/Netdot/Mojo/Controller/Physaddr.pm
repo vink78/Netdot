@@ -27,7 +27,7 @@ sub show {
     my @addr_rows = (
         ['Address',    $esc->( $o->format_address // $o->address )],
         ['Vendor',     ( defined $oui && length $oui
-                          ? '<a href="/management/physaddr/search?search=' . $esc->($oui)
+                          ? '<a href="' . Netdot::Mojo::Registry::set_uri( "/management/physaddr/search?search=" . $esc->($oui) )
                             . '">' . $esc->($vendor // '-') . ' (' . $esc->($oui) . ')</a>'
                           : $esc->($vendor // '-') )],
         ['Static',     $o->static ? 'Yes' : 'No'],
@@ -59,7 +59,7 @@ sub show {
             $jack ||= 'n/a';
             $room ||= 'n/a';
             my $lbl = $esc->( $iface->get_label // "interface #$ep" );
-            $edge_html = '<tr><td><a href="/management/interface/' . $ep . '">' . $lbl . '</a></td>'
+            $edge_html = '<tr><td><a href="' . Netdot::Mojo::Registry::set_uri( "/management/interface/" . $ep ) . '">' . $lbl . '</a></td>'
                         . '<td>' . $esc->($room) . '</td><td>' . $esc->($jack) . '</td>'
                         . '<td>' . $esc->( $iface->description // '' ) . '</td></tr>';
         }
@@ -75,7 +75,7 @@ sub show {
             my ( $tstamp, $iid ) = @$row;
             my $iface = eval { Interface->retrieve($iid) };
             my $lbl   = $iface ? $iface->get_label : "interface #$iid";
-            push @{ $tstamps{$tstamp} }, '<a href="/management/interface/' . $iid . '">' . $esc->($lbl) . '</a>';
+            push @{ $tstamps{$tstamp} }, '<a href="' . Netdot::Mojo::Registry::set_uri( "/management/interface/" . $iid ) . '">' . $esc->($lbl) . '</a>';
         }
         my $rows = join '', map {
             my $t     = $_;
@@ -96,14 +96,14 @@ sub show {
             my $iface = eval { Interface->retrieve($iid) };
             my $lbl   = $iface ? $iface->get_label : "interface #$iid";
             push @{ $tstamps{$tstamp}{$ipid} },
-                 '<a href="/management/interface/' . $iid . '">' . $esc->($lbl) . '</a>';
+                 '<a href="' . Netdot::Mojo::Registry::set_uri( "/management/interface/" . $iid ) . '">' . $esc->($lbl) . '</a>';
         }
         my @rows;
         for my $tstamp ( reverse sort keys %tstamps ) {
             for my $ipid ( sort keys %{ $tstamps{$tstamp} } ) {
                 my $ip     = eval { Ipblock->retrieve($ipid) };
                 my $iplbl  = $ip ? $ip->get_label : "ip #$ipid";
-                my $iplink = '<a href="/management/ipblock/' . $ipid . '">' . $esc->($iplbl) . '</a>';
+                my $iplink = '<a href="' . Netdot::Mojo::Registry::set_uri( "/management/ipblock/" . $ipid ) . '">' . $esc->($iplbl) . '</a>';
                 my $links  = join ', ', sort @{ $tstamps{$tstamp}{$ipid} };
                 push @rows, '<tr><td>' . $esc->($tstamp) . '</td><td>' . $iplink . '</td><td>' . $links . '</td></tr>';
             }
@@ -145,7 +145,7 @@ sub search {
     };
 
     if ( @results == 1 ) {
-        $c->redirect_to( '/management/physaddr/' . $results[0]->id );
+        $c->redirect_to( Netdot::Mojo::Registry::set_uri( '/management/physaddr/' . $results[0]->id ) );
         return;
     }
 
@@ -153,7 +153,7 @@ sub search {
     my @rows;
     for my $o ( @results[ 0 .. ( @results > $limit ? $limit - 1 : $#results ) ] ) {
         push @rows, { label => $o->format_address // $o->address,
-                      href  => '/management/physaddr/' . $o->id,
+                      href  => Netdot::Mojo::Registry::set_uri( '/management/physaddr/' . $o->id ),
                       cells => [] };
     }
     $c->render(

@@ -30,7 +30,7 @@ sub _link {
     my ($type, $id, $text) = @_;
     $text = '' unless defined $text;
     return _esc($text) unless defined $id && $id ne '' && $id =~ /^\d+$/;
-    return sprintf('<a href="/management/%s/%s">%s</a>', $type, $id, _esc($text));
+    return sprintf('<a href="%s">%s</a>', Netdot::Mojo::Registry::set_uri( "/management/$type/$id" ), _esc($text));
 }
 
 # Generic: render ANY Netdot object as a detail link (type resolved via link_for),
@@ -63,7 +63,7 @@ sub _devlink {
     my (%f) = @_;
     my @kv = grep { defined $f{$_} && length $f{$_} } sort keys %f;
     my $q  = join '&', map { "$_=" . url_escape( $f{$_} ) } @kv;
-    return $q ? "/management/device?$q" : '/management/device';
+    return $q ? Netdot::Mojo::Registry::set_uri( "/management/device?$q" ) : Netdot::Mojo::Registry::set_uri( '/management/device' );
 }
 
 # Byte count -> human readable (port of Netdot::UI->format_size).
@@ -93,7 +93,7 @@ sub _ip_cell {
     my ($address, $id) = @_;
     my $nip = eval { NetAddr::IP->new($address) };
     return '&nbsp;' unless defined $nip && defined $id && $id =~ /^\d+$/;
-    return sprintf('<a href="/management/ipblock/%s">%s</a>', $id, _esc( $nip->short ));
+    return sprintf('<a href="%s">%s</a>', Netdot::Mojo::Registry::set_uri( "/management/ipblock/$id" ), _esc( $nip->short ));
 }
 
 # 403 unless the user may access the Reports section (Admin + Operator).
@@ -193,7 +193,7 @@ sub device ($c) {
         return _csv( $c, $headers, $rows, "device_inventory_$rt.csv" );
     }
 
-    my $form = qq{<form method="get" action="/reports/device"> By }
+    my $form = qq{<form method="get" action="} . Netdot::Mojo::Registry::set_uri( '/reports/device' ) . qq{"> By }
              . _sel( 'report_type', $rt, @DEVICE_OPTS )
              . qq{ <input type="submit" class="btn" value="Go"></form>};
 
@@ -473,13 +473,13 @@ sub _device_rows {
             my $label = Netdot::Mojo::Registry::format_value( $v );
             my $id    = ref( $v ) ? eval { $v->id } : $v;
             if ( $col eq 'name' ) {
-                push @cells, sprintf( '<a href="/management/device/%s">%s</a>',
-                                      $d->id, Netdot::Mojo::Registry::esc( $label ) );
+                push @cells, sprintf( '<a href="%s">%s</a>',
+                                      Netdot::Mojo::Registry::set_uri( "/management/device/$d->id" ), Netdot::Mojo::Registry::esc( $label ) );
                 next;
             }
             push @cells, ( $linkkey{$col} && defined $id && $id =~ /^\d+$/ )
-                ? sprintf( '<a href="/management/%s/%s">%s</a>',
-                            $linkkey{$col}, $id, Netdot::Mojo::Registry::esc( $label ) )
+                ? sprintf( '<a href="%s">%s</a>',
+                            Netdot::Mojo::Registry::set_uri( "/management/$linkkey{$col}/$id" ), Netdot::Mojo::Registry::esc( $label ) )
                 : Netdot::Mojo::Registry::esc( $label );
         }
         push @rows, \@cells;
@@ -507,7 +507,7 @@ sub asset ($c) {
         return _csv( $c, $headers, $rows, "asset_inventory_$rt.csv" );
     }
 
-    my $form = qq{<form method="get" action="/reports/asset"> By }
+    my $form = qq{<form method="get" action="} . Netdot::Mojo::Registry::set_uri( '/reports/asset' ) . qq{"> By }
              . _sel( 'report_type', $rt, @ASSET_OPTS )
              . qq{ <input type="submit" class="btn" value="Go"></form>};
 
@@ -642,7 +642,7 @@ sub ip ($c) {
         return _csv( $c, $headers, $rows, "ip_reports_".($rt//'all').".csv" );
     }
 
-    my $form = qq{<form method="get" action="/reports/ip">}
+    my $form = qq{<form method="get" action="} . Netdot::Mojo::Registry::set_uri( '/reports/ip' ) . qq{">}
              . _sel( 'report_type', $rt, @IP_OPTS )
              . qq{ <input type="submit" class="btn" value="Go"></form>};
 
@@ -679,7 +679,7 @@ sub macs ($c) {
     $topn = 100 unless $topn =~ /^\d+$/;
     $type = 'node' unless grep { $_ eq $type } qw(node infrastructure all);
 
-    my $form = qq{<form method="get" action="/reports/macs"> Top }
+    my $form = qq{<form method="get" action="} . Netdot::Mojo::Registry::set_uri( '/reports/macs' ) . qq{"> Top }
              . qq{<input type="text" size="4" name="topn" value="$topn"> Vendors of type }
              . _sel( 'type', $type, [ 'node', 'Node' ], [ 'infrastructure', 'Infrastructure' ], [ 'all', 'All' ] )
              . qq{ <input type="submit" value="Submit" name="submit"></form>};
@@ -696,7 +696,7 @@ sub macs ($c) {
         # OUI -> filtered PhysAddr list (address LIKE <OUI>%), Mason
         # search_obj.html?table=PhysAddr&address=<OUI>*&res=1 equivalent.
         my $addr_q   = url_escape( $oui . '*' );
-        my $oui_cell = sprintf( '<a href="/management/physaddr?address=%s">%s</a>', $addr_q, _esc( $oui ) );
+        my $oui_cell = sprintf( '<a href="%s">%s</a>', Netdot::Mojo::Registry::set_uri( "/management/physaddr?address=$addr_q" ), _esc( $oui ) );
         push @rows, [ $oui_cell, _esc( $stats->{$oui}{vendor} ), $count, sprintf( '%02.2f', $count / $total * 100 ) ];
         last if $i == $topn;
     }
@@ -725,7 +725,7 @@ sub ipbat ($c) {
         $sel = ' selected' if $r->[0] == $site;
         $name = $r->[1]     if $r->[0] == $site;
     }
-    my $form = qq{<form method="get" action="/reports/ipbat"><strong>Batiment:</strong> }
+    my $form = qq{<form method="get" action="} . Netdot::Mojo::Registry::set_uri( '/reports/ipbat' ) . qq{"><strong>Batiment:</strong> }
              . _sel( 'site', $site, map { [ $_->[0], $_->[1] ] } @$sites )
              . qq{ <input type="submit" value="display"></form>};
 
@@ -833,7 +833,7 @@ sub security ($c) {
         }
 
         my $ip_cell = defined $nip
-                   ? sprintf( '<a href="/management/ipblock/%s">%s</a>', $ip_id, _esc( $nip->short ) )
+                   ? sprintf( '<a href="%s">%s</a>', Netdot::Mojo::Registry::set_uri( "/management/ipblock/$ip_id" ), _esc( $nip->short ) )
                    : '&nbsp;';
         push @rows, [ _link('rr', $r->[0], $host), $ip_cell,
                       _link('entity', $ubid, $ent{$ubid} // '' ),

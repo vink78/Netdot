@@ -40,12 +40,12 @@ sub show ($c) {
 
             my $iid  = eval { $o->interface->id };
             my $ilbl = eval { $o->interface->get_label };
-            push @attrs, [ 'Interface', $iid ? "<a href=\"/management/interface/$iid\">$ilbl</a>" : '' ];
+            push @attrs, [ 'Interface', $iid ? "<a href=\"" . Netdot::Mojo::Registry::set_uri( "/management/interface/$iid" ) . "\">$ilbl</a>" : '' ];
 
             my $dev = eval { $o->interface && $o->interface->device };
             $dev   ||= eval { ( $o->snmp_devices )[0] };
             my $did = eval { $dev->id };
-            push @attrs, [ 'Device', $did ? "<a href=\"/management/device/$did\">" . _obj_label($dev) . "</a>" : '' ];
+            push @attrs, [ 'Device', $did ? "<a href=\"" . Netdot::Mojo::Registry::set_uri( "/management/device/$did" ) . "\">" . _obj_label($dev) . "</a>" : '' ];
 
             # Related objects (read-only; no add/edit links — those need the
             # not-yet-migrated edit interface).
@@ -251,7 +251,7 @@ sub search ($c) {
     my @headers = map { Netdot::Mojo::Registry::column_tag( 'Ipblock', $_ ) }
                   qw(address prefix status used_by);
     my @rows = map {
-        { href  => "/management/ipblock/" . $_->id,
+        { href  => Netdot::Mojo::Registry::set_uri( "/management/ipblock/" . $_->id ),
           label => $_->cidr // '',
           cells => [ $_->prefix // '',
                      Netdot::Mojo::Registry::format_value( $_->status ),
@@ -434,7 +434,7 @@ sub _build_container_grid_html {
     my @children  = sort { $a->address_numeric <=> $b->address_numeric } _ipblock_children( $o );
     my @freespace = sort { $a->numeric <=> $b->numeric } $o->free_space( $divide );
 
-    my $base_url = '/management/ipblock/' . $o->id . '?view_format=block';
+    my $base_url = Netdot::Mojo::Registry::set_uri( '/management/ipblock/' . $o->id . '?view_format=block' );
     my $html     = '';
     $html .= '<table style="width:100%"><tr>';
     $html .= '<td style="text-align:right;vertical-align:middle">Zoom: Set one row equal to '
@@ -482,7 +482,7 @@ sub _build_container_grid_html {
             $title   .= ' (' . $child->description . ')' if $child->description;
             $width = ( $rowsize >= 22 ) ? ( 2 ** ( 32 - $child->prefix ) ) * ( 2 ** ( $rowsize - 22 ) ) : 2 ** ( 32 - $child->prefix );
             $count += $width;
-            $link      = '/management/ipblock/' . $child->id;
+            $link      = Netdot::Mojo::Registry::set_uri( '/management/ipblock/' . $child->id );
             $prevclass = $class;
         }
         else {
@@ -586,7 +586,7 @@ sub _build_subnet_grid {
                 my $inner = qq{<div class="$divclass" title="$divtitle" width="100%">$disp</div>};
                 my $aid   = $ids{ $net->numeric };
                 $cell = ( exists $used{ $net->numeric } && $aid )
-                    ? qq{<a href="/management/ipblock/$aid" class="ipaddr">$inner</a>}
+                    ? qq{<a href="} . Netdot::Mojo::Registry::set_uri( "/management/ipblock/$aid" ) . qq{ class="ipaddr">$inner</a>}
                     : $inner;
             }
             push @row, $cell;
@@ -683,7 +683,7 @@ sub _ip_dns_records {
             # name shown as the bare record name, linked to the RR object.
             name_html => _fk_link( $rr, text => $name ),
             zone      => $zl,
-            zone_href => $zid ? "/management/zone/$zid" : undef,
+            zone_href => $zid ? Netdot::Mojo::Registry::set_uri( "/management/zone/$zid" ) : undef,
         };
     }
     return @out;

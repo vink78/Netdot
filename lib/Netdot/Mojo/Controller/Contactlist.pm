@@ -54,7 +54,7 @@ sub _contacts {
     for my $r (@roles) {
         my $person   = eval { $r->person };
         my $plabel   = eval { $person->get_label } // '';
-        my $phref    = $person ? ( '/management/person/' . $person->id ) : '';
+        my $phref    = $person ? Netdot::Mojo::Registry::set_uri( '/management/person/' . $person->id ) : '';
         my $ct       = eval { $r->contacttype };
         push @rows, {
             person           => [ $plabel, $phref ],

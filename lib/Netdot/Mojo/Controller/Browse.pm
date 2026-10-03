@@ -90,16 +90,36 @@ sub list ($c) {
         }
     }
 
-    # Free-text search box (?search=, see list.html.ep): match the type's primary
-    # display column via search_like (LIKE %v%; quote for exact, */? for wildcards).
-    # The dedicated rr/physaddr/ipblock searches override this for richer logic.
-    if ( my $q = $c->param('search') ) {
-        $q =~ s/^\s+|\s+$//g;
-        push @filters, ( $cols->[0] => $q ) if length $q;
-    }
+    # Free-text search box (?search=, see list.html.ep): a raw, parameterised
+    # LIKE %q% on the type's primary display column, combined with the per-user
+    # 'view' predicate. Deliberately NOT search_like() -- that method is
+    # overridden per class (e.g. Device::search_like(name=>..) matches DNS RR
+    # names / aliases, not device.name), so a uniform free-text box needs the raw
+    # query. The dedicated rr/physaddr/ipblock searches override this.
+    my $q = $c->param('search');
+    $q = '' unless defined $q;
+    $q =~ s/^\s+|\s+$//g;
 
     my ( @objs, $total );
-    if ( @filters ) {
+    if ( length $q ) {
+        my $col  = $cols->[0];
+        my $like = "%$q%";
+        my $pred = "$col LIKE ?";
+        my $wc   = defined $where_sql ? "$where_sql AND ($pred)" : " WHERE $pred";
+        my @qb   = ( @binds, $like );
+        my $ok = eval {
+            ( $total ) = $dbh->selectrow_array( "SELECT COUNT(*) FROM $table $wc", undef, @qb );
+            my $sth  = $dbh->prepare( "SELECT id FROM $table $wc ORDER BY id LIMIT ? OFFSET ?" );
+            $sth->execute( @qb, $per, $offset );
+            @objs   = map { $class->retrieve( $_->[0] ) } @{ $sth->fetchall_arrayref };
+            1;
+        };
+        unless ( $ok ) {    # bad/missing column: show nothing (never leak the
+            $c->app->log->error( "list search on $table.$col failed: $@" );   # unfiltered set)
+            ( @objs, $total ) = ( (), 0 );
+        }
+    }
+    elsif ( @filters ) {
         @objs  = $class->search_like( @filters );
         $total = scalar @objs;
         if ( Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
@@ -142,8 +162,9 @@ sub list ($c) {
             }
             my $id = ref( $v ) ? eval { $v->id } : $v;
             $row{$col} = ( $linkkey{$col} && defined $id && $id =~ /^\d+$/ )
-                ? sprintf( '<a href="/management/%s/%s">%s</a>',
-                            $linkkey{$col}, $id, Netdot::Mojo::Registry::esc( $label ) )
+                ? sprintf( '<a href="%s">%s</a>',
+                           Netdot::Mojo::Registry::set_uri( "/management/$linkkey{$col}/$id" ),
+                           Netdot::Mojo::Registry::esc( $label ) )
                 : Netdot::Mojo::Registry::esc( $label );
         }
         push @rows, \%row;

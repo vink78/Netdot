@@ -30,8 +30,9 @@ sub startup ($self) {
     $base    = '' if $base eq '/';
     # Templates use web_prefix() to prefix the few hard-coded root asset/route
     # links (url_for() already carries the prefix because routes are mounted under
-    # $base).
+    # $base). set_uri() prefixes any internal root-absolute path (see Registry).
     $self->helper( web_prefix => sub { $base } );
+    $self->helper( set_uri    => sub ($c, $uri) { Netdot::Mojo::Registry::set_uri( $uri ) } );
 
     # ---- Sessions / cookies ----
     $self->secrets([ $ENV{NETDOT_MOCK} // 'netdot-mojo-dev-change-me' ]);

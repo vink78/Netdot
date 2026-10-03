@@ -58,26 +58,26 @@ sub search ($c) {
         my $obj   = $list[0];
         my $short = ref $obj; $short =~ s/.*:://;
         my $type  = lc $short;   # RR -> rr, Ipblock -> ipblock, PhysAddr -> physaddr
-        return $c->redirect_to( "/management/$type/" . $obj->id );
+        return $c->redirect_to( Netdot::Mojo::Registry::set_uri( "/management/$type/" . $obj->id ) );
     }
 
     my ( @headers, @rows );
     if ( @list && ref( $list[0] ) =~ /PhysAddr/ ) {
         @headers = ( 'MAC Address' );
-        @rows = map { { href => "/management/physaddr/" . $_->id, label => $_->address // '', cells => [] } } @list;
+        @rows = map { { href => Netdot::Mojo::Registry::set_uri( "/management/physaddr/" . $_->id ), label => $_->address // '', cells => [] } } @list;
     }
     elsif ( @list && ref( $list[0] ) =~ /Ipblock/ ) {
         @headers = map { Netdot::Mojo::Registry::column_tag( 'Ipblock', $_ ) }
                    qw(address prefix status);
         @rows = map {
-            { href => "/management/ipblock/" . $_->id, label => $_->address // '',
+            { href => Netdot::Mojo::Registry::set_uri( "/management/ipblock/" . $_->id ), label => $_->address // '',
               cells => [ $_->prefix // '', Netdot::Mojo::Registry::format_value( $_->status ) ] }
         } @list;
     }
     else {
         @headers = ( 'Name', 'Zone' );
         @rows = map {
-            { href => "/management/rr/" . $_->id, label => _rr_label( $_ ),
+            { href => Netdot::Mojo::Registry::set_uri( "/management/rr/" . $_->id ), label => _rr_label( $_ ),
               cells => [ Netdot::Mojo::Registry::format_value( $_->zone ) ] }
         } @list;
     }

@@ -70,7 +70,7 @@ sub _apex_records {
     my ( @a, @ns, @mx );
     for my $r ( eval { $at->a_records } ) {
         my $ip = eval { $r->ipblock };
-        push @a, [ ( $ip ? ( $ip->address // '' ) : '' ), $ip ? ( '/management/ipblock/' . $ip->id ) : '' ];
+        push @a, [ ( $ip ? ( $ip->address // '' ) : '' ), $ip ? Netdot::Mojo::Registry::set_uri( '/management/ipblock/' . $ip->id ) : '' ];
     }
     for my $r ( eval { $at->ns_records } ) {
         push @ns, [ ( eval { $r->nsdname } // '' ), '' ];

@@ -44,12 +44,12 @@ sub show {
     # Forwarding-table (FDB) timestamps — last SHOW_LAST_N_FTE (model method).
     my @fwt;    eval { @fwt = $o->fdb_tstamps() };
     my @fwt_links =
-        map { my $t = $_; [ $t, "/management/interface/$id/fdb?tstamp=" . url_escape($t) ] } @fwt;
+        map { my $t = $_; [ $t, Netdot::Mojo::Registry::set_uri( "/management/interface/$id/fdb?tstamp=" . url_escape($t) ) ] } @fwt;
 
     # ARP timestamps — last SHOW_LAST_N_ARP (model method).
     my @arp;    eval { @arp = $o->arp_tstamps() };
     my @arp_links =
-        map { my $t = $_; [ $t, "/management/interface/$id/arp?tstamp=" . url_escape($t) ] } @arp;
+        map { my $t = $_; [ $t, Netdot::Mojo::Registry::set_uri( "/management/interface/$id/arp?tstamp=" . url_escape($t) ) ] } @arp;
 
     # Audit records.
     my @audit;    eval { @audit = $o->get_audit_records( table => 'Interface', id => $id ) };

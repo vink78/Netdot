@@ -247,8 +247,25 @@ sub link_for {
     $id = '?' if $@ || !defined $id;
     my $text  = eval { $v->get_label };
     $text = class_key( $class ) . " #$id" unless defined $text && length $text;
-    my $href  = ( exists $TYPES{$type} && $id =~ /^\d+$/ ) ? "/management/$type/$id" : undef;
+    my $href  = ( exists $TYPES{$type} && $id =~ /^\d+$/ ) ? set_uri( "/management/$type/$id" ) : undef;
     return [ $text, $href ];
+}
+
+# Prefix an internal root-absolute path with the app's base URL (WEB_BASE_URL):
+# "/management/rr/5" -> "/netdot/management/rr/5" (or unchanged at the domain
+# root). Single source of truth for the base prefix -- used by link_for and the
+# set_uri controller helper -- because controllers build some links by hand
+# rather than via url_for(). Reads the base fresh so it needs no controller.
+sub set_uri {
+    my ($uri) = @_;
+    my $base = eval { Netdot->config->get('WEB_BASE_URL') } // '';
+    $base    = '' unless defined $base && !ref $base;
+    $base    =~ s{^https?://[^/]+}{};   # full URL -> keep only the path part
+    $base    =~ s{/+$}{};               # strip trailing slash(es)
+    $base    = '' if $base eq '/';
+    my $path = $uri;
+    $path    =~ s{^/+}{};               # drop leading slash(es); one re-added below
+    return $base . '/' . $path;
 }
 
 # Escape a value for CSV (matches Netdot viewtext.html: comma -> space, quote -> apostrophe).

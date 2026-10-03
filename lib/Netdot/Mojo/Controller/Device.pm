@@ -230,7 +230,7 @@ sub _interfaces {
     for my $if (@ifs) {
         my $i = $if->id;
         next if $showvlan ne 'all' && !exists $ifvlans{$i}{$showvlan};
-        my $ihref = "/management/interface/$i";
+        my $ihref = Netdot::Mojo::Registry::set_uri( "/management/interface/$i" );
 
         my @vp;
         if ( exists $ifvlans{$i} ) {
@@ -257,13 +257,13 @@ sub _interfaces {
                     for my $ip_id ( sort keys %{ $e->{ip} } ) {
                         my $ip = $e->{ip}{$ip_id};
                         my ( $t, $h );
-                        if ( $ip->{rrid} ) { $t = $ip->{fqdn};  $h = "/management/rr/$ip->{rrid}"; }
-                        else               { $t = $ip->{address}; $h = "/management/ipblock/$ip_id"; }
+                        if ( $ip->{rrid} ) { $t = $ip->{fqdn};  $h = Netdot::Mojo::Registry::set_uri( "/management/rr/$ip->{rrid}" ); }
+                        else               { $t = $ip->{address}; $h = Netdot::Mojo::Registry::set_uri( "/management/ipblock/$ip_id" ); }
                         next if $seen{$t}++;
                         push @conn, [ $t, $h ];
                     }
                 } else {
-                    push @conn, [ $e->{mac}, "/management/physaddr/$mac_id" ];
+                    push @conn, [ $e->{mac}, Netdot::Mojo::Registry::set_uri( "/management/physaddr/$mac_id" ) ];
                 }
             }
         }
@@ -295,7 +295,7 @@ sub _interfaces {
         vids      => [ sort { $a <=> $b } keys %allvids ],
         show_jack => $present{jack} ? 1 : 0,
         show_desc => $present{desc} ? 1 : 0,
-        sort_base => "/management/device/$id?view=Interfaces",
+        sort_base => Netdot::Mojo::Registry::set_uri( "/management/device/$id?view=Interfaces" ),
     };
 }
 
@@ -361,7 +361,7 @@ sub _ip_view {
             next unless $rr;
             my $lbl = eval { $rr->get_label };
             $lbl //= eval { $rr->name };
-            push @dns, [ $lbl // '', "/management/rr/" . $rr->id ] if length( $lbl // '' );
+            push @dns, [ $lbl // '', Netdot::Mojo::Registry::set_uri( "/management/rr/" . $rr->id ) ] if length( $lbl // '' );
         }
 
         my @svc;
@@ -376,12 +376,12 @@ sub _ip_view {
         my $iface  = eval { $ip->interface };
 
         push @rows, [
-            [ [ ( eval { $ip->address } // '' ), "/management/ipblock/" . $ip->id ] ],
+            [ [ ( eval { $ip->address } // '' ), Netdot::Mojo::Registry::set_uri( "/management/ipblock/" . $ip->id ) ] ],
             $parent
               ? [ [ ( eval { $parent->cidr } // eval { $parent->address } // '' ),
-                    "/management/ipblock/" . $parent->id ] ]
+                    Netdot::Mojo::Registry::set_uri( "/management/ipblock/" . $parent->id ) ] ]
               : [ [ '', '' ] ],
-            $iface ? [ [ ( eval { $iface->name } // '' ), "/management/interface/" . $iface->id ] ] : [ [ '', '' ] ],
+            $iface ? [ [ ( eval { $iface->name } // '' ), Netdot::Mojo::Registry::set_uri( "/management/interface/" . $iface->id ) ] ] : [ [ '', '' ] ],
             _ml(@dns),
             [ [ ( eval { $ip->monitored } ) ? 'yes' : 'no', '' ] ],
             _ml(@svc),
@@ -399,7 +399,7 @@ sub _ip_view {
             [ 'Services',     undef ],
         ],
         rows         => \@rows,
-        sort_base    => "/management/device/$id?view=IP",
+        sort_base    => Netdot::Mojo::Registry::set_uri( "/management/device/$id?view=IP" ),
         sort_param   => 'ipsort',
         sort         => $ipsort,
         empty_msg    => 'This device has no IP addresses.',
@@ -417,7 +417,7 @@ sub _bgp_view {
     my @info;
     push @info, [ 'BGP ID', _fmt($bgpid), '' ] if defined $bgpid && length $bgpid;
     if ( $localas && ( eval { $localas->number } ) ) {
-        push @info, [ 'Local AS', $localas->number, "/management/as/" . $localas->id ];
+        push @info, [ 'Local AS', $localas->number, Netdot::Mojo::Registry::set_uri( "/management/as/" . $localas->id ) ];
     }
 
     my ( $peers, $ptype );
@@ -436,7 +436,7 @@ sub _bgp_view {
         my @clinks;
         for my $cl (@cl) {
             my $cn = eval { $cl->name };
-            push @clinks, [ ( $cn || '#' . $cl->id ), "/management/contactlist/" . $cl->id ];
+            push @clinks, [ ( $cn || '#' . $cl->id ), Netdot::Mojo::Registry::set_uri( "/management/contactlist/" . $cl->id ) ];
         }
         push @rows, [
             [ [ ( eval { $p->bgppeeraddr } // '' ), '' ] ],
@@ -463,7 +463,7 @@ sub _bgp_view {
         rows        => \@rows,
         info        => \@info,
         peer_type   => $ptype // '',
-        sort_base   => "/management/device/$id?view=BGP",
+        sort_base   => Netdot::Mojo::Registry::set_uri( "/management/device/$id?view=BGP" ),
         sort_param  => 'peersort',
         sort        => $peersort,
         empty_msg   => 'This device has no BGP peers.',
@@ -478,7 +478,7 @@ sub _hosted_view {
     for my $h (@hd) {
         my $hname = _lk( eval { $h->name } );
         push @rows, [
-            [ [ $hname->[0], "/management/device/" . $h->id ] ],
+            [ [ $hname->[0], Netdot::Mojo::Registry::set_uri( "/management/device/" . $h->id ) ] ],
             [ [ ( eval { $h->http_addr } // '' ), 'http://' . ( eval { $h->http_addr } // '' ) ] ],
             [ [ ( eval { $h->https_addr } // '' ), 'https://' . ( eval { $h->https_addr } // '' ) ] ],
         ];
