@@ -28,6 +28,7 @@ our %TYPES = (
     asset     => { class => 'Asset' },
     interface => { class => 'Interface', nav => 0 },
     vlan      => { class => 'Vlan' },
+    vlangroup => { class => 'VlanGroup', nav => 0 },
     zone      => { class => 'Zone' },
     site      => { class => 'Site' },
     room      => { class => 'Room' },
@@ -64,7 +65,7 @@ our %TYPES = (
 
 # Ordered list of browsable types (drives routes and the generic listing logic).
 our @ORDER = qw(
-    ipblock device asset interface vlan zone site room floor closet person
+    ipblock device asset interface vlan vlangroup zone site room floor closet person
     rr rrns rrmx rrtxt rrnaptr entity service contactlist physaddr
     product availability ipblockstatus circuit arpcache sitelink fwtable stpinstance
     horizontalcable backbonecable dhcscope producttype asn
