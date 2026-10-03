@@ -55,6 +55,12 @@ sub build_relations {
         next unless @objs;
 
         my ( $cols, $show_label ) = rel_columns($related);
+        # The CDBI relation returns objects in arbitrary (PK) order; order them by
+        # the relation's FIRST display column (numeric-aware) so the table is
+        # globally sorted, matching the list pages. Falls back to the id.
+        my $sort_col = ( @$cols && defined $cols->[0][0] ) ? $cols->[0][0] : 'id';
+        my $sval = sub { my $v = eval { $_[0]->$sort_col }; return defined $v && !ref $v ? $v : '' };
+        eval { @objs = sort { _kcmp( $sval->($a), $sval->($b) ) } @objs };
         # In the no-label-column case (all brief cols are label cols), the object's
         # own scalar label column links to its detail page (FK label cols still
         # link to their target via the ref branch below).
@@ -154,6 +160,16 @@ sub obj_text {
     return $cidr if defined $cidr && length $cidr;
     my ($t) = @{ Netdot::Mojo::Registry::link_for($v) };
     return $t // '';
+}
+
+# Numeric-aware comparator (both numeric -> <=>, else case-insensitive text),
+# mirroring the list pages and the client-side tablesort.js.
+sub _kcmp {
+    my ( $x, $y ) = @_;
+    $x = '' unless defined $x;
+    $y = '' unless defined $y;
+    if ( $x =~ /^-?\d+(?:\.\d+)?$/ && $y =~ /^-?\d+(?:\.\d+)?$/ ) { return $x <=> $y; }
+    return lc( $x ) cmp lc( $y );
 }
 
 1;

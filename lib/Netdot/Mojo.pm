@@ -133,8 +133,12 @@ sub startup ($self) {
     # controller; the rest use the generic ones.
     my %show_ctrl   = ( ipblock => 'ipblock', rr => 'rr', physaddr => 'physaddr', interface => 'interface', device => 'device', zone => 'zone', contactlist => 'contactlist', closet => 'closet' );
     my %search_ctrl = ( ipblock => 'ipblock', rr => 'rr', physaddr => 'physaddr' );
+    # Types with a dedicated LANDING page (not the generic list): vlan shows the
+    # VLAN Groups + Ungrouped VLANs view (port of the original vlan.html).
+    my %list_ctrl = ( vlan => 'vlan' );
     for my $t ( Netdot::Mojo::Registry::types() ) {
-        $r->get("/management/$t")->to('browse#list', type => $t)->name("${t}_list");
+        my $lc = $list_ctrl{$t} // 'browse';
+        $r->get("/management/$t")->to("${lc}#list", type => $t)->name("${t}_list");
         # Per-type search: dedicated controllers for the rich multi-field ones
         # (ipblock/rr/physaddr); a generic free-text search (browse#search) for
         # every other type.
