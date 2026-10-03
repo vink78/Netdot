@@ -48,14 +48,15 @@ sub list ($c) {
 
     # Per-user access: a User sees only the objects they may view (none by
     # default). Admin/Operator are unrestricted (view access to everything).
-    my $person    = $c->current_person;
-    my $where_sql = undef;    # e.g. " WHERE (id IN (1,2) OR zone IN (3))"
-    # The predicate is a literal IN list (no placeholders) -- see
-    # Permissions::viewable_predicate -- so search_page/search_count take it as
-    # a `where` string; there are no binds to pass.
+    my $person = $c->current_person;
+    # Per-user 'view' predicate: a RAW fragment like "(id IN (1,2) OR zone IN (3))"
+    # (a literal IN list, no placeholders; '0' = nothing viewable). search_page /
+    # search_count combine it via _combine_where (they add the WHERE keyword
+    # themselves), so it is passed UN-prefixed. undef = unrestricted (Admin/Operator).
+    my $frag = undef;
     if ( Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
-        my ( $w ) = Netdot::Mojo::Permissions->viewable_predicate( $class, $person );
-        $where_sql = defined $w ? " WHERE $w" : undef;
+        my ($w) = Netdot::Mojo::Permissions->viewable_predicate( $class, $person );
+        $frag = $w;
     }
 
     # ipblock: hierarchical view. The list shows the ROOT blocks only (parent is
@@ -73,13 +74,13 @@ sub list ($c) {
         # Direct list-context call: get_roots() uses wantarray, so it must NOT
         # be wrapped in eval{} // () (that degrades to scalar -> first root only).
         my @roots = $class->get_roots($rootversion);
-        if ( defined $where_sql ) {
+        if ( defined $frag ) {
             # A root is visible if it, any descendant, or an allowed block's
             # ancestor path includes it: i.e. keep the roots that lead down to a
             # viewable block, so the user can drill in.
             my %keep;
             # Viewable block ids via the model layer (no raw SQL in the controller).
-            my @viewable = $class->search_page( where => $where_sql, limit => 0 );
+            my @viewable = $class->search_page( where => $frag, limit => 0 );
             for my $ip (@viewable) {
                 next unless $ip;
                 $keep{ $ip->id } = 1;
@@ -155,14 +156,14 @@ sub list ($c) {
               # LIKE + first-column/FK order + pagination all handled there).
         my $ok = eval {
             @objs  = $class->search_page(
-                where    => $where_sql,
+                where    => $frag,
                 order_by => $first,
                 like     => $like,
                 limit    => $per,
                 offset   => $offset,
             );
             $total = $class->search_count(
-                where    => $where_sql,
+                where    => $frag,
                 order_by => $first,
                 like     => $like,
             );
@@ -275,11 +276,12 @@ sub csv ($c) {
 
     # Per-user filter: a User exports only the objects they may view (none by
     # default). Admin/Operator export everything.
-    my $person    = $c->current_person;
-    my $where_sql = undef;    # literal IN list, no placeholders (see list)
+    my $person = $c->current_person;
+    # Raw 'view' fragment (un-prefixed; see list) -- combined by search_page.
+    my $frag = undef;
     if ( Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
-        my ( $w ) = Netdot::Mojo::Permissions->viewable_predicate( $class, $person );
-        $where_sql = defined $w ? " WHERE $w" : undef;
+        my ($w) = Netdot::Mojo::Permissions->viewable_predicate( $class, $person );
+        $frag = $w;
     }
 
     my $emit = sub {
@@ -297,7 +299,7 @@ sub csv ($c) {
 
     # All rows, in the list view's first-column order (order_by handles a
     # relationship first column via a JOIN); limit 0 = no page window.
-    my @objs = $class->search_page( where => $where_sql, order_by => $cols->[0], limit => 0 );
+    my @objs = $class->search_page( where => $frag, order_by => $cols->[0], limit => 0 );
     $emit->($_) for @objs;
 
     my $h = $c->res->headers;
