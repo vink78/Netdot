@@ -31,37 +31,41 @@
   </script>
 </head>
 <body>
-  <div id="header">
-    <a href="<%= url_for('home') %>"><img border="0" class="headleft" src="<%= $c->web_prefix %>/img/title.png" alt="Netdot: Network Documentation Tool"></a>
+  <header id="header">
+    <a class="brand" href="<%= url_for('home') %>"><img src="<%= $c->web_prefix %>/img/title.png" alt="Netdot: Network Documentation Tool"></a>
     <span class="headright">
+      <span class="hdr-time"><%= scalar localtime %></span>
       % if (my $u = $c->session('username')) {
-        <strong>user</strong>: <%= $u %> &nbsp;
-        [<a href="<%= url_for('logout') %>">logout</a>]
+      <span class="hdr-user"><%= $u %></span>
+      <a class="hdr-btn" href="<%= url_for('logout') %>">log out</a>
       % } else {
-        <a href="<%= url_for('login') %>">login</a>
+      <a class="hdr-btn" href="<%= url_for('login') %>">log in</a>
       % }
     </span>
-    <hr />
-    <span class="headleft">Netdot</span>
-    <span class="headright"><%= scalar localtime %></span>
-  </div>
+  </header>
   % unless ( $c->stash('hide_nav') ) {
-  <div id="navbar">
+  % my $nav   = $c->stash('nav') // [];
+  % my $cur   = $c->req->url->path;
+  % my $base  = $c->web_prefix // '';
+  % my $home_active = ( $cur eq $base || $cur eq "$base/" || ( $base eq '' && $cur eq '/' ) );
+  <nav id="navbar">
     <ul id="navigation">
-      <li><a href="<%= url_for('home') %>">home</a></li>
-      % my $nav = $c->stash('nav') // [];
+      <li class="<%= $home_active ? 'active' : '' %>"><a href="<%= url_for('home') %>">Home</a></li>
       % for my $sec (@$nav) {
-      <li class="navsec">
+      % my $sec_active = 0;
+      % for my $it (@{ $sec->{items} }) { $sec_active = 1 if index( $cur, $it->{url} ) == 0; }
+      <li class="navsec<%= $sec_active ? ' active' : '' %>">
         <a href="<%= $sec->{url} %>"><%= $sec->{title} %></a>
         <ul class="navsubmenu">
           % for my $it (@{ $sec->{items} }) {
-          <li><a href="<%= $it->{url} %>"><%= $it->{label} %></a></li>
+          % my $it_active = index( $cur, $it->{url} ) == 0;
+          <li class="<%= $it_active ? 'active' : '' %>"><a href="<%= $it->{url} %>"><%= $it->{label} %></a></li>
           % }
         </ul>
       </li>
       % }
     </ul>
-  </div>
+  </nav>
   % }
   <div id="content">
     <%= content %>

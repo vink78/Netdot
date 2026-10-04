@@ -107,25 +107,21 @@
 % }
 %# Section tab bar (block detail only).
 % if ($current && $tabs) {
-    <div style="margin:0.5em 0 1em 0; padding-bottom:0.4em; border-bottom:2px solid #ddeedd; font-size:0.95em">
-    % for my $i (0 .. $#$tabs) {
-        % my $t = $tabs->[$i];
-        <a href="<%= $c->web_prefix %>/management/ipblock/<%= $current->id %>?view=<%= $t->[0] %>" style="<%= $view eq $t->[0] ? 'font-weight:bold; color:#000' : '' %>"><%= $t->[1] %></a>
-        <span style="color:#ccc"><%= $i < $#$tabs ? ' | ' : '' %></span>
-    % }
-    </div>
+  <div class="tabbar">
+  % for my $t (@$tabs) {
+    <a class="tab<%= $view eq $t->[0] ? ' active' : '' %>" href="<%= $c->web_prefix %>/management/ipblock/<%= $current->id %>?view=<%= $t->[0] %>"><%= $t->[1] %></a>
+  % }
+  </div>
 % }
 
 % if ($show_children) {
 %# View-format toggle (list / block / tree) — on the Children/All view.
 % if ($current && @$modes > 1) {
-    <div style="margin:0 0 1em 0; font-size:0.9em">
-    % for my $i (0 .. $#$modes) {
-        % my $m = $modes->[$i];
-        <a href="<%= $c->web_prefix %>/management/ipblock/<%= $current->id %>?view_format=<%= $m %>" style="<%= $viewformat eq $m ? 'font-weight:bold' : '' %>"><%= $m eq 'list' ? 'List' : $m eq 'block' ? 'Block' : 'Tree' %> View</a>
-        <span style="color:#ccc"><%= $i < $#$modes ? ' | ' : '' %></span>
-    % }
-    </div>
+  <div class="tabbar tabbar-sm">
+  % for my $m (@$modes) {
+    <a class="tab<%= $viewformat eq $m ? ' active' : '' %>" href="<%= $c->web_prefix %>/management/ipblock/<%= $current->id %>?view_format=<%= $m %>"><%= $m eq 'list' ? 'List' : $m eq 'block' ? 'Block' : 'Tree' %> View</a>
+  % }
+  </div>
 % }
 %# Children: address grid (subnet), container grid, tree graph, or the table.
 % if ($grid) {

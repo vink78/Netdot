@@ -21,12 +21,14 @@
 
 body {
     padding: 0;
-    background-color: #FFFFFF;
-    color: #000000;
+    background-color: #f4f7f3;
+    color: #1a1a1a;
     height: 100%;
     font-size: 13px;
-    font-family: verdana, arial, sans-serif;
-    margin: 5px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.45;
 }
 
 /* Makes over wide pres grow scroll bars */
@@ -148,33 +150,52 @@ table.devgrid td {
 }
 
 
+/* ============ Header (modern) ============ */
 #header {
-    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 22px;
+    background: #ffffff;
+    border-bottom: 1px solid #ddeedd;
+    box-shadow: 0 1px 2px rgba(0,40,0,.04);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
-#header .headleft {
-    float: left;
+#header .brand img {
+    height: 40px;
+    display: block;
 }
 #header .headright {
-    background-color: transparent;
-    float: right;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 0.85em;
+    color: #003300;
 }
-#header hr {
-    border: none;
-    background-color: #aaccaa; /* for mozilla */
-/*    color: #aaccaa;            /* for ie */
-    margin-top: 10px;
-    clear: both;
-    height: 1px;
-    width: 100%;
+#header .hdr-time {
+    color: #6b7a6b;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .02em;
 }
-#header form {
-    display: inline;
+#header .hdr-user {
+    font-weight: 600;
 }
-#header a:link, #header a:visited {
+#header .hdr-btn {
+    color: #006600;
     text-decoration: none;
+    border: 1px solid #aaccaa;
+    border-radius: 7px;
+    padding: 4px 12px;
+    background: #ffffee;
+    font-weight: 500;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
-#header a:active, #header a:hover {
-    text-decoration: underline;
+#header .hdr-btn:hover {
+    background: #aaccaa;
+    color: #ffffff;
+    border-color: #aaccaa;
+    text-decoration: none;
 }
 
 
@@ -339,12 +360,28 @@ html>body, html>body #contents {
     height: auto;
 }
 #content {
-    clear: left;
+    clear: both;
+    padding: 18px 22px 48px;
+}
+#content h1 {
+    font-size: 1.5em;
+    font-weight: 700;
+    margin: 0 0 0.4em;
+    letter-spacing: -0.01em;
+}
+#content h2 {
+    font-size: 1.15em;
+    font-weight: 700;
+    margin: 1.4em 0 0.5em;
 }
 #content h3 {
-    font-size: 1.2em;
-    background-color: #c2bed8;
-    width: 100%;
+    font-size: 1.15em;
+    font-weight: 600;
+    background: none;
+    width: auto;
+    margin: 1em 0 0.4em;
+    border-bottom: 2px solid #ddeedd;
+    padding-bottom: 4px;
 }
 
 
@@ -910,4 +947,282 @@ The result is the tag explodes out of the containing
 block, messing up the borders and background.
 Note, IE doesn't have this problem.
 */
+
+/* ============================================================
+   MODERN DESIGN LAYER (2026)
+   Overrides the legacy rules above using equal-or-higher
+   specificity + later cascade order. Palette + logo kept:
+   #aaccaa / #ddeedd / #ffffee / #f0f7e9 / #006600.
+   ============================================================ */
+
+/* ---------- Navbar (sticky, modern) ---------- */
+#navbar {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    height: auto;
+    background: #ffffff;
+    border-top: none;
+    border-bottom: 1px solid #aaccaa;
+    box-shadow: 0 2px 6px rgba(0,40,0,.05);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.92em;
+    margin-bottom: 0;
+}
+#navbar ul#navigation {
+    position: static;
+    width: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    margin: 0;
+    padding: 0 10px;
+    list-style: none;
+}
+#navbar ul#navigation li { display: inline-block; list-style: none; }
+#navbar ul#navigation li > a {
+    display: block;
+    float: none;
+    padding: 13px 15px;
+    margin: 0;
+    text-align: left;
+    text-decoration: none;
+    color: #003300;
+    background: transparent;
+    border-bottom: 3px solid transparent;
+    font-weight: 500;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+#navbar ul#navigation li > a:hover {
+    color: #006600;
+    background: #f0f7e9;
+    border-bottom-color: transparent;
+}
+#navbar ul#navigation li.active > a {
+    color: #006600;
+    font-weight: 700;
+    border-bottom-color: #006600;
+}
+#navbar ul#navigation li.navsec { position: relative; }
+#navbar ul#navigation li.navsec .navsubmenu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin: 0;
+    padding: 6px 0;
+    min-width: 200px;
+    background: #ffffff;
+    border: 1px solid #aaccaa;
+    border-top: 2px solid #006600;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 12px 28px rgba(0,40,0,.16);
+    list-style: none;
+    z-index: 1000;
+    font-size: 0.95em;
+}
+#navbar ul#navigation li.navsec:hover .navsubmenu,
+#navbar ul#navigation li.navsec:focus-within .navsubmenu {
+    display: block;
+    animation: navdrop .13s ease;
+}
+@keyframes navdrop {
+    from { opacity: 0; transform: translateY(-5px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+#navbar ul#navigation li.navsec .navsubmenu li {
+    display: block;
+    list-style: none;
+    border-bottom: none;
+}
+#navbar ul#navigation li.navsec .navsubmenu li a {
+    display: block;
+    float: none;
+    padding: 9px 16px;
+    margin: 0;
+    text-align: left;
+    text-decoration: none;
+    color: #003300;
+    background: transparent;
+    white-space: nowrap;
+    transition: background .12s ease, color .12s ease;
+}
+#navbar ul#navigation li.navsec .navsubmenu li a:hover {
+    background: #f0f7e9;
+    color: #006600;
+    text-decoration: none;
+}
+#navbar ul#navigation li.navsec .navsubmenu li.active a {
+    color: #006600;
+    font-weight: 700;
+    background: #f0f7e9;
+}
+
+/* ---------- Modern data tables ---------- */
+table.sortable {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #aaccaa;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,40,0,.05), 0 6px 18px rgba(0,40,0,.05);
+}
+table.sortable thead th {
+    background: #ddeedd;
+    color: #003300;
+    font-weight: 700;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    text-align: left;
+    padding: 11px 14px;
+    border-bottom: 2px solid #aaccaa;
+    cursor: pointer;
+    white-space: nowrap;
+}
+table.sortable thead th.ts-asc,
+table.sortable thead th.ts-desc {
+    background: #aaccaa;
+    color: #ffffff;
+}
+table.sortable tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #eaf2e8;
+    color: #1a1a1a;
+    background: #ffffff;
+}
+table.sortable tbody tr:nth-child(2n) td { background: #fbfdfb; }
+table.sortable tbody tr:hover td { background: #eef6ec; }
+table.sortable tbody tr:last-child td { border-bottom: none; }
+
+/* Detail (attribute) table: key/value rows */
+table.sortable.detail {
+    border: 1px solid #aaccaa;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,40,0,.04), 0 6px 18px rgba(0,40,0,.05);
+}
+table.sortable.detail tbody th {
+    width: 220px;
+    background: #f0f7e9;
+    color: #003300;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid #eaf2e8;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.88em;
+}
+table.sortable.detail tbody td {
+    background: #ffffff;
+    padding: 10px 14px;
+    border-bottom: 1px solid #eaf2e8;
+}
+table.sortable.detail tbody tr:hover th { background: #ddeedd; }
+table.sortable.detail tbody tr:last-child th,
+table.sortable.detail tbody tr:last-child td { border-bottom: none; }
+
+/* ---------- Modern cards (.container) ---------- */
+.container {
+    clear: both;
+    background: #ffffff;
+    border: 1px solid #aaccaa;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,40,0,.04), 0 6px 18px rgba(0,40,0,.05);
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+.containerheadleft,
+.containerheadright,
+.containerhead,
+.containerheadoutside {
+    background: #ddeedd;
+    padding: 9px 14px;
+    font-weight: 700;
+    font-size: 0.9em;
+    color: #003300;
+    border-bottom: 1px solid #aaccaa;
+}
+.containerbody,
+.containerbodyoutside {
+    clear: both;
+    padding: 12px 14px;
+    background: #ffffff;
+}
+
+/* ---------- Modern tabs (.tabbar) ---------- */
+.tabbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0.4em 0 1.1em;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #ddeedd;
+}
+.tabbar .tab {
+    display: inline-block;
+    padding: 6px 15px;
+    border-radius: 9px 9px 0 0;
+    text-decoration: none;
+    color: #003300;
+    background: #f0f7e9;
+    border: 1px solid #aaccaa;
+    border-bottom: none;
+    font-weight: 500;
+    font-size: 0.9em;
+    margin-bottom: -2px;
+    transition: background .14s ease, color .14s ease;
+}
+.tabbar .tab:hover {
+    background: #ddeedd;
+    color: #006600;
+    text-decoration: none;
+}
+.tabbar .tab.active {
+    background: #ffffff;
+    color: #006600;
+    font-weight: 700;
+    border-color: #aaccaa;
+}
+.tabbar-sm .tab {
+    padding: 4px 12px;
+    font-size: 0.84em;
+    border-radius: 8px;
+    margin-bottom: 0;
+    border: 1px solid #aaccaa;
+}
+.tabbar-sm {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+/* ---------- Modern buttons ---------- */
+.btn,
+input[type=submit],
+input[type=button] {
+    font-family: inherit;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #006600;
+    background: #ffffee;
+    border: 1px solid #aaccaa;
+    border-radius: 8px;
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: background .14s ease, color .14s ease, border-color .14s ease;
+}
+.btn:hover,
+input[type=submit]:hover,
+input[type=button]:hover {
+    background: #aaccaa;
+    color: #ffffff;
+    border-color: #aaccaa;
+    text-decoration: none;
+}
+
+/* ---------- Content links: underline on hover only ---------- */
+#content a { text-decoration: none; }
+#content a:hover { text-decoration: underline; }
+
 
