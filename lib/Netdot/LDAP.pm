@@ -4,6 +4,8 @@ use warnings;
 use Net::LDAP;
 use Net::LDAP::Constant qw(LDAP_EXTENSION_START_TLS);
 use Netdot::AuthLocal;
+use Netdot;
+use Netdot::Model;
 
 =head1 NAME
 
@@ -197,6 +199,11 @@ sub check_credentials {
 	    return 0;
 	}
     }else{
+	# Authentication OK. Auto-populate the Person from the LDAP entry
+	# (givenName/sn/mail/telephoneNumber -> firstname/lastname/email/office),
+	# per the NetdotLDAPAttrMap config. Best-effort: any failure here is
+	# swallowed so it never blocks a successful login.
+	eval { _upsert_person_from_ldap( $r, $ldap, $username, $user_dn ) };
 	return 1;
     }
 }
@@ -250,6 +257,150 @@ sub _connect {
     return 0;
 }
 
+
+############################################################################
+
+=head2 _ldap_attr_map - Configured LDAP-attribute -> Person-column map
+
+Reads the "NetdotLDAPAttrMap" config item -- a hash of LDAP attribute => Person
+column, e.g.:
+
+    NetdotLDAPAttrMap => { 'givenName' => 'firstname', 'sn' => 'lastname',
+                           'mail' => 'email', 'telephoneNumber' => 'office' }
+
+Returns a list of [ldap_attr, person_field] pairs. A Person-column value is only
+trusted if it is a real column of the Person table. Falls back to the default map
+when the key is absent.
+
+=cut
+
+sub _ldap_attr_map {
+    my ($r) = @_;
+    my $map = eval { $r->dir_config('NetdotLDAPAttrMap') };
+    $map = { 'givenName' => 'firstname', 'sn' => 'lastname', 'mail' => 'email',
+             'telephoneNumber' => 'office' }
+        unless ref $map eq 'HASH';
+    my %valid;
+    eval { %valid = map { $_ => 1 } Person->columns };
+    my @pairs;
+    for my $ldap_attr ( sort keys %$map ) {
+        my $pcol = $map->{$ldap_attr};
+        next unless defined $pcol && length $pcol;
+        push @pairs, [ $ldap_attr, $pcol ] if $valid{$pcol};
+    }
+    return @pairs;
+}
+
+############################################################################
+
+=head2 _upsert_person_from_ldap - Fill Person fields from the LDAP entry
+
+After a successful LDAP bind, read the mapped attributes from the user's LDAP
+entry and apply them to the Person matching $username. The Person is created
+(if absent) with only its username, then the mapped values are filled in --
+ONLY into empty columns (existing values are never overwritten). Any failure
+returns 0 and is ignored by the caller, so it cannot break login.
+
+=cut
+
+sub _upsert_person_from_ldap {
+    my ( $r, $ldap, $username, $user_dn ) = @_;
+    my @pairs = _ldap_attr_map( $r );
+    $r->log_error( "netdot-auth LDAP: no attr map configured, skip auto-fill" ) unless @pairs;
+    return 0 unless @pairs;
+    my %col2attr = map { $_->[1] => $_->[0] } @pairs;
+
+    # Conservative mode: look up the Person FIRST and skip the LDAP fetch
+    # entirely when every mapped field is already set (no point hitting LDAP).
+    my $person = eval { Person->search( username => $username )->first };
+    my $is_new = 0;
+    unless ( $person ) {
+        # Person->insert requires lastname (Person.pm); seed it with the username
+        # (legacy get_user_person behaviour) -- sn overwrites it below if present.
+        $person = eval { Person->insert( { username => $username, lastname => $username } ) };
+        $is_new = 1 if $person;
+        return 0 unless $person;
+    }
+
+    # Mapped Person columns still needing a value: all of them for a brand-new
+    # Person, otherwise only the ones left empty (never overwrite existing data).
+    my %need = $is_new ? ( map { $_->[1] => 1 } @pairs ) : ();
+    unless ( $is_new ) {
+        for my $p (@pairs) {
+            my $cur = eval { $person-> $p->[1] };
+            $need{ $p->[1] } = 1 if !defined $cur || $cur eq '';
+        }
+    }
+    unless ( %need ) {
+        $r->log_error( "netdot-auth LDAP: all mapped Person fields already set for $username; skipping LDAP fetch" );
+        return 1;
+    }
+
+    # The user's own bound connection cannot read its own attributes (self-bind
+    # ACLs), so fetch via a dedicated reader account when configured.
+    my $reader_dn = $r->dir_config( 'NetdotLDAPAttrReaderDN' );
+    my $reader_pw = $r->dir_config( 'NetdotLDAPAttrReaderPass' );
+    my $reader;
+    if ( defined $reader_dn && length $reader_dn && defined $reader_pw && length $reader_pw ) {
+        $reader = _connect( $r );
+        my $rb  = $reader && eval { $reader->bind( $reader_dn, password => $reader_pw ) };
+        unless ( $reader && $rb && ! $rb->code ) {
+            $r->log_error( "netdot-auth LDAP: attr-reader bind failed for $reader_dn: ",
+                           ( $rb ? $rb->code . " (" . $rb->error . ")" : "no connection" ) );
+            return 0;
+        }
+    }
+    my $conn = $reader // $ldap;
+
+    my $res = eval {
+        $conn->search(
+            base    => $user_dn,
+            scope   => 'subtree',
+            filter  => '(objectClass=*)',
+            attrs   => [ map { $_->[0] } @pairs ],
+        );
+    };
+    if ( my $e = $@ ) {
+        $r->log_error( "netdot-auth LDAP: attr fetch error for $username: $e" );
+        return 0;
+    }
+    unless ( $res && $res->code() == 0 && $res->count() == 1 ) {
+        $r->log_error( "netdot-auth LDAP: attr search returned ",
+                       ( $res ? $res->code() . " (" . $res->error() . ")" : "no result" ),
+                       " for $username; skip auto-fill" );
+        return 0;
+    }
+
+    # Net::LDAP::Entry: ->attributes returns attribute NAMES (list context);
+    # ->get_value($name) returns that attribute's values.
+    my %attrs;
+    my $entry = $res->entry(0);
+    for my $key ( $entry->attributes ) {
+        my @vals = $entry->get_value( $key );
+        $attrs{ lc $key } = join( ', ', @vals );
+    }
+
+    # Fill only the columns still empty (conservative) with the LDAP value.
+    my %upd;
+    for my $col ( keys %need ) {
+        my $val = $attrs{ lc $col2attr{$col} };
+        $upd{$col} = $val if defined $val && length $val;
+    }
+    if ( !%upd ) {
+        $r->log_error( "netdot-auth LDAP: no LDAP value for the empty Person field(s) ",
+                       join( ',', keys %need ), " of $username" );
+        return 0;
+    }
+
+    eval { $person->update( \%upd ) };
+    if ( my $e = $@ ) {
+        $r->log_error( "netdot-auth LDAP: update FAILED for $username: $e" );
+        return 0;
+    }
+    $r->log_error( "netdot-auth LDAP: filled Person field(s) ",
+                   join( ',', keys %upd ), " for $username" );
+    return 1;
+}
 
 #Be sure to return 1
 1;
