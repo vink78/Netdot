@@ -3,67 +3,83 @@
 <p><a href="<%= url_for( $type . '_list' ) %>">&laquo; <%= ucfirst($type) %></a></p>
 
 % if (@$attrs) {
-  <table class="sortable detail">
-    <tbody>
-      % for my $a (@$attrs) {
-      <tr><th><%= $a->[0] %></th><td style="white-space:pre-wrap">
+  <div class="attrgrid">
+  % for my $a (@$attrs) {
+    <div class="attr">
+      <span class="attr-k"><%= $a->[0] %></span>
+      <span class="attr-v">
         % if ( defined $a->[2] ) {
         <a href="<%= $a->[2] %>"><%= $a->[1] %></a>
         % } else {
         <%= $a->[1] %>
         % }
-      </td></tr>
-      % }
-    </tbody>
-  </table>
+      </span>
+    </div>
+  % }
+  </div>
 % } else {
   <p>No attribute.</p>
 % }
 
 % my $relations = $c->stash->{relations} // [];
 % my $dbase     = $c->set_uri( "/management/$type/$id" );
+% my $active    = $c->param('rel');
+% my $multi     = scalar(@$relations) > 1;
+% if ($multi) {
+%   # Default to the first relation unless ?rel= names a valid one.
+%   $active = $relations->[0]->{csv_rel}
+%         unless defined $active && grep { $_->{csv_rel} eq $active } @$relations;
+<div class="tabbar">
+   % for my $r (@$relations) {
+    <a class="tab<%= $active eq $r->{csv_rel} ? ' active' : '' %>"
+       hx-boost="false" data-rel="<%= $r->{csv_rel} %>"
+       href="<%= $dbase . '?rel=' . $r->{csv_rel} %>"><%= $r->{title} %></a>
+   % }
+</div>
+% }
 % if (@$relations) {
 % for my $r (@$relations) {
-<div style="margin:1.2em 0 0.5em 0">
-  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px"><%= $r->{title} %></h2>
-  <table class="sortable">
-    <thead>
-      <tr>
-      % for my $h ( @{ $r->{cols} } ) {
-      <th><%= $h %></th>
-      % }
-      </tr>
-    </thead>
-    <tbody>
-      % for my $row ( @{ $r->{rows} } ) {
-      <tr>
-        % for my $cell ( @$row ) {
-        % my ($t, $h) = @$cell;
-        <td>
-          % if ($h) {
-          <a href="<%= $h %>"><%= $t %></a>
-          % } else {
-          <%= $t // '' %>
-          % }
-        </td>
+  % my $rel   = $r->{csv_rel};
+  % my $rlink = sub { my $off = shift; return $dbase . '?rel=' . $rel . ( ( defined $off && $off > 0 ) ? '&offset=' . $off : '' ); };
+  <div class="tab-pane" data-rel="<%= $rel %>"<%= ($multi && $active ne $rel) ? ' hidden' : '' %>>
+    <table class="sortable">
+      <thead>
+        <tr>
+        % for my $h ( @{ $r->{cols} } ) {
+        <th><%= $h %></th>
         % }
-      </tr>
+        </tr>
+      </thead>
+      <tbody>
+        % for my $row ( @{ $r->{rows} } ) {
+        <tr>
+          % for my $cell ( @$row ) {
+          % my ($t, $h) = @$cell;
+          <td>
+            % if ($h) {
+            <a href="<%= $h %>"><%= $t %></a>
+            % } else {
+            <%= $t // '' %>
+            % }
+          </td>
+          % }
+        </tr>
+        % }
+      </tbody>
+    </table>
+    <p style="font-size:0.85em; margin:0.3em 0 0 0">
+      % if ( $r->{total} > $r->{per} ) {
+      Results: [<%= $r->{start} %>-<%= $r->{last_item} %>] of <%= $r->{total} %>&nbsp;
+      % if ( $r->{offset} > 0 ) {
+      <a href="<%= $r->{offset} >= $r->{per} ? $rlink->( $r->{offset} - $r->{per} ) : $rlink->() %>">&laquo;</a>&nbsp;
       % }
-    </tbody>
-  </table>
-  <p style="font-size:0.85em; margin:0.3em 0 0 0">
-    % if ( $r->{total} > $r->{per} ) {
-    Results: [<%= $r->{start} %>-<%= $r->{last_item} %>] of <%= $r->{total} %>&nbsp;
-    % if ( $r->{offset} > 0 ) {
-    <a href="<%= $r->{offset} >= $r->{per} ? ( $dbase . '?offset=' . ( $r->{offset} - $r->{per} ) ) : $dbase %>">&laquo;</a>&nbsp;
-    % }
-    % if ( $r->{offset} + $r->{per} < $r->{total} ) {
-    <a href="<%= $dbase . '?offset=' . ( $r->{offset} + $r->{per} ) %>">&raquo;</a>
-    % }
-    &nbsp;
-    % }
-    <a href="<%= $dbase . '?csv=' . $r->{csv_rel} %>">[csv]</a>
-  </p>
-</div>
+      % if ( $r->{offset} + $r->{per} < $r->{total} ) {
+      <a href="<%= $rlink->( $r->{offset} + $r->{per} ) %>">&raquo;</a>
+      % }
+      &nbsp;
+      % }
+      <a href="<%= $dbase . '?csv=' . $rel %>">[csv]</a>
+    </p>
+  </div>
 % }
 % }

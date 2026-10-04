@@ -1096,6 +1096,14 @@ table.sortable tbody tr:nth-child(2n) td { background: #fbfdfb; }
 table.sortable tbody tr:hover td { background: #eef6ec; }
 table.sortable tbody tr:last-child td { border-bottom: none; }
 
+/* Round the outer corners of the cells so the square header/footer cell
+   backgrounds don't poke out past the rounded table border (visual "double
+   border" artifact on the first/last column). */
+table.sortable thead th:first-child           { border-top-left-radius: 11px; }
+table.sortable thead th:last-child            { border-top-right-radius: 11px; }
+table.sortable tbody tr:last-child td:first-child { border-bottom-left-radius: 11px; }
+table.sortable tbody tr:last-child td:last-child  { border-bottom-right-radius: 11px; }
+
 /* Detail (attribute) table: key/value rows */
 table.sortable.detail {
     border: 1px solid #aaccaa;
@@ -1122,6 +1130,47 @@ table.sortable.detail tbody td {
 table.sortable.detail tbody tr:hover th { background: #ddeedd; }
 table.sortable.detail tbody tr:last-child th,
 table.sortable.detail tbody tr:last-child td { border-bottom: none; }
+table.sortable.detail tbody tr:first-child th { border-top-left-radius: 11px; }
+table.sortable.detail tbody tr:first-child td { border-top-right-radius: 11px; }
+table.sortable.detail tbody tr:last-child th  { border-bottom-left-radius: 11px; }
+table.sortable.detail tbody tr:last-child td  { border-bottom-right-radius: 11px; }
+
+/* ---------- Attribute grid (key/value, 2 columns) ----------
+   Replaces the tall single-column attribute table on detail pages.
+   Each .attr is one label/value pair; the grid lays two pairs per row. */
+.attrgrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 32px;
+    background: #ffffff;
+    border: 1px solid #aaccaa;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,40,0,.04), 0 6px 18px rgba(0,40,0,.05);
+    padding: 8px 16px;
+    margin-bottom: 1em;
+}
+.attr {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 5px 0;
+}
+.attr-k {
+    flex: 0 0 168px;
+    color: #003300;
+    font-weight: 600;
+    font-size: 0.88em;
+}
+.attr-v {
+    flex: 1 1 auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #1a1a1a;
+}
+@media (max-width: 768px) {
+    .attrgrid { grid-template-columns: 1fr; }
+    .attr-k   { flex-basis: 130px; }
+}
 
 /* ---------- Modern cards (.container) ---------- */
 .container {
@@ -1195,6 +1244,14 @@ table.sortable.detail tbody tr:last-child td { border-bottom: none; }
 .tabbar-sm {
     border-bottom: none;
     padding-bottom: 0;
+}
+
+/* Detail-page tab panes: only the active one is shown (toggled by tabs.js). */
+.tab-pane[hidden] {
+    display: none;
+}
+.tab-pane {
+    margin-top: 0.2em;
 }
 
 /* ---------- Modern buttons ---------- */
