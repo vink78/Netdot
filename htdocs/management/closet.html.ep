@@ -16,7 +16,7 @@
     <tr valign="top">
       <td width="50%" style="vertical-align:top; padding-right:1.5em">
         % if (@$left) {
-        <table class="sortable detail">
+        <table class="datatable detail">
           <tbody>
             % for my $a (@$left) {
             <tr><th><%= $a->[0] %></th><td>
@@ -33,7 +33,7 @@
       </td>
       <td width="50%" style="vertical-align:top">
         % if (@$right) {
-        <table class="sortable detail">
+        <table class="datatable detail">
           <tbody>
             % for my $a (@$right) {
             <tr><th><%= $a->[0] %></th><td>
@@ -60,7 +60,7 @@
 % if (@$devices) {
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Device List (<%= scalar @$devices %>)</h2>
-  <table class="sortable">
+  <table class="datatable">
     <thead><tr><th>Device</th><th>IPv4</th><th>IPv6</th></tr></thead>
     <tbody>
       % for my $row (@$devices) {
@@ -85,7 +85,7 @@
 % if (@$backbones) {
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Backbone Cable (<%= scalar @$backbones %>)</h2>
-  <table class="sortable">
+  <table class="datatable">
     <thead><tr><th>Name</th><th>Type</th><th>Start Closet</th><th>End Closet</th><th>Owner</th></tr></thead>
     <tbody>
       % for my $row (@$backbones) {
@@ -110,7 +110,7 @@
 % if (@$horizontal) {
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Horizontal Cable (<%= scalar @$horizontal %>)</h2>
-  <table class="sortable">
+  <table class="datatable">
     <thead><tr><th>Jack ID</th><th>Type</th><th>Room</th></tr></thead>
     <tbody>
       % for my $row (@$horizontal) {
@@ -135,7 +135,7 @@
 % if (@$pictures) {
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Pictures (<%= scalar @$pictures %>)</h2>
-  <table class="sortable">
+  <table class="datatable">
     <thead><tr><th>File Name</th><th>Size</th><th>File Type</th><th>Comments</th></tr></thead>
     <tbody>
       % for my $row (@$pictures) {

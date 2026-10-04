@@ -11,7 +11,7 @@
   <div class="containerheadright">&nbsp;</div>
   <div class="containerbody">
   % if (@$grows) {
-    <table class="sortable">
+    <table class="datatable sortable">
       <thead>
         <tr>
           % for my $col (@$gcols) {
@@ -44,7 +44,7 @@
   <div class="containerheadright">&nbsp;</div>
   <div class="containerbody">
   % if (@$vrows) {
-    <table class="sortable">
+    <table class="datatable sortable">
       <thead>
         <tr>
           % for my $col (@$vcols) {

@@ -16,7 +16,7 @@
 <div class="container">
   <div class="containerhead">Query <em><%= $search %></em> returned: <%= scalar(@$rows) %> matches</div>
   <div class="containerbody">
-    <table class="sortable">
+    <table class="datatable sortable">
       <thead>
         <tr>
         % for my $i (0 .. $#$headers) {

@@ -31,7 +31,7 @@
 % if (@$rows) {
 <div class="container">
   <div class="containerbody">
-    <table class="sortable">
+    <table class="datatable sortable">
       <thead>
         <tr>
           <th>Timestamp</th>

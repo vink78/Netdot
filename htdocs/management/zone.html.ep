@@ -10,7 +10,7 @@
 <p><a href="<%= url_for('zone_list') %>">&laquo; Zone</a></p>
 
 % if (@$attrs) {
-  <table class="sortable detail">
+  <table class="datatable detail">
     <tbody>
       % for my $a (@$attrs) {
       <tr><th><%= $a->[0] %></th><td style="white-space:pre-wrap">
@@ -28,7 +28,7 @@
 % if ($count && @{ $count->{rows} }) {
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Record Count</h2>
-  <table class="sortable">
+  <table class="datatable">
     <thead>
       <tr>
         % for my $r (@{ $count->{rows} }) {
@@ -57,7 +57,7 @@
   </h2>
   % if ( @{ $apex->{a} } ) {
   <h3 style="font-size:0.95em">Address Records (A)</h3>
-  <table class="sortable"><tbody>
+  <table class="datatable"><tbody>
     % for my $r ( @{ $apex->{a} } ) {
     <tr>
       % if ($r->[1]) {
@@ -71,7 +71,7 @@
   % }
   % if ( @{ $apex->{ns} } ) {
   <h3 style="font-size:0.95em">Name Servers (NS)</h3>
-  <table class="sortable"><tbody>
+  <table class="datatable"><tbody>
     % for my $r ( @{ $apex->{ns} } ) {
     <tr><td><%= $r->[0] %></td></tr>
     % }
@@ -79,7 +79,7 @@
   % }
   % if ( @{ $apex->{mx} } ) {
   <h3 style="font-size:0.95em">Mail Exchangers (MX)</h3>
-  <table class="sortable"><tbody>
+  <table class="datatable"><tbody>
     % for my $r ( @{ $apex->{mx} } ) {
     <tr><td><%= $r->[0] %></td></tr>
     % }
@@ -91,7 +91,7 @@
 % for my $r (@$relations) {
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px"><%= $r->{title} %></h2>
-  <table class="sortable">
+  <table class="datatable">
     <thead>
       <tr>
       % for my $h ( @{ $r->{cols} } ) {
@@ -135,7 +135,7 @@
 % if (@$recent) {
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Recent Changes</h2>
-  <table class="sortable">
+  <table class="datatable">
     <thead><tr><th>Timestamp</th><th>Pending</th><th>Scope</th></tr></thead>
     <tbody>
       % for my $r (@$recent) {

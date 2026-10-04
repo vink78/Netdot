@@ -43,7 +43,7 @@
 % if ($can_delete) {
   <form method="post" action="<%= url_for( $type . '_delete' ) %>" hx-boost="false">
 % }
-    <table class="sortable">
+    <table class="datatable sortable">
       <thead>
         <tr>
            % for my $col (@$cols) {

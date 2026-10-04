@@ -42,7 +42,7 @@
   % my $rel   = $r->{csv_rel};
   % my $rlink = sub { my $off = shift; return $dbase . '?rel=' . $rel . ( ( defined $off && $off > 0 ) ? '&offset=' . $off : '' ); };
   <div class="tab-pane" data-rel="<%= $rel %>"<%= ($multi && $active ne $rel) ? ' hidden' : '' %>>
-    <table class="sortable">
+    <table class="datatable">
       <thead>
         <tr>
         % for my $h ( @{ $r->{cols} } ) {

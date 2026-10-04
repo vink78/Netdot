@@ -60,26 +60,27 @@ table.tablebackground {
     background-color: #ffffee; 
 }
 
-table.sortable thead tr th {
+table.datatable thead tr th {
 /*  background-color: #ddeedd; */
   background-color: #aaccaa;
   text-align: left;
   font-weight: bold;
 }
 
-table.sortable tbody tr:nth-child(2n) td {
+table.datatable tbody tr:nth-child(2n) td {
   background-color: #f0f7e9;
   color: #000000;
 }
-table.sortable tbody tr:nth-child(2n+1) td {
+table.datatable tbody tr:nth-child(2n+1) td {
   background: #ffffee;
   color: #000000;
 }
 
-table.sortable thead th {
-  cursor: pointer;
+table.datatable thead th {
   white-space: nowrap;
 }
+/* Sort affordance (pointer cursor) is set in the modern layer on
+   table.sortable thead th only. */
 table.sortable thead th.ts-asc  { background-color: #93b893; }
 table.sortable thead th.ts-desc { background-color: #93b893; }
 table.sortable thead th.ts-asc::after  { content: " \25B4"; font-size: 0.7em; }
@@ -1059,7 +1060,7 @@ Note, IE doesn't have this problem.
 }
 
 /* ---------- Modern data tables ---------- */
-table.sortable {
+table.datatable {
     border-collapse: separate;
     border-spacing: 0;
     width: 100%;
@@ -1068,7 +1069,7 @@ table.sortable {
     border-radius: 12px;
     box-shadow: 0 1px 2px rgba(0,40,0,.05), 0 6px 18px rgba(0,40,0,.05);
 }
-table.sortable thead th {
+table.datatable thead th {
     background: #ddeedd;
     color: #003300;
     font-weight: 700;
@@ -1082,38 +1083,38 @@ table.sortable thead th {
     white-space: nowrap;
 }
 /* Column-sort affordance (pointer cursor) only on opted-in LIST tables
-   (data-sortable). Detail/field tables keep the look but are not sortable. */
-table.sortable[data-sortable] thead th { cursor: pointer; }
+   (table.sortable). Detail/field tables keep the look but are not sortable. */
+table.sortable thead th { cursor: pointer; }
 table.sortable thead th.ts-asc,
 table.sortable thead th.ts-desc {
     background: #aaccaa;
     color: #ffffff;
 }
-table.sortable tbody td {
+table.datatable tbody td {
     padding: 9px 14px;
     border-bottom: 1px solid #eaf2e8;
     color: #1a1a1a;
     background: #ffffff;
 }
-table.sortable tbody tr:nth-child(2n) td { background: #fbfdfb; }
-table.sortable tbody tr:hover td { background: #eef6ec; }
-table.sortable tbody tr:last-child td { border-bottom: none; }
+table.datatable tbody tr:nth-child(2n) td { background: #fbfdfb; }
+table.datatable tbody tr:hover td { background: #eef6ec; }
+table.datatable tbody tr:last-child td { border-bottom: none; }
 
 /* Round the outer corners of the cells so the square header/footer cell
    backgrounds don't poke out past the rounded table border (visual "double
    border" artifact on the first/last column). */
-table.sortable thead th:first-child           { border-top-left-radius: 11px; }
-table.sortable thead th:last-child            { border-top-right-radius: 11px; }
-table.sortable tbody tr:last-child td:first-child { border-bottom-left-radius: 11px; }
-table.sortable tbody tr:last-child td:last-child  { border-bottom-right-radius: 11px; }
+table.datatable thead th:first-child           { border-top-left-radius: 11px; }
+table.datatable thead th:last-child            { border-top-right-radius: 11px; }
+table.datatable tbody tr:last-child td:first-child { border-bottom-left-radius: 11px; }
+table.datatable tbody tr:last-child td:last-child  { border-bottom-right-radius: 11px; }
 
 /* Detail (attribute) table: key/value rows */
-table.sortable.detail {
+table.datatable.detail {
     border: 1px solid #aaccaa;
     border-radius: 12px;
     box-shadow: 0 1px 2px rgba(0,40,0,.04), 0 6px 18px rgba(0,40,0,.05);
 }
-table.sortable.detail tbody th {
+table.datatable.detail tbody th {
     width: 220px;
     background: #f0f7e9;
     color: #003300;
@@ -1125,18 +1126,18 @@ table.sortable.detail tbody th {
     letter-spacing: 0;
     font-size: 0.88em;
 }
-table.sortable.detail tbody td {
+table.datatable.detail tbody td {
     background: #ffffff;
     padding: 10px 14px;
     border-bottom: 1px solid #eaf2e8;
 }
-table.sortable.detail tbody tr:hover th { background: #ddeedd; }
-table.sortable.detail tbody tr:last-child th,
-table.sortable.detail tbody tr:last-child td { border-bottom: none; }
-table.sortable.detail tbody tr:first-child th { border-top-left-radius: 11px; }
-table.sortable.detail tbody tr:first-child td { border-top-right-radius: 11px; }
-table.sortable.detail tbody tr:last-child th  { border-bottom-left-radius: 11px; }
-table.sortable.detail tbody tr:last-child td  { border-bottom-right-radius: 11px; }
+table.datatable.detail tbody tr:hover th { background: #ddeedd; }
+table.datatable.detail tbody tr:last-child th,
+table.datatable.detail tbody tr:last-child td { border-bottom: none; }
+table.datatable.detail tbody tr:first-child th { border-top-left-radius: 11px; }
+table.datatable.detail tbody tr:first-child td { border-top-right-radius: 11px; }
+table.datatable.detail tbody tr:last-child th  { border-bottom-left-radius: 11px; }
+table.datatable.detail tbody tr:last-child td  { border-bottom-right-radius: 11px; }
 
 /* ---------- Attribute grid (key/value, 2 columns) ----------
    Replaces the tall single-column attribute table on detail pages.

@@ -8,7 +8,7 @@
 
 %# The record's own attributes.
 % if ($rr_attrs && @$rr_attrs) {
-    <table class="sortable" style="max-width:760px; margin-bottom:1.2em">
+    <table class="datatable" style="max-width:760px; margin-bottom:1.2em">
         <tbody>
         % for my $i (0 .. $#$rr_attrs) {
             % my $row = $rr_attrs->[$i];
@@ -29,7 +29,7 @@
         <div class="containerbody">
         % for my $r (0 .. $#{ $sec->{records} }) {
             % my $rec = $sec->{records}->[$r];
-            <table class="sortable" style="margin:0 0 0.6em 0">
+            <table class="datatable" style="margin:0 0 0.6em 0">
                 <tbody>
                 % for my $row (@$rec) {
                     <tr>

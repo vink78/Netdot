@@ -11,7 +11,7 @@
 <h1><%= $title %></h1>
 <p><a href="<%= url_for('interface_list') %>">&laquo; Interfaces</a></p>
 
-<table class="sortable detail">
+<table class="datatable detail">
   <tbody>
     % for my $a (@$attrs) {
     <tr><th><%= $a->[0] %></th><td style="white-space:pre-wrap">

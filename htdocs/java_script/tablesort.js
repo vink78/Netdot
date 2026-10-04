@@ -8,12 +8,13 @@
       listener is never attached to table cells, htmx swapping new markup into
       the DOM cannot orphan it -> tables are sortable on every page, no
       re-initialisation needed.
-    - Click a header cell of a <table class="sortable" data-sortable> to sort
-      by that column; click again to reverse. Only tables opted in with the
-      data-sortable attribute sort (reserved for large list pages; detail /
-      field tables use class="sortable" for the look only). Column type
-      (IPv4 vs numeric vs text)
-      is auto-detected from the first non-empty data cell. Detection is
+     - Click a header cell of a <table class="datatable sortable"> to sort by
+       that column; click again to reverse. class="datatable" is the modern
+       table LOOK (every table has it); class="sortable" opts a table into JS
+       sorting (reserved for large list pages). Detail / field tables use
+       class="datatable" only, so they are not sortable. Column type
+       (IPv4 vs numeric vs text) is auto-detected from the first non-empty
+       data cell. Detection is
       start-anchored, so a leading value in a longer string is honoured:
         * IPv4 -> sorted by the dotted quad, incl. CIDR (10.0.0.0/8); the
           /prefix is a tie-break (broad -> specific).
@@ -142,7 +143,7 @@
     if (target.closest('a')) return;          // let links behave normally
     var cell = target.closest('th,td');
     if (!cell) return;
-    var table = cell.closest('table.sortable[data-sortable]');
+    var table = cell.closest('table.sortable');
     if (!table) return;
 
     normalize(table);

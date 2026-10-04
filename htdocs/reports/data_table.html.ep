@@ -9,7 +9,7 @@
 % }
 % if (@$rows) {
 <div class="tablescroll">
-<table border="0" width="100%" cellspacing="0" class="sortable">
+<table border="0" width="100%" cellspacing="0" class="datatable sortable">
   <tr>
     % for my $h (@$headers) {
     <th class="formtabletitle"><%= b($h) %></th>

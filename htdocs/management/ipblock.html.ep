@@ -93,7 +93,7 @@
 %# The block's own attribute table (Address, Status, First/Last Seen, RIR/ASN,
 %# Owner/Used by, Netmask/Broadcast, Usable, Utilization/Space Allocated).
 % if ($current && $block_attrs && @$block_attrs) {
-    <table class="sortable" style="max-width:760px; margin-bottom:1em">
+    <table class="datatable" style="max-width:760px; margin-bottom:1em">
         <tbody>
         % for my $i (0 .. $#$block_attrs) {
             % my $row = $block_attrs->[$i];
@@ -155,7 +155,7 @@
     <div style="margin:1em 0"><%== $tree_html %></div>
 % } else {
 %# The blocks to list (roots on the top page, children/descendants on a block page).
-<table class="sortable">
+<table class="datatable">
     <thead>
         <tr>
         % for my $h (@hdrs) {
@@ -216,7 +216,7 @@
         <div class="containerheadright">&nbsp;</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$sites) {
-            <table class="sortable" style="width:100%"><tbody>
+            <table class="datatable" style="width:100%"><tbody>
             % for my $s (@$sites) {
                 <tr><td><%== $s %></td></tr>
             % }
@@ -233,7 +233,7 @@
         <div class="containerheadright">&nbsp;</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$fzones) {
-            <table class="sortable" style="width:100%"><tbody>
+            <table class="datatable" style="width:100%"><tbody>
             % for my $z (@$fzones) {
                 <tr><td><%== $z %></td></tr>
             % }
@@ -248,7 +248,7 @@
         <div class="containerheadright">&nbsp;</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$rzones) {
-            <table class="sortable" style="width:100%"><tbody>
+            <table class="datatable" style="width:100%"><tbody>
             % for my $z (@$rzones) {
                 <tr><td><%== $z %></td></tr>
             % }
@@ -265,7 +265,7 @@
         <div class="containerheadright">&nbsp;</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$dhcp) {
-            <table class="sortable" style="width:100%">
+            <table class="datatable" style="width:100%">
                 <thead><tr><th>Type</th><th>Name</th><th>Ethernet</th><th>DUID</th><th>Active?</th></tr></thead>
                 <tbody>
                 % for my $r (@$dhcp) {
@@ -291,7 +291,7 @@
         <div class="containerheadright">&nbsp;</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$attributes) {
-            <table class="sortable" style="width:100%">
+            <table class="datatable" style="width:100%">
                 <thead><tr><th>Name</th><th>Value</th></tr></thead>
                 <tbody>
                 % for my $r (@$attributes) {
@@ -320,7 +320,7 @@
         <div class="containerheadright">&nbsp;</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$audit) {
-            <table class="sortable" style="width:100%">
+            <table class="datatable" style="width:100%">
                 <thead><tr><th>Timestamp</th><th>Username</th><th>Table</th><th>Label</th><th>Operation</th></tr></thead>
                 <tbody>
                 % for my $r (@$audit) {

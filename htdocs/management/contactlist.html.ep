@@ -8,7 +8,7 @@
 <p><a href="<%= url_for('contactlist_list') %>">&laquo; Contact List</a></p>
 
 % if (@$attrs) {
-  <table class="sortable detail">
+  <table class="datatable detail">
     <tbody>
       % for my $a (@$attrs) {
       <tr><th><%= $a->[0] %></th><td style="white-space:pre-wrap">
@@ -26,7 +26,7 @@
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Contacts (<%= scalar @$contacts %>)</h2>
   % if (@$contacts) {
-  <table class="sortable">
+  <table class="datatable">
     <thead>
       <tr>
         <th>Person</th>
@@ -64,7 +64,7 @@
 % for my $r (@$relations) {
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px"><%= $r->{title} %></h2>
-  <table class="sortable">
+  <table class="datatable">
     <thead>
       <tr>
       % for my $h ( @{ $r->{cols} } ) {
