@@ -1078,9 +1078,12 @@ table.sortable thead th {
     text-align: left;
     padding: 11px 14px;
     border-bottom: 2px solid #aaccaa;
-    cursor: pointer;
+    cursor: default;
     white-space: nowrap;
 }
+/* Column-sort affordance (pointer cursor) only on opted-in LIST tables
+   (data-sortable). Detail/field tables keep the look but are not sortable. */
+table.sortable[data-sortable] thead th { cursor: pointer; }
 table.sortable thead th.ts-asc,
 table.sortable thead th.ts-desc {
     background: #aaccaa;
