@@ -13,13 +13,15 @@
 
 # Specify the variables you would like replaced here.  The definitions
 # can be specified in a make file or on the command line.
-REPLACEABLES := PREFIX LIB ETC PERL
+REPLACEABLES := PREFIX LIB ETC PERL APACHEUSER APACHEGROUP
 
 # Defaults
 REPLACE_PREFIX = $(PREFIX)
 REPLACE_LIB    = $(REPLACE_PREFIX)/lib
 REPLACE_ETC    = $(REPLACE_PREFIX)/etc
 REPLACE_PERL   = $(PERL)
+REPLACE_APACHEUSER  = $(APACHEUSER)
+REPLACE_APACHEGROUP = $(APACHEGROUP)
 
 # Build up a list of sed expressions for the replacements.  Notice
 # that undefined replacements will get flagged when replaced.

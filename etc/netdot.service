@@ -1,0 +1,20 @@
+[Unit]
+Description=Netdot (Mojolicious web app)
+Documentation=https://github.com/netdot/netdot
+After=network.target
+
+[Service]
+# Run as the web/app user from the top-level Makefile (APACHEUSER:APACHEGROUP,
+# default `apache`). The `<<Make:...>>` markers are substituted by the Makefile
+# (etc/utility-Makefile) at install time.
+User=<<Make:APACHEUSER>>
+Group=<<Make:APACHEGROUP>>
+WorkingDirectory=<<Make:PREFIX>>
+# Listen on loopback only; Apache/nginx reverse-proxies /netdot to it (see
+# etc/netdot_apache.conf). Change the port if 3000 is taken.
+ExecStart=<<Make:PERL>> <<Make:PREFIX>>/bin/mojo daemon -l http://127.0.0.1:3000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

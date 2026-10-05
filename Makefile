@@ -57,7 +57,7 @@ export
 
 # If mason ever decides to use different directories in its data_dir there will
 # be trouble.
-DIR = bin doc htdocs tmp tmp/sessions /tmp/sessions/locks lib etc var import export
+DIR = bin doc htdocs tmp lib etc var import export
 
 .PHONY: bin doc htdocs lib etc var upgrade
 

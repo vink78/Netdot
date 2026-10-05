@@ -221,7 +221,29 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
  - [x] ✅ **Proxy (préservation du préfixe)** : `ProxyPass /netdot → http://127.0.0.1:3000/netdot`
   (nginx : `location /netdot/ { proxy_pass http://127.0.0.1:3000; }` **sans slash final**).
 - [x] ✅ **Dev** : `http://127.0.0.1:3000/netdot/` ; **Prod** : `https://netdot.localdomain/netdot/`.
-  URLs absolues de l'API = `<origin de la requête><préfixe>` (ex. `…/netdot/api/device`).
+   URLs absolues de l'API = `<origin de la requête><préfixe>` (ex. `…/netdot/api/device`).
+ - [x] ✅ **Fichiers de déploiement** : `etc/netdot_apache.conf` = reverse-proxy
+   **indépendant de la version** (Apache 2.2 **et** 2.4, `mod_proxy`) :
+   `ProxyPass /netdot → http://127.0.0.1:3000/netdot` + `ProxyPassReverse` + `ProxyPreserveHost`.
+   Remplace les **6** anciennes configs mod_perl par version/méthode d'auth
+   (`netdot_apache2{,4}_{local,ldap,krb5,radius}.conf`, **supprimées** — l'auth est désormais
+   dans l'app, plus de mod_perl). `etc/netdot.service` (**systemd**) lance
+   `bin/mojo daemon -l http://127.0.0.1:3000` ; marqueurs `<<Make:PREFIX>>`/`<<Make:PERL>>`
+   substitués par le Makefile à l'install. **Makefiles** : `htdocs/Makefile` déploie maintenant
+    les templates `.ep` + le dir `layouts/` (pattern `FILES` `\.ep` + `NDIR`), `etc/Makefile`
+    FILES = `netdot_apache.conf` + `netdot.service`.
+    **Autres** : `lib/Makefile` NDIR += `Netdot/Mojo` + `Netdot/Mojo/Controller` (les 25 modules
+    de la nouvelle couche s'installent) ; `etc/utility-Makefile` REPLACEABLES += `APACHEUSER`/
+    `APACHEGROUP` (le `.service` utilise `User=<<Make:APACHEUSER>>`/`Group=<<Make:APACHEGROUP>>`,
+    défaut `apache`) ;     `bin/perldeps.pl` : ajout **Mojolicious, JSON, Net::LDAP, YAML::XS** ET **purge** des modules
+    web legacy (`mod_perl`, `Apache2::Request`, `HTML::Mason`, `Apache::Session`,
+    `Apache2::AuthCookie`, `Apache2::SiteControl`, `Authen::Radius`) — la nouvelle app ne les
+    charge pas (vérifié via `%INC` : permissions réimplémentées dans `Netdot::Mojo::Permissions`,
+    sessions = cookies signés Mojolicious) ; `htdocs/Makefile` `dir:` + `NDIR` : plus de
+    `masondata`/`obj`/`chcon` ; Makefile principal : `DIR` sans `tmp/sessions`/`locks`, cible
+    `dir:` sans `chcon` SELinux ; `export/Makefile` : plus de `chcon` (contexte
+    `httpd_sys_rw_content_t` obsolète pour le daemon systemd — sur RHEL+SELinux, le contexte du
+    daemon se gère par une politique dédiée).
 
 ## 10. UI moderne (design 2026) — ✅ porté
 

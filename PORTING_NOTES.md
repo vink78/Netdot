@@ -60,7 +60,26 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
    proxy must **preserve** the prefix:
   `ProxyPass /netdot → http://127.0.0.1:3000/netdot` (nginx: `location /netdot/
   { proxy_pass http://127.0.0.1:3000; }` **without a trailing slash**). Dev =
-  `http://127.0.0.1:3000/netdot/`. The JSON API lives under the same prefix (`/netdot/api`).
+   `http://127.0.0.1:3000/netdot/`. The JSON API lives under the same prefix (`/netdot/api`).
+   **Deployment files**: `etc/netdot_apache.conf` is a **version-agnostic** (Apache 2.2/2.4,
+   `mod_proxy`) reverse proxy — it replaced the six per-version/per-auth mod_perl configs
+   (`netdot_apache2{,4}_{local,ldap,krb5,radius}.conf`, now deleted; auth lives in the app).
+    `etc/netdot.service` is the **systemd** unit running `bin/mojo daemon -l
+    http://127.0.0.1:3000`; `User=<<Make:APACHEUSER>>`/`Group=<<Make:APACHEGROUP>>` (default
+    `apache`) plus `<<Make:PREFIX>>`/`<<Make:PERL>>` are substituted by the Makefile at install
+    (`APACHEUSER`/`APACHEGROUP` were added to `etc/utility-Makefile` `REPLACEABLES`; the top-level
+    `export` propagates them to sub-makes). `lib/Makefile` `NDIR` now includes `Netdot/Mojo` and
+    `Netdot/Mojo/Controller` so the 25 new modules install. `htdocs/Makefile` deploys the `.ep`
+    templates + `layouts/` (`FILES` pattern += `\.ep`, `NDIR` += `layouts`); its `dir:` target
+    dropped the Mason `masondata`/`obj`/`chcon` steps. `bin/perldeps.pl` adds **Mojolicious,
+     JSON, Net::LDAP, YAML::XS** (checked by `make testdeps`) and **prunes** the legacy web
+     modules (`mod_perl`, `Apache2::Request`, `HTML::Mason`, `Apache::Session`, `Apache2::AuthCookie`,
+     `Apache2::SiteControl`, `Authen::Radius`) — verified via `%INC` that the new app loads none of
+     them (permissions re-implemented in `Netdot::Mojo::Permissions`; sessions = signed cookies).
+     Top-level `Makefile`: `DIR` no longer creates `tmp/sessions`/`locks` and `dir:` dropped the
+     SELinux `chcon`; `export/Makefile` dropped its `chcon` too (the `httpd_sys_rw_content_t`
+     context is obsolete for the systemd daemon — on RHEL+SELinux the daemon's context is handled
+     by a dedicated policy, not `chcon` httpd).
 
 ## Pitfalls (critical)
 
