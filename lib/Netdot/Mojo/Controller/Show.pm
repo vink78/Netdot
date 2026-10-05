@@ -42,8 +42,9 @@ sub show ($c) {
         return $c->reply->not_found unless ref $rtables eq 'HASH';
         my ($related) = sort keys %$rtables;
         return $c->reply->not_found unless $related;
-        my @objs;
-        eval { @objs = $obj->$csv_rel };
+        # All rows, ordered the same way as the on-screen table (SQL ORDER BY).
+        my ( $objs_ref ) = Netdot::Mojo::Detail::relation_objects( $obj, $csv_rel, 0, 0 );
+        my @objs = @{ $objs_ref // [] };
         my ( $cols, $show_label ) = Netdot::Mojo::Detail::rel_columns($related);
         my @header = $show_label
             ? ( ucfirst($related), map { $_->[1] } @$cols )

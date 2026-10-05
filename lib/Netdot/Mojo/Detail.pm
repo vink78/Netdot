@@ -50,28 +50,20 @@ sub build_relations {
         my ($related) = sort keys %$rtables;
         next unless $related && length $related;
 
-        my @objs;
-        eval { @objs = $obj->$rel };
-        next unless @objs;
+        # Fetch the relation ordered + paginated in SQL (ORDER BY + LIMIT/OFFSET),
+        # so the ordering is consistent across pages and Ipblock orders by the
+        # exact integer address (IPv4 before IPv6). $page is the current page;
+        # $total is the full count.
+        my ( $page_ref, $total ) = relation_objects( $obj, $rel, $per, $offset );
+        next unless $total;
+        my @page = @{ $page_ref };
 
         my ( $cols, $show_label ) = rel_columns($related);
-        # The CDBI relation returns objects in arbitrary (PK) order; order them by
-        # the relation's FIRST display column (numeric-aware) so the table is
-        # globally sorted, matching the list pages. Falls back to the id.
-        my $sort_col = ( @$cols && defined $cols->[0][0] ) ? $cols->[0][0] : 'id';
-        my $sval = sub { my $v = eval { $_[0]->$sort_col }; return defined $v && !ref $v ? $v : '' };
-        eval { @objs = sort { _kcmp( $sval->($a), $sval->($b) ) } @objs };
         # In the no-label-column case (all brief cols are label cols), the object's
         # own scalar label column links to its detail page (FK label cols still
         # link to their target via the ref branch below).
         my %islabel;
         eval { %islabel = map { $_ => 1 } $related->meta_data->get_labels } unless $show_label;
-        my $total = scalar @objs;
-        my $first = $offset;
-        my $last  = $offset + $per - 1;
-        $last  = $#objs if $last > $#objs;
-        $first = 0 if $first > $#objs;
-        my @page = ( $first <= $last ) ? @objs[ $first .. $last ] : ();
 
         my @rows;
         for my $o2 (@page) {
@@ -115,6 +107,96 @@ sub build_relations {
         };
     }
     return \@relations;
+}
+
+# Ordered relation objects via SQL. Looks up the relation's target class + FK and
+# delegates to _relation_fetch. $per undef/0 = no LIMIT (all rows, for CSV).
+# Returns ( \@objs, $total ).
+sub relation_objects {
+    my ( $obj, $rel, $per, $offset ) = @_;
+    my %linksfrom;
+    eval { %linksfrom = ref( $obj )->meta_data->get_links_from };
+    my $rtables = $linksfrom{$rel};
+    return ( [], 0 ) unless ref $rtables eq 'HASH';
+    my ($related) = sort keys %$rtables;
+    return ( [], 0 ) unless $related && length $related;
+    my $fk = $rtables->{$related};
+    return _relation_fetch( $obj, $related, $fk, $per, $offset );
+}
+
+# SQL fetch of a relation: ordered (ORDER BY) + paginated (LIMIT/OFFSET). For
+# connector / join tables, the object's referenced column is ordered via a JOIN
+# (so e.g. a site's subnets order by the ipblock's integer address). Returns the
+# page of target objects + the total count.
+sub _relation_fetch {
+    my ( $obj, $target, $fk, $per, $offset ) = @_;
+    my $tclass = "Netdot::Model::$target";
+    my $tmeta  = eval { $tclass->meta_data };
+    return ( [], 0 ) unless $tmeta;
+    my $ttable = ( eval { $tclass->table } ) // lc $target;
+    my $dbh    = Netdot::Model->db_Main();
+
+    # Sort expression + optional JOIN (connector tables order by the referenced
+    # object's column; direct relations order by their own label column).
+    my ( $sort_sql, $join_sql ) = ( 't.id', '' );
+    if ( my $is_join = eval { $tmeta->is_join } ) {
+        my %linksto;
+        eval { %linksto = $tmeta->get_links_to };
+        my ( $obj_fk ) = sort grep { defined $linksto{$_} && $_ ne $fk } keys %linksto;
+        if ( defined $obj_fk && $linksto{$obj_fk} ) {
+            my $obj_class = $linksto{$obj_fk};
+            my $obj_table = ( eval { "Netdot::Model::$obj_class"->table } ) // lc $obj_class;
+            $sort_sql = _rel_sort_column( $obj_class, 'o' );
+            $join_sql = "JOIN $obj_table o ON t.$obj_fk = o.id";
+        }
+    }
+    else {
+        $sort_sql = _rel_sort_column( $target, 't' );
+    }
+
+    my $where = "t.$fk = ?";
+    my $total = 0;
+    eval {
+        $total = $dbh->selectrow_array(
+            "SELECT COUNT(*) FROM $ttable t $join_sql WHERE $where", undef, $obj->id
+        );
+        $total = 0 unless defined $total;
+    };
+    return ( [], 0 ) unless $total;
+
+    my $lim = ( defined $per && $per > 0 ) ? 'LIMIT ? OFFSET ?' : '';
+    my $sql = "SELECT t.id FROM $ttable t $join_sql WHERE $where ORDER BY $sort_sql $lim";
+    my @pks;
+    eval {
+        my $rows = $lim
+          ? $dbh->selectall_arrayref( $sql, undef, $obj->id, $per, $offset )
+          : $dbh->selectall_arrayref( $sql, undef, $obj->id );
+        @pks = map { $_->[0] } @$rows if ref $rows eq 'ARRAY';
+    };
+    my @objs;
+    for my $pk (@pks) {
+        my $o = eval { $tclass->retrieve($pk) };
+        push @objs, $o if $o;
+    }
+    return ( \@objs, $total );
+}
+
+# Sort column for a relation's first displayed column, so the SQL ORDER BY
+# matches the on-screen first column. Some classes have a computed label that
+# differs from the meta label columns, so they map to the column behind it:
+#   Ipblock -> integer `address` (natural IP order, IPv4 before IPv6)
+#   Device  -> `sysname` (label is the FQDN = sysname + domain)
+# Every other class orders by its first label column. $alias prefixes the
+# column (t. for the relation table, o. for a joined object).
+sub _rel_sort_column {
+    my ( $class, $alias ) = @_;
+    my %custom = ( Ipblock => 'address', Device => 'sysname' );
+    return "$alias." . $custom{$class} if $custom{$class};
+    my $meta   = eval { "Netdot::Model::$class"->meta_data };
+    my @labels;
+    eval { @labels = $meta->get_labels } if $meta;
+    my $col = @labels ? $labels[0] : 'name';
+    return "$alias.$col";
 }
 
 # Brief-view columns of a class (falls back to the all view), ordered, with

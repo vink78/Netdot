@@ -114,7 +114,7 @@
 % push @cols, [ 'descr', 'Descr.',   'descr' ] if $show_desc;
 % push @cols, [ 'conn',  'Connected Devices', undef ];
 
-<table class="datatable">
+<table class="datatable sortable">
   <thead>
     <tr>
     % for my $col (@cols) {
@@ -212,7 +212,7 @@
 % if (!@$rows) {
 <p style="color:#666"><i><%= $empty_msg %></i></p>
 % } else {
-<table class="datatable">
+<table class="datatable sortable">
   <thead>
     <tr>
     % for my $col (@$cols) {

@@ -169,8 +169,15 @@ sub _parser{
 			      is_nullable       => $mcol->is_nullable
 			      );
 	    
-	    $field_args{default_value} = $mcol->default 
-		if ( (defined $mcol->default) && ($mcol->default ne '') );
+	    # Bool columns store their default as a reference to a scalar
+	    # ("TRUE"/"FALSE"); dereference it so the schema shows the value
+	    # (lower-cased) instead of the stringified reference.
+	    my $def = $mcol->default;
+	    if ( defined $def ) {
+		$def = $$def if ref $def eq 'SCALAR';
+		$def = lc($def) if defined $def && $def =~ /^(true|false)$/i;
+		$field_args{default_value} = $def if defined $def && length $def;
+	    }
 
 	    if ( $mcol->name eq 'id' ){
 		$field_args{is_auto_increment} = 1;
