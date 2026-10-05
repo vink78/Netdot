@@ -82,7 +82,7 @@ sub show {
             my $links = join ', ', sort @{ $tstamps{$t} };
             '<tr><td>' . $esc->($t) . '</td><td>' . $links . '</td></tr>';
         } reverse sort keys %tstamps;
-        $fwt_html = '<tr><th>Time Seen</th><th>Interfaces</th></tr>' . $rows;
+        $fwt_html = '<thead><tr><th>Time Seen</th><th>Interfaces</th></tr></thead><tbody>' . $rows . '</tbody>';
     }
 
     # Last N ARP entries (rows: [interface_id, ipblock_id, tstamp]).
@@ -108,7 +108,7 @@ sub show {
                 push @rows, '<tr><td>' . $esc->($tstamp) . '</td><td>' . $iplink . '</td><td>' . $links . '</td></tr>';
             }
         }
-        $arp_html = '<tr><th>Time Seen</th><th>IP</th><th>Interfaces</th></tr>' . join('', @rows);
+        $arp_html = '<thead><tr><th>Time Seen</th><th>IP</th><th>Interfaces</th></tr></thead><tbody>' . join('', @rows) . '</tbody>';
     }
 
     $c->render( template => 'management/mac', status => 200,

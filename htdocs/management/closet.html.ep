@@ -6,63 +6,53 @@
 % my $horizontal = $c->stash('horizontal') // [];
 % my $pictures   = $c->stash('pictures')   // [];
 
-<h1><%= $title %></h1>
-
 <p><a href="<%= url_for('closet_list') %>">&laquo; Closet</a></p>
 
 % if ( defined $left && @$left || defined $right && @$right ) {
-<div style="margin:1em 0 0.5em 0">
-  <table width="100%" border="0" cellpadding="0" cellspacing="0">
-    <tr valign="top">
-      <td width="50%" style="vertical-align:top; padding-right:1.5em">
-        % if (@$left) {
-        <table class="datatable detail">
-          <tbody>
-            % for my $a (@$left) {
-            <tr><th><%= $a->[0] %></th><td>
-              % if ( defined $a->[2] && length $a->[2] ) {
-              <a href="<%= $a->[2] %>"><%= $a->[1] %></a>
-              % } else {
-              <%= $a->[1] %>
-              % }
-            </td></tr>
-            % }
-          </tbody>
-        </table>
+%   # Fields: "General" look (datatable.detail c2, 2 pairs/row). Merge left+right.
+%   my @list = ( @{ $left // [] }, @{ $right // [] } );
+%   my $N    = 2;
+<div class="container">
+  <div class="containerhead"><%= $title %></div>
+  <div class="containerbody flat">
+    <table class="datatable detail c2">
+      <tbody>
+      % for (my $i = 0; $i < @list; $i += $N) {
+      %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
+      %   my @r   = @list[$i .. $end];
+      <tr>
+        % for my $a (@r) {
+        <th><%= $a->[0] %></th>
+        <td>
+          % if ( defined $a->[2] && length $a->[2] ) {
+          <a href="<%= $a->[2] %>"><%= $a->[1] %></a>
+          % } else {
+          <%= $a->[1] // '' %>
+          % }
+        </td>
         % }
-      </td>
-      <td width="50%" style="vertical-align:top">
-        % if (@$right) {
-        <table class="datatable detail">
-          <tbody>
-            % for my $a (@$right) {
-            <tr><th><%= $a->[0] %></th><td>
-              % if ( defined $a->[2] && length $a->[2] ) {
-              <a href="<%= $a->[2] %>"><%= $a->[1] %></a>
-              % } else {
-              <%= $a->[1] %>
-              % }
-            </td></tr>
-            % }
-          </tbody>
-        </table>
-        % }
-      </td>
-    </tr>
-  </table>
-  % if ( defined $info && length $info ) {
-  <h3 style="font-size:0.95em; margin:0.8em 0 0.2em 0">Info</h3>
-  <p style="white-space:pre-wrap; margin:0"><%= $info %></p>
-  % }
+      </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+% }
+
+% if ( defined $info && length $info ) {
+<div class="container">
+  <div class="containerhead">Info</div>
+  <div class="containerbody"><pre style="white-space:pre-wrap; margin:0"><%= $info %></pre></div>
 </div>
 % }
 
 % if (@$devices) {
-<div style="margin:1.2em 0 0.5em 0">
-  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Device List (<%= scalar @$devices %>)</h2>
-  <table class="datatable">
-    <thead><tr><th>Device</th><th>IPv4</th><th>IPv6</th></tr></thead>
-    <tbody>
+<div class="container">
+  <div class="containerhead">Device List (<%= scalar @$devices %>)</div>
+  <div class="containerbody">
+    <table class="datatable">
+      <thead><tr><th>Device</th><th>IPv4</th><th>IPv6</th></tr></thead>
+      <tbody>
       % for my $row (@$devices) {
       <tr>
         % for my $cell (@$row) {
@@ -77,17 +67,19 @@
         % }
       </tr>
       % }
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+  </div>
 </div>
 % }
 
 % if (@$backbones) {
-<div style="margin:1.2em 0 0.5em 0">
-  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Backbone Cable (<%= scalar @$backbones %>)</h2>
-  <table class="datatable">
-    <thead><tr><th>Name</th><th>Type</th><th>Start Closet</th><th>End Closet</th><th>Owner</th></tr></thead>
-    <tbody>
+<div class="container">
+  <div class="containerhead">Backbone Cable (<%= scalar @$backbones %>)</div>
+  <div class="containerbody">
+    <table class="datatable">
+      <thead><tr><th>Name</th><th>Type</th><th>Start Closet</th><th>End Closet</th><th>Owner</th></tr></thead>
+      <tbody>
       % for my $row (@$backbones) {
       <tr>
         % for my $cell (@$row) {
@@ -102,17 +94,19 @@
         % }
       </tr>
       % }
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+  </div>
 </div>
 % }
 
 % if (@$horizontal) {
-<div style="margin:1.2em 0 0.5em 0">
-  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Horizontal Cable (<%= scalar @$horizontal %>)</h2>
-  <table class="datatable">
-    <thead><tr><th>Jack ID</th><th>Type</th><th>Room</th></tr></thead>
-    <tbody>
+<div class="container">
+  <div class="containerhead">Horizontal Cable (<%= scalar @$horizontal %>)</div>
+  <div class="containerbody">
+    <table class="datatable">
+      <thead><tr><th>Jack ID</th><th>Type</th><th>Room</th></tr></thead>
+      <tbody>
       % for my $row (@$horizontal) {
       <tr>
         % for my $cell (@$row) {
@@ -127,17 +121,19 @@
         % }
       </tr>
       % }
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+  </div>
 </div>
 % }
 
 % if (@$pictures) {
-<div style="margin:1.2em 0 0.5em 0">
-  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Pictures (<%= scalar @$pictures %>)</h2>
-  <table class="datatable">
-    <thead><tr><th>File Name</th><th>Size</th><th>File Type</th><th>Comments</th></tr></thead>
-    <tbody>
+<div class="container">
+  <div class="containerhead">Pictures (<%= scalar @$pictures %>)</div>
+  <div class="containerbody">
+    <table class="datatable">
+      <thead><tr><th>File Name</th><th>Size</th><th>File Type</th><th>Comments</th></tr></thead>
+      <tbody>
       % for my $row (@$pictures) {
       <tr>
         % for my $cell (@$row) {
@@ -152,7 +148,8 @@
         % }
       </tr>
       % }
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+  </div>
 </div>
 % }

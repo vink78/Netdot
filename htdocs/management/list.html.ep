@@ -13,8 +13,7 @@
 % my $zsel       = $c->param('zone_id') // '';
 % if ($search_url) {
 <div class="container" style="margin-bottom:1em">
-  <div class="containerheadleft"><%= $s_title %></div>
-  <div class="containerheadright">&nbsp;</div>
+  <div class="containerhead"><%= $s_title %></div>
   <div class="containerbody" style="padding:0.6em">
     <form method="get" action="<%= $search_url %>">
       <p>

@@ -3,43 +3,52 @@
 % my $rr_attrs = $c->stash->{rr_attrs} // [];
 % my $sections = $c->stash->{sections} // [];
 
-<h1>DNS Record: <strong><%= $rr->get_label %></strong></h1>
-<p style="margin:0 0 1em 0; font-size:0.95em"><a href="<%= $c->web_prefix %>/management/rr">All DNS Records</a></p>
+<p><a href="<%= $c->web_prefix %>/management/rr">&laquo; All DNS Records</a></p>
 
-%# The record's own attributes.
+%# The record's own attributes: "General" look (datatable.detail c2, 2 pairs/row).
 % if ($rr_attrs && @$rr_attrs) {
-    <table class="datatable" style="max-width:760px; margin-bottom:1.2em">
-        <tbody>
-        % for my $i (0 .. $#$rr_attrs) {
-            % my $row = $rr_attrs->[$i];
-            <tr>
-                <th style="text-align:left; white-space:nowrap; width:200px"><%= $row->[0] %></th>
-                <td><%== $row->[1] %></td>
-            </tr>
+%   my $N    = 2;
+%   my @list = @$rr_attrs;
+<div class="container">
+  <div class="containerhead">DNS Record: <strong><%= $rr->get_label %></strong></div>
+  <div class="containerbody flat">
+    <table class="datatable detail c2">
+      <tbody>
+      % for (my $i = 0; $i < @list; $i += $N) {
+      %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
+      %   my @r   = @list[$i .. $end];
+      <tr>
+        % for my $row (@r) {
+        <th><%= $row->[0] %></th>
+        <td><%== $row->[1] %></td>
         % }
-        </tbody>
+      </tr>
+      % }
+      </tbody>
     </table>
+  </div>
+</div>
 % }
 
-%# One container per record type; each record is a small attribute table.
+%# One container per record type; each record is a small field table.
 % for my $s (0 .. $#$sections) {
     % my $sec = $sections->[$s];
-    <div class="container" style="margin:0 0 1.2em 0">
-        <div class="containerhead"><%= $sec->{title} %></div>
-        <div class="containerbody">
-        % for my $r (0 .. $#{ $sec->{records} }) {
-            % my $rec = $sec->{records}->[$r];
-            <table class="datatable" style="margin:0 0 0.6em 0">
-                <tbody>
-                % for my $row (@$rec) {
-                    <tr>
-                        <th style="text-align:left; white-space:nowrap; width:200px"><%= $row->[0] %></th>
-                        <td><%== $row->[1] %></td>
-                    </tr>
-                % }
-                </tbody>
-            </table>
-        % }
-        </div>
+    <div class="container">
+      <div class="containerhead"><%= $sec->{title} %></div>
+      <div class="containerbody">
+      % for my $r (0 .. $#{ $sec->{records} }) {
+          % my $rec = $sec->{records}->[$r];
+          <table class="datatable detail">
+              <tbody>
+              % for my $row (@$rec) {
+                  <tr>
+                      <th><%= $row->[0] %></th>
+                      <td><%== $row->[1] %></td>
+                  </tr>
+              % }
+              </tbody>
+          </table>
+      % }
+      </div>
     </div>
 % }

@@ -49,8 +49,7 @@
 
 %# Comments
 <div class="container">
-    <div class="containerheadleft">Comments</div>
-    <div class="containerheadright">&nbsp;</div>
+    <div class="containerhead">Comments</div>
     <div class="containerbody" style="padding:0.6em">
 <pre style="white-space:pre-wrap; margin:0"><%= $comments %></pre>
     </div>
@@ -58,8 +57,7 @@
 
 %# DNS A records
 <div class="container">
-    <div class="containerheadleft">DNS A Records</div>
-    <div class="containerheadright">&nbsp;</div>
+    <div class="containerhead">DNS A Records</div>
     <div class="containerbody" style="padding:0.6em">
     % if (@$a_records) {
         <table class="datatable" style="width:100%">
@@ -87,8 +85,7 @@
 
 %# DNS PTR records
 <div class="container">
-    <div class="containerheadleft">DNS PTR Records</div>
-    <div class="containerheadright">&nbsp;</div>
+    <div class="containerhead">DNS PTR Records</div>
     <div class="containerbody" style="padding:0.6em">
     % if (@$ptr_records) {
         <table class="datatable" style="width:100%">
@@ -117,8 +114,7 @@
 %# Services
 % if (@$services) {
 <div class="container">
-    <div class="containerheadleft">Services</div>
-    <div class="containerheadright">&nbsp;</div>
+    <div class="containerhead">Services</div>
     <div class="containerbody" style="padding:0.6em">
         <table class="datatable" style="width:100%">
             <thead><tr><th>Service</th><th>Contact List</th></tr></thead>
@@ -135,8 +131,7 @@
 %# Custom Attributes
 % if (@$attributes) {
 <div class="container">
-    <div class="containerheadleft">Custom Attributes</div>
-    <div class="containerheadright">&nbsp;</div>
+    <div class="containerhead">Custom Attributes</div>
     <div class="containerbody" style="padding:0.6em">
         <table class="datatable" style="width:100%">
             <thead><tr><th>Name</th><th>Value</th></tr></thead>
@@ -153,8 +148,7 @@
 %# DHCP Host
 % if (@$dhcp) {
 <div class="container">
-    <div class="containerheadleft">DHCP Host</div>
-    <div class="containerheadright">&nbsp;</div>
+    <div class="containerhead">DHCP Host</div>
     <div class="containerbody" style="padding:0.6em">
         <table class="datatable" style="width:100%">
             <thead><tr><th>Type</th><th>Name</th><th>Ethernet</th><th>DUID</th><th>Active?</th></tr></thead>
@@ -177,8 +171,7 @@
 %# Last ARP entries
 % if (@$arp) {
 <div class="container">
-    <div class="containerheadleft">Last ARP entries</div>
-    <div class="containerheadright">&nbsp;</div>
+    <div class="containerhead">Last ARP entries</div>
     <div class="containerbody" style="padding:0.6em">
         <table class="datatable" style="width:100%">
             <thead><tr><th>Time Seen</th><th>MAC</th><th>Interfaces</th></tr></thead>
@@ -199,8 +192,7 @@
 %# Audit Records
 % if (@$audit) {
 <div class="container">
-    <div class="containerheadleft">Audit Records</div>
-    <div class="containerheadright">&nbsp;</div>
+    <div class="containerhead">Audit Records</div>
     <div class="containerbody" style="padding:0.6em">
         <table class="datatable" style="width:100%">
             <thead><tr><th>Timestamp</th><th>Username</th><th>Table</th><th>Label</th><th>Operation</th></tr></thead>

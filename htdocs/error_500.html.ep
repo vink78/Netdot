@@ -1,8 +1,7 @@
 % my $e    = stash('exception');
 % my $emsg = ref($e) ? ( eval { $e->message } // '' ) : ( defined $e && !ref($e) ? $e : '' );
 <div class="container" style="max-width:480px;margin:2em auto">
-  <div class="containerheadleft">500 &mdash; Internal Server Error</div>
-  <div class="containerheadright">&nbsp;</div>
+  <div class="containerhead">500 &mdash; Internal Server Error</div>
   <div class="containerbody">
     <p>An internal server error occurred. Please try again later.</p>
     % if ($emsg) {

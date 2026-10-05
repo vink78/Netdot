@@ -1,8 +1,7 @@
 <h1>Changelog <small>(<%= $total // 0 %> total)</small></h1>
 
 <div class="container" style="margin-bottom:1em">
-  <div class="containerheadleft">Search</div>
-  <div class="containerheadright">&nbsp;</div>
+  <div class="containerhead">Search</div>
   <div class="containerbody" style="padding:0.6em">
     <form method="get" action="<%= $c->web_prefix %>/changelog">
       <p>

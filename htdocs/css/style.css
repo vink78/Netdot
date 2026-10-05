@@ -128,29 +128,6 @@ th {
     background-color: #aaccaa;
 }
 
-/* Device basics: grouped multi-column attribute grid (label | value pairs) */
-table.devgrid {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 0 0 1em 0;
-}
-table.devgrid th {
-    background: none;
-    text-align: right;
-    vertical-align: top;
-    font-weight: bold;
-    color: #006600;
-    padding: 2px 8px 2px 0;
-    white-space: nowrap;
-    width: 1%;
-}
-table.devgrid td {
-    vertical-align: top;
-    padding: 2px 0;
-    white-space: pre-wrap;
-}
-
-
 /* ============ Header (modern) ============ */
 #header {
     display: flex;
@@ -476,91 +453,6 @@ html>body, html>body #contents {
     padding: 1em; 
     background: rgb(255,204,153); 
     width: 50%; 
-}
-
-.container {
-    clear: both;
-    background-color: #ffffee;
-    border: 3px #ddeedd solid;
-    margin-bottom: 5px;
-}
-
-.containerheadleft {
-    float: left;
-    background-color: #ddeedd;
-    font: bold 0.9em tahoma, verdana, sans-serif;
-}
-
-/* For partitioning container bodies into sections.  See its use for
-comment sections */
-div.containerseparator { 
-    background-color: #ddeedd;
-    font: bold 0.9em tahoma, verdana, sans-serif;
-}
-
-/* For simple (doesn't work with nested width 100% tables) two column
-layout without tables. Looks a little strange if the window is small.
-*/
-
-/* You *must* follow with cleared content to force the floated
-elements to be considered "in the flow" (i.e. to get any enclosing
-divs to respect the containment and not pull their borders up leaving
-the contained divs floating in space).  Using an empty 
-
-<div style="clear: both"></div> 
-
-works just fine. */
-div.left { float: left; margin: 4px; margin-right: 0px }
-div.right { float: right; margin: 4px; margin-left: 0px }
-/* Put an empty div of this class under any left right pair */
-div.clear { clear: both }
-
-.containerheadright {
-    text-align: right;
-    background-color: #ddeedd;
-    font-size: 0.9em;
-}
-
-.containerhead {
-    background-color: #ddeedd;
-    font: bold 0.9em tahoma, verdana, sans-serif;
-}
-
-.containerbody {
-    clear: both;
-}
-
-.containeroutside {
-    width: 99.5%; 
-    clear: both;
-    background-color: #ffffee;
-    border: 3px #aaccaa solid;
-    float: left;
-}
-
-.containerheadleftoutside {
-    float: left;
-    background-color: #aaccaa;
-    font: 1em tahoma, verdana, sans-serif;
-    padding: 2px;
-}
-
-.containerheadrightoutside {
-    text-align: right;
-    background-color: #aaccaa;
-    font-size: 0.9em;
-    padding: 2px;
-}
-
-.containerheadoutside {
-    background-color: #aaccaa;
-    font: bold 0.9em tahoma, verdana, sans-serif;
-    padding: 2px;
-}
-
-.containerbodyoutside {
-    clear: both;
-    padding: 4px;
 }
 
 
@@ -927,10 +819,6 @@ img[src*="img/graphs"] {
         width: auto;
         max-width: 100%;
     }
-    .containeroutside {
-        width: auto;
-        max-width: 100%;
-    }
 
     /* Login */
     #loginform,
@@ -1139,58 +1027,6 @@ table.datatable.detail tbody tr:first-child td { border-top-right-radius: 11px; 
 table.datatable.detail tbody tr:last-child th  { border-bottom-left-radius: 11px; }
 table.datatable.detail tbody tr:last-child td  { border-bottom-right-radius: 11px; }
 
-/* ---------- Attribute grid (key/value, 2 columns) ----------
-   Replaces the tall single-column attribute table on detail pages.
-   Each .attr is one label/value pair; the grid lays two pairs per row. */
-.attrgrid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 32px;
-    background: #ffffff;
-    border: 1px solid #aaccaa;
-    border-radius: 12px;
-    box-shadow: 0 1px 2px rgba(0,40,0,.04), 0 6px 18px rgba(0,40,0,.05);
-    padding: 8px 16px;
-    margin-bottom: 1em;
-}
-.attr {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    padding: 5px 0;
-}
-.attr-k {
-    flex: 0 0 168px;
-    color: #003300;
-    font-weight: 600;
-    font-size: 0.88em;
-}
-.attr-v {
-    flex: 1 1 auto;
-    white-space: pre-wrap;
-    word-break: break-word;
-    color: #1a1a1a;
-}
-/* A pair with no label (e.g. a free-text Comments block) spans the full row. */
-.attr-wide {
-    grid-column: 1 / -1;
-}
-/* An attrgrid nested inside a card (.containerbody) drops its own card
-   chrome so the surrounding .container provides the border/shadow/rounding
-   (no card-in-card). */
-.containerbody .attrgrid {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
-    margin-bottom: 0;
-    padding: 0;
-}
-@media (max-width: 768px) {
-    .attrgrid { grid-template-columns: 1fr; }
-    .attr-k   { flex-basis: 130px; }
-}
-
 /* ---------- Modern cards (.container) ---------- */
 .container {
     clear: both;
@@ -1201,10 +1037,7 @@ table.datatable.detail tbody tr:last-child td  { border-bottom-right-radius: 11p
     margin-bottom: 16px;
     overflow: hidden;
 }
-.containerheadleft,
-.containerheadright,
-.containerhead,
-.containerheadoutside {
+.containerhead {
     background: #ddeedd;
     padding: 9px 14px;
     font-weight: 700;
@@ -1212,8 +1045,7 @@ table.datatable.detail tbody tr:last-child td  { border-bottom-right-radius: 11p
     color: #003300;
     border-bottom: 1px solid #aaccaa;
 }
-.containerbody,
-.containerbodyoutside {
+.containerbody {
     clear: both;
     padding: 12px 14px;
     background: #ffffff;

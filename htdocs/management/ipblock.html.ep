@@ -43,7 +43,11 @@
     <span style="color:#999"> » </span><strong><%= $current->get_label %></strong>
     </div>
 % }
+%# Title: shown on the list/roots view. On a block's detail view the block
+%# label is used as the field card's header instead (see below).
+% unless ($current) {
 <h1><%= $title %></h1>
+% }
 
 %# Search box (Address Space) — shown on the list/roots view only.
 % unless ($current) {
@@ -62,8 +66,7 @@
   </form>
 </div>
 <div class="container" style="margin-bottom:1em">
-  <div class="containerheadleft">Search Address Space</div>
-  <div class="containerheadright">&nbsp;</div>
+  <div class="containerhead">Search Address Space</div>
   <div class="containerbody" style="padding:0.6em">
     <form method="get" action="<%= url_for('ipblock_search') %>">
       <p>
@@ -93,17 +96,29 @@
 %# The block's own attribute table (Address, Status, First/Last Seen, RIR/ASN,
 %# Owner/Used by, Netmask/Broadcast, Usable, Utilization/Space Allocated).
 % if ($current && $block_attrs && @$block_attrs) {
-    <table class="datatable" style="max-width:760px; margin-bottom:1em">
-        <tbody>
-        % for my $i (0 .. $#$block_attrs) {
-            % my $row = $block_attrs->[$i];
-            <tr>
-                <th style="text-align:left; white-space:nowrap; width:200px"><%= $row->[0] %></th>
-                <td><%== $row->[1] %></td>
-            </tr>
+%   # Fields: "General" look (datatable.detail c2, 2 pairs/row); the block label
+%   # is the card header. Values are pre-rendered HTML -> emitted unescaped.
+%   my $N    = 2;
+%   my @list = @$block_attrs;
+<div class="container">
+  <div class="containerhead"><%= $title %></div>
+  <div class="containerbody flat">
+    <table class="datatable detail c2">
+      <tbody>
+      % for (my $i = 0; $i < @list; $i += $N) {
+      %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
+      %   my @r   = @list[$i .. $end];
+      <tr>
+        % for my $row (@r) {
+        <th><%= $row->[0] %></th>
+        <td><%== $row->[1] %></td>
         % }
-        </tbody>
+      </tr>
+      % }
+      </tbody>
     </table>
+  </div>
+</div>
 % }
 %# Section tab bar (block detail only).
 % if ($current && $tabs) {
@@ -212,8 +227,7 @@
 % if ($current) {
 % if ( $view eq 'Sites' || $view eq 'All' ) {
     <div class="container">
-        <div class="containerheadleft">Sites</div>
-        <div class="containerheadright">&nbsp;</div>
+        <div class="containerhead">Sites</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$sites) {
             <table class="datatable" style="width:100%"><tbody>
@@ -229,8 +243,7 @@
 % }
 % if ( $view eq 'Zones' || $view eq 'All' ) {
     <div class="container">
-        <div class="containerheadleft">Forward DNS Zones</div>
-        <div class="containerheadright">&nbsp;</div>
+        <div class="containerhead">Forward DNS Zones</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$fzones) {
             <table class="datatable" style="width:100%"><tbody>
@@ -244,8 +257,7 @@
         </div>
     </div>
     <div class="container">
-        <div class="containerheadleft">Reverse DNS Zones</div>
-        <div class="containerheadright">&nbsp;</div>
+        <div class="containerhead">Reverse DNS Zones</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$rzones) {
             <table class="datatable" style="width:100%"><tbody>
@@ -261,8 +273,7 @@
 % }
 % if ( $view eq 'DHCP' || $view eq 'All' ) {
     <div class="container">
-        <div class="containerheadleft">DHCP Scope</div>
-        <div class="containerheadright">&nbsp;</div>
+        <div class="containerhead">DHCP Scope</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$dhcp) {
             <table class="datatable" style="width:100%">
@@ -287,8 +298,7 @@
 % }
 % if ( $view eq 'Attributes' || $view eq 'All' ) {
     <div class="container">
-        <div class="containerheadleft">Custom Attributes</div>
-        <div class="containerheadright">&nbsp;</div>
+        <div class="containerhead">Custom Attributes</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$attributes) {
             <table class="datatable" style="width:100%">
@@ -307,8 +317,7 @@
 % }
 % if ( $view eq 'Comments' || $view eq 'All' ) {
     <div class="container">
-        <div class="containerheadleft">Comments</div>
-        <div class="containerheadright">&nbsp;</div>
+        <div class="containerhead">Comments</div>
         <div class="containerbody" style="padding:0.6em">
             <pre style="white-space:pre-wrap; margin:0"><%= $comments %></pre>
         </div>
@@ -316,8 +325,7 @@
 % }
 % if ( $view eq 'Audit' || $view eq 'All' ) {
     <div class="container">
-        <div class="containerheadleft">Audit Records</div>
-        <div class="containerheadright">&nbsp;</div>
+        <div class="containerhead">Audit Records</div>
         <div class="containerbody" style="padding:0.6em">
         % if (@$audit) {
             <table class="datatable" style="width:100%">

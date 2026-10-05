@@ -1,6 +1,5 @@
 <div class="container" style="max-width:480px;margin:2em auto">
-  <div class="containerheadleft">404 &mdash; Page Not Found</div>
-  <div class="containerheadright">&nbsp;</div>
+  <div class="containerhead">404 &mdash; Page Not Found</div>
   <div class="containerbody">
     <p>The requested resource was not found on this server.</p>
     <p><a href="<%= url_for('home') %>">Return to home</a></p>

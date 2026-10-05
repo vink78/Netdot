@@ -7,8 +7,7 @@
 
 % # --- VLAN Groups ---
 <div class="container">
-  <div class="containerheadleft">VLAN Groups:</div>
-  <div class="containerheadright">&nbsp;</div>
+  <div class="containerhead">VLAN Groups:</div>
   <div class="containerbody">
   % if (@$grows) {
     <table class="datatable sortable">
@@ -40,8 +39,7 @@
 
 % # --- Ungrouped VLANs ---
 <div class="container">
-  <div class="containerheadleft">Ungrouped VLANs:</div>
-  <div class="containerheadright">&nbsp;</div>
+  <div class="containerhead">Ungrouped VLANs:</div>
   <div class="containerbody">
   % if (@$vrows) {
     <table class="datatable sortable">
