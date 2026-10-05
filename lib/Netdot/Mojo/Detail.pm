@@ -136,8 +136,9 @@ sub _relation_fetch {
     my $ttable = ( eval { $tclass->table } ) // lc $target;
     my $dbh    = Netdot::Model->db_Main();
 
-    # Sort expression + optional JOIN (connector tables order by the referenced
-    # object's column; direct relations order by their own label column).
+    # Sort expression + optional JOIN. Connector / join tables order by the
+    # referenced object's label (joined via the connector's own FK); direct
+    # relations order by their own first label column.
     my ( $sort_sql, $join_sql ) = ( 't.id', '' );
     if ( my $is_join = eval { $tmeta->is_join } ) {
         my %linksto;
@@ -146,12 +147,13 @@ sub _relation_fetch {
         if ( defined $obj_fk && $linksto{$obj_fk} ) {
             my $obj_class = $linksto{$obj_fk};
             my $obj_table = ( eval { "Netdot::Model::$obj_class"->table } ) // lc $obj_class;
-            $sort_sql = _rel_sort_column( $obj_class, 'o' );
+            my ( $o_sort ) = _rel_label_sort( $obj_class, 'o' );
+            $sort_sql = $o_sort;
             $join_sql = "JOIN $obj_table o ON t.$obj_fk = o.id";
         }
     }
     else {
-        $sort_sql = _rel_sort_column( $target, 't' );
+        ( $sort_sql, $join_sql ) = _rel_label_sort( $target, 't' );
     }
 
     my $where = "t.$fk = ?";
@@ -181,22 +183,31 @@ sub _relation_fetch {
     return ( \@objs, $total );
 }
 
-# Sort column for a relation's first displayed column, so the SQL ORDER BY
-# matches the on-screen first column. Some classes have a computed label that
-# differs from the meta label columns, so they map to the column behind it:
-#   Ipblock -> integer `address` (natural IP order, IPv4 before IPv6)
-#   Device  -> `sysname` (label is the FQDN = sysname + domain)
+# ( $sort_sql, $join_sql ) to order a table (aliased $alias) by its first
+# label column, so the SQL ORDER BY matches the on-screen first column:
+#   Ipblock -> integer `address` (natural IP order, IPv4 before IPv6).
+#   If the first label column is itself a RELATIONSHIP (an FK, e.g.
+#     device.name -> rr), the related table is LEFT JOINed (alias o) and the
+#     related object's first label is ordered instead -- i.e. a device is
+#     ordered by its DNS name (rr.name, the value shown as the label), not the
+#     numeric FK nor the SNMP-reported sysname.
 # Every other class orders by its first label column. $alias prefixes the
 # column (t. for the relation table, o. for a joined object).
-sub _rel_sort_column {
+sub _rel_label_sort {
     my ( $class, $alias ) = @_;
-    my %custom = ( Ipblock => 'address', Device => 'sysname' );
-    return "$alias." . $custom{$class} if $custom{$class};
+    return ( "$alias.address", '' ) if $class eq 'Ipblock';
     my $meta   = eval { "Netdot::Model::$class"->meta_data };
     my @labels;
     eval { @labels = $meta->get_labels } if $meta;
     my $col = @labels ? $labels[0] : 'name';
-    return "$alias.$col";
+    my $links = eval { $meta->get_column( $col )->links_to } if $meta;
+    if ( $links && $links =~ /^[A-Za-z_][A-Za-z0-9_]*$/ ) {
+        my $reltab = $links->table;
+        my @lbl;  @lbl = eval { $links->meta_data->get_labels };
+        my $relcol = ( grep { /^[A-Za-z_][A-Za-z0-9_]*$/ } @lbl )[0] // 'id';
+        return ( "o.$relcol", "LEFT JOIN $reltab o ON $alias.$col = o.id" );
+    }
+    return ( "$alias.$col", '' );
 }
 
 # Brief-view columns of a class (falls back to the all view), ordered, with

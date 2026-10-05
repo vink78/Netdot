@@ -781,13 +781,28 @@ sub _pagination_where {
 
 # Add a free-text LIKE %q% on a validated column to a WHERE clause. $like is
 # [ $col, $q ]; $q is bound (never interpolated). Returns ($where, $binds).
+# If the column is a RELATIONSHIP (an FK, e.g. device.name -> rr), the LIKE is
+# applied to the related object's first label column (via an IN subquery on the
+# related PK) rather than the raw FK value -- so a device free-text search
+# matches the device's DNS name (rr.name), not the numeric FK.
 sub _list_add_like {
     my ( $class, $where, $binds, $like ) = @_;
     return ( $where, $binds ) unless $like && defined $like->[1] && length $like->[1];
     my $col = $like->[0];
     $col = $class->primary_column unless grep { $_ eq $col } $class->columns;
+    # Relationship column? Search the related object's label instead of the FK.
+    my $links = eval { $class->meta_data->get_column( $col )->links_to };
+    if ( $links && $links =~ /^[A-Za-z_][A-Za-z0-9_]*$/ ) {
+        my $reltab = $links->table;
+        my @lbl;  @lbl = eval { $links->meta_data->get_labels };
+        my $relcol = ( grep { /^[A-Za-z_][A-Za-z0-9_]*$/ } @lbl )[0] // 'id';
+        my $pred   = "$col IN (SELECT id FROM $reltab WHERE $reltab.$relcol LIKE ?)";
+        $where = $where eq '' ? " WHERE $pred" : "$where AND $pred";
+        push @$binds, "%$like->[1]%";
+        return ( $where, $binds );
+    }
     $where = $where eq '' ? " WHERE $col LIKE ?" : "$where AND $col LIKE ?";
-    push @$binds, "%$like->[1]";
+    push @$binds, "%$like->[1]%";
     return ( $where, $binds );
 }
 
