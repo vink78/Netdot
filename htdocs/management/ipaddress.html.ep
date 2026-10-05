@@ -23,34 +23,29 @@
     <span style="color:#999"> » </span><strong><%= $current->get_label %></strong>
     </div>
 % }
-<h1><%= $title %></h1>
-
-%# Attribute table: two columns (left half, then right half).
-% my $half = int( scalar(@$attrs) / 2 );
-<table style="width:100%; border-collapse:collapse; margin-bottom:1.5em">
-    <tr>
-        <td style="width:50%; vertical-align:top; padding-right:1.5em">
-            <table class="detail" style="width:100%">
-            % for my $i ( 0 .. $#$attrs ) {
-            % my $a = $attrs->[$i];
-            % if ( $i < $half ) {
-                <tr><th style="width:40%"><%= $a->[0] %></th><td><%== $a->[1] %></td></tr>
-            % }
-            % }
-            </table>
-        </td>
-        <td style="width:50%; vertical-align:top">
-            <table class="detail" style="width:100%">
-            % for my $i ( 0 .. $#$attrs ) {
-            % my $a = $attrs->[$i];
-            % if ( $i >= $half ) {
-                <tr><th style="width:40%"><%= $a->[0] %></th><td><%== $a->[1] %></td></tr>
-            % }
-            % }
-            </table>
-        </td>
-    </tr>
-</table>
+<div class="container">
+  <div class="containerhead"><%= $title %></div>
+  <div class="containerbody flat">
+%# Fields: "General" look (datatable.detail c2, 2 pairs/row). Values are
+%# pre-rendered HTML (may contain links) -> emitted unescaped.
+% my $N    = 2;
+% my @list = @$attrs;
+    <table class="datatable detail c2">
+      <tbody>
+      % for (my $i = 0; $i < @list; $i += $N) {
+      %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
+      %   my @r   = @list[$i .. $end];
+      <tr>
+        % for my $a (@r) {
+        <th><%= $a->[0] %></th>
+        <td><%== $a->[1] %></td>
+        % }
+      </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
 
 %# Comments
 <div class="container">
