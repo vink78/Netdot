@@ -236,7 +236,13 @@ les mêmes composants.
   la bordure arrondie). **Convention de classes** : `class="datatable"` = le **look**
   moderne (tous les tableaux) ; `class="sortable"` = opt-in du **tri JS**
   (`tablesort.js`, réservé aux grandes listes). Les tableaux de détail/champs ne sont
-  **pas** `sortable`.
+  **pas** `sortable`. Le look moderne requiert la structure **`<thead>` + `<tbody>`**
+  (le CSS cible `datatable thead th` / `tbody td` / zebra `tbody tr:nth-child`).
+- [x] **Tableaux de rapports** : les tables de données des rapports
+  (`reports/data_table.html.ep`, partagée par device/asset/ip/macs/ipbat/security/
+  hinfo/usedby/database) passent à la structure moderne `datatable` (`<thead>` +
+  `<tbody>`, **sans** les classes legacy `formtabletitle` / `datatabler1` /
+  `datatabler2`) → en-tête, zebra et coins arrondis du design 2026 s'appliquent.
 - [x] **Tri** : serveur (SQL `ORDER BY` + `LIMIT/OFFSET`) pour listes, CSV et
   **relations** ; `tablesort.js` (délégation d'événements, sûr htmx) uniquement sur les
   tableaux `sortable` (tri de la page courante).
@@ -268,10 +274,14 @@ les mêmes composants.
   « log in » du header est **masqué** sur la page de login (flag `is_login` posé par
   `Auth.pm`, géré dans `layouts/default.html.ep`).
 - [x] **Boutons + liens** modernisés (liens : soulignement au survol seulement).
-- [x] **CSS nettoyé** : classes orphelines retirées (`.attr*`, `.devgrid`, doublons
-  legacy `.container`/`.containerhead`/`.containerbody`, `*outside`, `containerseparator`,
-  `div.left/right/clear`) ; `.containerhead` = **un seul sélecteur** (plus de split
-  left/right — le `containerheadright` était toujours vide).
+ - [x] **CSS nettoyé** : classes orphelines/legacy mortes retirées (`.attr*`, `.devgrid`,
+   doublons legacy `.container*`, `*outside`, `containerseparator`, `div.left/right/clear`,
+   `formtable*`, `datatabler*`, `tabletitle`, `containertable*`, `empty000000`,
+   `#loginform`/`logintable`) ; `.containerhead` = un seul sélecteur. Le zebra des tableaux
+   vient du CSS `datatable` (`tbody tr:nth-child`), plus des classes `datatablerN`.
+   **Conservé** : `ipcontainertable` et `ipaddr_*` (+`_2`) — ces derniers sont **construits
+   dynamiquement** (`Ipblock.pm`) ; un balayage « classes mortes » doit donc chercher dans
+   **tout** `lib/` et vérifier les constructions dynamiques (le modèle d'origine émet du HTML).
 
 > Commits : `ee804e23 CSS`, `1fe21fbb CSS 2` (tabs.js + attrgrid + détail en tabs),
 > `df5ba174 CSS 3` (tablesort `datatable`/`sortable`), `9ea7e8c5 CSS 4` (rename des classes
@@ -429,3 +439,6 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 - **Recherche MAC** (`/management/physaddr/search?search=D0C24E`) : colonnes **First Seen**
   + **Last Seen** ajoutées (format `AAAA-MM-JJ HH:MM:SS`, cohérentes avec le détail) en plus
   de l'adresse MAC liée ; 200, tableau `sortable`.
+- **Rapports en design 2026** : les tables de rapports (`/reports/device`, asset, macs,
+  ipbat, security, database, …) utilisent `<thead>`/`<tbody>` + `datatable` (plus de classes
+  legacy `formtabletitle`/`datatablerN`) → en-tête, zebra et coins arrondis modernes.

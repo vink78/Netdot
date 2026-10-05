@@ -306,9 +306,14 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       controller only builds the `where` (per-user predicate) and calls the Model; `_kcmp`
       (numeric-aware text compare) remains here only to order the `search_like()` filter
       path in memory.
- - `lib/Netdot/Mojo/Controller/Reports.pm` — all 10 reports: `_obj_html`,
-   `_link` (via `set_uri`), `_normalize_rows`, `_skey`, per-report row builders,
-   CSV export.
+  - `lib/Netdot/Mojo/Controller/Reports.pm` — all 10 reports: `_obj_html`,
+    `_link` (via `set_uri`), `_normalize_rows`, `_skey`, per-report row builders,
+    CSV export. Every data report renders through the shared
+    `htdocs/reports/data_table.html.ep`, which builds a modern **`datatable`** table
+    (`<thead>` header row + `<tbody>` body rows, **no** legacy `formtabletitle` /
+    `datatabler1` / `datatabler2` cell classes) so the 2026 design (header styling, zebra,
+    rounded corners) applies; `_render` also wraps the report "Options" form in a
+    `.container` card.
 - `lib/Netdot/Mojo/Controller/Export.pm` — Export form (GET) + run (POST):
   type-gating (Admin→12, write-rights→4), `generate_configs`, String appender
   log capture, per-type error list.
@@ -521,8 +526,18 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       flattened), `datatable` (modern table look, all tables) / `sortable` (JS-sort opt-in,
       list pages only), sticky navbar, modern buttons, content links (underline on hover),
       **login page** (stacked full-width fields, `.btn`, header "log in" hidden via `is_login`),
-      **CSS cleanup** (orphaned classes removed: `.attr*`, `.devgrid`, legacy `.container*`
-      duplicates, `*outside`, `containerseparator`; `.containerhead` = single selector).
+      **CSS cleanup**: removed dead legacy classes — orphaned (`.attr*`, `.devgrid`, legacy
+      `.container*` duplicates, `*outside`, `containerseparator`), legacy table/form
+      (`formtable*`, `datatabler*`, `tabletitle`, `containertable*`), `empty000000`, old-login
+      (`#loginform`/`logintable`). `.containerhead` = single selector; table zebra now from
+      `datatable tbody tr:nth-child` (not `datatablerN`). **Kept** `ipcontainertable` and
+      `ipaddr_*` (+`_2`) — the latter is built **dynamically** in `Ipblock.pm`
+      (`'ipaddr_' . lc($status)` + `._2`), so a dead-class sweep must search all of `lib/` and
+      check dynamic construction (the model also emits HTML).
+      **Report data tables modernized** (`reports/data_table.html.ep`): shared by all 10
+      reports, rebuilt to `<thead>`/`<tbody>` `datatable` (dropped the legacy
+      `formtabletitle`/`datatablerN` cell classes) so the header/zebra/rounded corners
+      match the rest of the design.
       **SQL relation ordering/pagination** (`Detail.pm`: Ipblock by integer
       `address`, relationship label columns via JOIN — a device orders by `rr.name`).
       **Site/Floor picture display** (`Show.pm#picture` + `link_for` Picture special-case).

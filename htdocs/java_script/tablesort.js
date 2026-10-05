@@ -23,8 +23,8 @@
     - Add class "ts-nosort" to a header cell to exempt that column.
 
   Markup expected: first <tr> is the header row (<th> cells). A <thead> is
-  promoted automatically on first sort. Data rows may carry the zebra classes
-  datatabler1/datatabler2, which are re-striped after each sort.
+  promoted automatically on first sort. Zebra striping comes from CSS
+  (:nth-child), so it is preserved across sorts.
 */
 (function () {
   'use strict';

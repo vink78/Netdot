@@ -9,22 +9,23 @@
 % }
 % if (@$rows) {
 <div class="tablescroll">
-<table border="0" width="100%" cellspacing="0" class="datatable sortable">
-  <tr>
+<table class="datatable sortable">
+  <thead>
+    <tr>
     % for my $h (@$headers) {
-    <th class="formtabletitle"><%= b($h) %></th>
+    <th><%= b($h) %></th>
     % }
-  </tr>
-  % my $ri = 0;
+    </tr>
+  </thead>
+  <tbody>
   % for my $row (@$rows) {
-  % my $cls = 'datatabler' . (($ri % 2) ? 1 : 2);
   <tr>
     % for my $cell (@$row) {
-    <td class="<%= $cls %>"><%= b($cell // '') %></td>
+    <td><%= b($cell // '') %></td>
     % }
   </tr>
-  % $ri++;
   % }
+  </tbody>
 </table>
 </div>
 % } else {

@@ -14,11 +14,6 @@
 
 */
 
-.empty000000 {
-
-}
-
-
 body {
     padding: 0;
     background-color: #f4f7f3;
@@ -103,9 +98,6 @@ tr.rowtitle3 {
 }
 tr.submissionrow { 
     background-color: #FFFFFF; 
-}
-tr.formtabletitle { 
-    background-color: #ddeedd;
 }
 
 
@@ -457,51 +449,8 @@ html>body, html>body #contents {
 
 
 
-  .formtablec1	    { background-color: #ffffee; text-align: right}
-  .formtablec2	    { background-color: #f0f7e9; text-align: left; vertical-align: bottom; }
-  .formtabletitle   { background-color: #aaccaa; text-align: left; font-weight: bold; }
-  .datatabler1      { background-color: #ffffee; }
-  .datatabler2      { background-color: #f0f7e9; }
-
-  .datatabler1_ipb  { background-color: #ffffee; font-size: 8pt; }
-  .datatabler2_ipb  { background-color: #f0f7e9; font-size: 8pt; }
-
-
-
   .small      { font-size: 8pt; }
 
-  .containertable {
-     border-collapse: collapse;
-  }
-
-  .containertable_cell {
-     font-size: 6pt;
-     padding: 0px;
-     margin: 0px;
-     border: 1px #FFFFFF solid;
-  }
-
-
-  .datatabler1_con  { 
-    background-color: #ffffee; 
-    font-size: 8pt; 
-    padding: 0px;
-    margin: 0px;
-  }
-  .datatabler2_con  { 
-    background-color: #f0f7e9; 
-    font-size: 8pt; 
-    padding: 0px;
-    margin: 0px;
-  }
-
-/*
- * Prefer addresses to be centered in the ipblock view of a subnet.
- */
-table > * > tr > td.datatabler1_ipb div,
-table > * > tr > td.datatabler2_ipb div {
-    text-align: center;
-}
 
     .ipaddr_disabled { background-color: #cccccc; }
     .ipaddr_disabled_2 { background-color: #dddddd; }
@@ -579,14 +528,6 @@ hr
 }
 
 
-#loginform {
-    width: 320px;
-}
-#loginform table.logintable {
-    width: 200px;
-}
-
-
 
 
 .progress_bar {
@@ -651,13 +592,6 @@ hr
 */
 
   .searchbox        { background-color: #CCCCCC; }
-
-  .tabletitle       { background-color: #c2bed8; text-align: left}
-
-
-  .formtablebg	    { background-color: #ffffee; text-align: left}
-
-  .formtabletl	    { background-color: #6ab1f0; text-align: left}
 
 
 
@@ -850,13 +784,6 @@ img[src*="img/graphs"] {
 
     /* Conteneurs / notes: ne jamais deborder de l'ecran */
     .note {
-        width: auto;
-        max-width: 100%;
-    }
-
-    /* Login */
-    #loginform,
-    #loginform table.logintable {
         width: auto;
         max-width: 100%;
     }
