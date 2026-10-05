@@ -41,15 +41,20 @@
 % next unless @$rows;
 <div class="container">
   <div class="containerhead"><%= $s->{title} %></div>
-  <div class="containerbody">
-    <div class="attrgrid">
+  <div class="containerbody flat">
+    <table class="datatable detail c<%= $s->{cols} %>">
+      <tbody>
       % for my $row (@$rows) {
-      % for my $cell (@$row) {
-        % my ( $tag, $text, $href ) = @$cell;
-        % my $wide = ( !defined $tag || $tag eq '' ) ? ' attr-wide' : '';
-        <div class="<%= 'attr' . $wide %>">
-          <span class="attr-k"><%= $tag // '' %></span>
-          <span class="attr-v">
+      <tr>
+        % for my $cell (@$row) {
+          % my ( $tag, $text, $href ) = @$cell;
+          % my $wide = ( !defined $tag || $tag eq '' );
+          % if ($wide) {
+          <td colspan="2">
+          % } else {
+          <th><%= $tag %></th>
+          <td>
+          % }
             % if ( ref $text eq 'ARRAY' ) {
             % for my $li (0 .. $#$text) {
             % my $l = $text->[$li];
@@ -69,11 +74,12 @@
             <%= $text // '' %>
             % }
             % }
-          </span>
-        </div>
+          </td>
+        % }
+      </tr>
       % }
-      % }
-    </div>
+      </tbody>
+    </table>
   </div>
 </div>
 % }
