@@ -154,14 +154,14 @@ sub search {
     for my $o ( @results[ 0 .. ( @results > $limit ? $limit - 1 : $#results ) ] ) {
         push @rows, { label => $o->format_address // $o->address,
                       href  => Netdot::Mojo::Registry::set_uri( '/management/physaddr/' . $o->id ),
-                      cells => [] };
+                      cells => [ $o->first_seen // '', $o->last_seen // '' ] };
     }
     $c->render(
         template   => 'management/search_results',
         layout     => 'default',
         title      => 'MAC Address Search',
         search     => $term,
-        headers    => [ 'MAC Address' ],
+        headers    => [ 'MAC Address', 'First Seen', 'Last Seen' ],
         rows       => \@rows,
         search_url => $search_url,
     );

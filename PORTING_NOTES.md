@@ -426,6 +426,14 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
 - Done: **Interface** (`Controller/Interface.pm`: detail + FDB + ARP sub-views;
   the raw FWT/ARP timestamp queries from the Mason `interface.html` moved into
   the model as `Interface->fdb_tstamps` / `Interface->arp_tstamps`).
+  - Done: **PhysAddr / MAC** (`Controller/Physaddr.pm`): detail (`management/mac.html.ep`,
+    port of `mac.html`) — MAC attributes (address, vendor/OUI link, static, **First/Last
+    Seen**), the devices + interfaces using the address, the edge port, the last-N
+    forwarding-table and ARP entries, the DHCP scopes. **MAC search**
+    (`/management/physaddr/search?search=…`, port of the `mac.html` search):
+    `PhysAddr->search_like(address=>…)` (full MAC or OUI prefix); one match → redirect to the
+    detail page, several → a results table with **MAC Address · First Seen · Last Seen**
+    columns (sortable), none → not found.
  - Done: **Device — all read-only tabs** (`Controller/Device.pm`, `device.html.ep`,
    `?view=` tabs: Basics, Interfaces, IP, BGP, Hosted, Circuits, STP, Modules,
    Audit). Basics = attributes (netdot.meta "all" view) + custom attributes

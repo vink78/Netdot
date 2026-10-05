@@ -314,9 +314,13 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
     `%q` (suffixe seulement, bug : `?search=voip` ne trouvait rien). De plus il est
     **conscient des relations** (`Model::_list_add_like`) : si la colonne est une **FK**
     (ex. `device.name`→`rr`), la recherche porte sur le **label de l'objet lié**
-    (`rr.name`, le nom DNS = le libellé affiché) via `IN (SELECT id FROM rr WHERE rr.name LIKE ?)`
-    et non sur la valeur numérique de la FK.
- 2. [x] ✅ **Polish lecture seule** (2026-10-03) — tout porté :
+     (`rr.name`, le nom DNS = le libellé affiché) via `IN (SELECT id FROM rr WHERE rr.name LIKE ?)`
+     et non sur la valeur numérique de la FK.
+     **Recherche MAC** (`/management/physaddr/search?search=…`, `Physaddr.pm#search`) :
+     `PhysAddr->search_like(address=>…)` (MAC complet ou préfixe OUI) ; 1 résultat → redirect
+     vers le détail, plusieurs → table de résultats **MAC Address · First Seen · Last Seen**
+     (tableau `sortable`), aucun → not found.
+  2. [x] ✅ **Polish lecture seule** (2026-10-03) — tout porté :
     - **Tab Access Rights** (device) : vue `Rights` dans `Device.pm` (`AccessRight->search`
       object_class=Device → `user_rights`/`group_rights`), rendu via la table générique.
     - **Navigation NS/MX/TXT/NAPTR** (page host/RR) : types `rrns/rrmx/rrtxt/rrnaptr`
@@ -422,3 +426,6 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   carte, contenu intérieur aplati.
 - **Login** : champs alignés (empilés, pleine largeur), bouton `.btn`, bouton header
   « log in » masqué ; soumission OK (redirect home), échec → `<p class="error">`.
+- **Recherche MAC** (`/management/physaddr/search?search=D0C24E`) : colonnes **First Seen**
+  + **Last Seen** ajoutées (format `AAAA-MM-JJ HH:MM:SS`, cohérentes avec le détail) en plus
+  de l'adresse MAC liée ; 200, tableau `sortable`.
