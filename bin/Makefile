@@ -9,7 +9,7 @@ PREFIX  =  `cat ../.prefix`
 FMOD    = 755
 OUI_URL = http://standards-oui.ieee.org/oui/oui.txt
 
-FILES := $(shell ls *.pl) 
+FILES := $(shell ls *.pl) mojo
 
 ################################################################
 # End of tweakable section

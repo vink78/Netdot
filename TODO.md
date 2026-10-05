@@ -230,8 +230,10 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
    dans l'app, plus de mod_perl). `etc/netdot.service` (**systemd**) lance
    `bin/mojo daemon -l http://127.0.0.1:3000` ; marqueurs `<<Make:PREFIX>>`/`<<Make:PERL>>`
    substitués par le Makefile à l'install. **Makefiles** : `htdocs/Makefile` déploie maintenant
-    les templates `.ep` + le dir `layouts/` (pattern `FILES` `\.ep` + `NDIR`), `etc/Makefile`
-    FILES = `netdot_apache.conf` + `netdot.service`.
+     les templates `.ep` (pattern `FILES` `\.ep`) + **tout sous-dir de templates** dans `NDIR`
+     (`layouts`, `advanced`, `search`, … — le `NDIR` crée les dirs, `install` échoue silencieusement
+     pour un `.ep` dont le dir parent n'est pas listé), `etc/Makefile`
+     FILES = `netdot_apache.conf` + `netdot.service`.
     **Autres** : `lib/Makefile` NDIR += `Netdot/Mojo` + `Netdot/Mojo/Controller` (les 25 modules
     de la nouvelle couche s'installent) ; `etc/utility-Makefile` REPLACEABLES += `APACHEUSER`/
     `APACHEGROUP` (le `.service` utilise `User=<<Make:APACHEUSER>>`/`Group=<<Make:APACHEGROUP>>`,

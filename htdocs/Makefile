@@ -3,7 +3,7 @@ include $(SRCROOT)/etc/utility-Makefile
 #
 # makefile for htdocs
 
-NDIR =  cable_plant css generic help img img/graphs java_script layouts management contacts operations reports export user_management user_help rest
+NDIR =  cable_plant css generic help img img/graphs java_script layouts management advanced search contacts operations reports export user_management user_help rest
 
 FILES := `find . -name "*" | egrep ".*(rest\/.*|handler|\.?html|\.ep|\.css|\.png|\.gif|\.js|\.ico)$$" | sed -e 's/\.\///'`
 
