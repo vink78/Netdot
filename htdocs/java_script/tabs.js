@@ -24,11 +24,15 @@
     } catch (e) { /* ignore (e.g. file://) */ }
   }
 
+  // Only intercept tabs that carry a data-rel (client-side .tab-pane groups,
+  // e.g. the generic detail ?rel= views). Server-rendered tab bars that use
+  // plain links (Device / Ipblock ?view= tabs) have NO data-rel and must be
+  // left to navigate normally -- so the selector is scoped to [data-rel].
   document.addEventListener('click', function (e) {
-    var t = e.target && e.target.closest ? e.target.closest('.tabbar .tab') : null;
+    var t = e.target && e.target.closest
+          ? e.target.closest('.tabbar .tab[data-rel]') : null;
     if (!t) { return; }
     e.preventDefault();
-    var rel = t.getAttribute('data-rel');
-    if (rel) { activate(rel); }
+    activate(t.getAttribute('data-rel'));
   });
 })();
