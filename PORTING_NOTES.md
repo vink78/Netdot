@@ -79,7 +79,15 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
      Top-level `Makefile`: `DIR` no longer creates `tmp/sessions`/`locks` and `dir:` dropped the
      SELinux `chcon`; `export/Makefile` dropped its `chcon` too (the `httpd_sys_rw_content_t`
      context is obsolete for the systemd daemon — on RHEL+SELinux the daemon's context is handled
-     by a dedicated policy, not `chcon` httpd).
+      by a dedicated policy, not `chcon` httpd).
+   **Access log**: an `after_dispatch` hook in `Netdot::Mojo` logs one line per request
+   (`ACCESS <ip> <user> <method> <controller>#<action> <path> <status>`, static assets skipped);
+   `Auth#login_submit` logs `LOGIN <ip> user=<u> success|FAILED`. Both go through the app logger
+   (-> journald under systemd). Log level defaults to `info` (`$self->log->level($ENV{MOJO_LOG_LEVEL}
+   // 'info')`; the `.service` sets `MOJO_LOG_LEVEL=info`) so ACCESS/LOGIN are kept and the verbose
+   trace/debug per-request noise is dropped. Read with `journalctl -u netdot | grep ACCESS`. This
+   complements the write-only audit in the `audit` table (page Changelog), which captures neither IP
+   nor reads.
 
 ## Pitfalls (critical)
 

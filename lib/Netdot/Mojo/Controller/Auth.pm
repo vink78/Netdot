@@ -36,6 +36,10 @@ sub login_submit ($c) {
         };
     }
 
+    # Log every login attempt (IP + user + outcome) for the audit trail.
+    my $ip = $c->tx->remote_address // '-';
+    $c->app->log->info( "LOGIN $ip user=$user " . ( $ok ? 'success' : 'FAILED' ) );
+
     if ($ok) {
         $c->session( username => $user, login_time => time );
         $c->redirect_to( $c->url_for('home') );

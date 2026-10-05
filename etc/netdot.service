@@ -10,6 +10,9 @@ After=network.target
 User=<<Make:APACHEUSER>>
 Group=<<Make:APACHEGROUP>>
 WorkingDirectory=<<Make:PREFIX>>
+# info-level logging: keeps the ACCESS/LOGIN lines, drops the verbose
+# trace/debug per-request noise. Set to debug|trace to troubleshoot.
+Environment=MOJO_LOG_LEVEL=info
 # Listen on loopback only; Apache/nginx reverse-proxies /netdot to it (see
 # etc/netdot_apache.conf). Change the port if 3000 is taken.
 ExecStart=<<Make:PERL>> <<Make:PREFIX>>/bin/mojo daemon -l http://127.0.0.1:3000

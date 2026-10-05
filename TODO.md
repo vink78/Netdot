@@ -244,8 +244,17 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
     sessions = cookies signés Mojolicious) ; `htdocs/Makefile` `dir:` + `NDIR` : plus de
     `masondata`/`obj`/`chcon` ; Makefile principal : `DIR` sans `tmp/sessions`/`locks`, cible
     `dir:` sans `chcon` SELinux ; `export/Makefile` : plus de `chcon` (contexte
-    `httpd_sys_rw_content_t` obsolète pour le daemon systemd — sur RHEL+SELinux, le contexte du
-    daemon se gère par une politique dédiée).
+     `httpd_sys_rw_content_t` obsolète pour le daemon systemd — sur RHEL+SELinux, le contexte du
+     daemon se gère par une politique dédiée).
+ - [x] ✅ **Access-log (journald)** : hook `after_dispatch` (`Netdot::Mojo`) loggue 1 ligne/requête
+   `ACCESS <ip> <user> <méthode> <controller>#<action> <path> <statut>` (hors assets statiques) ;
+   `Auth#login_submit` loggue `LOGIN <ip> user=<u> success|FAILED` (tentatives de login, IP incluse).
+   Via le logger app → **journald** (systemd). Niveau `info` par défaut (`$self->log->level(
+   $ENV{MOJO_LOG_LEVEL} // 'info')`, le `.service` fixe `MOJO_LOG_LEVEL=info`) — garde ACCESS/LOGIN,
+   supprime le bruit trace/debug. Lecture : `journalctl -u netdot` / `journalctl -u netdot | grep
+   ACCESS`. **Complète** l'audit des écritures (table `audit`, page Changelog) qui ne capture ni IP
+   ni lectures.
+
 
 ## 10. UI moderne (design 2026) — ✅ porté
 

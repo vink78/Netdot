@@ -34,6 +34,10 @@ sub startup ($self) {
     $self->helper( web_prefix => sub { $base } );
     $self->helper( set_uri    => sub ($c, $uri) { Netdot::Mojo::Registry::set_uri( $uri ) } );
 
+    # ---- Logging: info by default (captures the ACCESS/LOGIN lines below);
+    # override with MOJO_LOG_LEVEL=debug|trace to troubleshoot. ----
+    $self->log->level( $ENV{MOJO_LOG_LEVEL} // 'info' );
+
     # ---- Sessions / cookies ----
     $self->secrets([ $ENV{NETDOT_MOCK} // 'netdot-mojo-dev-change-me' ]);
 
@@ -229,6 +233,24 @@ sub startup ($self) {
         # redirect.
         return if $path =~ m{^\Q$base\E/api(?:/|$)};
         $c->redirect_to( $c->url_for('login') ) unless $c->session('username');
+    });
+
+    # ---- Access log: who (IP + user) accessed which function ----
+    # One line per request (static assets + favicon skipped), via the app logger
+    # (-> journald under systemd). Read:  journalctl -u netdot | grep ACCESS
+    #   ACCESS <ip> <user> <method> <controller>#<action> <path> <status>
+    $self->hook( after_dispatch => sub ($c) {
+        my $path = $c->req->url->path;
+        return if $path =~ m{^\Q$base\E(?:/(?:css|img|java_script))(?:/|$)};
+        return if $path eq "$base/favicon.ico";
+        my $ip   = $c->tx->remote_address  // '-';
+        my $user = $c->session('username') // '-';
+        my $fn   = defined $c->stash('controller')
+                 ? $c->stash('controller') . '#' . $c->stash('action')
+                 : $path;
+        my $method = $c->req->method;
+        my $code   = $c->res->code // '-';
+        $c->app->log->info( "ACCESS $ip $user $method $fn $path $code" );
     });
 
     # Build the 5-section navigation (Registry::menu), filtering each sub-menu by
