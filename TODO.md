@@ -252,9 +252,15 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
    Via le logger app → **journald** (systemd). Niveau `info` par défaut (`$self->log->level(
    $ENV{MOJO_LOG_LEVEL} // 'info')`, le `.service` fixe `MOJO_LOG_LEVEL=info`) — garde ACCESS/LOGIN,
    supprime le bruit trace/debug. Lecture : `journalctl -u netdot` / `journalctl -u netdot | grep
-   ACCESS`. **Complète** l'audit des écritures (table `audit`, page Changelog) qui ne capture ni IP
-   ni lectures.
-
+    ACCESS`. **Complète** l'audit des écritures (table `audit`, page Changelog) qui ne capture ni IP
+    ni lectures.
+ - [x] ✅ **Images des graphes legacy (`Netdot::UI`) sous préfixe** : les builders de graphes
+    legacy (arbre ipblock `build_ip_tree_graph_html`, graphes RRD `rrd_graph`) construisent le
+    `<img src>` et les liens image-map `usemap` comme `$web_path . 'img/graphs/…'` /
+    `$web_path . 'management/…'` (sans slash menant) → on leur passe désormais **`web_root`**
+    (`$c->web_root`) = base **avec slash final** (`/netdot/` ou `/`) au lieu de `web_path => '/'`
+    en dur, qui privait l'image ET ses liens du préfixe `/netdot` (en dev comme en prod).
+    Fix : `Controller/Ipblock.pm` (arbre) + `Controller/Reports.pm` (rrd, latent).
 
 ## 10. UI moderne (design 2026) — ✅ porté
 

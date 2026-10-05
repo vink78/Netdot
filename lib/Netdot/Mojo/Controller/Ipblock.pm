@@ -125,7 +125,7 @@ sub show ($c) {
                 $viewtype  = 'block';
                 my $ref    = eval { $o->get_descendants( no_addresses => 1 ) };
                 my $ui     = eval { Netdot::UI->new() };
-                $tree_html = ( $ui && $ref ) ? eval { $ui->build_ip_tree_graph_html( id => $o->id, list => $ref, web_path => '/' ) } : undef;
+                $tree_html = ( $ui && $ref ) ? eval { $ui->build_ip_tree_graph_html( id => $o->id, list => $ref, web_path => $c->web_root ) } : undef;
             } else {  # block view
                 $viewtype = 'block';
                 if ( $status eq 'Subnet' ) {

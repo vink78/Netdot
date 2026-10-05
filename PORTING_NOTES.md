@@ -53,9 +53,14 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
    prefix up automatically (routes are under it) — but **hand-built links in controller
    Perl** (e.g. `sprintf '<a href="/management/…">'`, `href => "/…"` in row hashes,
    `redirect_to`, `sort_base`) do NOT, so they go through **`set_uri`** (`Registry::set_uri`,
-   alias `$c->set_uri`) which prepends the base (reads `WEB_BASE_URL`, no-op at root,
-   single source with `web_prefix`). `link_for` (Registry) uses it internally; templates
-   build a `$base` var via `$c->set_uri`. ⚠️ `url_for('/abs/path', k=>v)` **drops the query**
+    alias `$c->set_uri`) which prepends the base (reads `WEB_BASE_URL`, no-op at root,
+    single source with `web_prefix`). `link_for` (Registry) uses it internally; templates
+    build a `$base` var via `$c->set_uri`. The legacy **`Netdot::UI`** graph builders
+    (ipblock tree, RRD graphs) build asset/link URLs as `$web_path . 'img/graphs/…'` /
+    `$web_path . 'management/…'` (no leading slash), so they take **`web_root`**
+    (`$c->web_root`) — the base **with a trailing slash** (`/netdot/` or `/`) — as
+    `web_path`; a hardcoded `web_path => '/'` drops the prefix on both the `<img src>`
+    and the image-map (`usemap`) links. ⚠️ `url_for('/abs/path', k=>v)` **drops the query**
    (absolute path ⇒ static URL) — build the query string by hand for such links. The reverse
    proxy must **preserve** the prefix:
   `ProxyPass /netdot → http://127.0.0.1:3000/netdot` (nginx: `location /netdot/

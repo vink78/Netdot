@@ -1026,7 +1026,7 @@ sub poll ($c) {
         for my $p (@periods) {
             my ( $start, $tag, $label ) = @$p;
             my $img = sprintf( $img{$type}, $tag );
-            my $ok  = eval { $ui->rrd_graph( type => $type, period => $start, web_path => '', img => $img,
+            my $ok  = eval { $ui->rrd_graph( type => $type, period => $start, web_path => $c->web_root, img => $img,
                                               title => $titles{$type} ); 1 };
             push @cards, { label => $label, img => $img, ok => $ok };
         }

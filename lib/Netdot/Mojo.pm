@@ -32,6 +32,11 @@ sub startup ($self) {
     # links (url_for() already carries the prefix because routes are mounted under
     # $base). set_uri() prefixes any internal root-absolute path (see Registry).
     $self->helper( web_prefix => sub { $base } );
+    # web_root: the prefix WITH a trailing slash ('/netdot/' or '/'). Needed by the
+    # legacy Netdot::UI graph builders (ipblock tree, rrd graphs), which build asset
+    # and link URLs as $web_path . 'img/graphs/…' / $web_path . 'management/…' (no
+    # leading slash), so the base must carry a trailing slash.
+    $self->helper( web_root => sub { $base eq '' ? '/' : $base . '/' } );
     $self->helper( set_uri    => sub ($c, $uri) { Netdot::Mojo::Registry::set_uri( $uri ) } );
 
     # ---- Logging: info by default (captures the ACCESS/LOGIN lines below);
