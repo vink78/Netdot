@@ -25,11 +25,12 @@
 %   [ 'Audit',      'Audit' ],
 %   [ 'Rights',     'Access Rights' ],
 % );
-<div style="margin:0.5em 0 1em 0; padding-bottom:0.4em; border-bottom:2px solid #ddeedd; font-size:0.95em">
+<div class="tabbar">
 % for my $i (0 .. $#tabs) {
     % my $t = $tabs[$i];
-    <a href="<%= $base %>?view=<%= $t->[0] %>" style="<%= $view eq $t->[0] ? 'font-weight:bold; color:#000' : '' %>"><%= $t->[1] %></a>
-    <span style="color:#ccc"><%= $i < $#tabs ? ' | ' : '' %></span>
+    <a class="tab<%= $view eq $t->[0] ? ' active' : '' %>"
+       hx-boost="false"
+       href="<%= $base %>?view=<%= $t->[0] %>"><%= $t->[1] %></a>
 % }
 </div>
 
@@ -38,16 +39,17 @@
 % for my $s (@$sections) {
 % my $rows = $s->{rows};
 % next unless @$rows;
-<div style="margin:0 0 1em 0">
-  <h3><%= $s->{title} %></h3>
-  <table class="devgrid">
-    <tbody>
+<div class="container">
+  <div class="containerhead"><%= $s->{title} %></div>
+  <div class="containerbody">
+    <div class="attrgrid">
       % for my $row (@$rows) {
-      <tr>
-        % for my $cell (@$row) {
-          % my ( $tag, $text, $href ) = @$cell;
-          <th><%= $tag %></th>
-          <td>
+      % for my $cell (@$row) {
+        % my ( $tag, $text, $href ) = @$cell;
+        % my $wide = ( !defined $tag || $tag eq '' ) ? ' attr-wide' : '';
+        <div class="<%= 'attr' . $wide %>">
+          <span class="attr-k"><%= $tag // '' %></span>
+          <span class="attr-v">
             % if ( ref $text eq 'ARRAY' ) {
             % for my $li (0 .. $#$text) {
             % my $l = $text->[$li];
@@ -62,21 +64,17 @@
             % }
             % } else {
             % if ( defined $href ) {
-            <a href="<%= $href %>"><%= $text %></a>
+            <a href="<%= $href %>"><%= $text // '' %></a>
             % } else {
-            <%= $text %>
+            <%= $text // '' %>
             % }
             % }
-          </td>
-        % }
-        % my $missing = $s->{cols} - scalar(@$row);
-        % for (1 .. $missing) {
-        <th></th><td></td>
-        % }
-      </tr>
+          </span>
+        </div>
       % }
-    </tbody>
-  </table>
+      % }
+    </div>
+  </div>
 </div>
 % }
 % }

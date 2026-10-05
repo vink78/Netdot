@@ -1171,6 +1171,21 @@ table.datatable.detail tbody tr:last-child td  { border-bottom-right-radius: 11p
     word-break: break-word;
     color: #1a1a1a;
 }
+/* A pair with no label (e.g. a free-text Comments block) spans the full row. */
+.attr-wide {
+    grid-column: 1 / -1;
+}
+/* An attrgrid nested inside a card (.containerbody) drops its own card
+   chrome so the surrounding .container provides the border/shadow/rounding
+   (no card-in-card). */
+.containerbody .attrgrid {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    margin-bottom: 0;
+    padding: 0;
+}
 @media (max-width: 768px) {
     .attrgrid { grid-template-columns: 1fr; }
     .attr-k   { flex-basis: 130px; }
