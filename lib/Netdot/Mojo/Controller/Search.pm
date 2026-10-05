@@ -58,7 +58,9 @@ sub index {
         layout     => 'default',
         title      => 'Search',
         search     => $q,
-        headers    => [ 'Name', 'Zone' ],
+        # The template renders a leading "Name" header for the label column, so
+        # $headers holds only the ADDITIONAL (non-label) columns.
+        headers    => [ 'Zone' ],
         rows       => \@rows,
         search_url => Netdot::Mojo::Registry::set_uri( '/search' ),
     );

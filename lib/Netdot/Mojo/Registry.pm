@@ -268,7 +268,15 @@ sub link_for {
     $id = '?' if $@ || !defined $id;
     my $text  = eval { $v->get_label };
     $text = class_key( $class ) . " #$id" unless defined $text && length $text;
-    my $href  = ( exists $TYPES{$type} && $id =~ /^\d+$/ ) ? set_uri( "/management/$type/$id" ) : undef;
+    # Picture objects (SitePicture / ClosetPicture / FloorPicture) have no detail
+    # page; their label links to the binary route that serves the image inline.
+    my $href;
+    if ( eval { $v->isa( 'Netdot::Model::Picture' ) } && $id =~ /^\d+$/ ) {
+        $href = set_uri( "/management/$type/$id" );
+    }
+    elsif ( exists $TYPES{$type} && $id =~ /^\d+$/ ) {
+        $href = set_uri( "/management/$type/$id" );
+    }
     return [ $text, $href ];
 }
 

@@ -153,8 +153,12 @@ sub startup ($self) {
     }
     # Interface sub-views: FDB / ARP entries at a given timestamp (ports of
     # i_fdb.html / i_arp.html).
-    # Closet picture binary (read-only): serves the ClosetPicture bindata BLOB.
+    # Picture binaries (read-only): serve the bindata BLOB inline so a picture's
+    # label links straight to the image. closet#picture handles ClosetPicture;
+    # show#picture handles the SitePicture / FloorPicture equivalents.
     $r->get('/management/closetpicture/:id')->to('closet#picture')->name('closet_picture');
+    $r->get('/management/sitepicture/:id')->to('show#picture', type => 'sitepicture')->name('site_picture');
+    $r->get('/management/floorpicture/:id')->to('show#picture', type => 'floorpicture')->name('floor_picture');
     $r->get('/management/interface/:id/fdb')->to('interface#fdb')->name('interface_fdb');
     $r->get('/management/interface/:id/arp')->to('interface#arp')->name('interface_arp');
     # Reports (Admin + Operator; see Reports controller guard).

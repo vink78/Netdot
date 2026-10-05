@@ -92,4 +92,28 @@ sub show ($c) {
     );
 }
 
+# Picture binary (read-only): serve a SitePicture / FloorPicture bindata BLOB
+# inline with its content type, so a picture's label links straight to the image.
+# Mirrors Closet#picture (the ClosetPicture equivalent, which has its own route).
+sub picture ($c) {
+    my %class  = ( sitepicture => 'Netdot::Model::SitePicture',
+                   floorpicture => 'Netdot::Model::FloorPicture' );
+    my %parent = ( sitepicture => 'site', floorpicture => 'floor' );
+    my $ptype  = $c->stash('type');
+    my $class  = $class{$ptype} or return $c->reply->not_found;
+    my $id     = $c->param('id');
+    $id =~ /^\d+$/ or return $c->reply->not_found;
+    my $pic = eval { $class->retrieve($id) };
+    return $c->reply->not_found unless $pic;
+    my $parent = eval { $pic->( $parent{$ptype} // '' ) };
+    return if $parent && $c->deny_unless( 'view', $parent );
+    my $data  = eval { $pic->bindata }  // '';
+    my $ctype = eval { $pic->filetype } // '';
+    $ctype = 'application/octet-stream' unless $ctype =~ /^\w+(?:\/\w+)*$/;
+    my $fn    = eval { $pic->filename } // '';
+    $c->res->headers->content_type( $ctype );
+    $c->res->headers->content_disposition( qq{inline; filename="$fn"} ) if $fn;
+    return $c->render( data => $data );
+}
+
 1;
