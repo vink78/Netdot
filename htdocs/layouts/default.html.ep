@@ -39,7 +39,7 @@
       % if (my $u = $c->session('username')) {
       <span class="hdr-user"><%= $u %></span>
       <a class="hdr-btn" href="<%= url_for('logout') %>">log out</a>
-      % } else {
+      % } elsif ( ! $c->stash('is_login') ) {
       <a class="hdr-btn" href="<%= url_for('login') %>">log in</a>
       % }
     </span>

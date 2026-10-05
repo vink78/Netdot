@@ -36,6 +36,8 @@
 % my $dbase     = $c->set_uri( "/management/$type/$id" );
 % my $active    = $c->param('rel');
 % my $multi     = scalar(@$relations) > 1;
+% if (@$relations) {
+<div class="tabcard">
 % if ($multi) {
 %   # Default to the first relation unless ?rel= names a valid one.
 %   $active = $relations->[0]->{csv_rel}
@@ -48,7 +50,7 @@
    % }
 </div>
 % }
-% if (@$relations) {
+<div class="tabcard-body">
 % for my $r (@$relations) {
   % my $rel   = $r->{csv_rel};
   % my $rlink = sub { my $off = shift; return $dbase . '?rel=' . $rel . ( ( defined $off && $off > 0 ) ? '&offset=' . $off : '' ); };
@@ -93,4 +95,6 @@
     </p>
   </div>
 % }
+</div>
+</div>
 % }

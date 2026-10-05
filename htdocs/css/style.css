@@ -688,9 +688,43 @@ hr
 
 /* Boite de login: largeur fixe, centree horizontalement, descendue sous l'en-tete */
 .loginbox {
-    max-width: 320px;
+    max-width: 340px;
     margin: 4em auto 0;
     padding: 0 5px;
+}
+.loginbox .containerbody { padding: 16px; }
+.loginbox .loginhint {
+    margin: 0 0 14px;
+    font-size: 0.88em;
+    color: #557755;
+}
+.loginbox form .field {
+    display: block;
+    margin: 0 0 12px;
+}
+.loginbox form .field > span {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+    color: #003300;
+    font-size: 0.9em;
+}
+.loginbox form input[type=text],
+.loginbox form input[type=password] {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid #aaccaa;
+    border-radius: 8px;
+    font-size: 0.95em;
+    font-family: inherit;
+}
+.loginbox form .btn {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 9px;
 }
 
 /* Tables de donnees (generic/data_table): defilement horizontal propre */
@@ -1116,6 +1150,30 @@ table.datatable.detail.c4 tbody th { width: 150px; }
     border-bottom: none;
     padding-bottom: 0;
 }
+
+/* Tabbed card: the tab bar sits on top of a single card that encloses the
+   active view's content. Inner tables and section-cards are flattened so the
+   .tabcard provides the single frame (no card-in-card). */
+.tabcard {
+    background: #ffffff;
+    border: 1px solid #aaccaa;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,40,0,.04), 0 6px 18px rgba(0,40,0,.05);
+    margin: 0 0 16px;
+    overflow: hidden;
+}
+.tabcard > .tabbar {
+    margin: 0;
+    padding: 10px 12px 0;
+    border-bottom: 1px solid #aaccaa;
+    background: #ffffff;
+}
+.tabcard > .tabbar .tab { margin-bottom: -1px; }
+.tabcard .tabcard-body { padding: 14px; }
+/* Flatten inner content so the tabcard is the single frame. */
+.tabcard .datatable,
+.tabcard table.datatable.detail { border: none; border-radius: 0; box-shadow: none; }
+.tabcard .container { border: none; box-shadow: none; border-radius: 0; }
 
 /* Detail-page tab panes: only the active one is shown (toggled by tabs.js). */
 .tab-pane[hidden] {

@@ -1,22 +1,21 @@
 <div class="loginbox">
   <div class="container">
-    <div class="containerhead">Please enter your login and password to authenticate.</div>
-    <div class="containerbody" style="padding:1em">
+    <div class="containerhead">Log in to Netdot</div>
+    <div class="containerbody">
 % if ( defined( my $err = $c->stash('error') ) ) {
       <p class="error"><%= $err %></p>
 % }
+      <p class="loginhint">Enter your login and password to authenticate.</p>
       <form method="post" action="<%= $c->web_prefix %>/login">
-        <p>
-          <label>Username
-            <input type="text" name="username" value="<%= $username // '' %>" autofocus>
-          </label>
-        </p>
-        <p>
-          <label>Password
-            <input type="password" name="password">
-          </label>
-        </p>
-        <p><button type="submit">Log in</button></p>
+        <label class="field">
+          <span>Username</span>
+          <input type="text" name="username" value="<%= $username // '' %>" autofocus autocomplete="username">
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" name="password" autocomplete="current-password">
+        </label>
+        <button type="submit" class="btn">Log in</button>
       </form>
     </div>
   </div>

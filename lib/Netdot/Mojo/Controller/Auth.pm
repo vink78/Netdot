@@ -11,6 +11,7 @@ sub login_form ($c) {
         layout   => 'default',
         title    => 'Login',
         hide_nav => 1,
+        is_login => 1,
         username => ''
     );
 }
@@ -45,6 +46,7 @@ sub login_submit ($c) {
             layout   => 'default',
             title    => 'Login',
             hide_nav => 1,
+            is_login => 1,
             username => $user,
             error    => 'Authentication failed',
         );

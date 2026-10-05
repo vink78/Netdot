@@ -25,6 +25,7 @@
 %   [ 'Audit',      'Audit' ],
 %   [ 'Rights',     'Access Rights' ],
 % );
+<div class="tabcard">
 <div class="tabbar">
 % for my $i (0 .. $#tabs) {
     % my $t = $tabs[$i];
@@ -33,7 +34,7 @@
        href="<%= $base %>?view=<%= $t->[0] %>"><%= $t->[1] %></a>
 % }
 </div>
-
+<div class="tabcard-body">
 % if ($view eq 'Basics') {
 % my $sections = $c->stash->{sections} // [];
 % for my $s (@$sections) {
@@ -253,3 +254,5 @@
 </table>
 % }
 % }
+</div>
+</div>

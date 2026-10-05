@@ -391,13 +391,21 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
 - `api/gen_openapi.pl` — regenerator → `api/openapi.yaml` (re-run after model/spec changes).
 - `htdocs/management/{ipblock,rr,ipaddress,detail,search_results}.html.ep` — templates.
 - **UI / design (2026)**: `htdocs/css/style.css` (the "MODERN DESIGN LAYER" at the bottom:
-  sticky navbar, `datatable` look + rounded corners, `.attrgrid`, `.container` cards, `.tabbar`
-  / `.tab-pane`, buttons, content links); `htdocs/java_script/tabs.js` (client-side tab
-  switching, `?rel=` state); `htdocs/java_script/tablesort.js` (JS sort, `table.sortable`
-  opt-in); `htdocs/management/detail.html.ep` (generic detail rendered as `.tabbar` +
-  `.tab-pane` + `.attrgrid` + SQL-ordered relation tables); `htdocs/layouts/default.html.ep`
-  (loads tabs.js, htmx). Convention: `class="datatable"` = modern look (every table),
-  `class="sortable"` = JS-sort opt-in (list pages only).
+  sticky navbar, `datatable` look + rounded corners, **`table.datatable.detail` field tables**
+  (multi-column via `c1`/`c2`/`c4` = 1/2/4 label|value pairs per row; `.attrgrid` is gone),
+  **`.container` cards** (`.containerhead` title + `.containerbody`/`.containerbody.flat`
+  for a flush field table), **`.tabcard`** (a single card framing the `.tabbar` + the active
+  view's `.tabcard-body`; inner tables/section-cards are flattened so there's no card-in-card),
+  `.tabbar`/`.tab-pane`, modern buttons, content links); `htdocs/login.html.ep` + `.loginbox`
+  (stacked full-width fields, `.btn`, header "log in" button hidden on the login page via the
+  `is_login` stash flag); `htdocs/java_script/tabs.js` (client-side tab switching, scoped to
+  `.tabbar .tab[data-rel]` so `?view=` server-rendered tabs navigate normally, `?rel=` state);
+  `htdocs/java_script/tablesort.js` (JS sort, `table.sortable` opt-in);
+  `htdocs/management/{detail,device,ipblock,rr,ipaddress,zone,contactlist,closet}.html.ep`
+  (details rendered as `datatable.detail cN` field cards + `.tabcard` tab sections +
+  SQL-ordered relation tables); `htdocs/layouts/default.html.ep` (loads tabs.js, htmx).
+  Convention: `class="datatable"` = modern look (every table), `class="sortable"` = JS-sort
+  opt-in (list pages only), `class="datatable detail cN"` = a field table.
 - `htdocs/export.html.ep` — Export form (types, zones, scopes, force, HINFO/TXT).
 - `htdocs/advanced/changelog.html.ep` — Changelog (audit log) table.
 - `htdocs/search/results.html.ep` — Global search results (RR name + zone).
@@ -495,14 +503,21 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
      Ipblock **ASN link** + **v4/v6/all selector** + **utilization toggle**; **Closet picture
      display** (binary `bindata` serving); **generic per-type search** (all list types,
      `Browse#search`).
-   - Done: **UI modernization (2026 design, 2026-10-04..05)**: client-side tabs
-     (`java_script/tabs.js`, instant pane switching + `?rel=` URL state, htmx-safe event
-     delegation), `.attrgrid` (CSS 2-column label/value grid replacing the old attribute
-     `<table>`), `datatable` (modern table look, all tables) / `sortable` (JS-sort opt-in,
-     list pages only), sticky navbar, `.container` cards, buttons, content links (underline
-     on hover). **SQL relation ordering/pagination** (`Detail.pm`: Ipblock by integer
-     `address`, relationship label columns via JOIN — a device orders by `rr.name`).
-     **Site/Floor picture display** (`Show.pm#picture` + `link_for` Picture special-case).
+    - Done: **UI modernization (2026 design, 2026-10-04..06)**: client-side tabs
+      (`java_script/tabs.js`, instant pane switching + `?rel=` URL state, htmx-safe event
+      delegation; selector scoped to `.tabbar .tab[data-rel]` so `?view=` server tabs work),
+      **`table.datatable.detail` field tables** (multi-column `c1`/`c2`/`c4` = 1/2/4 label|value
+      pairs per row — replaces the old attribute `<table>` AND the now-removed `.attrgrid`),
+      **`.container` field cards** (`.containerhead` title + `.containerbody.flat` flush field
+      table), **`.tabcard`** (one card framing the tab bar + active content, inner content
+      flattened), `datatable` (modern table look, all tables) / `sortable` (JS-sort opt-in,
+      list pages only), sticky navbar, modern buttons, content links (underline on hover),
+      **login page** (stacked full-width fields, `.btn`, header "log in" hidden via `is_login`),
+      **CSS cleanup** (orphaned classes removed: `.attr*`, `.devgrid`, legacy `.container*`
+      duplicates, `*outside`, `containerseparator`; `.containerhead` = single selector).
+      **SQL relation ordering/pagination** (`Detail.pm`: Ipblock by integer
+      `address`, relationship label columns via JOIN — a device orders by `rr.name`).
+      **Site/Floor picture display** (`Show.pm#picture` + `link_for` Picture special-case).
    - Done: **Fixes (2026-10-05)**: device free-text search targets `rr.name`
      (relationship-aware `_list_add_like`, `%q%` contains); `/search` results table header
      dedup (was 3 headers / 2 columns → now 2 = 2); `/help/database` bool defaults rendered

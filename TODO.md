@@ -244,11 +244,34 @@ les mêmes composants.
   rechargement), état préservé dans l'URL (`?rel=<rel>`), sûr htmx (délégation sur
   `<document>`). Le détail générique (`management/detail.html.ep`) est organisé en
   `.tabbar` + `.tab-pane` (un pane par relation non vide ; page mono-relation sans tabbar).
-- [x] **Grille d'attributs `.attrgrid`** : remplace l'ancien `<table>` de champs
-  (20 ans) par une grille CSS 2 colonnes **label | valeur** (1 colonne sur mobile).
-  Utilisée par le détail générique et le détail Device.
+  Le sélecteur est **restreint à `.tabbar .tab[data-rel]`** : seul l'onglet de relation
+  (côté client) est intercepté ; les onglets serveur `?view=` (Device, Ipblock) naviguent
+  normalement.
+- [x] **Tableaux de champs `datatable.detail`** : remplace l'ancien `<table>` de champs
+  (20 ans) **et** l'ancienne grille `.attrgrid` (retirée du CSS) par un tableau
+  `table.datatable.detail` en **colonnes label | valeur**, multi-colonnes via les classes
+  **`c1`/`c2`/`c4`** (1/2/4 paires par ligne ; largeur du label `c1`=220px, `c2`=200px,
+  `c4`=150px). Les templates découpent la liste plate d'attributs en lignes de N.
+  Utilisé par **tous** les détails : générique, Device Basics, Ipaddress, Ipblock, RR,
+  Zone, ContactList, Closet.
 - [x] **Cartes `.container`** (bordure arrondie, ombre légère) pour les blocs de contenu.
+  Affichage des champs = carte `.container` > `.containerhead` (titre) +
+  `.containerbody.flat` (tableau `datatable.detail` biseauté bord-à-bord, sans chrome
+  interne) — le titre de la carte = le nom de l'objet ou le nom de la section.
+- [x] **Carte à onglets `.tabcard`** : une seule carte encadre la barre d'onglets
+  (`.tabbar`) **et** le contenu affiché (`.tabcard-body`) ; le contenu intérieur
+  (tables / cartes de section) est **aplati** (`.tabcard .datatable`, `.tabcard
+  .container` sans bordure) → pas de carte-dans-carte. Appliqué aux pages à onglets :
+  Device (`?view=`), détail générique (`?rel=`), Ipblock (sections Children/Sites/…).
+- [x] **Page de login** : champs empilés (label au-dessus, input pleine largeur →
+  alignés), bouton `.btn` pleine largeur, titre court + texte d'aide ; le bouton
+  « log in » du header est **masqué** sur la page de login (flag `is_login` posé par
+  `Auth.pm`, géré dans `layouts/default.html.ep`).
 - [x] **Boutons + liens** modernisés (liens : soulignement au survol seulement).
+- [x] **CSS nettoyé** : classes orphelines retirées (`.attr*`, `.devgrid`, doublons
+  legacy `.container`/`.containerhead`/`.containerbody`, `*outside`, `containerseparator`,
+  `div.left/right/clear`) ; `.containerhead` = **un seul sélecteur** (plus de split
+  left/right — le `containerheadright` était toujours vide).
 
 > Commits : `ee804e23 CSS`, `1fe21fbb CSS 2` (tabs.js + attrgrid + détail en tabs),
 > `df5ba174 CSS 3` (tablesort `datatable`/`sortable`), `9ea7e8c5 CSS 4` (rename des classes
@@ -375,9 +398,10 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 
 ### Vérifié le 2026-10-05 (UI moderne + corrections)
 
-- **UI moderne** : tabs client (bascule instantanée + `?rel=`), grille d'attributs `.attrgrid`
-  (2 colonnes), tableaux `datatable` (look) / `sortable` (tri JS), navbar sticky, cartes,
-  boutons — servis en 200, cohérents sur listes/détails/reports/search.
+- **UI moderne** : tabs client (bascule instantanée + `?rel=`), tableaux de champs
+  `datatable.detail` (colonnes `c1`/`c2`/`c4`), cartes `.container` (champs en carte +
+  `.containerhead`), carte à onglets `.tabcard`, tableaux `datatable` (look) / `sortable`
+  (tri JS), navbar sticky, boutons — servis en 200, cohérents sur listes/détails/reports/search.
 - **Tri des relations** (page détail) : subnets d'un site triés par **adresse IP entière**
   (IPv4 avant IPv6) ; devices triés par **`rr.name`** (nom DNS, via `JOIN rr`) et non par la
   FK numérique ni `sysname`. Pagination cohérente (pas de doublon entre pages).
@@ -389,3 +413,12 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   « Name » dupliqué, 3 en-têtes / 2 colonnes).
 - **Help Database Schema** (`/help/database`) : les valeurs par défaut **bool** s'affichent
   `true`/`false` (avant : `SCALAR(0x…)` — ref dé-référencée dans `Meta/SQLT.pm`).
+- **Champs en cartes** : Device Basics, Ipaddress, Ipblock, RR, Zone, ContactList,
+  Closet, détail générique → champs en `datatable.detail cN` (2 paires/ligne par défaut)
+  dans une carte `.container` + `.containerhead` ; plus de `white-space:pre-wrap` sur les
+  `td` (hauteur de cellule uniforme 38px).
+- **Carte à onglets `.tabcard`** : device (`Basics`/`Interfaces`/`IP`), détail générique
+  (`?rel=`, ex. site/1 = 5 onglets), ipblock (sections) → onglets + contenu dans une seule
+  carte, contenu intérieur aplati.
+- **Login** : champs alignés (empilés, pleine largeur), bouton `.btn`, bouton header
+  « log in » masqué ; soumission OK (redirect home), échec → `<p class="error">`.

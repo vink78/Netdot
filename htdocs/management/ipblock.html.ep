@@ -120,6 +120,7 @@
   </div>
 </div>
 % }
+<div class="tabcard">
 %# Section tab bar (block detail only).
 % if ($current && $tabs) {
   <div class="tabbar">
@@ -128,7 +129,7 @@
   % }
   </div>
 % }
-
+<div class="tabcard-body">
 % if ($show_children) {
 %# View-format toggle (list / block / tree) — on the Children/All view.
 % if ($current && @$modes > 1) {
@@ -348,4 +349,6 @@
         </div>
     </div>
 % }
+</div>
+</div>
 % }
