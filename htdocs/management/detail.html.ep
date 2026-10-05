@@ -3,20 +3,31 @@
 <p><a href="<%= url_for( $type . '_list' ) %>">&laquo; <%= ucfirst($type) %></a></p>
 
 % if (@$attrs) {
-  <div class="attrgrid">
-  % for my $a (@$attrs) {
-    <div class="attr">
-      <span class="attr-k"><%= $a->[0] %></span>
-      <span class="attr-v">
-        % if ( defined $a->[2] ) {
-        <a href="<%= $a->[2] %>"><%= $a->[1] %></a>
+%   # Fields table: Device-Basics "General" look (datatable.detail, 2 label/value
+%   # pairs per row), no section header. Chunk the flat attr list into rows of 2.
+%   my $N    = 2;
+%   my @list = @$attrs;
+  <table class="datatable detail c2">
+    <tbody>
+    % for (my $i = 0; $i < @list; $i += $N) {
+    %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
+    %   my @r   = @list[$i .. $end];
+    <tr>
+      % for my $a (@r) {
+      %   my ( $tag, $text, $href ) = @$a;
+      <th><%= $tag %></th>
+      <td>
+        % if ( defined $href ) {
+        <a href="<%= $href %>"><%= $text %></a>
         % } else {
-        <%= $a->[1] %>
+        <%= $text // '' %>
         % }
-      </span>
-    </div>
-  % }
-  </div>
+      </td>
+      % }
+    </tr>
+    % }
+    </tbody>
+  </table>
 % } else {
   <p>No attribute.</p>
 % }

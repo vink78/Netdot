@@ -10,17 +10,28 @@
 <p><a href="<%= url_for('zone_list') %>">&laquo; Zone</a></p>
 
 % if (@$attrs) {
-  <table class="datatable detail">
+%   # Fields: Device-Basics "General" look (datatable.detail, 2 pairs/row), no header.
+%   my $N    = 2;
+%   my @list = @$attrs;
+  <table class="datatable detail c2">
     <tbody>
-      % for my $a (@$attrs) {
-      <tr><th><%= $a->[0] %></th><td style="white-space:pre-wrap">
-        % if ( defined $a->[2] ) {
-        <a href="<%= $a->[2] %>"><%= $a->[1] %></a>
+    % for (my $i = 0; $i < @list; $i += $N) {
+    %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
+    %   my @r   = @list[$i .. $end];
+    <tr>
+      % for my $a (@r) {
+      %   my ( $tag, $text, $href ) = @$a;
+      <th><%= $tag %></th>
+      <td>
+        % if ( defined $href ) {
+        <a href="<%= $href %>"><%= $text %></a>
         % } else {
-        <%= $a->[1] %>
+        <%= $text // '' %>
         % }
-      </td></tr>
+      </td>
       % }
+    </tr>
+    % }
     </tbody>
   </table>
 % }
