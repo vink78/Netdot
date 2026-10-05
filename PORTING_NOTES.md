@@ -13,11 +13,20 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
 
 ## Validation workflow
 - Syntax: `perl -c -Ilib` on each modified perl file.
-- E2E test:
-  `bin/mojo daemon -l http://127.0.0.1:8899 -m development &` → kill by port.
-  Login: `curl -c ck.txt -d "username=<user>&password=<pass>" /login` (302).
+- E2E test daemon — **port 12346** (do NOT use **12345**, the user's own test port):
+  `setsid perl bin/mojo daemon -l http://127.0.0.1:12346 </dev/null >>log 2>&1 &`
+  (use `setsid`+`disown` so it survives the shell/session; a plain `&` gets killed when
+  the shell tool times out). Kill by PID via `ss -ltnp | grep :12346` (avoid
+  `pkill -f` — its pattern can match the command's own string). Login:
+  `curl -c ck.txt -d "username=<user>&password=<pass>" http://127.0.0.1:12346/netdot/login`
+  (note the **`/netdot`** prefix).
 - Bare-`-e`: `use Netdot::Model` loads config+DB; but the RR* classes
   (RRMX, RRNS, …) only load via the RR relations.
+- **DBIx::ContextualFetch quirk**: `db_Main()` returns a DBIx::ContextualFetch handle.
+  `->prepare` / `->execute` / `->fetchrow_array` are **broken here** (silently return 0/
+  undef). Use `->selectrow_array($sql, undef, @bind)` and `->selectall_arrayref($sql,
+  undef, @bind)` instead. `selectall_arrayref` rows may come back double-nested
+  (`$row->[0]` itself an arrayref) for some queries — dereference defensively.
 - At each step: verify the target page (200, content present) **and** a
   regression (the type's list + one generic type).
 
@@ -152,9 +161,15 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
  - Set headers via `$c->res->headers->content_type(…)` / `->content_disposition(…)`
    (NOT `$c->res->header(…)` — `Mojo::Message::Response->header` is not available here;
    `->headers->header(…)` / `->content_type(…)` work).
- - The **Closet picture** feature uses this: `Closet.pm#picture` serves
-   `ClosetPicture->bindata` (a `longblob`) with its stored `filetype`. Route
-   `/management/closetpicture/:id`.
+  - The **Closet picture** feature uses this: `Closet.pm#picture` serves
+    `ClosetPicture->bindata` (a `longblob`) with its stored `filetype`. Route
+    `/management/closetpicture/:id`.
+  - **Site / Floor pictures** (2026-10-05): `Show.pm#picture` (one action, `type` in
+    the route) serves `SitePicture`/`FloorPicture->bindata` the same way. Routes
+    `/management/sitepicture/:id` and `/management/floorpicture/:id`. `Registry::link_for`
+    **special-cases Picture subclasses** (`SitePicture`/`ClosetPicture`/`FloorPicture`,
+    which have no detail page): their label links to the binary route (image inline)
+    instead of a detail page.
  - **CDBI `has_many` relationship methods can return 0 rows** even when the FK rows
    exist (`Closet->pictures` returned `()` while `closetpicture` had rows). Workaround:
    query the related table directly — `ClosetPicture->search(closet => $id)` — and slurp
@@ -194,12 +209,21 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
    `LIKE %q%`** on `cols[0]` instead (see Pitfalls / search). The per-column
    `Browse#list` filters (`%FILTERS`: device site/product/os, physaddr address)
    still use `search_like` because those are exact column filters.
- - **`Device->name` is DEFLATED to an RR object** (the device's host record):
-   `ref($d->name)` = `Netdot::Model::RR`, it stringifies to the raw `device.name`
-   (often numeric, e.g. `272885`) but `->get_label`/`format_value` show the
-   **FQDN** (`netdot.localdomain`). So the list's first column displays the
-   FQDN while `?search` matches the raw `device.name` column. Expect the same
-   stored-vs-displayed split on other deflated columns.
+  - **`Device->name` is a FK to RR** (the device's host record): `ref($d->name)` =
+    `Netdot::Model::RR`; the raw `device.name` column is the **RR id** (numeric, e.g.
+    `272885`). The device's **displayed name** (the FQDN shown as its label / 1st list
+    column) is the related **`rr.name`** (the DNS name). Note `->sysname` is a DIFFERENT
+    value (the SNMP-reported name, may differ from the DNS `rr.name`). So both the list
+    **ordering** and the free-text **`?search`** must target the related `rr.name`, NOT the
+    numeric FK and NOT `sysname`. Both do: ordering via `Model::_order_clause` (LEFT JOIN
+    rr) and search via `Model::_list_add_like` (relationship-aware, below). Expect the same
+    stored-vs-displayed split on other FK label columns.
+  - **Relationship-aware free-text search** (`Model::_list_add_like`, 2026-10-05): the
+    generic list `?search` (and API `?col=` free-text path) applies `LIKE %q%` to the
+    primary column, but **if that column is a relationship (FK)** it instead matches the
+    **related object's first label** via `col IN (SELECT id FROM <reltab> WHERE <reltab>.<labelcol>
+    LIKE ?)` (e.g. `device.name` → `rr.name`). The pattern is `%q%` (**contains**) — an earlier
+    bug used `%q` (suffix-only), so `?search=voip` returned nothing.
 
 ### 4. Container grid (port of Mason `container.mhtml`)
 - Unit base = **/32** (not /28), otherwise finer children (e.g. /29)
@@ -229,17 +253,28 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   `_block_attributes`, grid, sites/zones/dhcp/attrs/arp/audit) + search.
 - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
   `_rr_sections`, `_search_all`, `_name_link`, `_obj_link`) + search.
- - `lib/Netdot/Mojo/Controller/Show.pm` — generic detail (most types): attrs
-   (all view) + **has_many tables** (from `meta_data->get_links_from`, like
-   Mason `view.html`): one table per non-empty relation, brief columns (label
-   columns excluded from the brief set), 1st column = object label linked to its
-   detail page, rows capped at config `DEFAULT_PERPAGE` (50). NOTE: `get_links_from`
+  - `lib/Netdot/Mojo/Controller/Show.pm` — generic detail (most types): attrs
+    (all view) + **has_many tables** (from `meta_data->get_links_from`, like
+    Mason `view.html`): one table per non-empty relation, brief columns (label
+    columns excluded from the brief set), 1st column = object label linked to its
+    detail page, rows capped at config `DEFAULT_PERPAGE` (50). Relations are
+    **ordered + paginated in SQL** (see `Detail.pm` below). Also a `picture` action
+    (2026-10-05) serving SitePicture/FloorPicture BLOBs (see pitfall 2f). NOTE: `get_links_from`
    returns a **hash** and `get_labels` a **list** → use `my %h; eval { %h = ... }` /
    `my @l; eval { @l = ... }` (the `eval {...} || ()` wantarray trap breaks both).
     `Browse#list` page size also comes from `DEFAULT_PERPAGE`.
- - `lib/Netdot/Mojo/Detail.pm` — shared builders used by Show + the dedicated
-   detail controllers: `build_attrs` (all-view attrs, FK→link), `build_relations`
-   (has_many tables, paginated), `rel_columns`, `obj_text`.
+  - `lib/Netdot/Mojo/Detail.pm` — shared builders used by Show + the dedicated
+    detail controllers: `build_attrs` (all-view attrs, FK→link), `build_relations`
+    (has_many tables, paginated), `rel_columns`, `obj_text`. **Relation data access**
+    (2026-10-05): `relation_objects($obj,$rel,$per,$off)` → `_relation_fetch` fetch a
+    relation **ordered + paginated in SQL** (`ORDER BY` + `LIMIT/OFFSET`, `COUNT(*)`
+    for the total; hydrates via `->retrieve`). `_rel_label_sort($class,$alias)` picks the
+    ORDER BY for the 1st displayed column: **Ipblock → integer `address`** (natural IP
+    order, IPv4 before IPv6, exact at 128 bits); a **relationship label column**
+    (device.name→RR) → `JOIN` the related table and order by its label (`rr.name`);
+    otherwise the first label column. Connector/join tables order by the referenced
+    object's label via the connector's FK. The CSV export (`Show#show ?csv=`) uses the
+    same `relation_objects` (all rows) so it matches the on-screen order.
  - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
    `management/zone.html`): record count (per type), apex record (A/NS/MX with
    links), generic has_many (subnets/records/aliases), recent changes (HostAudit).
@@ -329,9 +364,13 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
    `_pagination_where` / `_combine_where` / `_list_add_like` / `_order_clause`. `search_page`
    accepts `order_by` (a validated column; if it is a **relationship** it orders by the
    related object's first label via a `LEFT JOIN`, wrapping the `where` in a subquery so its
-   bare columns stay unambiguous) and `limit => 0` (all rows, for CSV). This is the single
-   place for list SQL — both the JSON API (`Api.pm`) and the HTML list (`Browse.pm`) call it,
-   so no raw SQL lives in the controllers.
+    bare columns stay unambiguous) and `limit => 0` (all rows, for CSV). `_list_add_like` is
+    **relationship-aware** (2026-10-05): the free-text `like` on a FK column matches the related
+    object's label (`col IN (SELECT id FROM <reltab> WHERE <reltab>.<label> LIKE ?)`) with a
+    `%q%` (contains) pattern — so ordering and search both target the related label (e.g.
+    `rr.name`) for `device.name`. This is the single
+    place for list SQL — both the JSON API (`Api.pm`) and the HTML list (`Browse.pm`) call it,
+    so no raw SQL lives in the controllers.
 - `lib/Netdot/Mojo/Controller/Api.pm` — JSON API controller: `generic` (GET list +
   object, POST/PATCH/PUT, DELETE per table) with **per-verb permission checks** —
   GET `can('view')`, update `can('edit')`, DELETE `can('delete')`, create `_can_create`
@@ -351,6 +390,14 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   `anyOf [integer, $ref FkReference_<Classe>]`.
 - `api/gen_openapi.pl` — regenerator → `api/openapi.yaml` (re-run after model/spec changes).
 - `htdocs/management/{ipblock,rr,ipaddress,detail,search_results}.html.ep` — templates.
+- **UI / design (2026)**: `htdocs/css/style.css` (the "MODERN DESIGN LAYER" at the bottom:
+  sticky navbar, `datatable` look + rounded corners, `.attrgrid`, `.container` cards, `.tabbar`
+  / `.tab-pane`, buttons, content links); `htdocs/java_script/tabs.js` (client-side tab
+  switching, `?rel=` state); `htdocs/java_script/tablesort.js` (JS sort, `table.sortable`
+  opt-in); `htdocs/management/detail.html.ep` (generic detail rendered as `.tabbar` +
+  `.tab-pane` + `.attrgrid` + SQL-ordered relation tables); `htdocs/layouts/default.html.ep`
+  (loads tabs.js, htmx). Convention: `class="datatable"` = modern look (every table),
+  `class="sortable"` = JS-sort opt-in (list pages only).
 - `htdocs/export.html.ep` — Export form (types, zones, scopes, force, HINFO/TXT).
 - `htdocs/advanced/changelog.html.ep` — Changelog (audit log) table.
 - `htdocs/search/results.html.ep` — Global search results (RR name + zone).
@@ -442,10 +489,23 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
     rr `{id,url,name,zone}`) instead of `label` + `<col>_xlink`. `get_hashref` derives from
     `get_ref_field_spec` (one source, so docs and runtime can't drift); an FK label field →
     `get_label` one level (no infinite loop); FK null → `null`; `depth>0` → full object.
-  - Deferred: Access Rights tab; HTML write/edit pages (the **API** now covers
-    authorized writes); minor read-only omissions
-   (ASN link, v4/v6 selector, utilization toggle; Closet picture display —
-   binary serving not migrated); search for the remaining
-   types (VLAN, Zone, DHCP, Devices, Assets); NS/MX/TXT/NAPTR related-record
-   navigation (register RRNS/RRMX/RRTXT/RRNAPTR, point host-page links at their
-   detail pages).
+   - Done: **Read-only polish** (2026-10-03): Device **Access Rights** tab (`Device.pm`
+     `Rights` view); NS/MX/TXT/NAPTR related-record navigation (types `rrns/rrmx/rrtxt/
+     rrnaptr` registered, `nav=>0`, host-page "Record" link → each record's detail page);
+     Ipblock **ASN link** + **v4/v6/all selector** + **utilization toggle**; **Closet picture
+     display** (binary `bindata` serving); **generic per-type search** (all list types,
+     `Browse#search`).
+   - Done: **UI modernization (2026 design, 2026-10-04..05)**: client-side tabs
+     (`java_script/tabs.js`, instant pane switching + `?rel=` URL state, htmx-safe event
+     delegation), `.attrgrid` (CSS 2-column label/value grid replacing the old attribute
+     `<table>`), `datatable` (modern table look, all tables) / `sortable` (JS-sort opt-in,
+     list pages only), sticky navbar, `.container` cards, buttons, content links (underline
+     on hover). **SQL relation ordering/pagination** (`Detail.pm`: Ipblock by integer
+     `address`, relationship label columns via JOIN — a device orders by `rr.name`).
+     **Site/Floor picture display** (`Show.pm#picture` + `link_for` Picture special-case).
+   - Done: **Fixes (2026-10-05)**: device free-text search targets `rr.name`
+     (relationship-aware `_list_add_like`, `%q%` contains); `/search` results table header
+     dedup (was 3 headers / 2 columns → now 2 = 2); `/help/database` bool defaults rendered
+     `true`/`false` (`Meta/SQLT.pm` dereferences the scalar-ref default, was `SCALAR(0x…)`).
+   - Deferred: Device **Topology (graph)** tab; HTML write/edit pages (the **API** now
+     covers authorized writes).

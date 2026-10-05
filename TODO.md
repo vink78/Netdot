@@ -223,6 +223,37 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
 - [x] ✅ **Dev** : `http://127.0.0.1:3000/netdot/` ; **Prod** : `https://netdot.localdomain/netdot/`.
   URLs absolues de l'API = `<origin de la requête><préfixe>` (ex. `…/netdot/api/device`).
 
+## 10. UI moderne (design 2026) — ✅ porté
+
+Modernisation visuelle « flat minimal » (cartes), sans framework : tout en CSS
+(`style.css`, couche « MODERN DESIGN LAYER » en fin de fichier) + un peu de JS
+vanilla. Portée type par type ; les vues listes/détails/reports/search partagent
+les mêmes composants.
+
+- [x] **Navbar sticky** + nav 2 niveaux (section / sous-menus), modernisée.
+- [x] **Tableaux de données `datatable`** : look moderne (arrondi, zebra, en-tête),
+  coins extérieurs arrondis (les cellules header/footer carrées ne débordent plus de
+  la bordure arrondie). **Convention de classes** : `class="datatable"` = le **look**
+  moderne (tous les tableaux) ; `class="sortable"` = opt-in du **tri JS**
+  (`tablesort.js`, réservé aux grandes listes). Les tableaux de détail/champs ne sont
+  **pas** `sortable`.
+- [x] **Tri** : serveur (SQL `ORDER BY` + `LIMIT/OFFSET`) pour listes, CSV et
+  **relations** ; `tablesort.js` (délégation d'événements, sûr htmx) uniquement sur les
+  tableaux `sortable` (tri de la page courante).
+- [x] **Tabs côté client** (`java_script/tabs.js`) : bascule de pane instantanée (pas de
+  rechargement), état préservé dans l'URL (`?rel=<rel>`), sûr htmx (délégation sur
+  `<document>`). Le détail générique (`management/detail.html.ep`) est organisé en
+  `.tabbar` + `.tab-pane` (un pane par relation non vide ; page mono-relation sans tabbar).
+- [x] **Grille d'attributs `.attrgrid`** : remplace l'ancien `<table>` de champs
+  (20 ans) par une grille CSS 2 colonnes **label | valeur** (1 colonne sur mobile).
+  Utilisée par le détail générique et le détail Device.
+- [x] **Cartes `.container`** (bordure arrondie, ombre légère) pour les blocs de contenu.
+- [x] **Boutons + liens** modernisés (liens : soulignement au survol seulement).
+
+> Commits : `ee804e23 CSS`, `1fe21fbb CSS 2` (tabs.js + attrgrid + détail en tabs),
+> `df5ba174 CSS 3` (tablesort `datatable`/`sortable`), `9ea7e8c5 CSS 4` (rename des classes
+> sur 15 templates).
+
 ---
 
 ## Hors périmètre (écriture) — ⛔
@@ -253,9 +284,15 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
    leur search dédié (multi-champs name/IP/MAC, hiérarchie IP) ; les autres types passent par
    `Browse#search` (→ `Browse#list`), qui applique un **`LIKE %q%` SQL brut et paramétré sur la
    colonne primaire** (`cols[0]`), combiné à la règle 'view' par-user et paginé. ⚠️ **pas**
-   `search_like()` : cette méthode est **surchargée par classe** (ex. `Device::search_like(name)`
-   matche les noms RR/alias, pas `device.name`) → la recherche générique utilise du SQL direct.
-   La pagination préserve la requête (`?search=…&offset=…`).
+    `search_like()` : cette méthode est **surchargée par classe** (ex. `Device::search_like(name)`
+    matche les noms RR/alias, pas `device.name`) → la recherche générique utilise du SQL direct.
+    La pagination préserve la requête (`?search=…&offset=…`).
+    ⚠️ **Correction (2026-10-05)** : le LIKE est **`%q%` (contient)** — avant il n'avait que
+    `%q` (suffixe seulement, bug : `?search=voip` ne trouvait rien). De plus il est
+    **conscient des relations** (`Model::_list_add_like`) : si la colonne est une **FK**
+    (ex. `device.name`→`rr`), la recherche porte sur le **label de l'objet lié**
+    (`rr.name`, le nom DNS = le libellé affiché) via `IN (SELECT id FROM rr WHERE rr.name LIKE ?)`
+    et non sur la valeur numérique de la FK.
  2. [x] ✅ **Polish lecture seule** (2026-10-03) — tout porté :
     - **Tab Access Rights** (device) : vue `Rights` dans `Device.pm` (`AccessRight->search`
       object_class=Device → `user_rights`/`group_rights`), rendu via la table générique.
@@ -267,10 +304,16 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
       (`show_ch_util`, checkbox + champ caché =0) sur la vue racines.
     - **Photos de closet** : route binaire `/management/closetpicture/:id`
       (`Closet.pm#picture`, sert le BLOB `bindata` via `render(data=>)`) + section
-      « Pictures » sur le détail closet. ⚠️ `Closet->pictures` (has_many CDBI) est cassé
-      → `ClosetPicture->search(closet=>id)`. ⚠️ **`rendered($data)` n'existe pas** dans cet
-      env (`sub rendered($self,$status)` ne prend QUE le statut) → servir du binaire avec
-      `render(data => $data)` (cf. export CSV).
+       « Pictures » sur le détail closet. ⚠️ `Closet->pictures` (has_many CDBI) est cassé
+       → `ClosetPicture->search(closet=>id)`. ⚠️ **`rendered($data)` n'existe pas** dans cet
+       env (`sub rendered($self,$status)` ne prend QUE le statut) → servir du binaire avec
+       `render(data => $data)` (cf. export CSV).
+     - **Photos de site / floor** (2026-10-05) : routes binaires `/management/sitepicture/:id`
+       + `/management/floorpicture/:id` → `Show.pm#picture` (sert le BLOB `bindata` avec le
+       `filetype`), et `Registry::link_for` **spécial-case les Picture** (`SitePicture` /
+       `FloorPicture` / `ClosetPicture`, qui n'ont pas de page détail) → leur libellé pointe
+       vers l'image (affichée en inline). Le lien vient de la relation « pictures » du détail
+       générique (1re colonne = label cliquable).
      - **Liens cliquables** : BGP « Remote IP » → `/management/ipblock/<id>` ;
        « Local AS » → `asn` (corrigé `as/`→`asn/`) ; ipblock Owner/Used by → entité ;
        détail générique : colonnes-label scalaires liées à l'objet (cas `show_label=0`,
@@ -281,8 +324,15 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
         (`Model::search_page`/`search_count`, `order_by => $first`, helper `_order_clause`),
         appelé aussi bien par l'API que par la liste HTML (aucun SQL brut dans les
         contrôleurs) : colonne scalaire → `ORDER BY <col> ASC, id` (collation DB) ; colonne
-        **FK** (seul `device.name`→RR) → `LEFT JOIN` + tri par le label lié, prédicat
-        per-user mis en sous-requête pour éviter l'ambiguïté.
+         **FK** (seul `device.name`→RR) → `LEFT JOIN` + tri par le label lié, prédicat
+         per-user mis en sous-requête pour éviter l'ambiguïté.
+         **Relations du détail** (port 2026-10-05, `Detail.pm` `relation_objects` /
+         `_relation_fetch` / `_rel_label_sort`) : les tables has_many de la page détail sont
+         aussi **triées + paginées en SQL** (`ORDER BY` + `LIMIT/OFFSET`, total via
+         `COUNT(*)`), plus le lien CSV. Règle de tri = 1re colonne affichée : **Ipblock** →
+         `address` **entière** (ordre IP naturel, IPv4 avant IPv6, exact à 128 bits) ; colonne
+         label qui est une **FK** (device.name→RR) → **`JOIN` + label lié** (`rr.name`, le nom
+         DNS affiché — ni la FK numérique ni `sysname` SNMP) ; sinon 1re colonne label.
  3. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
 4. ⛔ **Câblage/circuits** — dépréciés (Netbox).
 5. 🔶 **Création — raffiner la permission par parent** : `_can_create` est une approximation
@@ -322,3 +372,20 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 - **Recherche globale** (`/search`) = détection IPv4/IPv6 → redirect ipblock search,
   MAC → redirect physaddr search, texte → `RR->search_like(name)` (redirect si 1 résultat,
   sinon table Name+Zone).
+
+### Vérifié le 2026-10-05 (UI moderne + corrections)
+
+- **UI moderne** : tabs client (bascule instantanée + `?rel=`), grille d'attributs `.attrgrid`
+  (2 colonnes), tableaux `datatable` (look) / `sortable` (tri JS), navbar sticky, cartes,
+  boutons — servis en 200, cohérents sur listes/détails/reports/search.
+- **Tri des relations** (page détail) : subnets d'un site triés par **adresse IP entière**
+  (IPv4 avant IPv6) ; devices triés par **`rr.name`** (nom DNS, via `JOIN rr`) et non par la
+  FK numérique ni `sysname`. Pagination cohérente (pas de doublon entre pages).
+- **Recherche device** (`/management/device/search?search=…`) : trouve par **nom DNS**
+  (`rr.name`, `LIKE %q%` contient) — ex. `voip` → 1395 (dont `voip-am-181`), `max` → 116.
+- **Photos site/floor** : `/management/sitepicture/:id` sert le JPEG en inline (200,
+  `image/jpeg`) ; le libellé de la relation « pictures » du détail site est cliquable.
+- **Recherche globale** (`/search?q=…`) : tableau **2 en-têtes = 2 colonnes** (avant :
+  « Name » dupliqué, 3 en-têtes / 2 colonnes).
+- **Help Database Schema** (`/help/database`) : les valeurs par défaut **bool** s'affichent
+  `true`/`false` (avant : `SCALAR(0x…)` — ref dé-référencée dans `Meta/SQLT.pm`).
