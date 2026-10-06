@@ -284,9 +284,16 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
     d'`AUTHORIZATION_METHOD` corrigé (« Authentication is configured in Apache » → l'auth passe par
     Mojolicious `Netdot::Mojo::Controller::Auth` via LDAP/local). Section `NetdotLDAP*` remontée de la fin
     du fichier vers la section auth (après `DEFAULT_REMOTE_AUTHED_USER_TYPE`) : l'auth LDAP est réutilisée
-    via le shim `Netdot::Mojo::AuthShim` (émule l'ancien `$r->dir_config`), donc ces clés sont **vivantes**.
-    Note : `SYSMON_HTML_FILE` pointe encore vers `/var/www/html/` (racine Apache) — à revoir si l'export
-    Sysmon est utilisé.
+     via le shim `Netdot::Mojo::AuthShim` (émule l'ancien `$r->dir_config`), donc ces clés sont **vivantes**.
+     Note : `SYSMON_HTML_FILE` pointe encore vers `/var/www/html/` (racine Apache) — à revoir si l'export
+     Sysmon est utilisé.
+  - [x] ✅ **`Site.conf` = miroir complet de `Default.conf`** : régénéré dans le **même ordre de clés** et
+     avec les **mêmes commentaires de section**, en ne gardant que les valeurs du site sur les clés qui
+     divergent (68 clés) et la valeur par défaut ailleurs. But : `diff -NaBbur Site.conf Default.conf`
+     ne montre que les customisations du site (les commentaires de section s'alignent en contexte).
+     Vérifié : `perl -c` OK, config effective **inchangée** (`do(Default)`+`do(Site)` = avant/après),
+     aucun marqueur `<<Make:PREFIX>>` restant, `Netdot->config` charge bien les 5 plugins `REMOTE_PLUGIN`
+     et `LOG_OPTIONS` (18 sauts de ligne intacts).
  
  ## 10. UI moderne (design 2026) — ✅ porté
 

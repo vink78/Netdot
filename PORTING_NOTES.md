@@ -465,8 +465,13 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   Remote export: single `REMOTE_PLUGIN{PLUGIN}{DIR, SERVER, RELOAD, ENABLE}` (BIND, NAMED,
   RFC952, APACHE, UNILSTAT) replaces the old scattered keys + global `REMOTE_EXEC`;
   `ENABLE` per plugin gates the `scp SERVER:DIR` + `ssh SERVER 'RELOAD'`. Export dirs
-  (`BIND_EXPORT_DIR`, `NAMED_DIR`, `RFC952_DIR`, `Apache_DIR`) are arrayrefs (primary +
-  copies); `Git_*_DIR` removed (staging is just a list entry; `GIT.pm` uses `Git_DIR`).
+   (`BIND_EXPORT_DIR`, `NAMED_DIR`, `RFC952_DIR`, `Apache_DIR`) are arrayrefs (primary +
+   copies); `Git_*_DIR` removed (staging is just a list entry; `GIT.pm` uses `Git_DIR`).
+   `etc/Site.conf` (gitignored) is now a **full mirror of `Default.conf`** — same key order and
+   same section comments, with only the site's divergent values (68 keys) overridden. So
+   `diff -NaBbur Site.conf Default.conf` isolates the site customizations. Verified: effective
+   config unchanged, no `<<Make:PREFIX>>` markers, all 5 `REMOTE_PLUGIN` plugins + `LOG_OPTIONS`
+   (18 newlines) load via `Netdot->config`.
  
  ## Status (to be updated)
 - Done: responsive/htmx, Bootstrap, Auth, generic nav, design,
