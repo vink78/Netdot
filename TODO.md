@@ -161,8 +161,20 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
   (scp commenté) et Unilstat (target hardcodé `user@scphost:/var/www/html/stat/`) câblés proprement
    sur `REMOTE_PLUGIN`. Le scp = `SERVER:DIR`, le reload = `ssh SERVER 'RELOAD'` (**section par
    exporteur** ; `RELOAD` vide = pas de reload — NAMED en manquait, ajouté), le tout gating sur
-   `ENABLE` ; code : le hashref du plugin est stockée dans `$self->{REMOTE}` (ou `$cfg` dans BIND)
-   et indexée `{DIR|SERVER|RELOAD|ENABLE}`.
+    `ENABLE` ; code : le hashref du plugin est stockée dans `$self->{REMOTE}` (ou `$cfg` dans BIND)
+    et indexée `{DIR|SERVER|RELOAD|ENABLE}`.
+- [x] ✅ **Fixs export (runtime, Perl 5.40)** : 3 classes de bugs qui bloquaient l'export :
+  1. **`$#$ref` (dernier index d'une arrayref) supprimé en Perl 5.30+** → parse mal à runtime
+     (« Not an ARRAY reference »). Remplacé par l'idiome `@copies = @{…}; shift @copies;` dans
+     `NAMED.pm` (×2), `RFC952.pm`, `Apache.pm`, `BIND.pm`, et `$last = @$list - 1` dans
+     `Mojo/Controller/Device.pm` (`_chunk`). (`$#tab_vrai` sur un vrai tableau reste OK.)
+  2. **`Sysmon.pm`** : erreur de syntaxe line 96 (`$devh->{target_version}{` → le `}` de déréférencement
+     mal tapé) empêchait le chargement du module → `generate_configs` introuvable. Corrigé en
+     `unless ( $devh->{target_addr} && $devh->{target_version} ) {`.
+  3. **`Git_BRANCH` manquante dans la config** : `GIT.pm` fait `get('Git_BRANCH')` (croak si absente)
+     mais la clé n'existait ni dans `Default.conf` ni dans `Default.conf.orig` → ajoutée
+     (`Git_BRANCH => 'master'`) aux deux. Dir `export/sysmon/` manquante (créée par `make dir`) → créée.
+  - Vérifié : `perl -c` OK sur les 6 exporters + Device.pm ; NAMED/RFC952/Apache/Sysmon tournent.
 
 ## 8. Help — ✅ terminé
 

@@ -10,8 +10,19 @@ my $dbh = Netdot::Model->db_Main();
 
 =head1 NAME
 
-Netdot::Exporter::Apache - Read relevant info from Netdot and build an Apache
-    config file for URL Redirection.
+Netdot::Exporter::Apache - build an Apache config file that redirects whole
+    domains to a URL (one <VirtualHost *:80> per redirect target).
+
+=head1 DESCRIPTION
+
+Redirects are driven by DNS TXT records. Any TXT record whose value starts
+with "R=" is a redirect: the text after "R=" is the URL the domain is sent to.
+For example a record
+
+    example.localdomain.  TXT  "R=https://real.target.localdomain"
+
+makes example.localdomain (and any CNAME alias of it) redirect to that URL. If no
+such "R=" TXT record exists, the generated file is empty.
 
 =head1 SYNOPSIS
 
@@ -73,7 +84,10 @@ my %txt;
 sub generate_configs {
     my ($self) = @_;
 
-    # Get TXT info
+    # Redirect rules come from TXT records whose value starts with "R=<url>".
+    # SUBSTRING(txtdata, 3) strips the "R=" prefix -> the target URL. Each such
+    # record maps a domain (rec.domain) to a URL; CNAME aliases of the domain are
+    # added as ServerAlias. No matching record => the file stays empty.
     my $txtq = $dbh->selectall_arrayref("
               SELECT SUBSTRING(rrtxt.txtdata, 3) AS url, rr.name AS record, zone.name AS domain
               FROM rrtxt, rr, zone
@@ -120,7 +134,8 @@ sub generate_configs {
 
     $logger->info("Netdot::Exporter::Apache: Configuration written to file: ".$self->{filename});
 
-    my @copies = @{$self->{dirs}}[1..$#$self->{dirs}];
+    my @copies = @{ $self->{dirs} };
+    shift @copies;
     system ('/bin/cp '.$self->{filename}.' '.$_.'/') for @copies;
     if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{DIR}) {
 	system ("/usr/bin/scp ".$self->{filename}.' '.$self->{REMOTE}{SERVER}.":".$self->{REMOTE}{DIR});

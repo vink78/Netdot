@@ -114,7 +114,8 @@ sub generate_configs {
 
 		    system ("/usr/bin/scp $path $cfg->{SERVER}:$cfg->{DIR}")
 		        if ($cfg->{ENABLE} && $cfg->{SERVER} && $cfg->{DIR});
-		    my @copies = @{$dirs}[1..$#$dirs];
+		    my @copies = @{ $dirs };
+		    shift @copies;
 		    system ('/bin/cp '.$path.' '.$_.'/') for @copies;
 		    push @changes, $zone->name;
 		}else{

@@ -176,7 +176,8 @@ sub generate_configs {
 		close($self->{out});
 		system ("/usr/bin/scp $file ".$self->{REMOTE}{SERVER}.":".$self->{REMOTE}{DIR})
 		    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{DIR});
-		my @copies = @{$self->{dirs}}[1..$#$self->{dirs}];
+		my @copies = @{ $self->{dirs} };
+		shift @copies;
 		system ('/bin/cp '.$file.' '.$_.'/') for @copies;
 	}
 
@@ -214,7 +215,8 @@ sub generate_configs {
 
 		system ("/usr/bin/scp $file ".$self->{REMOTE}{SERVER}.":".$self->{REMOTE}{DIR})
 		    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{DIR});
-		my @copies = @{$self->{dirs}}[1..$#$self->{dirs}];
+		my @copies = @{ $self->{dirs} };
+		shift @copies;
 		system ("/bin/cp $file ".$_.'/') for @copies;
 	}
 

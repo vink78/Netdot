@@ -305,7 +305,8 @@ sub generate_configs {
 
     $logger->info("Netdot::Exporter::RFC952: Configuration written to file: ".$self->{filename});
 
-    my @copies = @{$self->{dirs}}[1..$#$self->{dirs}];
+    my @copies = @{ $self->{dirs} };
+    shift @copies;
     system ('/bin/cp '.$self->{filename}.' '.$_.'/') for @copies;
     if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{DIR}) {
 	system ("/usr/bin/scp ".$self->{filename}.' '.$self->{REMOTE}{SERVER}.":".$self->{REMOTE}{DIR});

@@ -520,9 +520,16 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   `Netdot::Exporter->generate_configs`. Permission: `Permissions::can_export`
   (write rights on RR). Admin sees all 12; write-rights users see 4 (BIND,
   NAMED, RFC952, DHCPD). Log captured via Log4perl String appender.
-  Config: `REMOTE_EXEC => 0` + `CHECKBOX_CHECKED_EXCLUDE_*` in `etc/Default.conf`.
-  Playbook fix: `yaml_str` helper (YAML single-quote escaping) + `str2time // 0`
-  sort fix.
+   Config: `REMOTE_PLUGIN` (per-plugin `ENABLE`) + `CHECKBOX_CHECKED_EXCLUDE_*` in
+   `etc/Default.conf`. Playbook fix: `yaml_str` helper (YAML single-quote escaping) +
+   `str2time // 0` sort fix.
+   Runtime fixes (Perl 5.40): `$#$ref` (arrayref last-index) was removed in 5.30+ and
+   mis-parses to a non-array at runtime — replaced with `@c = @{…}; shift @c` in
+   `NAMED`/`RFC952`/`Apache`/`BIND` exporters and `$last = @$list - 1` in
+   `Controller/Device` `_chunk` (real-array `$#arr` still works). `Sysmon.pm` had a
+   syntax error at the `unless … {target_version}` line (bad `}`) that blocked the whole
+   module → now `unless ( … ) {`. `Git_BRANCH` was missing from the config (GIT.pm
+   `get()`s it) → added `Git_BRANCH => 'master'` to `Default.conf`/`Site.conf`.
 - Done: **Error pages** (`error_403.html.ep`, `error_404.html.ep`,
   `error_500.html.ep`): branded Netdot (layout `default`). Helpers
   `reply.html_not_found` / `reply.html_exception` in `Netdot::Mojo.pm`

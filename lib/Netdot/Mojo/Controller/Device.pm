@@ -138,9 +138,10 @@ sub _chunk {
     my ( $list, $n ) = @_;
     $n = 1 unless $n && $n > 0;
     my @rows;
+    my $last = @$list - 1;
     for ( my $i = 0; $i < @$list; $i += $n ) {
         my $end = $i + $n - 1;
-        $end = $#$list if $end > $#$list;
+        $end = $last if $end > $last;
         push @rows, [ @$list[ $i .. $end ] ];
     }
     return \@rows;

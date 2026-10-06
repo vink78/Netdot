@@ -93,7 +93,7 @@ sub generate_configs {
 	    $logger->warn("$hostname does not resolve, or duplicate. Using IP.");
 	    # Determine IP
 	    my $devh = $device_info->{$devid};
-	    unless $devh->{target_addr} && $devh->{target_version}{
+	    unless ( $devh->{target_addr} && $devh->{target_version} ) {
 		$logger->warn("Cannot determine IP address for $hostname. Skipping");
 		delete $hosts{$devid};
 		next;
