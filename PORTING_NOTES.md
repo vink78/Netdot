@@ -430,9 +430,12 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
 - **UI / design (2026)**: `htdocs/css/style.css` (the "MODERN DESIGN LAYER" at the bottom:
   sticky navbar, `datatable` look + rounded corners, **`table.datatable.detail` field tables**
   (multi-column via `c1`/`c2`/`c4` = 1/2/4 label|value pairs per row; `.attrgrid` is gone),
-  **`.container` cards** (`.containerhead` title + `.containerbody`/`.containerbody.flat`
-  for a flush field table), **`.tabcard`** (a single card framing the `.tabbar` + the active
-  view's `.tabcard-body`; inner tables/section-cards are flattened so there's no card-in-card),
+   **`.container` cards** (`.containerhead` title + `.containerbody`/`.containerbody.flat`
+   for a flush field table), **`.cardrow`** (a responsive row of equal-width `.container`
+   cards, side by side / wrapping; used by the Export page's 3 option cards, wrapped in an
+   outer `.container` titled «Export third-party configurations…»), **`.tabcard`** (a single card framing the `.tabbar`
+   + the active view's `.tabcard-body`; inner tables/section-cards are flattened so there's
+   no card-in-card),
   `.tabbar`/`.tab-pane`, modern buttons, content links); `htdocs/login.html.ep` + `.loginbox`
   (stacked full-width fields, `.btn`, header "log in" button hidden on the login page via the
   `is_login` stash flag); `htdocs/java_script/tabs.js` (client-side tab switching, scoped to
@@ -554,7 +557,9 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       **`table.datatable.detail` field tables** (multi-column `c1`/`c2`/`c4` = 1/2/4 label|value
       pairs per row — replaces the old attribute `<table>` AND the now-removed `.attrgrid`),
       **`.container` field cards** (`.containerhead` title + `.containerbody.flat` flush field
-      table), **`.tabcard`** (one card framing the tab bar + active content, inner content
+      table), **`.cardrow`** (responsive row of equal-width `.container` cards — the Export
+      page's 3 option cards wrapped in an outer card titled «Export third-party configurations…»), **`.tabcard`** (one card
+      framing the tab bar + active content, inner content
       flattened), `datatable` (modern table look, all tables) / `sortable` (JS-sort opt-in,
       list pages only), sticky navbar, modern buttons, content links (underline on hover),
       **login page** (stacked full-width fields, `.btn`, header "log in" hidden via `is_login`),

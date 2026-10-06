@@ -1,72 +1,75 @@
 <h1>Export Configurations</h1>
-<p>Export third-party configurations (DNS zones, DHCP) from Netdot.</p>
 
 % my $types  = $types  // [];
 % my $zones  = $zones  // [];
 % my $scopes = $scopes // [];
 
+% if ( my $err = $errors ) {
 <div class="container">
-  <div class="containerhead">Config Tasks</div>
+  <div class="containerhead" style="background:#f4d3d3;color:#7a1010;border-color:#e0b0b0">Error</div>
   <div class="containerbody">
-
-    % if ( my $err = $errors ) {
-    <p style="color:#a00"><strong>Error:</strong></p>
-    <ul style="color:#a00">
+    <ul style="color:#a00;margin:.2em 0">
       % for my $e (@$err) {
       <li><%= $e %></li>
       % }
     </ul>
-    % }
+  </div>
+</div>
+% }
 
-    % if ( defined $log && length $log ) {
-    <p><strong>Exporter Output:</strong></p>
-    <pre style="background:#f4f4f4;padding:8px;max-height:420px;overflow:auto;font-size:12px"><%= $log %></pre>
-    % }
+% if ( defined $log && length $log ) {
+<div class="container">
+  <div class="containerhead">Exporter Output</div>
+  <div class="containerbody">
+    <pre style="background:#f4f4f4;padding:8px;max-height:420px;overflow:auto;font-size:12px;margin:.2em 0"><%= $log %></pre>
+  </div>
+</div>
+% }
 
+<div class="container">
+  <div class="containerhead">Export third-party configurations (DNS zones, DHCP) from Netdot.</div>
+  <div class="containerbody">
     <form action="<%= $c->web_prefix %>/export" method="POST">
-      <table style="border-collapse:separate">
-        <tr>
-          <td valign="top">
-            <fieldset class="small">
-              <legend>Export Classes</legend>
-              <p><label>Select one or more of:</label></p>
-              <select name="config_types" size="6" multiple>
-                % for my $t (@$types) {
-                <option value="<%= $t %>"><%= $t %></option>
-                % }
-              </select>
-            </fieldset>
-          </td>
-          <td valign="top">
-            <fieldset class="small">
-              <legend>DNS (BIND) Options</legend>
-              <p><label>Select specific zones <strong>(default is ALL)</strong>:</label></p>
-              <select name="zones" size="6" multiple>
-                % for my $z (@$zones) {
-                <option value="<%= $z->{id} %>"><%= $z->{name} %></option>
-                % }
-              </select>
-              <p><label><input type="checkbox" name="bind_force"> Force export even if no pending changes</label></p>
-              <p><label><input type="checkbox" name="bind_no_priv_hinfo"<%= $def_hinfo ? ' checked' : '' %>> Exclude HINFO private data</label></p>
-              <p><label><input type="checkbox" name="bind_no_priv_txt"<%= $def_txt ? ' checked' : '' %>> Exclude TXT private data</label></p>
-            </fieldset>
-          </td>
-          <td valign="top">
-            <fieldset class="small">
-              <legend>DHCPD Options</legend>
-              <p><label>Select specific scopes <strong>(default is ALL)</strong>:</label></p>
-              <select name="scopes" size="6" multiple>
-                % for my $s (@$scopes) {
-                <option value="<%= $s %>"><%= $s %></option>
-                % }
-              </select>
-              <p><label><input type="checkbox" name="dhcpd_force"> Force export even if no pending changes</label></p>
-            </fieldset>
-          </td>
-        </tr>
-      </table>
-      <p><input type="submit" name="submit" class="btn" value="Export"></p>
+      <div class="cardrow">
+        <div class="container">
+          <div class="containerhead">Export Classes</div>
+          <div class="containerbody">
+            <p><label>Select one or more of:</label></p>
+            <select name="config_types" size="6" multiple>
+              % for my $t (@$types) {
+              <option value="<%= $t %>"><%= $t %></option>
+              % }
+            </select>
+          </div>
+        </div>
+        <div class="container">
+          <div class="containerhead">DNS (BIND) Options</div>
+          <div class="containerbody">
+            <p><label>Select specific zones <strong>(default is ALL)</strong>:</label></p>
+            <select name="zones" size="6" multiple>
+              % for my $z (@$zones) {
+              <option value="<%= $z->{id} %>"><%= $z->{name} %></option>
+              % }
+            </select>
+            <p><label><input type="checkbox" name="bind_force"> Force export even if no pending changes</label></p>
+            <p><label><input type="checkbox" name="bind_no_priv_hinfo"<%= $def_hinfo ? ' checked' : '' %>> Exclude HINFO private data</label></p>
+            <p><label><input type="checkbox" name="bind_no_priv_txt"<%= $def_txt ? ' checked' : '' %>> Exclude TXT private data</label></p>
+          </div>
+        </div>
+        <div class="container">
+          <div class="containerhead">DHCPD Options</div>
+          <div class="containerbody">
+            <p><label>Select specific scopes <strong>(default is ALL)</strong>:</label></p>
+            <select name="scopes" size="6" multiple>
+              % for my $s (@$scopes) {
+              <option value="<%= $s %>"><%= $s %></option>
+              % }
+            </select>
+            <p><label><input type="checkbox" name="dhcpd_force"> Force export even if no pending changes</label></p>
+          </div>
+        </div>
+      </div>
+      <p style="margin-top:16px"><input type="submit" name="submit" class="btn" value="Export"></p>
     </form>
-
   </div>
 </div>

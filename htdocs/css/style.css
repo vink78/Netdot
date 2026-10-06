@@ -1012,6 +1012,18 @@ table.datatable.detail tbody tr:last-child td  { border-bottom-right-radius: 11p
     background: #ffffff;
 }
 
+/* .cardrow: a responsive row of equal-width .container cards (side by side,
+   wrapping on narrow screens). For multi-block forms (e.g. Export). */
+.cardrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.cardrow > .container {
+    flex: 1 1 240px;
+    margin-bottom: 0;
+}
+
 /* .containerbody.flat: a flush field table (datatable.detail) fills the card
    body edge-to-edge. The card provides the outer chrome, so the nested table
    drops its own border/radius/shadow and per-cell corner rounding. */

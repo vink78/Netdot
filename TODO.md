@@ -306,9 +306,14 @@ les mêmes composants.
 - [x] **Carte à onglets `.tabcard`** : une seule carte encadre la barre d'onglets
   (`.tabbar`) **et** le contenu affiché (`.tabcard-body`) ; le contenu intérieur
   (tables / cartes de section) est **aplati** (`.tabcard .datatable`, `.tabcard
-  .container` sans bordure) → pas de carte-dans-carte. Appliqué aux pages à onglets :
-  Device (`?view=`), détail générique (`?rel=`), Ipblock (sections Children/Sites/…).
-- [x] **Page de login** : champs empilés (label au-dessus, input pleine largeur →
+   .container` sans bordure) → pas de carte-dans-carte. Appliqué aux pages à onglets :
+   Device (`?view=`), détail générique (`?rel=`), Ipblock (sections Children/Sites/…).
+ - [x] **`.cardrow`** : rangée responsive de cartes `.container` égales (côte à côte,
+   wrapping sur écran étroit, hauteurs égales `align-items:stretch`). **Page Export**
+   (`/export`) : un conteneur englobant `.container` (titre = «Export third-party configurations…») > `.cardrow` de 3 cartes
+   (Export Classes / DNS (BIND) Options / DHCPD Options) ; erreurs + sortie de l'exporteur en
+   cartes dédiées au-dessus. Contrairement à `.tabcard`, le card-in-card est **voulu** ici.
+ - [x] **Page de login** : champs empilés (label au-dessus, input pleine largeur →
   alignés), bouton `.btn` pleine largeur, titre court + texte d'aide ; le bouton
   « log in » du header est **masqué** sur la page de login (flag `is_login` posé par
   `Auth.pm`, géré dans `layouts/default.html.ep`).
