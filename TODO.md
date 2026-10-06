@@ -262,10 +262,19 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
     `<img src>` et les liens image-map `usemap` comme `$web_path . 'img/graphs/…'` /
     `$web_path . 'management/…'` (sans slash menant) → on leur passe désormais **`web_root`**
     (`$c->web_root`) = base **avec slash final** (`/netdot/` ou `/`) au lieu de `web_path => '/'`
-    en dur, qui privait l'image ET ses liens du préfixe `/netdot` (en dev comme en prod).
-    Fix : `Controller/Ipblock.pm` (arbre) + `Controller/Reports.pm` (rrd, latent).
-
-## 10. UI moderne (design 2026) — ✅ porté
+     en dur, qui privait l'image ET ses liens du préfixe `/netdot` (en dev comme en prod).
+     Fix : `Controller/Ipblock.pm` (arbre) + `Controller/Reports.pm` (rrd, latent).
+  - [x] ✅ **Hygiène de la config (`Default.conf`/`Site.conf`)** : retrait de 2 clés mortes (0 référence
+    dans le code) — `DB_NETDOT_HOST` (le code lit `DB_HOST` : `Model.pm`/`DBUTIL.pm`) et `INVENTORY_WARNING`
+    (aucune référence) — supprimées de `Default.conf` **et** `Site.conf`. Commentaire périmé au-dessus
+    d'`AUTHORIZATION_METHOD` corrigé (« Authentication is configured in Apache » → l'auth passe par
+    Mojolicious `Netdot::Mojo::Controller::Auth` via LDAP/local). Section `NetdotLDAP*` remontée de la fin
+    du fichier vers la section auth (après `DEFAULT_REMOTE_AUTHED_USER_TYPE`) : l'auth LDAP est réutilisée
+    via le shim `Netdot::Mojo::AuthShim` (émule l'ancien `$r->dir_config`), donc ces clés sont **vivantes**.
+    Note : `SYSMON_HTML_FILE` pointe encore vers `/var/www/html/` (racine Apache) — à revoir si l'export
+    Sysmon est utilisé.
+ 
+ ## 10. UI moderne (design 2026) — ✅ porté
 
 Modernisation visuelle « flat minimal » (cartes), sans framework : tout en CSS
 (`style.css`, couche « MODERN DESIGN LAYER » en fin de fichier) + un peu de JS

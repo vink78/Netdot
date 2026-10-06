@@ -458,8 +458,12 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   `htdocs/generic/view.html` — Mason references.
 - `etc/netdot.meta` — FK/relations schema (`linksto`, `views`, `label`).
 - `etc/Default.conf` — `REMOTE_EXEC`, `CHECKBOX_CHECKED_EXCLUDE_*`, export dirs.
-
-## Status (to be updated)
+  Auth section (top): `AUTHORIZATION_METHOD`, `DEFAULT_REMOTE_AUTHED_USER_TYPE`, and the
+  `NetdotLDAP*` block (LDAP auth, re-used via `Netdot::Mojo::AuthShim` which emulates
+  `$r->dir_config`). Dead keys `DB_NETDOT_HOST` + `INVENTORY_WARNING` removed (0 code refs;
+  the code reads `DB_HOST`).
+ 
+ ## Status (to be updated)
 - Done: responsive/htmx, Bootstrap, Auth, generic nav, design,
   pagination/CSV/delete, ipblock (nav, subnets, container grid, tree, tabs,
   IP address, block attrs), **RR table (host)**, **search (RR + Ipblock)**,
