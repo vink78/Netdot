@@ -47,8 +47,9 @@ sub new{
     # Open output file for writing
     $self->{filename} = $self->{UNILSTAT_DIR}."/".$self->{UNILSTAT_FILE};
 
-    # Execute remote command only there REMOTE_EXEC == 1
-    $self->{remoteexec} = Netdot->config->get('REMOTE_EXEC') || 0;
+    # Per-plugin remote export (REMOTE_PLUGIN{UNILSTAT}: DIR/SERVER/RELOAD/ENABLE).
+    # Per-plugin remote export: REMOTE_PLUGIN{UNILSTAT} = { DIR, SERVER, RELOAD, ENABLE }.
+    $self->{REMOTE} = (Netdot->config->get('REMOTE_PLUGIN') || {})->{UNILSTAT} || {};
 
     bless $self, $class;
 
@@ -117,8 +118,17 @@ sub generate_configs {
     $self->print_footer();
     close($self->{out});
 
-    # system ("/usr/bin/scp ".$self->{filename}.' user@scphost:/var/www/html/')
-    #     if ($self->{remoteexec} == 1);
+    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{DIR}) {
+	system ("/usr/bin/scp ".$self->{filename}.' '.$self->{REMOTE}{SERVER}.":".$self->{REMOTE}{DIR});
+    }
+    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{RELOAD}) {
+	open (FOO, "/usr/bin/ssh $self->{REMOTE}{SERVER} '$self->{REMOTE}{RELOAD}' |");
+	while (<FOO>) {
+	    chomp;
+	    $logger->info( $_ );
+	}
+	close (FOO);
+    }
 
     $logger->info("Netdot::Exporter::Unilstat: Configuration written to file: ".$self->{filename});
 }

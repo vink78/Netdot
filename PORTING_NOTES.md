@@ -457,11 +457,16 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
 - `htdocs/management/host.html` (1136 l.), `container.mhtml`,
   `htdocs/generic/view.html` — Mason references.
 - `etc/netdot.meta` — FK/relations schema (`linksto`, `views`, `label`).
-- `etc/Default.conf` — `REMOTE_EXEC`, `CHECKBOX_CHECKED_EXCLUDE_*`, export dirs.
+- `etc/Default.conf` — `REMOTE_PLUGIN`, `CHECKBOX_CHECKED_EXCLUDE_*`, export dirs.
   Auth section (top): `AUTHORIZATION_METHOD`, `DEFAULT_REMOTE_AUTHED_USER_TYPE`, and the
   `NetdotLDAP*` block (LDAP auth, re-used via `Netdot::Mojo::AuthShim` which emulates
   `$r->dir_config`). Dead keys `DB_NETDOT_HOST` + `INVENTORY_WARNING` removed (0 code refs;
   the code reads `DB_HOST`).
+  Remote export: single `REMOTE_PLUGIN{PLUGIN}{DIR, SERVER, RELOAD, ENABLE}` (BIND, NAMED,
+  RFC952, APACHE, UNILSTAT) replaces the old scattered keys + global `REMOTE_EXEC`;
+  `ENABLE` per plugin gates the `scp SERVER:DIR` + `ssh SERVER 'RELOAD'`. Export dirs
+  (`BIND_EXPORT_DIR`, `NAMED_DIR`, `RFC952_DIR`, `Apache_DIR`) are arrayrefs (primary +
+  copies); `Git_*_DIR` removed (staging is just a list entry; `GIT.pm` uses `Git_DIR`).
  
  ## Status (to be updated)
 - Done: responsive/htmx, Bootstrap, Auth, generic nav, design,

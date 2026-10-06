@@ -36,15 +36,21 @@ sub new{
     my ($class, %argv) = @_;
     my $self = {};
 
-    foreach my $key ( qw /Apache_DIR Apache_FILE Apache_IP Apache_SCP_TARGET/ ){
+    foreach my $key ( qw /Apache_DIR Apache_FILE Apache_IP/ ){
 	$self->{$key} = Netdot->config->get($key);
     }
      
     $self->{Apache_FILE} || 
 	$class->throw_user("Netdot::Exporter::Apache: Apache_FILE not defined");
     
-    # Open output file for writing
-    $self->{filename} = $self->{Apache_DIR}."/".$self->{Apache_FILE};
+    # Output dirs: [0]=primary, [1..]=copies (e.g. git staging).
+    $self->{dirs} = $self->{Apache_DIR};
+
+    # Per-plugin remote export: REMOTE_PLUGIN{APACHE} = { DIR, SERVER, RELOAD, ENABLE }.
+    $self->{REMOTE} = (Netdot->config->get('REMOTE_PLUGIN') || {})->{APACHE} || {};
+
+    # Open output file for writing (primary output dir).
+    $self->{filename} = $self->{Apache_DIR}->[0]."/".$self->{Apache_FILE};
 
     bless $self, $class;
 
@@ -113,7 +119,20 @@ sub generate_configs {
     close($self->{out});
 
     $logger->info("Netdot::Exporter::Apache: Configuration written to file: ".$self->{filename});
-    #system ("/usr/bin/scp ".$self->{filename}.' '.$self->{Apache_SCP_TARGET});
+
+    my @copies = @{$self->{dirs}}[1..$#$self->{dirs}];
+    system ('/bin/cp '.$self->{filename}.' '.$_.'/') for @copies;
+    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{DIR}) {
+	system ("/usr/bin/scp ".$self->{filename}.' '.$self->{REMOTE}{SERVER}.":".$self->{REMOTE}{DIR});
+    }
+    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{RELOAD}) {
+	open (FOO, "/usr/bin/ssh $self->{REMOTE}{SERVER} '$self->{REMOTE}{RELOAD}' |");
+	while (<FOO>) {
+	    chomp;
+	    $logger->info( $_ );
+	}
+	close (FOO);
+    }
 }
 
 =head1 AUTHOR

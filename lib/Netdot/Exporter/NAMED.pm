@@ -37,26 +37,23 @@ sub new{
     my ($class, %argv) = @_;
     my $self = {};
 
-    my $dir = Netdot->config->get('NAMED_DIR')
+    my $dirs = Netdot->config->get('NAMED_DIR')
         || $self->throw_user('Netdot::Exporter::NAMED: NAMED_DIR not defined');
+    my $dir = $dirs->[0];
 
     $self->{NAMED_IP_MASTER} = Netdot->config->get('NAMED_IP_MASTER')
 	|| $class->throw_user("Netdot::Exporter::NAMED: NAMED_IP_MASTER not defined");
 
-    $self->{NAMED_REMOTE_DIR} = Netdot->config->get('NAMED_REMOTE_DIR')
-	|| $class->throw_user("Netdot::Exporter::NAMED: NAMED_REMOTE_DIR not defined");
-
-    $self->{BIND_SSH_SERVER} = Netdot->config->get('BIND_SSH_SERVER')
-	|| $class->throw_user("Netdot::Exporter::NAMED: BIND_SSH_SERVER not defined");
+    # Per-plugin remote export: REMOTE_PLUGIN{NAMED} = { DIR, SERVER, RELOAD, ENABLE }.
+    $self->{REMOTE} = (Netdot->config->get('REMOTE_PLUGIN') || {})->{NAMED} || {};
+    $logger->warn('REMOTE_PLUGIN{NAMED} ENABLE=1 but DIR/SERVER not set; skipping remote export')
+        if ($self->{REMOTE}{ENABLE} && (!$self->{REMOTE}{DIR} || !$self->{REMOTE}{SERVER}));
 
     $self->{DEFAULT_DNSDOMAIN} = Netdot->config->get('DEFAULT_DNSDOMAIN')
 	|| $class->throw_user("Netdot::Exporter::NAMED: DEFAULT_DNSDOMAIN not defined");
 
-    $self->{gitdir} = Netdot->config->get('Git_NAMED_DIR')
-	|| $self->throw_user('Git_NAMED_DIR not defined in config file!');
-
-    # Execute remote command only there REMOTE_EXEC == 1
-    $self->{remoteexec} = Netdot->config->get('REMOTE_EXEC') || 0;
+    # Output dirs: [0]=primary (written above), [1..]=copies (e.g. git staging).
+    $self->{dirs} = $dirs;
 
     # Open output file for writing
     $self->{master}  = "$dir/named.master.conf";
@@ -177,9 +174,10 @@ sub generate_configs {
 
 		$logger->info("Netdot::Exporter::NAMED: Configuration written to file: ".$file);
 		close($self->{out});
-		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR})
-		    if ($self->{remoteexec} == 1);
-		system ('/bin/cp '.$file.' '.$self->{gitdir}.'/');
+		system ("/usr/bin/scp $file ".$self->{REMOTE}{SERVER}.":".$self->{REMOTE}{DIR})
+		    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{DIR});
+		my @copies = @{$self->{dirs}}[1..$#$self->{dirs}];
+		system ('/bin/cp '.$file.' '.$_.'/') for @copies;
 	}
 
 	# Slave Master File
@@ -214,9 +212,20 @@ sub generate_configs {
 		$logger->info("Netdot::Exporter::NAMED: Configuration written to file: ".$file);
 		close($self->{out});
 
-		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR})
-		    if ($self->{remoteexec} == 1);
-		system ("/bin/cp $file ".$self->{gitdir}.'/');
+		system ("/usr/bin/scp $file ".$self->{REMOTE}{SERVER}.":".$self->{REMOTE}{DIR})
+		    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{DIR});
+		my @copies = @{$self->{dirs}}[1..$#$self->{dirs}];
+		system ("/bin/cp $file ".$_.'/') for @copies;
+	}
+
+	# Reload (once, after all files written) — empty RELOAD = no reload.
+	if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{RELOAD}) {
+	    open (FOO, "/usr/bin/ssh $self->{REMOTE}{SERVER} '$self->{REMOTE}{RELOAD}' |");
+	    while (<FOO>) {
+		chomp;
+		$logger->info( $_ );
+	    }
+	    close (FOO);
 	}
 }
 

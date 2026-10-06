@@ -86,20 +86,13 @@ sub generate_configs {
 	@zones = Zone->retrieve_all();
     }
 
-    my $remotedir = Netdot->config->get('BIND_REMOTE_DIR')
-	|| $self->throw_user('BIND_REMOTE_DIR not defined in config file!');
+    # Per-plugin remote export: REMOTE_PLUGIN{BIND} = { DIR, SERVER, RELOAD, ENABLE }.
+    my $cfg = (Netdot->config->get('REMOTE_PLUGIN') || {})->{BIND} || {};
+    $logger->warn('REMOTE_PLUGIN{BIND} ENABLE=1 but DIR/SERVER not set; skipping remote export')
+        if ($cfg->{ENABLE} && (!$cfg->{DIR} || !$cfg->{SERVER}));
 
-    my $sshserver = Netdot->config->get('BIND_SSH_SERVER')
-	|| $self->throw_user('BIND_SSH_SERVER not defined in config file!');
-
-    my $reloadcmd = Netdot->config->get('BIND_RELOAD_CMD')
-	|| $self->throw_user('BIND_RELOAD_CMD not defined in config file!');
-
-    my $gitdir = Netdot->config->get('Git_BIND_DIR')
-	|| $self->throw_user('Git_BIND_DIR not defined in config file!');
-
-    # Execute remote command only there REMOTE_EXEC == 1
-    my $remoteexec = Netdot->config->get('REMOTE_EXEC') || 0;
+    # Output dirs: [0]=primary (written by print_zone_to_file), [1..]=copies.
+    my $dirs = Netdot->config->get('BIND_EXPORT_DIR');
 
     my @changes = ();
 
@@ -119,9 +112,10 @@ sub generate_configs {
 		    }
 		    $logger->info("Zone ".$zone->name." written to file: $path");
 
-		    system ("/usr/bin/scp $path $sshserver:$remotedir")
-		        if ($remoteexec == 1);
-		    system ('/bin/cp '.$path.' '.$gitdir.'/');
+		    system ("/usr/bin/scp $path $cfg->{SERVER}:$cfg->{DIR}")
+		        if ($cfg->{ENABLE} && $cfg->{SERVER} && $cfg->{DIR});
+		    my @copies = @{$dirs}[1..$#$dirs];
+		    system ('/bin/cp '.$path.' '.$_.'/') for @copies;
 		    push @changes, $zone->name;
 		}else{
 		    $logger->debug("Exporter::BIND::generate_configs: ".$zone->name.
@@ -132,8 +126,8 @@ sub generate_configs {
 	$logger->error($@) if $@;
     }
 
-    if (@changes && $remoteexec == 1) {
-	open (FOO, "/usr/bin/ssh $sshserver '$reloadcmd' |");
+    if (@changes && $cfg->{ENABLE} && $cfg->{SERVER} && $cfg->{RELOAD}) {
+	open (FOO, "/usr/bin/ssh $cfg->{SERVER} '$cfg->{RELOAD}' |");
 	while (<FOO>) {
 	    chomp;
 	    $logger->info( $_ );
@@ -176,9 +170,10 @@ sub print_zone_to_file {
     
     my $rec = $zone->get_all_records();
 
-    my $dir = Netdot->config->get('BIND_EXPORT_DIR') 
+    my $dirs = Netdot->config->get('BIND_EXPORT_DIR')
 	|| $self->throw_user('BIND_EXPORT_DIR not defined in config file!');
-    
+    my $dir = $dirs->[0];
+
     my $filename = $zone->export_file;
     unless ( $filename ){
 	$logger->warn('Export filename not defined for this zone: '. $zone->name.' Using zone name.');

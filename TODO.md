@@ -149,6 +149,20 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
   Dirs locaux `export/{bind,dhcpd,named,rfc952,pb}` créés.
 - Vérifié : Admin + smobile (User, zones 114/115/116) voient Export et exportent (fichiers écrits) ;
   guest (sans droits) = 403 + nav masquée. 12 types exécutés avec succès par l'Admin.
+- [x] ✅ **Refactor export distant homogène (`REMOTE_PLUGIN`)** : les clés éparses
+  (`REMOTE_EXEC`, `BIND_REMOTE_DIR`/`BIND_SSH_SERVER`/`BIND_RELOAD_CMD`, `NAMED_REMOTE_DIR`,
+  `RFC952_SCP_TARGET`, `Apache_SCP_TARGET`) → structure unique
+  `REMOTE_PLUGIN{PLUGIN}{DIR, SERVER, RELOAD, ENABLE}` (BIND, NAMED, RFC952, APACHE, UNILSTAT) ;
+  `ENABLE` **par plugin** remplace le flag global `REMOTE_EXEC`. Découplage git : `BIND_EXPORT_DIR`/
+  `NAMED_DIR`/`RFC952_DIR`/`Apache_DIR` deviennent des **ARRAYREF** de dirs de sortie (primaire +
+  copies) ; suppression de `Git_BIND_DIR`/`Git_NAMED_DIR`/`Git_RFC952_DIR` (le staging git est juste
+  une entrée de la liste ; `GIT.pm` inchangé, utilise `Git_DIR`). Nettoyage : RFC952 perd ses 2
+  commandes **hardcodées** (`scp …user@scphost:scripts/` + `ssh user@dnsmaster update_named`) ; Apache
+  (scp commenté) et Unilstat (target hardcodé `user@scphost:/var/www/html/stat/`) câblés proprement
+   sur `REMOTE_PLUGIN`. Le scp = `SERVER:DIR`, le reload = `ssh SERVER 'RELOAD'` (**section par
+   exporteur** ; `RELOAD` vide = pas de reload — NAMED en manquait, ajouté), le tout gating sur
+   `ENABLE` ; code : le hashref du plugin est stockée dans `$self->{REMOTE}` (ou `$cfg` dans BIND)
+   et indexée `{DIR|SERVER|RELOAD|ENABLE}`.
 
 ## 8. Help — ✅ terminé
 
