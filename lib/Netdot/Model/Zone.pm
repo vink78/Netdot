@@ -193,7 +193,7 @@ sub insert {
 	    );
 
 	# Copy values from template zone
-	foreach my $field ( qw(mname rname refresh retry expire minimum default_ttl include) ){
+	foreach my $field ( qw(mname rname refresh retry expire minimum default_ttl include dnssec) ){
 	    $state{$field} = $tzone->$field;
 	}
 	$newzone = $class->SUPER::insert( \%state );
@@ -227,6 +227,7 @@ sub insert {
 	    active      => $argv->{active}      || 1,
 	    export_file => $argv->{export_file} || $argv->{name},
 	    default_ttl => $argv->{default_ttl} || $class->config->get('ZONE_DEFAULT_TTL'),
+	    dnssec      => $argv->{dnssec}      || 0,
 	    );
 
 	$newzone = $class->SUPER::insert( \%state );

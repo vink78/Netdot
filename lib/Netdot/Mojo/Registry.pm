@@ -182,6 +182,17 @@ sub column_tag {
     return ( defined $tag && length $tag ) ? $tag : $col;
 }
 
+# Meta SQL type of a column ('bool', 'integer', 'varchar', ...). Accepts a class
+# name or an object; returns undef when the column/type is unknown.
+sub column_type {
+    my ( $class, $col ) = @_;
+    $class = ref( $class ) if ref( $class );
+    my $meta = eval { $class->meta_data };
+    return undef unless $meta;
+    my $t = eval { $meta->get_column( $col )->sql_type };
+    return $@ ? undef : $t;
+}
+
 # Registry key of the object a column links to (from the meta links_to), or
 # undef when the column is not a foreign key. Lets a list render FK cells as
 # links to the related object's detail page.

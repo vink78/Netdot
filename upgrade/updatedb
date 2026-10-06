@@ -353,5 +353,17 @@ sub upg_106_107 {
 
 #########################################################################
 sub upg_107_200 {
+    if ( $dbms eq 'mysql' ) {
+
+        # MySQL strict mode rejects a string default ('false') on a bool/tinyint;
+        # use the numeric literal (identical column to a fresh install).
+        push @statements, "ALTER TABLE zone ADD COLUMN dnssec bool NOT NULL DEFAULT 0;";
+
+    }elsif ( $dbms eq 'Pg' ){
+
+        push @statements, "ALTER TABLE zone ADD COLUMN dnssec bool NOT NULL default 'f';";
+
+    }
+
     push @statements, "UPDATE schemainfo SET version='2.0.0' WHERE id=1;",
 }

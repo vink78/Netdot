@@ -467,6 +467,13 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   `ENABLE` per plugin gates the `scp SERVER:DIR` + `ssh SERVER 'RELOAD'`. Export dirs
    (`BIND_EXPORT_DIR`, `NAMED_DIR`, `RFC952_DIR`, `Apache_DIR`) are arrayrefs (primary +
    copies); `Git_*_DIR` removed (staging is just a list entry; `GIT.pm` uses `Git_DIR`).
+   DNSSEC flag: NAMED's `DNSSEC: inline` hack in free-text `zone.info` replaced by a real
+   `zone.dnssec` bool column (`NAMED.pm` reads it; set flag => `inline`-signing block, the
+   only mode; `HIDDEN` stays in `info`). Files: `netdot.meta` (column + Zone `all` view),
+   `Zone.pm` (insert/copy), `NAMED.pm`. Migration in `upg_107_200` (1.x→2.0.0):
+   `ALTER TABLE zone ADD COLUMN dnssec ... DEFAULT 0` (strict mode rejects SQLT's
+   `DEFAULT 'false'` on bools => fresh `initdb` still to fix in SQLT). Bool columns render
+   `True`/`False` (HTML) / `true`/`false` (API JSON) via `Registry::column_type`.
    `etc/Site.conf` (gitignored) is now a **full mirror of `Default.conf`** — same key order and
    same section comments, with only the site's divergent values (68 keys) overridden. So
    `diff -NaBbur Site.conf Default.conf` isolates the site customizations. Verified: effective

@@ -24,6 +24,7 @@ use Netdot;
 use Netdot::Model;
 use Netdot::Mojo::Permissions;
 use Netdot::Mojo::Registry;
+use JSON::PP ();
 
 # ---------------------------------------------------------------------------
 # Tiny exception carrying an HTTP status code + message.
@@ -138,7 +139,14 @@ sub get {
             }
         }
         else {
-            $ret{$col} = eval { $obj->$col };
+            my $v = eval { $obj->$col };
+            if ( Netdot::Mojo::Registry::column_type( $obj, $col ) eq 'bool' ) {
+                # Boolean column -> real JSON true/false (not a 0/1 number).
+                $ret{$col} = defined $v ? ( $v ? JSON::PP::true : JSON::PP::false ) : undef;
+            }
+            else {
+                $ret{$col} = $v;
+            }
         }
     }
 

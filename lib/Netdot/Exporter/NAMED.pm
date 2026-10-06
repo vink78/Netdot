@@ -86,9 +86,9 @@ sub generate_configs {
 	# GET Zones
 	my %zone_info;
 	my %master_info;
-	my $zoneq = $dbh->selectall_arrayref("SELECT id, name, mname, info FROM zone WHERE active=1 ORDER BY name");
+	my $zoneq = $dbh->selectall_arrayref("SELECT id, name, mname, info, dnssec FROM zone WHERE active=1 ORDER BY name");
 	foreach my $row ( @$zoneq ) {
-		my ($id, $name, $master, $info) = @$row;
+		my ($id, $name, $master, $info, $dnssec) = @$row;
 
 		$zone_info{$name}{id}     = $id;
 		$zone_info{$name}{master} = $master;
@@ -96,11 +96,12 @@ sub generate_configs {
 		$zone_info{$name}{dnssec} = '';
 		$zone_info{$name}{hidden} = '';
 
+		# DNSSEC: proper `zone.dnssec` flag. Inline signing is the only
+		# mode the NAMED exporter supports, so a set flag => 'inline'.
+		$zone_info{$name}{dnssec} = 'inline' if $dnssec;
+
 		if (defined $info && $info ne '') {
 		    foreach (split /\n/, $info) {
-			if (/^DNSSEC: (.*)$/) {
-			    $zone_info{$name}{dnssec} = lc($1);
-			}
 			if (/^HIDDEN: (.*)$/) {
 			    $zone_info{$name}{hidden} = lc($1);
 			}

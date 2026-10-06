@@ -8505,6 +8505,14 @@ $meta = {
         tag => 'Default TTL',
         type => 'integer'
       },
+      dnssec => {
+        default => \"FALSE",
+        description => 'Sign this zone with DNSSEC (inline signing) when generating the NAMED config',
+        length => '',
+        nullable => 0,
+        tag => 'DNSSEC?',
+        type => 'bool'
+      },
       expire => {
         default => '',
         description => 'A 32 bit time value that specifies the upper limit on the time interval that can elapse before the zone is no longer authoritative.',
@@ -8627,6 +8635,7 @@ $meta = {
         'minimum',
         'contactlist',
         'active',
+        'dnssec',
         'export_file',
         'default_ttl',
         'include',
