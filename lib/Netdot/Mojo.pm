@@ -38,6 +38,29 @@ sub startup ($self) {
     # leading slash), so the base must carry a trailing slash.
     $self->helper( web_root => sub { $base eq '' ? '/' : $base . '/' } );
     $self->helper( set_uri    => sub ($c, $uri) { Netdot::Mojo::Registry::set_uri( $uri ) } );
+    # client_ip: the real client IP behind the frontend reverse proxy. X-Forwarded-For
+    # (a "client, proxy1, …" list; leftmost = the client) is honored ONLY when the direct
+    # TCP peer is a *trusted* proxy — the config list TRUSTED_PROXY_IPS (an array ref of
+    # IPs, loopback by default; add your external proxy IP(s) there). A direct non-trusted
+    # peer is logged as-is, so a client cannot spoof its source IP via a fake XFF header.
+    my @trusted;
+    my $tp = eval { Netdot->config->get('TRUSTED_PROXY_IPS') };
+    if ( ref $tp eq 'ARRAY' ) {
+        @trusted = grep { defined && !ref($_) && length } @$tp;
+    }
+    elsif ( defined $tp && !ref $tp && length $tp ) {
+        @trusted = grep { length } split /[,\s]+/, $tp;    # tolerate a plain string
+    }
+    my %trusted_peer = map { $_ => 1 } @trusted;
+    $self->helper( client_ip => sub ($c) {
+        my $peer = $c->tx->remote_address // '';
+        if ( $trusted_peer{$peer} ) {
+            my $xff = $c->req->headers->header('X-Forwarded-For');
+            my ($first) = ( defined $xff && $xff ne '' ) ? split /,\s*/, $xff : ();
+            return $first if defined $first && $first ne '';
+        }
+        return length $peer ? $peer : '-';
+    });
 
     # ---- Logging: info by default (captures the ACCESS/LOGIN lines below);
     # override with MOJO_LOG_LEVEL=debug|trace to troubleshoot. ----
@@ -248,7 +271,7 @@ sub startup ($self) {
         my $path = $c->req->url->path;
         return if $path =~ m{^\Q$base\E(?:/(?:css|img|java_script))(?:/|$)};
         return if $path eq "$base/favicon.ico";
-        my $ip   = $c->tx->remote_address  // '-';
+        my $ip   = $c->client_ip;
         my $user = $c->session('username') // '-';
         my $fn   = defined $c->stash('controller')
                  ? $c->stash('controller') . '#' . $c->stash('action')

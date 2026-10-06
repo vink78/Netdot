@@ -248,8 +248,11 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
      daemon se gère par une politique dédiée).
  - [x] ✅ **Access-log (journald)** : hook `after_dispatch` (`Netdot::Mojo`) loggue 1 ligne/requête
    `ACCESS <ip> <user> <méthode> <controller>#<action> <path> <statut>` (hors assets statiques) ;
-   `Auth#login_submit` loggue `LOGIN <ip> user=<u> success|FAILED` (tentatives de login, IP incluse).
-   Via le logger app → **journald** (systemd). Niveau `info` par défaut (`$self->log->level(
+   `Auth#login_submit` loggue `LOGIN <ip> user=<u> success|FAILED` (tentatives de login, IP incluse). Le `<ip>` = la **vraie IP client** : le helper `client_ip`
+    lit la 1ʳᵉ valeur de `X-Forwarded-For` **uniquement** si le peer direct est un proxy de
+    confiance (config `TRUSTED_PROXY_IPS`, **liste d'IPs**, défaut loopback — y ajouter son
+    proxy externe) ; sinon l'IP du peer direct est logguée (anti-spoofing : un client direct ne
+    peut pas forger `X-Forwarded-For`). Via le logger app → **journald** (systemd). Niveau `info` par défaut (`$self->log->level(
    $ENV{MOJO_LOG_LEVEL} // 'info')`, le `.service` fixe `MOJO_LOG_LEVEL=info`) — garde ACCESS/LOGIN,
    supprime le bruit trace/debug. Lecture : `journalctl -u netdot` / `journalctl -u netdot | grep
     ACCESS`. **Complète** l'audit des écritures (table `audit`, page Changelog) qui ne capture ni IP

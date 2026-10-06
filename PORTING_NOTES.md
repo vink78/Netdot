@@ -87,7 +87,11 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
       by a dedicated policy, not `chcon` httpd).
    **Access log**: an `after_dispatch` hook in `Netdot::Mojo` logs one line per request
    (`ACCESS <ip> <user> <method> <controller>#<action> <path> <status>`, static assets skipped);
-   `Auth#login_submit` logs `LOGIN <ip> user=<u> success|FAILED`. Both go through the app logger
+    `Auth#login_submit` logs `LOGIN <ip> user=<u> success|FAILED`. The `<ip>` is the **real client
+    IP**: the `client_ip` helper reads the leftmost `X-Forwarded-For` value **only** when the
+    direct peer is a trusted proxy (config `TRUSTED_PROXY_IPS`, an **array ref of IPs**, loopback
+    default; add an external front-end proxy IP there), else it logs the direct peer address
+    (anti-spoofing: a direct client can't forge `X-Forwarded-For`). Both go through the app logger
    (-> journald under systemd). Log level defaults to `info` (`$self->log->level($ENV{MOJO_LOG_LEVEL}
    // 'info')`; the `.service` sets `MOJO_LOG_LEVEL=info`) so ACCESS/LOGIN are kept and the verbose
    trace/debug per-request noise is dropped. Read with `journalctl -u netdot | grep ACCESS`. This

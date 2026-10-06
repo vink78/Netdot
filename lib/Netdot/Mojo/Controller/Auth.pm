@@ -37,7 +37,8 @@ sub login_submit ($c) {
     }
 
     # Log every login attempt (IP + user + outcome) for the audit trail.
-    my $ip = $c->tx->remote_address // '-';
+    # client_ip honors X-Forwarded-For only from trusted proxies (see Netdot::Mojo).
+    my $ip = $c->client_ip;
     $c->app->log->info( "LOGIN $ip user=$user " . ( $ok ? 'success' : 'FAILED' ) );
 
     if ($ok) {

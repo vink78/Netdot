@@ -5,7 +5,9 @@
 .prefix
 bin/oui.txt
 etc/Site.conf*
+etc/*.orig
 etc/schema*
+htdocs/reports/*.orig
 upgrade/error.log
 var/pollstats.rrd
 
