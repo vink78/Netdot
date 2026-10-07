@@ -1,13 +1,18 @@
 <h1><%= $title %></h1>
 
-<p><a href="<%= url_for( $type . '_list' ) %>">&laquo; <%= ucfirst($type) %></a></p>
+<p>
+  <a href="<%= url_for( $type . '_list' ) %>">&laquo; <%= ucfirst($type) %></a>
+  % if ( $can_edit && @$fields ) {
+  <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+</p>
 
 % if (@$attrs) {
 %   # Fields table: Device-Basics "General" look (datatable.detail, 2 label/value
 %   # pairs per row), no section header. Chunk the flat attr list into rows of 2.
 %   my $N    = 2;
 %   my @list = @$attrs;
-  <table class="datatable detail c2">
+  <table class="datatable detail c2" id="nd-readonly">
     <tbody>
     % for (my $i = 0; $i < @list; $i += $N) {
     %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
@@ -30,6 +35,40 @@
   </table>
 % } else {
   <p>No attribute.</p>
+% }
+
+% if ( $can_edit && @$fields ) {
+%   my @fl = @$fields;
+<form id="nd-edit" data-nd-api="<%= $api_path %>" data-nd-method="PATCH" style="display:none">
+  <table class="datatable detail c2">
+    <tbody>
+    % for ( my $i = 0; $i < @fl; $i += 2 ) {
+    %   my $end = $i + 1; $end = $#fl if $end > $#fl;
+    %   my @row = @fl[ $i .. $end ];
+    <tr>
+      % for my $f (@row) {
+      <th><%= $f->{tag} %></th>
+      <td>
+        % if ( $f->{kind} eq 'checkbox' ) {
+        <input type="checkbox" name="<%= $f->{name} %>"<%= $f->{value} ? ' checked' : '' %>>
+        % } elsif ( $f->{kind} eq 'textarea' ) {
+        <textarea name="<%= $f->{name} %>" rows="3"><%= $f->{value} %></textarea>
+        % } elsif ( $f->{kind} eq 'number' ) {
+        <input type="number" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+        % } else {
+        <input type="text" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+        % }
+      </td>
+      % }
+    </tr>
+    % }
+    </tbody>
+  </table>
+  <p style="margin-top:0.8em">
+    <button type="submit" class="btn">Save</button>
+    <button type="button" class="btn" id="nd-edit-cancel" style="margin-left:0.6em">Cancel</button>
+  </p>
+</form>
 % }
 
 % my $relations = $c->stash->{relations} // [];

@@ -31,6 +31,37 @@ sub build_attrs {
     return \@attrs;
 }
 
+# Editable field specs for the in-place edit form: the class's "all"-view columns
+# that are a plain (non-FK, non-sensitive) scalar. FKs are excluded (they are
+# edited by linking to their own object, not via this form). Each spec is
+# { name, tag, kind, value } where kind is text|number|textarea|checkbox and
+# value is the current value (checkbox => 0/1). Drives the form for every
+# generic detail page (Controller::Show).
+sub build_edit_fields {
+    my ( $obj, $class ) = @_;
+    my @fields;
+    for my $cd ( @{ Netdot::Mojo::Registry::display_columns( $class ) } ) {
+        my ( $col, $tag ) = @$cd;
+        next if Netdot::Mojo::Registry::is_sensitive( $col );
+        next if Netdot::Mojo::Registry::column_link_key( $class, $col );    # FK
+        my $type = Netdot::Mojo::Registry::column_type( $class, $col );
+        my $val  = eval { $obj->$col };
+        $val     = '' unless defined $val;
+        my $kind =
+            ( $type eq 'bool' )    ? 'checkbox'
+          : ( $type eq 'integer' ) ? 'number'
+          : ( $type eq 'text' )    ? 'textarea'
+          :                          'text';
+        push @fields, {
+            name  => $col,
+            tag   => $tag,
+            kind  => $kind,
+            value => ( $kind eq 'checkbox' ? ( $val ? 1 : 0 ) : $val ),
+        };
+    }
+    return \@fields;
+}
+
 # has_many relations (like the old Mason view.html "View" section): one table
 # per non-empty relation. Columns from _rel_columns (brief view; for join /
 # connector tables whose label IS the FK set the FK columns are shown as

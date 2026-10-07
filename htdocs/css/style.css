@@ -1155,4 +1155,25 @@ input[type=button]:hover {
 #content a { text-decoration: none; }
 #content a:hover { text-decoration: underline; }
 
+/* ---------- Transient status box (netdot.js: edit/API feedback) ---------- */
+.nd-status {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%) translateY(20px);
+    background: #333333;
+    color: #ffffff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.9em;
+    opacity: 0;
+    transition: opacity .25s ease, transform .25s ease;
+    z-index: 9999;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .2);
+    pointer-events: none;
+}
+.nd-status.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.nd-status.ok   { background: #2e7d32; }
+.nd-status.err  { background: #c62828; }
+
 

@@ -29,6 +29,13 @@ sub show ($c) {
     # values become links when their type has a route.
     my $attrs = Netdot::Mojo::Detail::build_attrs( $obj, $class );
 
+    # Edit form (phase 2): editable scalar fields + the API endpoint the form
+    # PATCHes to. Writes go through the JSON API (single path), not a server-side
+    # form handler. FKs are excluded from the form (see Detail::build_edit_fields).
+    my $can_edit = $c->perm( 'edit', $obj );
+    my $fields   = $can_edit ? Netdot::Mojo::Detail::build_edit_fields( $obj, $class ) : [];
+    my $api_path = $can_edit ? $c->web_prefix . '/api/' . lc( $type ) . '/' . $id : '';
+
     # has_many relations (like the old Mason view.html "View" section): one table
     # per non-empty relation. Columns from the related class's brief view. Rows
     # paginated via a shared `offset` param; `?csv=<rel>` exports a relation as
@@ -89,6 +96,9 @@ sub show ($c) {
         id       => $id,
         attrs    => $attrs,
         relations => $relations,
+        can_edit => $can_edit,
+        fields   => $fields,
+        api_path => $api_path,
     );
 }
 
