@@ -40,7 +40,7 @@
 % for my $s (@$sections) {
 % my $rows = $s->{rows};
 % next unless @$rows;
-<div class="container">
+<div class="container boxed">
   <div class="containerhead"><%= $s->{title} %></div>
   <div class="containerbody flat">
     <table class="datatable detail c<%= $s->{cols} %>">

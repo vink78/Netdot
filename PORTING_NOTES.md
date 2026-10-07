@@ -277,6 +277,9 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   (record view); PTR → `host.html` (host view).
 - Styles: `htdocs/css/style.css` (`.ipaddr_*`, `.ipcontainertable`,
   `.tablescroll`, `.container*`, `.progress_bar`).
+- **Tabbed detail pages (`.tabcard`)** flatten inner `.container`s (`.tabcard .container`
+  — no card-in-card); a section opts back into the boxed look with `.container.boxed`
+  (Device Basics: General / Location / Management).
 - **Permission / rights-inheritance (original, still in the tree)**: the logic lives in
   `lib/Netdot/ObjectAccessRule.pm` (`denies()` — per-object rule + inheritance), composed by
   `lib/Netdot/NetdotPermissionFactory.pm` (`GrantAllRule` default-allow + `SectionAccessRule`

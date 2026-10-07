@@ -362,7 +362,10 @@ les mêmes composants.
   (tables / cartes de section) est **aplati** (`.tabcard .datatable`, `.tabcard
    .container` sans bordure) → pas de carte-dans-carte. Appliqué aux pages à onglets :
    Device (`?view=`), détail générique (`?rel=`), Ipblock (sections Children/Sites/…).
- - [x] **`.cardrow`** : rangée responsive de cartes `.container` égales (côte à côte,
+  - [x] **`.container.boxed`** : une section réactive le cadre (bordure/ombre/arrondi)
+    à l'intérieur d'une `.tabcard` (opt-in du card-in-card) — sections Device Basics
+    (General / Location / Management).
+  - [x] **`.cardrow`** : rangée responsive de cartes `.container` égales (côte à côte,
    wrapping sur écran étroit, hauteurs égales `align-items:stretch`). **Page Export**
    (`/export`) : un conteneur englobant `.container` (titre = «Export third-party configurations…») > `.cardrow` de 3 cartes
    (Export Classes / DNS (BIND) Options / DHCPD Options) ; erreurs + sortie de l'exporteur en
