@@ -486,10 +486,25 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      par le détail générique **et** les pages dédiées) → **Zone** (`Zone.pm` + `zone.html.ep`)
      a aussi son formulaire (SOA name/mname/rname/serial/refresh/retry/expire/minimum +
      contactlist FK + active/dnssec + default_ttl + include/info), PATCH `/api/zone/<id>`.
-      **Zone**, **Contactlist** (`Contactlist.pm`), **Closet** (`Closet.pm`) et **Device**
-      (`Device.pm`) ont leur formulaire (partial partagé ; Closet/Device portent un layout
-      curaté mais `room` (FK, 114 > max) passe en recherche `?kw=` ; Device = vue Basics
-      seule, 59 champs, champs FK calc. uniquement sur Basics). Suivant : ipblock, rr…
+       **Zone**, **Contactlist** (`Contactlist.pm`), **Closet** (`Closet.pm`), **Device**
+       (`Device.pm`) et **Ipblock** (`Ipblock.pm`, vue détail subnet + adresse) ont leur
+       formulaire (partial partagé ; Closet/Device portent un layout curaté mais `room`
+       (FK, 114 > max) passe en recherche `?kw=` ; Device = vue Basics seule, 59 champs,
+       champs FK calc. uniquement sur Basics). ⚠️ **Ipblock : identité exclue** — les champs
+       `address`/`prefix`/`version`/`parent` sont EXCLUS du formulaire (les éditer in-situ
+       casserait la hiérarchie) ; seuls les champs « soft » (status, owner, used_by, rir,
+       asn, description, monitored, first/last seen, interface, vlan, use_network_broadcast,
+        info) sont éditables. ⚠️ **`status` filtré par type de bloc** (règles
+        `Model::Ipblock::_validate`) : adresse (/32//128) → Static / Dynamic (si le subnet
+        parent a DHCP) / Discovered / Reserved ; subnet/container → Subnet / Container /
+        Reserved. « Available » = indication de libération/suppression, pas une option
+        manuelle (conservée si c'est la valeur courante, pour ne pas vider le `<select>`).
+        L'API `PATCH` re-vérifie via le `update` du modèle (status invalide → 400).
+        **TODO REBLOCK** : changer network/prefix (champs identité)
+       n'est PAS un simple edit de champ — c'est une opération de **reblock** (recréer la
+       hiérarchie, migrer sous-blocs/attributs/relations), traitée dans l'UI legacy Mason
+       (flux create/edit Ipblock, complexe) et non exposée ici → à implémenter séparément.
+       Suivant : rr…
       ⚠️ **Une FK n'apparaît en édition que si sa cible est enregistrée** dans le Registry
       (`spec(target)`), sinon `build_edit_fields` la saute silencieusement. 4 types de
       recherche manquaient → ajoutés à `%TYPES`+`@ORDER` : `usertype` (Person.user_type),

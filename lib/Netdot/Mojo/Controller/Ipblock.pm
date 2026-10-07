@@ -8,6 +8,7 @@ use Netdot::Model::Interface;
 use Netdot::Model::PhysAddr;
 use Netdot::UI;
 use Netdot::Mojo::Registry;
+use Netdot::Mojo::Detail;
 use NetAddr::IP;
 
 # Detail page for an IP block: hierarchical navigation, view-format
@@ -19,6 +20,46 @@ sub show ($c) {
     my $o = eval { Ipblock->retrieve($id) };
     return $c->reply->not_found unless $o;
     return if $c->deny_unless( 'view', $o );    # per-object access (User: none by default)
+
+    # In-place edit form: scalar + FK "soft" fields only. Identity fields
+    # (address / prefix / version / parent) are EXCLUDED — editing them in place
+    # would break the block hierarchy (a network/prefix change needs a REBLOCK, a
+    # distinct not-yet-migrated operation; see TODO).
+    my $can_edit = $c->perm( 'edit', $o );
+    my $fields   = [];
+    my $api_path = '';
+    if ($can_edit) {
+        my %identity = ( address => 1, prefix => 1, version => 1, parent => 1 );
+        my @f = grep { !$identity{ $_->{name} } }
+                @{ Netdot::Mojo::Detail::build_edit_fields( $o, 'Ipblock' ) };
+        # Restrict the `status` field to the values valid for this block type
+        # (Model::Ipblock::_validate): an address -> Static / Dynamic / Discovered /
+        # Reserved (Dynamic only under a Subnet parent that has DHCP); a Subnet or
+        # Container -> Subnet / Container / Reserved. "Available" is a deletion /
+        # free-space indication, not a manual option. The model's update() re-checks
+        # these rules, so the API also rejects an invalid status change.
+        my $is_addr = eval { $o->is_address } ? 1 : 0;
+        my @allowed = $is_addr ? qw(Static Discovered Reserved)
+                               : qw(Subnet Container Reserved);
+        if ($is_addr) {
+            my $parent = eval { $o->parent };
+            my $pname  = eval { $parent && $parent->status && $parent->status->name } // '';
+            my $dhcp   = eval { $parent && $parent->dhcp_scopes } ? 1 : 0;
+            push @allowed, 'Dynamic' if ( $pname eq 'Subnet' && $dhcp );
+        }
+        # Keep the current status selectable even if it is not in the editable set
+        # (e.g. an address currently "Available"), so the <select> is never empty.
+        my $cur_st = eval { $o->status && $o->status->name } // '';
+        push @allowed, $cur_st if ( $cur_st && !grep { $_ eq $cur_st } @allowed );
+        my %ok = map { $_ => 1 } @allowed;
+        for my $e (@f) {
+            next unless $e->{name} eq 'status' && $e->{kind} eq 'fk'
+                  && ref $e->{options} eq 'ARRAY';
+            $e->{options} = [ grep { $ok{ $_->{label} } } @{ $e->{options} } ];
+        }
+        $fields   = \@f;
+        $api_path = $c->web_prefix . '/api/ipblock/' . $id;
+    }
 
     # An individual address (/32 or /128) has no children: show its
         # attributes and DNS records instead of the block views.
@@ -60,6 +101,9 @@ sub show ($c) {
                 layout      => 'default',
                 title       => "Ip " . $o->get_label,
                 current     => $o,
+                can_edit    => $can_edit,
+                fields      => $fields,
+                api_path    => $api_path,
                 breadcrumb  => \@crumbs,
                 attrs       => \@attrs,
                 comments    => ( eval { $o->info } // '' ),
@@ -175,6 +219,9 @@ sub show ($c) {
             container_grid => $container_grid,
             blocks     => \@blocks,
             current    => $o,
+            can_edit   => $can_edit,
+            fields     => $fields,
+            api_path   => $api_path,
             breadcrumb => \@crumbs,
             devs       => $devs,
             sites      => \@sites,

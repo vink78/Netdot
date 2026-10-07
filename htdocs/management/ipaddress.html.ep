@@ -10,6 +10,9 @@
 % my $dhcp       = $c->stash->{dhcp}        // [];
 % my $arp        = $c->stash->{arp}         // [];
 % my $audit      = $c->stash->{audit}       // [];
+% my $can_edit   = $c->stash->{can_edit};   # in-place edit
+% my $fields     = $c->stash->{fields}   // [];
+% my $api_path   = $c->stash->{api_path} // '';
 %# Breadcrumb: Roots > a > b > (current, bold).
 % if ($current) {
     <div class="breadcrumb" style="margin:0 0 1em 0; font-size:0.95em">
@@ -23,7 +26,10 @@
     <span style="color:#999"> » </span><strong><%= $current->get_label %></strong>
     </div>
 % }
-<div class="container">
+% if ( $can_edit && @$fields ) {
+<button type="button" class="btn" id="nd-edit-toggle" style="margin:0 0 0.5em 0">Edit</button>
+% }
+<div class="container" id="nd-readonly">
   <div class="containerhead"><%= $title %></div>
   <div class="containerbody flat">
 %# Fields: "General" look (datatable.detail c2, 2 pairs/row). Values are
@@ -46,6 +52,9 @@
     </table>
   </div>
 </div>
+
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
 
 %# Comments
 <div class="container">

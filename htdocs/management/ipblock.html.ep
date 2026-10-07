@@ -13,6 +13,9 @@
 % my $grid       = $c->stash->{grid};   # arrayref of rows of HTML cells (subnet block view)
 % my $cgrid      = $c->stash->{container_grid};  # HTML string (container usage visualization)
 % my $block_attrs = $c->stash->{block_attrs};    # arrayref of [label, value_html] (block detail only)
+% my $can_edit   = $c->stash->{can_edit};   # in-place edit (block detail only)
+% my $fields     = $c->stash->{fields}   // [];  # edit form fields (block detail only)
+% my $api_path   = $c->stash->{api_path} // '';  # JSON API PATCH path
 % my $is_addr    = ( $viewtype eq 'address' );
 %# Section-tab data (block detail).
 % my $sites      = $c->stash->{sites}    // [];
@@ -100,7 +103,10 @@
 %   # is the card header. Values are pre-rendered HTML -> emitted unescaped.
 %   my $N    = 2;
 %   my @list = @$block_attrs;
-<div class="container">
+% if ( $can_edit && @$fields ) {
+<button type="button" class="btn" id="nd-edit-toggle" style="margin:0 0 0.5em 0">Edit</button>
+% }
+<div class="container" id="nd-readonly">
   <div class="containerhead"><%= $title %></div>
   <div class="containerbody flat">
     <table class="datatable detail c2">
@@ -119,6 +125,8 @@
     </table>
   </div>
 </div>
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
 % }
 <div class="tabcard">
 %# Section tab bar (block detail only).

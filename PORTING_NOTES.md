@@ -289,7 +289,16 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
 
 ## Key files
 - `lib/Netdot/Mojo/Controller/Ipblock.pm` — block detail (show + helpers
-  `_block_attributes`, grid, sites/zones/dhcp/attrs/arp/audit) + search.
+  `_block_attributes`, grid, sites/zones/dhcp/attrs/arp/audit) + search. Now also
+  renders the shared edit form (both the subnet view `ipblock.html.ep` and the
+  individual-address view `ipaddress.html.ep`): scalar + FK "soft" fields → JSON API
+  PATCH; the identity fields (`address`/`prefix`/`version`/`parent`) are filtered out —
+  a network/prefix change needs a **reblock** (legacy Mason flow, see REBLOCK TODO). The
+  `status` field is also restricted to the values valid for the block type
+  (`Model::Ipblock::_validate`): an address → Static/Dynamic(only under a DHCP-enabled
+  Subnet parent)/Discovered/Reserved; a subnet/container → Subnet/Container/Reserved
+  ("Available" is a free-space/deletion indication, kept only if it is the current value).
+  The API `PATCH` re-checks via the model `update()` (invalid status → 400).
 - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
   `_rr_sections`, `_search_all`, `_name_link`, `_obj_link`) + search.
   - `lib/Netdot/Mojo/Controller/Show.pm` — generic detail (most types): attrs
@@ -332,9 +341,13 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       FK `?kw=` fill, `#nd-edit`/`#nd-readonly` toggle). A page opts in by stashing
       `can_edit`/`fields`/`api_path` (Show.pm, Zone.pm, …) and adding the Edit button +
        `id="nd-readonly"` on its attrs table + the partial include. Writes go through the
-       JSON API only (no server-side form handler). **Zone**, **Contactlist**, **Closet**
-       and **Device** (dedicated controllers) now have their edit form too; the next
-       dedicated models (ipblock, rr…) reuse the same partial.
+       JSON API only (no server-side form handler). **Zone**, **Contactlist**, **Closet**,
+       **Device** and **Ipblock** (dedicated controllers) now have their edit form too; the
+       next dedicated model (rr…) reuses the same partial. ⚠️ **Ipblock**: the identity
+       fields (`address`/`prefix`/`version`/`parent`) are EXCLUDED from the form (editing
+       them in place breaks the block hierarchy); only "soft" fields are editable. A
+       network/prefix change needs a **reblock** operation (handled in the legacy Mason
+       create/edit UI) — see the REBLOCK TODO.
   - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
     `management/zone.html`): record count (per type), apex record (A/NS/MX with
     links), generic has_many (subnets/records/aliases), recent changes (HostAudit).
