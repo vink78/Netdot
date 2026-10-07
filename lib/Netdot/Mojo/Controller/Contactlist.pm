@@ -25,6 +25,11 @@ sub show ($c) {
     $offset = 0 if $offset < 0;
 
     my $attrs = Netdot::Mojo::Detail::build_attrs( $o, 'ContactList' );
+    # In-place edit form (same as the generic detail): scalar + FK fields, written
+    # via the JSON API (PATCH) — no server-side form handler.
+    my $can_edit = $c->perm( 'edit', $o );
+    my $fields   = $can_edit ? Netdot::Mojo::Detail::build_edit_fields( $o, 'ContactList' ) : [];
+    my $api_path = $can_edit ? $c->web_prefix . '/api/contactlist/' . $id : '';
     my $contacts = _contacts( $o );
 
     # Generic has_many tables, minus the specially-rendered `contacts` relation.
@@ -38,6 +43,9 @@ sub show ($c) {
         type      => 'contactlist',
         id        => $id,
         attrs     => $attrs,
+        can_edit  => $can_edit,
+        fields    => $fields,
+        api_path  => $api_path,
         contacts  => $contacts,
         relations => $relations,
     );

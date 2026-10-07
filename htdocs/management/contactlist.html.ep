@@ -5,13 +5,18 @@
 
 <h1><%= $title %></h1>
 
-<p><a href="<%= url_for('contactlist_list') %>">&laquo; Contact List</a></p>
+<p>
+  <a href="<%= url_for('contactlist_list') %>">&laquo; Contact List</a>
+  % if ( $can_edit && @$fields ) {
+  <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+</p>
 
 % if (@$attrs) {
 %   # Fields: Device-Basics "General" look (datatable.detail, 2 pairs/row), no header.
 %   my $N    = 2;
 %   my @list = @$attrs;
-  <table class="datatable detail c2">
+  <table class="datatable detail c2" id="nd-readonly">
     <tbody>
     % for (my $i = 0; $i < @list; $i += $N) {
     %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
@@ -33,6 +38,9 @@
     </tbody>
   </table>
 % }
+
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
 
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Contacts (<%= scalar @$contacts %>)</h2>

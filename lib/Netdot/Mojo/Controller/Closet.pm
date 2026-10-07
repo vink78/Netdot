@@ -31,12 +31,21 @@ sub show ($c) {
     my $offset = int( $c->param('offset') // 0 );
     $offset = 0 if $offset < 0;
 
+    # In-place edit form (same as the generic detail): scalar + FK fields, written
+    # via the JSON API (PATCH) — no server-side form handler.
+    my $can_edit = $c->perm( 'edit', $o );
+    my $fields   = $can_edit ? Netdot::Mojo::Detail::build_edit_fields( $o, 'Closet' ) : [];
+    my $api_path = $can_edit ? $c->web_prefix . '/api/closet/' . $id : '';
+
     $c->render(
         template   => 'management/closet',
         layout     => 'default',
         title      => 'Closet ' . ( $o->get_label // $id ),
         type       => 'closet',
         id         => $id,
+        can_edit   => $can_edit,
+        fields     => $fields,
+        api_path   => $api_path,
         left       => _curated( $o, \@LEFT_FIELDS ),
         right      => _curated( $o, \@RIGHT_FIELDS ),
         info       => _text( $o, 'info' ),

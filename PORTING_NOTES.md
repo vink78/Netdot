@@ -331,8 +331,10 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       `htdocs/java_script/netdot.js` (`ND.api` fetch PATCH, transient `ND.status` box,
       FK `?kw=` fill, `#nd-edit`/`#nd-readonly` toggle). A page opts in by stashing
       `can_edit`/`fields`/`api_path` (Show.pm, Zone.pm, …) and adding the Edit button +
-      `id="nd-readonly"` on its attrs table + the partial include. Writes go through the
-      JSON API only (no server-side form handler). **Zone** now has its edit form too.
+       `id="nd-readonly"` on its attrs table + the partial include. Writes go through the
+       JSON API only (no server-side form handler). **Zone**, **Contactlist** and **Closet**
+       (dedicated controllers) now have their edit form too; the next dedicated models
+       (device, ipblock, rr…) reuse the same partial.
   - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
     `management/zone.html`): record count (per type), apex record (A/NS/MX with
     links), generic has_many (subnets/records/aliases), recent changes (HostAudit).
@@ -341,15 +343,17 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
  - `lib/Netdot/Mojo/Controller/Contactlist.pm` — ContactList detail (port of
    `generic/contactlist.html`): **contacts** rendered as a dedicated table (role
    sorted by person label: Person link + contacttype + notify_email/pager/voice
-   + escalation_level), other has_many as generic tables (`contacts` excluded).
-  - `lib/Netdot/Mojo/Controller/Closet.pm` — Closet detail (port of
+    + escalation_level), other has_many as generic tables (`contacts` excluded).
+    Now also renders the shared edit form (`_edit_form.html.ep`).
+   - `lib/Netdot/Mojo/Controller/Closet.pm` — Closet detail (port of
     `cable_plant/closet.html`): curated two-column info + `info`, Device List
     (room→floor→site), Backbone Cable (start+end merged), Horizontal Cable
     (read-only; cable names plain text, no deep link to deprecated pages),
     **Pictures** section (`_pictures`, via `ClosetPicture->search`) + **binary
     route** `picture` action (`/management/closetpicture/:id`, serves the
-    `bindata` BLOB — see pitfall 2f).
-  - `lib/Netdot/Mojo/Controller/Browse.pm` — generic list (all types): `%FILTERS`
+     `bindata` BLOB — see pitfall 2f). Now also renders the shared edit form
+     (`_edit_form.html.ep`; the `room` FK is large → `?kw=` search).
+   - `lib/Netdot/Mojo/Controller/Browse.pm` — generic list (all types): `%FILTERS`
     per-type filter whitelist, `search_like()` re-application, FK links via
     `Registry::column_link_key`/`esc`, CSV export, batch delete. Also **generic
     per-type search** (`search` action → `list`, route `/management/<type>/search`):

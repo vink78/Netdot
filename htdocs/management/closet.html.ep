@@ -6,13 +6,18 @@
 % my $horizontal = $c->stash('horizontal') // [];
 % my $pictures   = $c->stash('pictures')   // [];
 
-<p><a href="<%= url_for('closet_list') %>">&laquo; Closet</a></p>
+<p>
+  <a href="<%= url_for('closet_list') %>">&laquo; Closet</a>
+  % if ( $can_edit && @$fields ) {
+  <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+</p>
 
 % if ( defined $left && @$left || defined $right && @$right ) {
 %   # Fields: "General" look (datatable.detail c2, 2 pairs/row). Merge left+right.
 %   my @list = ( @{ $left // [] }, @{ $right // [] } );
 %   my $N    = 2;
-<div class="container">
+<div class="container" id="nd-readonly">
   <div class="containerhead"><%= $title %></div>
   <div class="containerbody flat">
     <table class="datatable detail c2">
@@ -38,6 +43,9 @@
   </div>
 </div>
 % }
+
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
 
 % if ( defined $info && length $info ) {
 <div class="container">
