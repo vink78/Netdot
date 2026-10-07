@@ -482,6 +482,12 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      case Ipblock via les overrides du modèle (string→int) : `search(address)` exact/CIDR
      puis `search_like(address)` (range préfixe), dédoublonné par id (cf. `keyword_search`
      legacy). Relations multi-valeurs non scalaires → restées en lecture seule.
+     Formulaire extrait en **partial partagé** `management/_edit_form.html.ep` (reutilisé
+     par le détail générique **et** les pages dédiées) → **Zone** (`Zone.pm` + `zone.html.ep`)
+     a aussi son formulaire (SOA name/mname/rname/serial/refresh/retry/expire/minimum +
+     contactlist FK + active/dnssec + default_ttl + include/info), PATCH `/api/zone/<id>`.
+     Les modèles complexes dédiés (zone, contactlist, closet, device, ipblock, rr…) reçoivent
+     le même formulaire via ce partial (à l'état un par un).
 4. ⛔ **Câblage/circuits** — dépréciés (Netbox).
 5. 🔶 **Création — raffiner la permission par parent** : `_can_create` est une approximation
    (l'objet cible n'existe pas → `can('edit', $parent)` sur le parent FK) ; couvre zone→rr,

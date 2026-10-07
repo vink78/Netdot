@@ -321,12 +321,18 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
      current value only (renders a keyword box; the JS fills the `<select>` via the API
      `?kw=` FK search). Multi-valued relations (non-scalar `$obj->$col`) are skipped and
      stay read-only. `cur_id` = the FK id; `cur_label` via the related object's
-     `get_label`. Rendered in `management/detail.html.ep` (`#nd-edit` form, hidden) +
-     `htdocs/java_script/netdot.js` (`ND.api` fetch PATCH, transient `ND.status` box,
-     FK `?kw=` fill). Writes go through the JSON API only (no server-side form handler).
+      `get_label`. The form is a **shared partial** `htdocs/management/_edit_form.html.ep`
+      (included via `$c->render_to_string(..., layout=>0)` from any detail page) +
+      `htdocs/java_script/netdot.js` (`ND.api` fetch PATCH, transient `ND.status` box,
+      FK `?kw=` fill, `#nd-edit`/`#nd-readonly` toggle). A page opts in by stashing
+      `can_edit`/`fields`/`api_path` (Show.pm, Zone.pm, …) and adding the Edit button +
+      `id="nd-readonly"` on its attrs table + the partial include. Writes go through the
+      JSON API only (no server-side form handler). **Zone** now has its edit form too.
   - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
-   `management/zone.html`): record count (per type), apex record (A/NS/MX with
-   links), generic has_many (subnets/records/aliases), recent changes (HostAudit).
+    `management/zone.html`): record count (per type), apex record (A/NS/MX with
+    links), generic has_many (subnets/records/aliases), recent changes (HostAudit).
+    Now also renders the **shared edit form** (`_edit_form.html.ep` partial; SOA fields +
+    contactlist FK + active/dnssec + include/info), PATCH `/api/zone/<id>`.
  - `lib/Netdot/Mojo/Controller/Contactlist.pm` — ContactList detail (port of
    `generic/contactlist.html`): **contacts** rendered as a dedicated table (role
    sorted by person label: Person link + contacttype + notify_email/pager/voice

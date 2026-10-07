@@ -25,6 +25,11 @@ sub show ($c) {
     $offset = 0 if $offset < 0;
 
     my $attrs = Netdot::Mojo::Detail::build_attrs( $o, 'Zone' );
+    # In-place edit form (same as the generic detail): scalar + FK fields, written
+    # via the JSON API (PATCH) — no server-side form handler.
+    my $can_edit = $c->perm( 'edit', $o );
+    my $fields   = $can_edit ? Netdot::Mojo::Detail::build_edit_fields( $o, 'Zone' ) : [];
+    my $api_path = $can_edit ? $c->web_prefix . '/api/zone/' . $id : '';
     my $count = _record_count( $o );
     my $apex  = _apex_records( $o, $id );
     my $relations = Netdot::Mojo::Detail::build_relations( $o, $perpage, $offset );
@@ -37,6 +42,9 @@ sub show ($c) {
         type        => 'zone',
         id          => $id,
         attrs       => $attrs,
+        can_edit    => $can_edit,
+        fields      => $fields,
+        api_path    => $api_path,
         count       => $count,
         apex        => $apex,
         relations   => $relations,
