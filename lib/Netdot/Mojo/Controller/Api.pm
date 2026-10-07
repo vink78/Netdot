@@ -222,6 +222,54 @@ sub generic {
 
         # plural (no id) -> paginated list (Netbox-style envelope)
         if ( $method eq 'GET' ) {
+            # FK keyword search (?kw=<kw>&limit=N): lightweight {id,label} results
+            # for a <select> (edit-mode FK picker). Mirrors the legacy select_lookup:
+            # big tables (RR, Ipblock, ...) are searched, never dumped into a dropdown.
+            # Default: LIKE %kw% on the label column. Ipblock is special: its address
+            # is a bigint (decimal), so a raw LIKE can't match the dotted form -- use
+            # the model's search overrides (string->int): exact/CIDR match first, then
+            # the prefix-range search_like for partial addresses.
+            if ( defined $args->{kw} && length $args->{kw} ) {
+                my $kw   = $args->{kw};
+                my @lbl  = eval { $class->meta_data->get_labels };
+                my $lcol = @lbl ? $lbl[0] : 'name';
+                my $lim  = int( $args->{limit} // 50 );
+                $lim = 50  if $lim < 1;
+                $lim = 500 if $lim > 500;
+                my @objs;
+                if ( $class eq 'Ipblock' ) {
+                    # exact / CIDR match first (string->int). List context is kept
+                    # inside the eval so the Class::DBI iterator expands to a full
+                    # list; on a partial keyword search() throws and we fall through
+                    # to the prefix-range search_like (which handles '10.0' etc.).
+                    my $ok = eval { @objs = $class->search( address => $kw ); 1 };
+                    @objs = () unless $ok;
+                    if ( !@objs ) {
+                        $ok = eval { @objs = $class->search_like( address => $kw ); 1 };
+                        @objs = () unless $ok;
+                    }
+                    # search_like can resolve the same block more than once; dedupe
+                    # by id (the legacy keyword_search did so via a hash keyed by id).
+                    my %seen;
+                    @objs = grep { !defined $_ || !$seen{ $_->id }++ } @objs;
+                    @objs = @objs[ 0 .. ( $lim - 1 ) ] if @objs > $lim;
+                }
+                else {
+                    my ( $pwhere ) = Netdot::Mojo::Permissions->viewable_predicate( $class, $p );
+                    @objs = eval {
+                        $class->search_page( where => $pwhere, like => [ $lcol, $kw ], order_by => $lcol, limit => $lim, offset => 0 );
+                    };
+                    _err( 500, "Search failed: $@" ) if $@;
+                }
+                if ( Netdot::Mojo::Permissions->user_type( $p ) eq 'User' ) {
+                    my $access = Netdot::Mojo::Permissions->allowed_objects( $class, $p );
+                    @objs = grep { Netdot::Mojo::Permissions->can( $class, $p, 'view', $_, $access ) } @objs;
+                }
+                my @results =
+                    map { { id => $_->id, label => ( eval { $_->get_label } || '#' . $_->id ) } } @objs;
+                return $c->render( json => { count => scalar( @results ), results => \@results }, status => 200 );
+            }
+
             my $depth       = ( defined $args->{depth} && $args->{depth} ne '' ) ? int( $args->{depth} ) : 0;
             my $linked_from = ( defined $args->{linked_from} && $args->{linked_from} ne '0' ) ? 1 : undef;
             my $limit       = ( defined $args->{limit}   && $args->{limit}   ne '' ) ? int( $args->{limit}   ) : 50;

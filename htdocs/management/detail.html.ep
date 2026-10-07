@@ -39,7 +39,7 @@
 
 % if ( $can_edit && @$fields ) {
 %   my @fl = @$fields;
-<form id="nd-edit" data-nd-api="<%= $api_path %>" data-nd-method="PATCH" style="display:none">
+<form id="nd-edit" data-nd-api="<%= $api_path %>" data-nd-method="PATCH" data-nd-api-base="<%= $c->web_prefix %>/api" style="display:none">
   <table class="datatable detail c2">
     <tbody>
     % for ( my $i = 0; $i < @fl; $i += 2 ) {
@@ -55,6 +55,31 @@
         <textarea name="<%= $f->{name} %>" rows="3"><%= $f->{value} %></textarea>
         % } elsif ( $f->{kind} eq 'number' ) {
         <input type="number" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+        % } elsif ( $f->{kind} eq 'fk' ) {
+        %   if ( $f->{options} ) {
+        %     # Small target table: plain <select> of all options (server-filled).
+        <select name="<%= $f->{name} %>" class="nd-fk-select">
+          <option value="">-- Select --</option>
+          % for my $op ( @{ $f->{options} } ) {
+          <option value="<%= $op->{id} %>"<%= ( $f->{cur_id} && $f->{cur_id} == $op->{id} ) ? ' selected' : '' %>><%= $op->{label} %></option>
+          % }
+          <option value="">[null]</option>
+        </select>
+        %   } else {
+        %     # Large target (RR/Ipblock): keyword search box + <select> filled on
+        %     # search via the API (never dumps 100K+ options).
+        <span class="nd-fk-search">
+          <input type="text" class="nd-fk-kw" placeholder="Search…" data-nd-target="<%= $f->{target} %>" data-nd-max="<%= $f->{max} %>">
+          <button type="button" class="btn nd-fk-go">List</button>
+          <select name="<%= $f->{name} %>" class="nd-fk-select">
+            <option value="">-- Search --</option>
+            % if ( $f->{cur_id} ) {
+            <option value="<%= $f->{cur_id} %>" selected><%= $f->{cur_label} %></option>
+            % }
+            <option value="">[null]</option>
+          </select>
+        </span>
+        %   }
         % } else {
         <input type="text" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
         % }

@@ -314,7 +314,17 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
     otherwise the first label column. Connector/join tables order by the referenced
     object's label via the connector's FK. The CSV export (`Show#show ?csv=`) uses the
     same `relation_objects` (all rows) so it matches the on-screen order.
- - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
+     **Edit form** (phase 2): `build_edit_fields($obj,$class,$person)` → one spec per
+     non-sensitive all-view column. Scalars → `text|number|textarea|checkbox`. **FK →
+     `kind=>'fk'`**: target ≤ `DEFAULT_SELECTMAX` (100) → `options` = all `{id,label}`
+     (renders a plain `<select>`); large target (RR/Ipblock/…) → `options` undef + the
+     current value only (renders a keyword box; the JS fills the `<select>` via the API
+     `?kw=` FK search). Multi-valued relations (non-scalar `$obj->$col`) are skipped and
+     stay read-only. `cur_id` = the FK id; `cur_label` via the related object's
+     `get_label`. Rendered in `management/detail.html.ep` (`#nd-edit` form, hidden) +
+     `htdocs/java_script/netdot.js` (`ND.api` fetch PATCH, transient `ND.status` box,
+     FK `?kw=` fill). Writes go through the JSON API only (no server-side form handler).
+  - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
    `management/zone.html`): record count (per type), apex record (A/NS/MX with
    links), generic has_many (subnets/records/aliases), recent changes (HostAudit).
  - `lib/Netdot/Mojo/Controller/Contactlist.pm` — ContactList detail (port of
@@ -424,8 +434,16 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   `host`/`host_like`/`updatedev`. `_host_post`: create on a **new** IP = subnet
   `can('edit'/'choose_ip')` + `RR->add_host`; create on an **existing** IP = insert an
   **RRADDR** (no allocation) allowed iff `can('edit',$zone)` AND `can('edit',$ip)`.
-  Also `root` (GET `/api` Netbox-style flat index), `spec` (`/api/openapi.yaml`),
-  `docs` (Swagger UI, standalone).
+   Also `root` (GET `/api` Netbox-style flat index), `spec` (`/api/openapi.yaml`),
+   `docs` (Swagger UI, standalone).
+   - **FK keyword search `?kw=`** (edit-mode FK picker, `Api.pm` `generic` GET list):
+     `GET /api/<table>?kw=<kw>&limit=N` → `{count, results:[{id,label}]}`. Default =
+     `LIKE %kw%` on the label column (`search_page(like=>[labelcol,$kw])`). **Ipblock is
+     special-cased**: its `address` is a `decimal(40,0)` (numeric), so a raw `LIKE` can't
+     match the dotted form → use the model overrides (string→int) in **list context**
+     (the `eval{ } // ()` scalarizes the CDBI iterator — see Pitfall §1): `search(address)`
+     exact/CIDR first, then `search_like(address)` prefix-range for partial addresses,
+     deduped by id (mirrors the legacy `keyword_search` hash).
 - `lib/Netdot/Mojo/OpenAPI.pm` — `build_spec()`: OpenAPI 3.0.3 from `Netdot->meta`
   (88 typed schemas + per-table paths + dedicated endpoints); `servers` from the
   `WEB_BASE_URL` prefix. Per-class **reference schemas** `FkReference_<Classe>` (`{id,url}`

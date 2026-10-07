@@ -471,7 +471,17 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
          `address` **entière** (ordre IP naturel, IPv4 avant IPv6, exact à 128 bits) ; colonne
          label qui est une **FK** (device.name→RR) → **`JOIN` + label lié** (`rr.name`, le nom
          DNS affiché — ni la FK numérique ni `sysname` SNMP) ; sinon 1re colonne label.
- 3. ⛔ **Édition** (hors périmètre — à re-évaluer si demandé).
+  3. [x] ✅ **Édition in-situ** (2026-10-07) — formulaire d'édition sur la page détail
+     (`Show.pm` + `management/detail.html.ep` + `netdot.js`), **écriture via l'API JSON**
+     seule (bouton Edit → formulaire caché → `PATCH` via `fetch` → statut transitoire →
+     reload). Pas de handler de formulaire côté serveur. Champs scalaires (text/number/
+     textarea/checkbox) + **FK** : cible ≤ `DEFAULT_SELECTMAX`(100) → `<select>` complet
+     ; cible grande (RR/Ipblock/…) → recherche par mot-clé qui remplit le `<select>` via
+     l'API **`?kw=`** (jamais 100k+ options en dropdown). ⚠️ **Ipblock** : `address` est
+     un `decimal(40,0)` → le `LIKE` brut ne matche pas la forme pointée → l'API spécial-
+     case Ipblock via les overrides du modèle (string→int) : `search(address)` exact/CIDR
+     puis `search_like(address)` (range préfixe), dédoublonné par id (cf. `keyword_search`
+     legacy). Relations multi-valeurs non scalaires → restées en lecture seule.
 4. ⛔ **Câblage/circuits** — dépréciés (Netbox).
 5. 🔶 **Création — raffiner la permission par parent** : `_can_create` est une approximation
    (l'objet cible n'existe pas → `can('edit', $parent)` sur le parent FK) ; couvre zone→rr,

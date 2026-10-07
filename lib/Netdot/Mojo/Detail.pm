@@ -12,6 +12,7 @@ package Netdot::Mojo::Detail;
 use strict;
 use warnings;
 
+use Netdot;
 use Netdot::Mojo::Registry;
 
 # Attributes table: every non-sensitive column of the class's "all" view, in
@@ -32,18 +33,51 @@ sub build_attrs {
 }
 
 # Editable field specs for the in-place edit form: the class's "all"-view columns
-# that are a plain (non-FK, non-sensitive) scalar. FKs are excluded (they are
-# edited by linking to their own object, not via this form). Each spec is
-# { name, tag, kind, value } where kind is text|number|textarea|checkbox and
-# value is the current value (checkbox => 0/1). Drives the form for every
-# generic detail page (Controller::Show).
+# that are non-sensitive. Scalar columns (text|number|textarea|checkbox) carry
+# { name, tag, kind, value } (checkbox value => 0/1). FK columns carry
+# { name, tag, kind=>'fk', target, max, cur_id, cur_label, options }:
+#   - small target table (count <= DEFAULT_SELECTMAX): options = all {id,label}
+#     (the form renders a plain <select>).
+#   - large target (RR, Ipblock, ...): options = undef (the form renders a
+#     keyword search box that queries the API; the dropdown is never dumped).
+# FK targets that are not a registered type are skipped (field stays read-only).
+# Drives the form for every generic detail page (Controller::Show).
 sub build_edit_fields {
     my ( $obj, $class ) = @_;
     my @fields;
+    my $maxselect = eval { Netdot->config->get('DEFAULT_SELECTMAX') } || 100;
     for my $cd ( @{ Netdot::Mojo::Registry::display_columns( $class ) } ) {
         my ( $col, $tag ) = @$cd;
         next if Netdot::Mojo::Registry::is_sensitive( $col );
-        next if Netdot::Mojo::Registry::column_link_key( $class, $col );    # FK
+
+        my $target = Netdot::Mojo::Registry::column_link_key( $class, $col );    # FK registry key or undef
+        if ($target) {
+            my $tspec  = Netdot::Mojo::Registry::spec( $target );
+            my $tclass = $tspec ? $tspec->{class} : undef;
+            next unless $tclass;
+            my $cur_id  = eval { int( $obj->$col // 0 ) };
+            $cur_id     = 0 unless defined $cur_id && $cur_id > 0;
+            my $cur_obj = $cur_id ? eval { $obj->$col } : undef;
+            my $count   = eval { $tclass->count_all } // 0;
+            my $options;
+            if ( $count <= $maxselect ) {
+                my @all = eval { $tclass->retrieve_all };    # list context (no "||" — it scalarizes)
+                @all    = sort { _fk_label( $a ) cmp _fk_label( $b ) } @all;
+                $options = [ map { { id => $_->id, label => _fk_label( $_ ) } } @all ];
+            }
+            push @fields, {
+                name      => $col,
+                tag       => $tag,
+                kind      => 'fk',
+                target    => $target,
+                max       => $maxselect,
+                cur_id    => $cur_id,
+                cur_label => $cur_obj ? _fk_label( $cur_obj ) : '',
+                options   => $options,
+            };
+            next;
+        }
+
         my $type = Netdot::Mojo::Registry::column_type( $class, $col );
         my $val  = eval { $obj->$col };
         $val     = '' unless defined $val;
@@ -60,6 +94,13 @@ sub build_edit_fields {
         };
     }
     return \@fields;
+}
+
+# Label for an FK option: the object's get_label (falls back to "#id").
+sub _fk_label {
+    my ($o) = @_;
+    my $l = eval { $o->get_label };
+    return ( defined $l && length $l ) ? $l : '#' . ( eval { $o->id } // '' );
 }
 
 # has_many relations (like the old Mason view.html "View" section): one table

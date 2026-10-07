@@ -85,6 +85,54 @@
     }
   }
 
+  // FK picker: search box (large tables) -> API ?kw= -> fill the <select>.
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function fkSearch(e) {
+    var t    = e.target || e.srcElement;
+    var wrap = t.closest('.nd-fk-search');
+    if (!wrap) { return; }
+    var kw   = wrap.querySelector('.nd-fk-kw');
+    var sel  = wrap.querySelector('.nd-fk-select');
+    var form = wrap.closest('form');
+    var base = form ? form.getAttribute('data-nd-api-base') : '/api';
+    var q    = (kw.value || '').trim();
+    var url  = base + '/' + kw.getAttribute('data-nd-target') + '?kw=' + encodeURIComponent(q) +
+               '&limit=' + (kw.getAttribute('data-nd-max') || 100);
+    var curId = sel.value;
+    api('GET', url).then(function (res) {
+      var results = (res.ok && res.data && res.data.results) ? res.data.results : [];
+      var html = '<option value="">-- Search --</option>';
+      var found = false;
+      for (var j = 0; j < results.length; j++) {
+        html += '<option value="' + results[j].id + '">' + escapeHtml(results[j].label) + '</option>';
+        if (String(results[j].id) === String(curId)) { found = true; }
+      }
+      if (curId && !found) { html += '<option value="' + curId + '" selected>current (' + curId + ')</option>'; }
+      html += '<option value="">[null]</option>';
+      sel.innerHTML = html;
+      if (curId) { sel.value = curId; }
+    });
+  }
+
+  function initFkSearch() {
+    var btns = document.querySelectorAll('.nd-fk-go');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].addEventListener('click', fkSearch);
+      var wrap = btns[i].closest('.nd-fk-search');
+      var kw   = wrap && wrap.querySelector('.nd-fk-kw');
+      if (kw) {
+        kw.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter') { e.preventDefault(); fkSearch(e); }
+        });
+      }
+    }
+  }
+
   // Edit / Cancel toggle for the generic detail page.
   function initToggle() {
     var toggle   = document.getElementById('nd-edit-toggle');
@@ -107,6 +155,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
     initToggle();
+    initFkSearch();
   });
 
   window.ND = { api: api, status: status, collect: collect };
