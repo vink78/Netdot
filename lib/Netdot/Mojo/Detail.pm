@@ -25,16 +25,7 @@ sub build_attrs {
         next if Netdot::Mojo::Registry::is_sensitive($col);
         my $v = eval { $obj->$col };
         $v = undef if $@;
-        my ( $text, $href );
-        if ( Netdot::Mojo::Registry::column_type( $class, $col ) eq 'bool' ) {
-            # Boolean column: render as True/False (readable, consistent).
-            $text = defined $v ? ( $v ? 'True' : 'False' ) : '';
-            $href = undef;
-        }
-        else {
-            ( $text, $href ) = @{ Netdot::Mojo::Registry::link_for($v) };
-            $text = '' unless defined $text;
-        }
+        my ( $text, $href ) = @{ Netdot::Mojo::Registry::attr_display( $class, $col, $v ) };
         push @attrs, [ $tag, $text, $href ];
     }
     return \@attrs;

@@ -105,8 +105,7 @@ sub _curated {
         my $tag = Netdot::Mojo::Registry::column_tag( $class, $col );
         my $v   = eval { $o->$col };
         $v = undef if $@;
-        my ( $text, $href ) = @{ Netdot::Mojo::Registry::link_for($v) };
-        $text = '' unless defined $text;
+        my ( $text, $href ) = @{ Netdot::Mojo::Registry::attr_display( $class, $col, $v ) };
         push @out, [ $tag, $text, $href ];
     }
     return \@out;

@@ -24,8 +24,7 @@ sub show {
         next if Netdot::Mojo::Registry::is_sensitive( $col );
         my $v = eval { $o->$col };
         $v = undef if $@;
-        my ( $text, $href ) = @{ Netdot::Mojo::Registry::link_for($v) };
-        $text = '' unless defined $text;
+        my ( $text, $href ) = @{ Netdot::Mojo::Registry::attr_display( 'Interface', $col, $v ) };
         push @attrs, [ $tag, $text, $href ];
     }
 

@@ -3750,6 +3750,10 @@ components:
           description: 'Default TTL: Default TTL to apply to records when exporting
             the zone file'
           type: integer
+        dnssec:
+          description: 'DNSSEC?: Sign this zone with DNSSEC (inline signing) when
+            generating the NAMED config'
+          type: boolean
         expire:
           description: 'Expire: A 32 bit time value that specifies the upper limit
             on the time interval that can elapse before the zone is no longer authoritative.'

@@ -291,6 +291,20 @@ sub link_for {
     return [ $text, $href ];
 }
 
+# [text, href] for a scalar attribute value of column $col of $class. Boolean
+# columns render as Yes/No (readable, consistent across the HTML detail
+# pages); anything else delegates to link_for (plain text for a scalar,
+# label+href for an FK).
+sub attr_display {
+    my ( $class, $col, $v ) = @_;
+    if ( column_type( $class, $col ) eq 'bool' ) {
+        return [ defined $v ? ( $v ? 'Yes' : 'No' ) : '', undef ];
+    }
+    my ( $text, $href ) = @{ link_for( $v ) };
+    $text = '' unless defined $text;
+    return [ $text, $href ];
+}
+
 # link_for() as a ready-to-emit HTML anchor: escaped label, prefixed href; empty
 # string when there is no route. Safe for raw (<%== %>) output in templates.
 sub link_html {

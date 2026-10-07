@@ -473,7 +473,8 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
    `Zone.pm` (insert/copy), `NAMED.pm`. Migration in `upg_107_200` (1.x→2.0.0):
    `ALTER TABLE zone ADD COLUMN dnssec ... DEFAULT 0` (strict mode rejects SQLT's
    `DEFAULT 'false'` on bools => fresh `initdb` still to fix in SQLT). Bool columns render
-   `True`/`False` (HTML) / `true`/`false` (API JSON) via `Registry::column_type`.
+    `Yes`/`No` (HTML detail) / `true`/`false` (API JSON) via the shared `attr_display`
+    helper (build_attrs, Device, Closet, Interface).
    `etc/Site.conf` (gitignored) is now a **full mirror of `Default.conf`** — same key order and
    same section comments, with only the site's divergent values (68 keys) overridden. So
    `diff -NaBbur Site.conf Default.conf` isolates the site customizations. Verified: effective
