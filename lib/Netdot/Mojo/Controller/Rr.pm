@@ -5,6 +5,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 use Netdot;
 use Netdot::Model;
 use Netdot::Mojo::Registry;
+use Netdot::Mojo::Detail;
 
 # Detail page for a DNS resource record (port of host.html, read-only). Shows the
 # record itself plus each related record type (A/AAAA, HINFO, TXT, MX, CNAME,
@@ -18,12 +19,27 @@ sub show ($c) {
     return $c->reply->not_found unless $o;
     return if $c->deny_unless( 'view', $o );    # per-object access (User: none by default)
 
+    # In-place edit form: scalar + FK fields, written via the JSON API (PATCH).
+    # The system-managed timestamps (created/modified) are not user-editable.
+    my $can_edit = $c->perm( 'edit', $o );
+    my $fields   = [];
+    my $api_path = '';
+    if ($can_edit) {
+        my %system = ( created => 1, modified => 1 );
+        $fields   = [ grep { !$system{ $_->{name} } }
+                      @{ Netdot::Mojo::Detail::build_edit_fields( $o, 'RR' ) } ];
+        $api_path = $c->web_prefix . '/api/rr/' . $id;
+    }
+
     $c->render(
         template   => 'management/rr',
         layout     => 'default',
         title      => 'DNS Record ' . _rr_label($o),
         rr         => $o,
         rr_attrs   => _rr_attributes( $o ),
+        can_edit   => $can_edit,
+        fields     => $fields,
+        api_path   => $api_path,
         sections   => _rr_sections( $o ),
     );
 }

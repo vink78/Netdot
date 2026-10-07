@@ -503,8 +503,11 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
         **TODO REBLOCK** : changer network/prefix (champs identité)
        n'est PAS un simple edit de champ — c'est une opération de **reblock** (recréer la
        hiérarchie, migrer sous-blocs/attributs/relations), traitée dans l'UI legacy Mason
-       (flux create/edit Ipblock, complexe) et non exposée ici → à implémenter séparément.
-       Suivant : rr…
+        (flux create/edit Ipblock, complexe) et non exposée ici → à implémenter séparément.
+        **RR** (`Rr.pm`) a aussi son formulaire (name, zone, active, auto_update,
+        expiration, info) ; les timestamps système `created`/`modified` sont exclus
+        (non éditables). Tous les modèles dédiés (zone, contactlist, closet, device,
+        ipblock, rr) ont leur formulaire d'édition in-situ.
       ⚠️ **Une FK n'apparaît en édition que si sa cible est enregistrée** dans le Registry
       (`spec(target)`), sinon `build_edit_fields` la saute silencieusement. 4 types de
       recherche manquaient → ajoutés à `%TYPES`+`@ORDER` : `usertype` (Person.user_type),

@@ -3,13 +3,18 @@
 % my $rr_attrs = $c->stash->{rr_attrs} // [];
 % my $sections = $c->stash->{sections} // [];
 
-<p><a href="<%= $c->web_prefix %>/management/rr">&laquo; All DNS Records</a></p>
+<p>
+  <a href="<%= $c->web_prefix %>/management/rr">&laquo; All DNS Records</a>
+  % if ( $can_edit && @$fields ) {
+  <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+</p>
 
 %# The record's own attributes: "General" look (datatable.detail c2, 2 pairs/row).
 % if ($rr_attrs && @$rr_attrs) {
 %   my $N    = 2;
 %   my @list = @$rr_attrs;
-<div class="container">
+<div class="container" id="nd-readonly">
   <div class="containerhead">DNS Record: <strong><%= $rr->get_label %></strong></div>
   <div class="containerbody flat">
     <table class="datatable detail c2">
@@ -28,6 +33,8 @@
     </table>
   </div>
 </div>
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
 % }
 
 %# One container per record type; each record is a small field table.

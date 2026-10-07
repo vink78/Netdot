@@ -300,7 +300,9 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   ("Available" is a free-space/deletion indication, kept only if it is the current value).
   The API `PATCH` re-checks via the model `update()` (invalid status → 400).
 - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
-  `_rr_sections`, `_search_all`, `_name_link`, `_obj_link`) + search.
+  `_rr_sections`, `_search_all`, `_name_link`, `_obj_link`) + search. Now also renders the
+  shared edit form (name, zone, active, auto_update, expiration, info → JSON API PATCH);
+  the system timestamps `created`/`modified` are excluded (not user-editable).
   - `lib/Netdot/Mojo/Controller/Show.pm` — generic detail (most types): attrs
     (all view) + **has_many tables** (from `meta_data->get_links_from`, like
     Mason `view.html`): one table per non-empty relation, brief columns (label
@@ -342,8 +344,8 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       `can_edit`/`fields`/`api_path` (Show.pm, Zone.pm, …) and adding the Edit button +
        `id="nd-readonly"` on its attrs table + the partial include. Writes go through the
        JSON API only (no server-side form handler). **Zone**, **Contactlist**, **Closet**,
-       **Device** and **Ipblock** (dedicated controllers) now have their edit form too; the
-       next dedicated model (rr…) reuses the same partial. ⚠️ **Ipblock**: the identity
+       **Device**, **Ipblock** and **RR** (dedicated controllers) now have their edit form
+       too; every dedicated detail model reuses the same partial. ⚠️ **Ipblock**: the identity
        fields (`address`/`prefix`/`version`/`parent`) are EXCLUDED from the form (editing
        them in place breaks the block hierarchy); only "soft" fields are editable. A
        network/prefix change needs a **reblock** operation (handled in the legacy Mason
