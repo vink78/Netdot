@@ -357,7 +357,10 @@ sub _can_create {
 sub _post {
     my ( $class, $id, $args, $p ) = @_;
     my %a = %$args;
-    delete @a{qw(depth linked_from)};
+    # Never let a client control model-update internals: `validate` /
+    # `no_update_tree` are read by the models' update() and would let a request
+    # skip validation / tree maintenance (e.g. an invalid Ipblock status).
+    delete @a{qw(depth linked_from validate no_update_tree)};
     my $obj;
     if ($id) {
         $obj = $class->retrieve($id);

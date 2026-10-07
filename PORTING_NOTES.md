@@ -471,8 +471,14 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
      match the dotted form → use the model overrides (string→int) in **list context**
      (the `eval{ } // ()` scalarizes the CDBI iterator — see Pitfall §1): `search(address)`
      exact/CIDR first, then `search_like(address)` prefix-range for partial addresses,
-     deduped by id (mirrors the legacy `keyword_search` hash).
-- `lib/Netdot/Mojo/OpenAPI.pm` — `build_spec()`: OpenAPI 3.0.3 from `Netdot->meta`
+      deduped by id (mirrors the legacy `keyword_search` hash).
+    - **Write hardening** (`_post`): the request body is stripped of `validate` and
+      `no_update_tree` (alongside `depth`/`linked_from`) so a client cannot disable the
+      models' `update()` validation — e.g. an invalid Ipblock status via `{"validate":0}`
+      or `{"no_update_tree":1}`. All API writes therefore go through the model `update()`
+      → `_validate()`. (Note: `Ipblock->validate` is a *different* method — it only checks
+      address format via `_prevalidate`.)
+ - `lib/Netdot/Mojo/OpenAPI.pm` — `build_spec()`: OpenAPI 3.0.3 from `Netdot->meta`
   (88 typed schemas + per-table paths + dedicated endpoints); `servers` from the
   `WEB_BASE_URL` prefix. Per-class **reference schemas** `FkReference_<Classe>` (`{id,url}`
   + the class's label fields from `Model::get_ref_field_spec`, built only for classes some
