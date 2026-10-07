@@ -2,6 +2,9 @@
 % my $rr       = $c->stash->{rr};
 % my $rr_attrs = $c->stash->{rr_attrs} // [];
 % my $sections = $c->stash->{sections} // [];
+% my $can_edit = $c->stash->{can_edit};
+% my $fields   = $c->stash->{fields}   // [];
+% my $api_path = $c->stash->{api_path} // '';
 
 <p>
   <a href="<%= $c->web_prefix %>/management/rr">&laquo; All DNS Records</a>
@@ -45,16 +48,52 @@
       <div class="containerbody">
       % for my $r (0 .. $#{ $sec->{records} }) {
           % my $rec = $sec->{records}->[$r];
-          <table class="datatable detail">
-              <tbody>
-              % for my $row (@$rec) {
-                  <tr>
-                      <th><%= $row->[0] %></th>
-                      <td><%== $row->[1] %></td>
-                  </tr>
+          % my $editable = ( $can_edit && $rec->{edit} && @{ $rec->{edit} } );
+          <div class="nd-rec" style="margin-bottom:0.6em">
+            <div class="nd-rec-ro">
+              <table class="datatable detail">
+                <tbody>
+                % for my $row ( @{ $rec->{rows} } ) {
+                    <tr>
+                        <th><%= $row->[0] %></th>
+                        <td><%== $row->[1] %></td>
+                    </tr>
+                % }
+                </tbody>
+              </table>
+              % if ($editable) {
+              <button type="button" class="btn nd-rec-toggle" style="margin-top:0.4em">Edit</button>
               % }
-              </tbody>
-          </table>
+            </div>
+            % if ($editable) {
+            <form class="nd-rec-form"
+                  data-nd-api="<%= $c->web_prefix %>/api/<%= $rec->{type} %>/<%= $rec->{id} %>"
+                  data-nd-method="PATCH" style="display:none">
+              <table class="datatable detail">
+                <tbody>
+                % for my $f ( @{ $rec->{edit} } ) {
+                  <tr>
+                    <th><%= $f->{tag} %></th>
+                    <td>
+                      % if ( $f->{kind} eq 'number' ) {
+                      <input type="number" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+                      % } elsif ( $f->{kind} eq 'textarea' ) {
+                      <textarea name="<%= $f->{name} %>" rows="2"><%= $f->{value} %></textarea>
+                      % } else {
+                      <input type="text" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+                      % }
+                    </td>
+                  </tr>
+                % }
+                </tbody>
+              </table>
+              <p style="margin-top:0.4em">
+                <button type="submit" class="btn">Save</button>
+                <button type="button" class="btn nd-rec-cancel" style="margin-left:0.5em">Cancel</button>
+              </p>
+            </form>
+            % }
+          </div>
       % }
       </div>
     </div>

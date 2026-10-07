@@ -196,6 +196,44 @@ sub _rr_attributes {
     return \@rows;
 }
 
+# Editable fields for a related record: TTL (all record types) + the record's own
+# value field(s) (cname / txtdata / MX exchange+preference / NS nsdname / NAPTR
+# fields). The identity columns (rr, ipblock) are not editable here. Written via
+# the JSON API (PATCH /api/<type>/<id>), which runs the model update() (TTL is
+# validated by the model's own update()).
+sub _rec_edit {
+    my ( $rec, $type ) = @_;
+    my $val = sub { my $c = shift; my $v = eval { $rec->$c }; return defined $v ? $v : ''; };
+    my @f = ( { name => 'ttl', tag => 'TTL', kind => 'number', value => $val->('ttl') } );
+    my %value_cols = (
+        rrcname => [ [ cname => 'CNAME', 'text' ] ],
+        rrtxt   => [ [ txtdata => 'TXT Data', 'textarea' ] ],
+        rrmx    => [ [ exchange => 'Exchange', 'text' ], [ preference => 'Preference', 'number' ] ],
+        rrns    => [ [ nsdname => 'Name Server', 'text' ] ],
+        rrnaptr => [
+            [ order_field => 'Order', 'number' ], [ preference => 'Preference', 'number' ],
+            [ flags => 'Flags', 'text' ], [ services => 'Services', 'text' ],
+            [ regexpr => 'Regex', 'text' ], [ replacement => 'Replacement', 'text' ],
+        ],
+    );
+    for my $v ( @{ $value_cols{$type} // [] } ) {
+        push @f, { name => $v->[0], tag => $v->[1], kind => $v->[2], value => $val->($v->[0]) };
+    }
+    return \@f;
+}
+
+# Wrap a record's display rows + editable fields into the section-record structure
+# the template renders (a readonly table + an inline edit form per record).
+sub _rec {
+    my ( $rec, $type, $rows ) = @_;
+    return {
+        rows   => $rows,
+        id     => eval { $rec->id },
+        type   => $type,
+        edit   => _rec_edit( $rec, $type ),
+    };
+}
+
 # Build [label, value_html] rows for one related record (a listref of pairs).
 # Each related record type is a "section" of such record rows.
 
@@ -234,7 +272,7 @@ sub _rr_sections {
                     push @row, [ 'DHCP', 'DUID: ' . _esc( $scope->duid ) ];
                 }
             }
-            push @recs, \@row;
+            push @recs, _rec( $arec, 'rraddr', \@row );
         }
         push @sections, { title => 'Address (A/AAAA)', records => \@recs } if @recs;
     }
@@ -242,34 +280,38 @@ sub _rr_sections {
     # --- HINFO (RRHINFO) ---
     my @hinfos = $o->hinfo_records;
     push @sections, { title => 'Hardware Information (HINFO)',
-        records => [ map { [
-            [ 'CPU', _esc($_->cpu) ], [ 'OS', _esc($_->os) ], [ 'TTL', _esc($_->ttl) ],
-        ] } @hinfos ] } if @hinfos;
+        records => [ map {
+            _rec( $_, 'rrhinfo', [
+                [ 'CPU', _esc($_->cpu) ], [ 'OS', _esc($_->os) ], [ 'TTL', _esc($_->ttl) ],
+            ] ) } @hinfos ] } if @hinfos;
 
     # --- TXT (RRTXT) ---
     my @txts = $o->txt_records;
     push @sections, { title => 'Text Records (TXT)',
-        records => [ map { [
-            [ 'Record', _obj_link($_) ],
-            [ 'TXT', _esc($_->txtdata) ], [ 'TTL', _esc($_->ttl) ],
-        ] } @txts ] } if @txts;
+        records => [ map {
+            _rec( $_, 'rrtxt', [
+                [ 'Record', _obj_link($_) ],
+                [ 'TXT', _esc($_->txtdata) ], [ 'TTL', _esc($_->ttl) ],
+            ] ) } @txts ] } if @txts;
 
     # --- MX (RRMX) ---
     my @mxs = sort { $a->preference <=> $b->preference } $o->mx_records;
     push @sections, { title => 'Mail Exchangers (MX)',
-        records => [ map { [
-            [ 'Record',   _obj_link($_) ],
-            [ 'Preference', _esc($_->preference) ],
-            [ 'Exchange',   _name_link($_->exchange) ],
-            [ 'TTL',        _esc($_->ttl) ],
-        ] } @mxs ] } if @mxs;
+        records => [ map {
+            _rec( $_, 'rrmx', [
+                [ 'Record',   _obj_link($_) ],
+                [ 'Preference', _esc($_->preference) ],
+                [ 'Exchange',   _name_link($_->exchange) ],
+                [ 'TTL',        _esc($_->ttl) ],
+            ] ) } @mxs ] } if @mxs;
 
     # --- MX records pointing to $o ---
     my @mxtarget = _search_all( 'RRMX', exchange => _rr_label($o) );
     if ( @mxtarget ) {
         @mxtarget = sort { $a->rr->name cmp $b->rr->name } @mxtarget;
         push @sections, { title => 'MX records pointing to ' . _rr_label($o),
-            records => [ map { [ [ 'Owner', _obj_link($_->rr) ] ] } @mxtarget ] };
+            records => [ map {
+                _rec( $_, 'rrmx', [ [ 'Owner', _obj_link($_->rr) ] ] ) } @mxtarget ] };
     }
 
     # --- CNAME: aliases of $o (something points to $o) ---
@@ -277,9 +319,10 @@ sub _rr_sections {
     if ( @aliases ) {
         @aliases = sort { $a->rr->name cmp $b->rr->name } @aliases;
         push @sections, { title => 'Aliases of ' . _rr_label($o) . ' (CNAME)',
-            records => [ map { [
-                [ 'Alias', _obj_link($_->rr) ], [ 'TTL', _esc($_->ttl) ],
-            ] } @aliases ] };
+            records => [ map {
+                _rec( $_, 'rrcname', [
+                    [ 'Alias', _obj_link($_->rr) ], [ 'TTL', _esc($_->ttl) ],
+                ] ) } @aliases ] };
     }
 
     # --- CNAME: $o is an alias of something ---
@@ -288,7 +331,7 @@ sub _rr_sections {
         for my $cname (@cnames) {
             my @row = ( [ 'TTL', _esc( $cname->ttl ) ] );
             unshift @row, [ 'Canonical Name', _name_link( $cname->cname ) ];
-            push @recs, \@row;
+            push @recs, _rec( $cname, 'rrcname', \@row );
         }
         push @sections, { title => _rr_label($o) . ' is an alias of (CNAME)',
             records => \@recs } if @recs;
@@ -302,11 +345,11 @@ sub _rr_sections {
             next unless $ipblock && $ipblock->id;
             my $ptr = eval { $ipblock->ptr_records->first };
             next unless $ptr;
-            push @recs, [
+            push @recs, _rec( $ptr, 'rrptr', [
                 [ 'Reverse for', _obj_link($ipblock) ],
                 [ 'Points to',   _obj_link( $ptr->rr ) ],
                 [ 'TTL',         _esc( $ptr->ttl ) ],
-            ];
+            ] );
         }
         push @sections, { title => 'Reverse DNS (PTR)', records => \@recs } if @recs;
     }
@@ -316,11 +359,11 @@ sub _rr_sections {
         my @recs;
         for my $ptr (@ptrs) {
             my $ipblock = $ptr->ipblock;
-            push @recs, [
+            push @recs, _rec( $ptr, 'rrptr', [
                 [ 'IP',  _obj_link($ipblock) ],
                 [ 'PTR', _name_link( $ptr->ptrdname ) ],
                 [ 'TTL', _esc( $ptr->ttl ) ],
-            ];
+            ] );
         }
         push @sections, { title => 'Pointer Records (PTR)', records => \@recs } if @recs;
     }
@@ -330,67 +373,72 @@ sub _rr_sections {
                     || ( ! @arecs && ! @ptrs ) );
     if ( $show_ns && @nsrs ) {
         push @sections, { title => 'Name Servers (NS)',
-            records => [ map { [
-                [ 'Record',      _obj_link($_) ],
-                [ 'Name Server', _name_link($_->nsdname) ], [ 'TTL', _esc($_->ttl) ],
-            ] } @nsrs ] };
+            records => [ map {
+                _rec( $_, 'rrns', [
+                    [ 'Record',      _obj_link($_) ],
+                    [ 'Name Server', _name_link($_->nsdname) ], [ 'TTL', _esc($_->ttl) ],
+                ] ) } @nsrs ] };
     }
 
     # --- DS (RRDS) ---
     my @dss = $o->ds_records;
     if ( ! @arecs && ! @ptrs && @dss ) {
         push @sections, { title => 'Delegation Signers (DS)',
-            records => [ map { [
-                [ 'Key Tag',     _esc($_->key_tag) ],
-                [ 'Algorithm',   _esc($_->algorithm) ],
-                [ 'Digest Type', _esc($_->digest_type) ],
-                [ 'Digest',      _esc($_->digest) ],
-                [ 'TTL',         _esc($_->ttl) ],
-            ] } @dss ] };
+            records => [ map {
+                _rec( $_, 'rrds', [
+                    [ 'Key Tag',     _esc($_->key_tag) ],
+                    [ 'Algorithm',   _esc($_->algorithm) ],
+                    [ 'Digest Type', _esc($_->digest_type) ],
+                    [ 'Digest',      _esc($_->digest) ],
+                    [ 'TTL',         _esc($_->ttl) ],
+                ] ) } @dss ] };
     }
 
     # --- NAPTR (RRNAPTR) ---
     my @naptrs = $o->naptr_records;
     if ( ! @ptrs && @naptrs ) {
         push @sections, { title => 'Name Authority Pointer (NAPTR)',
-            records => [ map { [
-                [ 'Record',      _obj_link($_) ],
-                [ 'Order',       _esc($_->order_field) ],
-                [ 'Preference',  _esc($_->preference) ],
-                [ 'Flags',       _esc($_->flags) ],
-                [ 'Services',    _esc($_->services) ],
-                [ 'Regex',       _esc($_->regexpr) ],
-                [ 'Replacement', _esc($_->replacement) ],
-                [ 'TTL',         _esc($_->ttl) ],
-            ] } @naptrs ] };
+            records => [ map {
+                _rec( $_, 'rrnaptr', [
+                    [ 'Record',      _obj_link($_) ],
+                    [ 'Order',       _esc($_->order_field) ],
+                    [ 'Preference',  _esc($_->preference) ],
+                    [ 'Flags',       _esc($_->flags) ],
+                    [ 'Services',    _esc($_->services) ],
+                    [ 'Regex',       _esc($_->regexpr) ],
+                    [ 'Replacement', _esc($_->replacement) ],
+                    [ 'TTL',         _esc($_->ttl) ],
+                ] ) } @naptrs ] };
     }
 
     # --- LOC (RRLOC) ---
     my @locs = $o->loc_records;
     if ( ! @ptrs && ! @nsrs && @locs ) {
         push @sections, { title => 'Location Records (LOC)',
-            records => [ map { [
-                [ 'Latitude',   _esc($_->latitude) ],
-                [ 'Longitude',  _esc($_->longitude) ],
-                [ 'Altitude',   _esc($_->altitude) ],
-                [ 'Size',       _esc($_->size) ],
-                [ 'Horiz. Pre', _esc($_->horiz_pre) ],
-                [ 'Vert. Pre',  _esc($_->vert_pre) ],
-                [ 'TTL',        _esc($_->ttl) ],
-            ] } @locs ] };
+            records => [ map {
+                _rec( $_, 'rrloc', [
+                    [ 'Latitude',   _esc($_->latitude) ],
+                    [ 'Longitude',  _esc($_->longitude) ],
+                    [ 'Altitude',   _esc($_->altitude) ],
+                    [ 'Size',       _esc($_->size) ],
+                    [ 'Horiz. Pre', _esc($_->horiz_pre) ],
+                    [ 'Vert. Pre',  _esc($_->vert_pre) ],
+                    [ 'TTL',        _esc($_->ttl) ],
+                ] ) } @locs ] };
     }
 
     # --- SRV (RRSRV) ---
     my @srvs = $o->srv_records;
     if ( $name =~ /^_.+\._.+/ && @srvs ) {
         push @sections, { title => 'Service Records (SRV)',
-            records => [ map { [
-                [ 'Priority', _esc($_->priority) ],
-                [ 'Weight',   _esc($_->weight) ],
-                [ 'Port',     _esc($_->port) ],
-                [ 'Target',   _name_link($_->target) ],
-                [ 'TTL',      _esc($_->ttl) ],
-            ] } @srvs ] };
+            records => [ map {
+                _rec( $_, 'rrsrv', [
+                    [ 'Priority', _esc($_->priority) ],
+                    [ 'Weight',   _esc($_->weight) ],
+                    [ 'Port',     _esc($_->port) ],
+                    [ 'Target',   _name_link($_->target) ],
+                    [ 'TTL',      _esc($_->ttl) ],
+                ] ) } @srvs ] };
     }
 
     return \@sections;

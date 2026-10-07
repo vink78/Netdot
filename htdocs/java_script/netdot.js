@@ -133,6 +133,31 @@
     }
   }
 
+  // Per-record Edit / Cancel toggle (related records on the RR host page): each
+  // .nd-rec holds a readonly table (.nd-rec-ro) + a hidden form (.nd-rec-form).
+  function initRecToggles() {
+    var toggles = document.querySelectorAll('.nd-rec-toggle');
+    for (var i = 0; i < toggles.length; i++) {
+      toggles[i].addEventListener('click', function () {
+        var wrap = this.closest('.nd-rec');
+        var form = wrap && wrap.querySelector('form.nd-rec-form');
+        var ro   = wrap && wrap.querySelector('.nd-rec-ro');
+        if (form) { form.style.display = 'block'; }
+        if (ro)   { ro.style.display = 'none'; }
+      });
+    }
+    var cancels = document.querySelectorAll('.nd-rec-cancel');
+    for (var j = 0; j < cancels.length; j++) {
+      cancels[j].addEventListener('click', function () {
+        var wrap = this.closest('.nd-rec');
+        var form = wrap && wrap.querySelector('form.nd-rec-form');
+        var ro   = wrap && wrap.querySelector('.nd-rec-ro');
+        if (form) { form.style.display = 'none'; }
+        if (ro)   { ro.style.display = 'block'; }
+      });
+    }
+  }
+
   // Edit / Cancel toggle for the generic detail page.
   function initToggle() {
     var toggle   = document.getElementById('nd-edit-toggle');
@@ -155,6 +180,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
     initToggle();
+    initRecToggles();
     initFkSearch();
   });
 
