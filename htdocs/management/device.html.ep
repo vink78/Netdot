@@ -37,6 +37,10 @@
 <div class="tabcard-body">
 % if ($view eq 'Basics') {
 % my $sections = $c->stash->{sections} // [];
+% if ( $can_edit && @$fields ) {
+<button type="button" class="btn" id="nd-edit-toggle" style="margin:0 0 0.5em 0">Edit</button>
+% }
+<div id="nd-readonly">
 % for my $s (@$sections) {
 % my $rows = $s->{rows};
 % next unless @$rows;
@@ -84,6 +88,9 @@
   </div>
 </div>
 % }
+</div>
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
 % }
 % elsif ($view eq 'Interfaces') {
 % my $rows      = $c->stash->{rows}      // [];

@@ -3,6 +3,7 @@ package Netdot::Mojo::Controller::Device;
 use Mojo::Base 'Mojolicious::Controller';
 use Netdot::Model;
 use Netdot::Mojo::Registry;
+use Netdot::Mojo::Detail;
 use Netdot::Model::Device;
 
 # Read-only Device detail page. Two views for now:
@@ -32,15 +33,25 @@ sub show {
     }
     $fqdn = "Device #$id" unless length $fqdn;
 
+    # In-place edit form (Basics view only): scalar + FK fields, written via the
+    # JSON API (PATCH). Computed only on Basics so the other views stay cheap.
+    my $can_edit = $c->perm( 'edit', $o );
     my %stash = (
-        id    => $id,
-        view  => $view,
-        fqdn  => $fqdn,
-        title => "Device $fqdn",
+        id       => $id,
+        view     => $view,
+        fqdn     => $fqdn,
+        title    => "Device $fqdn",
+        can_edit => $can_edit,
+        fields   => [],
+        api_path => '',
     );
 
     if ($view eq 'Basics') {
         $stash{sections} = _basics($o);
+        if ($can_edit) {
+            $stash{fields}   = Netdot::Mojo::Detail::build_edit_fields( $o, 'Device' );
+            $stash{api_path} = $c->web_prefix . '/api/device/' . $id;
+        }
     } elsif ($view eq 'Interfaces') {
         my $d = _interfaces($o, $c, $id);
         @stash{ keys %$d } = values %$d;

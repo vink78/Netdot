@@ -486,9 +486,10 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      par le détail générique **et** les pages dédiées) → **Zone** (`Zone.pm` + `zone.html.ep`)
      a aussi son formulaire (SOA name/mname/rname/serial/refresh/retry/expire/minimum +
      contactlist FK + active/dnssec + default_ttl + include/info), PATCH `/api/zone/<id>`.
-      **Zone**, **Contactlist** (`Contactlist.pm`) et **Closet** (`Closet.pm`) ont leur
-      formulaire (partial partagé ; Closet porte un layout curaté mais `room` (FK, 114 >
-      max) passe en recherche `?kw=`). Suivants à traiter un par un : device, ipblock, rr…
+      **Zone**, **Contactlist** (`Contactlist.pm`), **Closet** (`Closet.pm`) et **Device**
+      (`Device.pm`) ont leur formulaire (partial partagé ; Closet/Device portent un layout
+      curaté mais `room` (FK, 114 > max) passe en recherche `?kw=` ; Device = vue Basics
+      seule, 59 champs, champs FK calc. uniquement sur Basics). Suivant : ipblock, rr…
       ⚠️ **Une FK n'apparaît en édition que si sa cible est enregistrée** dans le Registry
       (`spec(target)`), sinon `build_edit_fields` la saute silencieusement. 4 types de
       recherche manquaient → ajoutés à `%TYPES`+`@ORDER` : `usertype` (Person.user_type),

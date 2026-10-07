@@ -332,9 +332,9 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       FK `?kw=` fill, `#nd-edit`/`#nd-readonly` toggle). A page opts in by stashing
       `can_edit`/`fields`/`api_path` (Show.pm, Zone.pm, …) and adding the Edit button +
        `id="nd-readonly"` on its attrs table + the partial include. Writes go through the
-       JSON API only (no server-side form handler). **Zone**, **Contactlist** and **Closet**
-       (dedicated controllers) now have their edit form too; the next dedicated models
-       (device, ipblock, rr…) reuse the same partial.
+       JSON API only (no server-side form handler). **Zone**, **Contactlist**, **Closet**
+       and **Device** (dedicated controllers) now have their edit form too; the next
+       dedicated models (ipblock, rr…) reuse the same partial.
   - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
     `management/zone.html`): record count (per type), apex record (A/NS/MX with
     links), generic has_many (subnets/records/aliases), recent changes (HostAudit).
@@ -555,7 +555,10 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
    - Model return types: `get_ips`/`get_bgp_peers` → arrayref; `stp_instances`,
      `modules`, `get_circuits`, `get_audit_records`, `hosted_devices` → list
      (`my @l; eval { @l = $o->m };`).
- - Deferred (Device): Topology (graph), Access Rights, and all write/edit actions.
+  - **Basics edit form** now via the shared `_edit_form.html.ep` partial (scalar + FK
+    fields → JSON API PATCH; fields computed only on the Basics view so the other tabs
+    stay cheap). Deferred (Device): Topology (graph), Access Rights, and the other
+    write/edit actions (Interfaces, …).
 - Done: **Reports — 10/10** (`Controller/Reports.pm`): device, asset, ip, macs,
   topology, pollstats, database, custom (hinfo/usedby), ipbat, security.
   Gated by `access_section` (Admin+Operator). Generic FK-cell linking
