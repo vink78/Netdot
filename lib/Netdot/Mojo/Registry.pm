@@ -54,6 +54,10 @@ our %TYPES = (
     dhcscope      => { class => 'DhcpScope',
                        cols => [ qw(name type container version ipblock physaddr active) ] },
     producttype     => { class => 'ProductType',     nav => 0 },
+    usertype        => { class => 'UserType',        nav => 0 },
+    contacttype     => { class => 'ContactType',     nav => 0 },
+    dhcpscopetype   => { class => 'DhcpScopeType',   nav => 0 },
+    entitytype      => { class => 'EntityType',      nav => 0 },
     # RR subclasses (related records shown on the host/RR page): reached from the
     # host page, not the top-level nav. Registered so their detail route exists.
     rrns      => { class => 'RRNS',      label => 'Name Server Record',  nav => 0 },
@@ -68,7 +72,8 @@ our @ORDER = qw(
     ipblock device asset interface vlan vlangroup zone site room floor closet person
     rr rrns rrmx rrtxt rrnaptr entity service contactlist physaddr
     product availability ipblockstatus circuit arpcache sitelink fwtable stpinstance
-    horizontalcable backbonecable dhcscope producttype asn
+    horizontalcable backbonecable dhcscope producttype asn usertype contacttype
+    dhcpscopetype entitytype
 );
 sub types { @ORDER }
 

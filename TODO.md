@@ -486,8 +486,13 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      par le détail générique **et** les pages dédiées) → **Zone** (`Zone.pm` + `zone.html.ep`)
      a aussi son formulaire (SOA name/mname/rname/serial/refresh/retry/expire/minimum +
      contactlist FK + active/dnssec + default_ttl + include/info), PATCH `/api/zone/<id>`.
-     Les modèles complexes dédiés (zone, contactlist, closet, device, ipblock, rr…) reçoivent
-     le même formulaire via ce partial (à l'état un par un).
+      Les modèles complexes dédiés (zone, contactlist, closet, device, ipblock, rr…) reçoivent
+      le même formulaire via ce partial (à l'état un par un).
+      ⚠️ **Une FK n'apparaît en édition que si sa cible est enregistrée** dans le Registry
+      (`spec(target)`), sinon `build_edit_fields` la saute silencieusement. 4 types de
+      recherche manquaient → ajoutés à `%TYPES`+`@ORDER` : `usertype` (Person.user_type),
+      `contacttype` (Contact.contacttype), `dhcpscopetype` (DhcpScope.type), `entitytype`
+      (EntityRole.type). (Scan exhaustif : c'était l'intégralité des cibles manquantes.)
 4. ⛔ **Câblage/circuits** — dépréciés (Netbox).
 5. 🔶 **Création — raffiner la permission par parent** : `_can_create` est une approximation
    (l'objet cible n'existe pas → `can('edit', $parent)` sur le parent FK) ; couvre zone→rr,

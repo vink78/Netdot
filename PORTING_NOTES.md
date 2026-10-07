@@ -320,8 +320,13 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
      (renders a plain `<select>`); large target (RR/Ipblock/…) → `options` undef + the
      current value only (renders a keyword box; the JS fills the `<select>` via the API
      `?kw=` FK search). Multi-valued relations (non-scalar `$obj->$col`) are skipped and
-     stay read-only. `cur_id` = the FK id; `cur_label` via the related object's
-      `get_label`. The form is a **shared partial** `htdocs/management/_edit_form.html.ep`
+      stay read-only. `cur_id` = the FK id; `cur_label` via the related object's
+       `get_label`. ⚠️ **A FK is only editable if its target type is registered in
+       `Registry %TYPES`** (`spec($target)` defined); otherwise `build_edit_fields`
+       silently drops the field (`next unless $tclass`). 4 lookup types were missing and
+       got registered (`usertype`, `contacttype`, `dhcpscopetype`, `entitytype` →
+       `%TYPES`+`@ORDER`); a scan over every table's all-view confirmed that was the
+       complete set. The form is a **shared partial** `htdocs/management/_edit_form.html.ep`
       (included via `$c->render_to_string(..., layout=>0)` from any detail page) +
       `htdocs/java_script/netdot.js` (`ND.api` fetch PATCH, transient `ND.status` box,
       FK `?kw=` fill, `#nd-edit`/`#nd-readonly` toggle). A page opts in by stashing
