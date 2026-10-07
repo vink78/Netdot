@@ -162,6 +162,15 @@ sub _name_link {
     return _esc($name);
 }
 
+# The record's own detail-page href with a custom link text (plain text if the
+# type has no detail route). Used to merge a value field with its record link.
+sub _link_text {
+    my ( $o, $text ) = @_;
+    return _esc( $text ) unless $o;
+    my ( $t, $href ) = @{ Netdot::Mojo::Registry::link_for( $o ) };
+    return $href ? '<a href="' . $href . '">' . _esc( $text ) . '</a>' : _esc( $text );
+}
+
 sub _rr_label {
     my ($o) = @_;
     return eval { $o->get_label } // '';
@@ -196,46 +205,66 @@ sub _rr_attributes {
     return \@rows;
 }
 
-# Editable fields for a related record: TTL (all record types) + the record's own
-# value field(s) (cname / txtdata / MX exchange+preference / NS nsdname / NAPTR
-# fields). The identity columns (rr, ipblock) are not editable here. Written via
-# the JSON API (PATCH /api/<type>/<id>), which runs the model update() (TTL is
-# validated by the model's own update()).
-sub _rec_edit {
-    my ( $rec, $type ) = @_;
-    my $val = sub { my $c = shift; my $v = eval { $rec->$c }; return defined $v ? $v : ''; };
-    my @f = ( { name => 'ttl', tag => 'TTL', kind => 'number', value => $val->('ttl') } );
-    my %value_cols = (
-        rrcname => [ [ cname => 'CNAME', 'text' ] ],
-        rrtxt   => [ [ txtdata => 'TXT Data', 'textarea' ] ],
-        rrmx    => [ [ exchange => 'Exchange', 'text' ], [ preference => 'Preference', 'number' ] ],
-        rrns    => [ [ nsdname => 'Name Server', 'text' ] ],
-        rrnaptr => [
-            [ order_field => 'Order', 'number' ], [ preference => 'Preference', 'number' ],
-            [ flags => 'Flags', 'text' ], [ services => 'Services', 'text' ],
-            [ regexpr => 'Regex', 'text' ], [ replacement => 'Replacement', 'text' ],
-        ],
-    );
-    for my $v ( @{ $value_cols{$type} // [] } ) {
-        push @f, { name => $v->[0], tag => $v->[1], kind => $v->[2], value => $val->($v->[0]) };
-    }
-    return \@f;
+# Field builders for the per-record inline edit. Each field has:
+#   tag   : the display label.
+#   ro    : pre-rendered read-only display HTML (always shown in the readonly
+#           table; also shown in the edit form for non-editable fields, so the
+#           user keeps context while editing).
+#   name  : the column name, if the field is editable (undef otherwise).
+#   kind  : input kind (number / text / textarea) for editable fields.
+#   value : the scalar value (input default) for editable fields.
+# Editable value fields: TTL (all types) + the record's own value(s) — cname,
+# txtdata, MX exchange+preference, NS nsdname, NAPTR fields, PTR ptrdname.
+# Written via the JSON API (PATCH /api/<type>/<id>), which runs the model
+# update() (TTL validated by the model).
+
+sub _f_ro {
+    my ( $tag, $html ) = @_;
+    return { tag => $tag, ro => ( defined $html ? $html : '' ) };
 }
 
-# Wrap a record's display rows + editable fields into the section-record structure
-# the template renders (a readonly table + an inline edit form per record).
-sub _rec {
-    my ( $rec, $type, $rows ) = @_;
+sub _f_ed {
+    my ( $tag, $name, $kind, $value, $ro ) = @_;
+    $value = '' unless defined $value;
     return {
-        rows   => $rows,
-        id     => eval { $rec->id },
-        type   => $type,
-        edit   => _rec_edit( $rec, $type ),
+        tag   => $tag,
+        ro    => ( defined $ro ? $ro : _esc( $value ) ),
+        name  => $name,
+        kind  => $kind,
+        value => $value,
     };
 }
 
-# Build [label, value_html] rows for one related record (a listref of pairs).
-# Each related record type is a "section" of such record rows.
+# A select field (kind 'select'). $options is an arrayref of [value, label]
+# pairs (value = the DB column value, label = the human-readable text). The
+# read-only display shows the current value's label (falls back to the raw
+# value if it is not in the list).
+sub _f_sel {
+    my ( $tag, $name, $value, $options ) = @_;
+    $value   = '' unless defined $value;
+    $options = [] unless ref $options && ref $options eq 'ARRAY';
+    my $label = $value;
+    for my $opt ( @$options ) { $label = $opt->[1] if defined $opt->[0] && $opt->[0] eq $value; }
+    return {
+        tag     => $tag,
+        ro      => _esc( $label ),
+        name    => $name,
+        kind    => 'select',
+        value   => $value,
+        options => $options,
+    };
+}
+
+# Wrap a record's unified field list into the section-record structure the
+# template renders (a readonly table + an inline edit form that shows every
+# field — editable as inputs, non-editable as read-only).
+sub _rec {
+    my ( $rec, $type, $fields ) = @_;
+    return { fields => $fields, id => eval { $rec->id }, type => $type };
+}
+
+# Build the unified field list (a listref of _f_ro/_f_ed hashes) for one related
+# record. Each related record type is a "section" of such records.
 
 sub _rr_sections {
     my ($o) = @_;
@@ -259,17 +288,17 @@ sub _rr_sections {
             my $ipblock = $arec->ipblock;
             next unless $ipblock && $ipblock->id;
             my @row = (
-                [ 'IP',  _obj_link($ipblock) ],
-                [ 'TTL', _esc( $arec->ttl ) ],
+                _f_ro( 'IP', _obj_link($ipblock) ),
+                _f_ed( 'TTL', 'ttl', 'number', $arec->ttl ),
             );
             # DHCP host scope for this address (MAC or DUID), like host.html
             my $scope = eval { $ipblock->dhcp_scopes->first };
             if ( $scope ) {
                 if ( my $phys = eval { $scope->physaddr } ) {
-                    push @row, [ 'DHCP', 'MAC: ' . _obj_link($phys) ];
+                    push @row, _f_ro( 'DHCP', 'MAC: ' . _obj_link($phys) );
                 }
                 elsif ( $ipblock->version == 6 && eval { $scope->duid } ) {
-                    push @row, [ 'DHCP', 'DUID: ' . _esc( $scope->duid ) ];
+                    push @row, _f_ro( 'DHCP', 'DUID: ' . _esc( $scope->duid ) );
                 }
             }
             push @recs, _rec( $arec, 'rraddr', \@row );
@@ -278,20 +307,36 @@ sub _rr_sections {
     }
 
     # --- HINFO (RRHINFO) ---
+    # CPU/OS values come from the config lists (key = DB value, value = label),
+    # rendered as a <select>. The current value is always offered as an option.
     my @hinfos = $o->hinfo_records;
-    push @sections, { title => 'Hardware Information (HINFO)',
-        records => [ map {
-            _rec( $_, 'rrhinfo', [
-                [ 'CPU', _esc($_->cpu) ], [ 'OS', _esc($_->os) ], [ 'TTL', _esc($_->ttl) ],
-            ] ) } @hinfos ] } if @hinfos;
+    if ( @hinfos ) {
+        my $cpu_vals = eval { Netdot->config->get('DEFAULT_HINFO_CPU_VALUES') } // {};
+        my $os_vals  = eval { Netdot->config->get('DEFAULT_HINFO_OS_VALUES') } // {};
+        my $opts = sub {
+            my ( $hash, $cur ) = @_;
+            my @o = map { [ $_, $hash->{$_} // $_ ] } sort keys %$hash;
+            push @o, [ $cur, $cur ] if defined $cur && length $cur && !exists $hash->{$cur};
+            return \@o;
+        };
+        push @sections, { title => 'Hardware Information (HINFO)',
+            records => [ map {
+                _rec( $_, 'rrhinfo', [
+                    _f_sel( 'CPU', 'cpu', $_->cpu, $opts->( $cpu_vals, $_->cpu ) ),
+                    _f_sel( 'OS',  'os',  $_->os,  $opts->( $os_vals,  $_->os  ) ),
+                    _f_ed( 'TTL', 'ttl', 'number', $_->ttl ),
+                ] ) } @hinfos ] };
+    }
 
     # --- TXT (RRTXT) ---
+    # The record link is merged into the TXT value (the record detail route is
+    # reached by clicking the txtdata); no separate "Record" row (redundant).
     my @txts = $o->txt_records;
     push @sections, { title => 'Text Records (TXT)',
         records => [ map {
             _rec( $_, 'rrtxt', [
-                [ 'Record', _obj_link($_) ],
-                [ 'TXT', _esc($_->txtdata) ], [ 'TTL', _esc($_->ttl) ],
+                _f_ed( 'TXT', 'txtdata', 'textarea', $_->txtdata, _link_text($_, $_->txtdata) ),
+                _f_ed( 'TTL', 'ttl', 'number', $_->ttl ),
             ] ) } @txts ] } if @txts;
 
     # --- MX (RRMX) ---
@@ -299,10 +344,9 @@ sub _rr_sections {
     push @sections, { title => 'Mail Exchangers (MX)',
         records => [ map {
             _rec( $_, 'rrmx', [
-                [ 'Record',   _obj_link($_) ],
-                [ 'Preference', _esc($_->preference) ],
-                [ 'Exchange',   _name_link($_->exchange) ],
-                [ 'TTL',        _esc($_->ttl) ],
+                _f_ed( 'Preference', 'preference', 'number', $_->preference, _link_text($_, $_->preference) ),
+                _f_ed( 'Exchange', 'exchange', 'text', $_->exchange, _name_link($_->exchange) ),
+                _f_ed( 'TTL', 'ttl', 'number', $_->ttl ),
             ] ) } @mxs ] } if @mxs;
 
     # --- MX records pointing to $o ---
@@ -311,17 +355,26 @@ sub _rr_sections {
         @mxtarget = sort { $a->rr->name cmp $b->rr->name } @mxtarget;
         push @sections, { title => 'MX records pointing to ' . _rr_label($o),
             records => [ map {
-                _rec( $_, 'rrmx', [ [ 'Owner', _obj_link($_->rr) ] ] ) } @mxtarget ] };
+                _rec( $_, 'rrmx', [
+                    _f_ro( 'Owner', _obj_link($_->rr) ),
+                    _f_ed( 'Preference', 'preference', 'number', $_->preference ),
+                    _f_ed( 'Exchange', 'exchange', 'text', $_->exchange, _name_link($_->exchange) ),
+                    _f_ed( 'TTL', 'ttl', 'number', $_->ttl ),
+                ] ) } @mxtarget ] };
     }
 
     # --- CNAME: aliases of $o (something points to $o) ---
+    # The target (cname) is $o itself — redundant here, so it is NOT shown nor
+    # editable. The target is edited from the alias's own record (the "is an
+    # alias of" section at the alias's URL).
     my @aliases = $o->aliases;
     if ( @aliases ) {
         @aliases = sort { $a->rr->name cmp $b->rr->name } @aliases;
         push @sections, { title => 'Aliases of ' . _rr_label($o) . ' (CNAME)',
             records => [ map {
                 _rec( $_, 'rrcname', [
-                    [ 'Alias', _obj_link($_->rr) ], [ 'TTL', _esc($_->ttl) ],
+                    _f_ro( 'Alias', _obj_link($_->rr) ),
+                    _f_ed( 'TTL', 'ttl', 'number', $_->ttl ),
                 ] ) } @aliases ] };
     }
 
@@ -329,15 +382,18 @@ sub _rr_sections {
     if ( ! @arecs && ! @ptrs && ! @nsrs ) {
         my @recs;
         for my $cname (@cnames) {
-            my @row = ( [ 'TTL', _esc( $cname->ttl ) ] );
-            unshift @row, [ 'Canonical Name', _name_link( $cname->cname ) ];
-            push @recs, _rec( $cname, 'rrcname', \@row );
+            push @recs, _rec( $cname, 'rrcname', [
+                _f_ed( 'Canonical Name', 'cname', 'text', $cname->cname, _name_link( $cname->cname ) ),
+                _f_ed( 'TTL', 'ttl', 'number', $cname->ttl ),
+            ] );
         }
         push @sections, { title => _rr_label($o) . ' is an alias of (CNAME)',
             records => \@recs } if @recs;
     }
 
     # --- PTR: reverse for each A record IP ---
+    # Informational only (shows the reverse PTR of this record's IP). The PTR is
+    # edited from the PTR record's own page (the "Pointer Records" section).
     if ( ! @cnames ) {
         my @recs;
         for my $arec (@arecs) {
@@ -346,9 +402,9 @@ sub _rr_sections {
             my $ptr = eval { $ipblock->ptr_records->first };
             next unless $ptr;
             push @recs, _rec( $ptr, 'rrptr', [
-                [ 'Reverse for', _obj_link($ipblock) ],
-                [ 'Points to',   _obj_link( $ptr->rr ) ],
-                [ 'TTL',         _esc( $ptr->ttl ) ],
+                _f_ro( 'Reverse for', _obj_link($ipblock) ),
+                _f_ro( 'Points to',   _obj_link( $ptr->rr ) ),
+                _f_ro( 'TTL', _esc( $ptr->ttl ) ),
             ] );
         }
         push @sections, { title => 'Reverse DNS (PTR)', records => \@recs } if @recs;
@@ -360,9 +416,9 @@ sub _rr_sections {
         for my $ptr (@ptrs) {
             my $ipblock = $ptr->ipblock;
             push @recs, _rec( $ptr, 'rrptr', [
-                [ 'IP',  _obj_link($ipblock) ],
-                [ 'PTR', _name_link( $ptr->ptrdname ) ],
-                [ 'TTL', _esc( $ptr->ttl ) ],
+                _f_ro( 'IP', _obj_link($ipblock) ),
+                _f_ed( 'PTR', 'ptrdname', 'text', $ptr->ptrdname, _name_link( $ptr->ptrdname ) ),
+                _f_ed( 'TTL', 'ttl', 'number', $ptr->ttl ),
             ] );
         }
         push @sections, { title => 'Pointer Records (PTR)', records => \@recs } if @recs;
@@ -375,8 +431,8 @@ sub _rr_sections {
         push @sections, { title => 'Name Servers (NS)',
             records => [ map {
                 _rec( $_, 'rrns', [
-                    [ 'Record',      _obj_link($_) ],
-                    [ 'Name Server', _name_link($_->nsdname) ], [ 'TTL', _esc($_->ttl) ],
+                    _f_ed( 'Name Server', 'nsdname', 'text', $_->nsdname, _link_text($_, $_->nsdname) ),
+                    _f_ed( 'TTL', 'ttl', 'number', $_->ttl ),
                 ] ) } @nsrs ] };
     }
 
@@ -386,11 +442,11 @@ sub _rr_sections {
         push @sections, { title => 'Delegation Signers (DS)',
             records => [ map {
                 _rec( $_, 'rrds', [
-                    [ 'Key Tag',     _esc($_->key_tag) ],
-                    [ 'Algorithm',   _esc($_->algorithm) ],
-                    [ 'Digest Type', _esc($_->digest_type) ],
-                    [ 'Digest',      _esc($_->digest) ],
-                    [ 'TTL',         _esc($_->ttl) ],
+                    _f_ed( 'Key Tag',     'key_tag',     'number', $_->key_tag ),
+                    _f_ed( 'Algorithm',   'algorithm',   'number', $_->algorithm ),
+                    _f_ed( 'Digest Type', 'digest_type', 'number', $_->digest_type ),
+                    _f_ed( 'Digest',      'digest',      'text',   $_->digest ),
+                    _f_ed( 'TTL', 'ttl', 'number', $_->ttl ),
                 ] ) } @dss ] };
     }
 
@@ -400,14 +456,13 @@ sub _rr_sections {
         push @sections, { title => 'Name Authority Pointer (NAPTR)',
             records => [ map {
                 _rec( $_, 'rrnaptr', [
-                    [ 'Record',      _obj_link($_) ],
-                    [ 'Order',       _esc($_->order_field) ],
-                    [ 'Preference',  _esc($_->preference) ],
-                    [ 'Flags',       _esc($_->flags) ],
-                    [ 'Services',    _esc($_->services) ],
-                    [ 'Regex',       _esc($_->regexpr) ],
-                    [ 'Replacement', _esc($_->replacement) ],
-                    [ 'TTL',         _esc($_->ttl) ],
+                    _f_ed( 'Order',       'order_field', 'number', $_->order_field, _link_text($_, $_->order_field) ),
+                    _f_ed( 'Preference',  'preference',  'number', $_->preference ),
+                    _f_ed( 'Flags',       'flags',       'text',   $_->flags ),
+                    _f_ed( 'Services',    'services',    'text',   $_->services ),
+                    _f_ed( 'Regex',       'regexpr',     'text',   $_->regexpr ),
+                    _f_ed( 'Replacement', 'replacement', 'text',   $_->replacement ),
+                    _f_ed( 'TTL',         'ttl',         'number', $_->ttl ),
                 ] ) } @naptrs ] };
     }
 
@@ -417,13 +472,13 @@ sub _rr_sections {
         push @sections, { title => 'Location Records (LOC)',
             records => [ map {
                 _rec( $_, 'rrloc', [
-                    [ 'Latitude',   _esc($_->latitude) ],
-                    [ 'Longitude',  _esc($_->longitude) ],
-                    [ 'Altitude',   _esc($_->altitude) ],
-                    [ 'Size',       _esc($_->size) ],
-                    [ 'Horiz. Pre', _esc($_->horiz_pre) ],
-                    [ 'Vert. Pre',  _esc($_->vert_pre) ],
-                    [ 'TTL',        _esc($_->ttl) ],
+                    _f_ed( 'Latitude',   'latitude',  'number', $_->latitude ),
+                    _f_ed( 'Longitude',  'longitude', 'number', $_->longitude ),
+                    _f_ed( 'Altitude',   'altitude',  'number', $_->altitude ),
+                    _f_ed( 'Size',       'size',      'text',   $_->size ),
+                    _f_ed( 'Horiz. Pre', 'horiz_pre', 'text',   $_->horiz_pre ),
+                    _f_ed( 'Vert. Pre',  'vert_pre',  'text',   $_->vert_pre ),
+                    _f_ed( 'TTL', 'ttl', 'number', $_->ttl ),
                 ] ) } @locs ] };
     }
 
@@ -433,11 +488,11 @@ sub _rr_sections {
         push @sections, { title => 'Service Records (SRV)',
             records => [ map {
                 _rec( $_, 'rrsrv', [
-                    [ 'Priority', _esc($_->priority) ],
-                    [ 'Weight',   _esc($_->weight) ],
-                    [ 'Port',     _esc($_->port) ],
-                    [ 'Target',   _name_link($_->target) ],
-                    [ 'TTL',      _esc($_->ttl) ],
+                    _f_ed( 'Priority', 'priority', 'number', $_->priority ),
+                    _f_ed( 'Weight',   'weight',   'number', $_->weight ),
+                    _f_ed( 'Port',     'port',     'number', $_->port ),
+                    _f_ed( 'Target',   'target',   'text',   $_->target, _name_link($_->target) ),
+                    _f_ed( 'TTL', 'ttl', 'number', $_->ttl ),
                 ] ) } @srvs ] };
     }
 

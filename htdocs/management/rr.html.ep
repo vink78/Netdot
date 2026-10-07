@@ -47,16 +47,19 @@
       <div class="containerhead"><%= $sec->{title} %></div>
       <div class="containerbody">
       % for my $r (0 .. $#{ $sec->{records} }) {
-          % my $rec = $sec->{records}->[$r];
-          % my $editable = ( $can_edit && $rec->{edit} && @{ $rec->{edit} } );
+          % my $rec   = $sec->{records}->[$r];
+          % my @flds  = @{ $rec->{fields} };
+          % my $editable = 0;
+          % for my $f (@flds) { $editable = 1 if defined $f->{name}; last if $editable; }
+          % $editable = 0 unless $can_edit;
           <div class="nd-rec" style="margin-bottom:0.6em">
             <div class="nd-rec-ro">
               <table class="datatable detail">
                 <tbody>
-                % for my $row ( @{ $rec->{rows} } ) {
+                % for my $f (@flds) {
                     <tr>
-                        <th><%= $row->[0] %></th>
-                        <td><%== $row->[1] %></td>
+                        <th><%= $f->{tag} %></th>
+                        <td><%== $f->{ro} %></td>
                     </tr>
                 % }
                 </tbody>
@@ -71,16 +74,26 @@
                   data-nd-method="PATCH" style="display:none">
               <table class="datatable detail">
                 <tbody>
-                % for my $f ( @{ $rec->{edit} } ) {
+                % for my $f (@flds) {
                   <tr>
                     <th><%= $f->{tag} %></th>
                     <td>
-                      % if ( $f->{kind} eq 'number' ) {
+                      % if ( defined $f->{name} ) {
+                        % if ( $f->{kind} eq 'number' ) {
                       <input type="number" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
-                      % } elsif ( $f->{kind} eq 'textarea' ) {
+                        % } elsif ( $f->{kind} eq 'textarea' ) {
                       <textarea name="<%= $f->{name} %>" rows="2"><%= $f->{value} %></textarea>
-                      % } else {
+                        % } elsif ( $f->{kind} eq 'select' ) {
+                      <select name="<%= $f->{name} %>">
+                        % for my $opt ( @{ $f->{options} } ) {
+                        <option value="<%= $opt->[0] %>"<%= ($opt->[0] eq ($f->{value} // '')) ? ' selected' : '' %>><%= $opt->[1] %></option>
+                        % }
+                      </select>
+                        % } else {
                       <input type="text" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+                        % }
+                      % } else {
+                      <%== $f->{ro} %>
                       % }
                     </td>
                   </tr>

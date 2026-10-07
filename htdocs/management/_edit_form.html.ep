@@ -20,6 +20,8 @@
         <textarea name="<%= $f->{name} %>" rows="3"><%= $f->{value} %></textarea>
         % } elsif ( $f->{kind} eq 'number' ) {
         <input type="number" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+        % } elsif ( $f->{kind} eq 'date' ) {
+        <input type="date" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
         % } elsif ( $f->{kind} eq 'fk' ) {
         %   if ( $f->{options} ) {
         %     # Small target table: plain <select> of all options (server-filled).

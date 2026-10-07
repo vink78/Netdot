@@ -79,13 +79,21 @@ sub build_edit_fields {
         }
 
         my $type = Netdot::Mojo::Registry::column_type( $class, $col );
-        my $val  = eval { $obj->$col };
-        $val     = '' unless defined $val;
+        # System-managed timestamps (Last ARP / Last FWT / Last Updated /
+        # First Discovered / …) are informational, not user-editable — the
+        # Mason Basics view renders them edit=>0. Keep them read-only (they
+        # still show in the attributes table). `date` fields (Down From/Until)
+        # stay editable.
+        next if defined $type && $type eq 'timestamp';
         my $kind =
             ( $type eq 'bool' )    ? 'checkbox'
           : ( $type eq 'integer' ) ? 'number'
           : ( $type eq 'text' )    ? 'textarea'
+          : ( $type eq 'date' )    ? 'date'
           :                          'text';
+        my $val  = eval { $obj->$col };
+        $val     = '' unless defined $val;
+        $val     = '' if $kind eq 'date' && $val =~ /^0000-00-00/;   # zero-date sentinel = empty
         push @fields, {
             name  => $col,
             tag   => $tag,

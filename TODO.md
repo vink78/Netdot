@@ -504,10 +504,38 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
        n'est PAS un simple edit de champ — c'est une opération de **reblock** (recréer la
        hiérarchie, migrer sous-blocs/attributs/relations), traitée dans l'UI legacy Mason
         (flux create/edit Ipblock, complexe) et non exposée ici → à implémenter séparément.
-        **RR** (`Rr.pm`) a aussi son formulaire (name, zone, active, auto_update,
-        expiration, info) ; les timestamps système `created`/`modified` sont exclus
-        (non éditables). Tous les modèles dédiés (zone, contactlist, closet, device,
-        ipblock, rr) ont leur formulaire d'édition in-situ.
+         **RR** (`Rr.pm`) a aussi son formulaire (name, zone, active, auto_update,
+         expiration, info) ; les timestamps système `created`/`modified` sont exclus
+         (non éditables). Tous les modèles dédiés (zone, contactlist, closet, device,
+         ipblock, rr) ont leur formulaire d'édition in-situ.
+         **RR — enregistrements associés (RR\*) en édition in-situ** (`Rr.pm` +
+         `rr.html.ep` + `netdot.js` `initRecToggles`) : chaque enregistrement lié
+         (A/AAAA, TXT, MX, NS, CNAME, PTR, NAPTR, DS, LOC, SRV, HINFO) a son formulaire
+         inline (bouton Edit **par enregistrement** → `PATCH /api/<type>/<id>`, qui
+          exécute le `update` du modèle). Champs éditables : **TTL** (tous types) +
+          **valeur propre** — TXT `txtdata`, MX `exchange`/`preference`, NS `nsdname`,
+           CNAME `cname` (**seule la vue « is an alias of »**, sur l'alias lui-même ; pas
+           dans « Aliases of $o » où la cible = $o, redondante), NAPTR
+           `order_field`/`preference`/`flags`/`services`/`regexpr`/`replacement`,
+            DS `key_tag`/`algorithm`/`digest_type`/`digest` (tous), HINFO
+            `cpu`/`os` (**`<select>`** depuis la config `DEFAULT_HINFO_CPU/OS_VALUES`,
+            key=valeur DB, value=libellé), SRV `priority`/`weight`/`port`/`target`
+            (tous), LOC `latitude`/`longitude`/`altitude`/`size`/`horiz_pre`/`vert_pre`
+            (tous), PTR `ptrdname` (**vue « Pointer Records »** = page du PTR ; la vue
+            « Reverse DNS (PTR) » sur la page d'un A est en **lecture seule**, purement
+            informative). Le lien du détail de l'enregistrement est collé sur le **1er
+            champ valeur** (TXT `TXT`, MX `Preference`, NS `Name Server`, NAPTR `Order`)
+            ; la ligne « Record » redondante est retirée. Le formulaire **affiche tous
+            les champs** (éditables en input, non-éditables en lecture seule) pour
+            conserver le contexte (IP, owner, etc.). TTL validé par le modèle
+            (`ttl_from_text`) ; valeur/TTL non conforme → 400.
+       ⚠️ **Champs temps (édition in-situ, tous les objets)** : les colonnes de type
+       `timestamp` (Last ARP / Last FWT / Last Updated / First Discovered / …) sont
+       **exclues du formulaire d'édition** (lecture seule, info seulement) — c'est ce
+       que fait la vue Mason Basics (`edit=>0`). Elles restent visibles dans la table
+       d'attributs. Les colonnes de type `date` (Down From / Down Until) restent
+       éditables, rendues en **date picker** `<input type="date">` (format `YYYY-MM-DD` ;
+       la valeur zéro `0000-00-00` → champ vide ; vider le champ → `NULL`).
       ⚠️ **Une FK n'apparaît en édition que si sa cible est enregistrée** dans le Registry
       (`spec(target)`), sinon `build_edit_fields` la saute silencieusement. 4 types de
       recherche manquaient → ajoutés à `%TYPES`+`@ORDER` : `usertype` (Person.user_type),

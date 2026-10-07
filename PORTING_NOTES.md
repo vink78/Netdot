@@ -326,7 +326,12 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
     object's label via the connector's FK. The CSV export (`Show#show ?csv=`) uses the
     same `relation_objects` (all rows) so it matches the on-screen order.
      **Edit form** (phase 2): `build_edit_fields($obj,$class,$person)` → one spec per
-     non-sensitive all-view column. Scalars → `text|number|textarea|checkbox`. **FK →
+      non-sensitive all-view column. Scalars → `text|number|textarea|checkbox|date`.
+      ⚠️ **`timestamp`-type columns are excluded** (system-managed — Last ARP / Last
+      FWT / Last Updated / First Discovered / …; the Mason Basics view renders them
+      `edit=>0`); they stay read-only in the attributes table. **`date`-type columns**
+      (Down From / Until) are editable, rendered as a native `<input type="date">`
+      (`YYYY-MM-DD`; the `0000-00-00` zero-date → empty input; clearing → `NULL`). **FK →
      `kind=>'fk'`**: target ≤ `DEFAULT_SELECTMAX` (100) → `options` = all `{id,label}`
      (renders a plain `<select>`); large target (RR/Ipblock/…) → `options` undef + the
      current value only (renders a keyword box; the JS fills the `<select>` via the API
@@ -347,9 +352,26 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
        **Device**, **Ipblock** and **RR** (dedicated controllers) now have their edit form
        too; every dedicated detail model reuses the same partial. ⚠️ **Ipblock**: the identity
        fields (`address`/`prefix`/`version`/`parent`) are EXCLUDED from the form (editing
-       them in place breaks the block hierarchy); only "soft" fields are editable. A
-       network/prefix change needs a **reblock** operation (handled in the legacy Mason
-       create/edit UI) — see the REBLOCK TODO.
+        them in place breaks the block hierarchy); only "soft" fields are editable. A
+        network/prefix change needs a **reblock** operation (handled in the legacy Mason
+        create/edit UI) — see the REBLOCK TODO. ⚠️ **RR associated records (RR\*) inline
+        edit** (`Rr.pm` + `rr.html.ep` + `netdot.js` `initRecToggles`): each related record
+        (A/AAAA, TXT, MX, NS, CNAME, PTR, NAPTR, DS, LOC, SRV, HINFO) gets its own inline
+        form (per-record Edit button → `PATCH /api/<type>/<id>`, runs the model `update()`).
+         Editable: **TTL** (all types) + the record's own value(s) — TXT `txtdata`, MX
+         `exchange`/`preference`, NS `nsdname`, CNAME `cname` (only in the "is an alias
+         of" view — the target equals $o in the "Aliases of" view, so it is hidden there),
+          NAPTR fields, DS `key_tag`/`algorithm`/`digest_type`/`digest` (all), HINFO
+          `cpu`/`os` (as `<select>`s driven by the config `DEFAULT_HINFO_CPU/OS_VALUES`,
+          key=DB value / value=label), SRV `priority`/`weight`/`port`/`target` (all),
+          LOC `latitude`/`longitude`/`altitude`/`size`/`horiz_pre`/`vert_pre` (all),
+          PTR `ptrdname` (only in the "Pointer Records" view = the PTR's own page; the
+          "Reverse DNS (PTR)" view on an A record's page is read-only/informational).
+         The record's detail link is merged onto the **first value field** (TXT `TXT`,
+         MX `Preference`, NS `Name Server`, NAPTR `Order`); the redundant "Record" row
+         is dropped. The form shows **all** fields (editable as inputs, the rest
+         read-only) so context (IP, owner, …) stays visible while editing. TTL/value are
+         validated by the model (`ttl_from_text` / `_sanitize_ptrdname`) → 400 if bad.
   - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
     `management/zone.html`): record count (per type), apex record (A/NS/MX with
     links), generic has_many (subnets/records/aliases), recent changes (HostAudit).
