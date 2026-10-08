@@ -223,6 +223,34 @@ sub list ($c) {
         $extra{zones}              = \@zones;
         $extra{search_title}       = 'Search DNS Records';
         $extra{search_placeholder} = 'Name / IP / MAC';
+
+        # "New name" box: create a (record-less) name in a chosen zone. A User
+        # only sees the zones they hold 'edit' on (the API re-enforces it at
+        # write time: _can_create requires can('edit',$zone)). Default selection
+        # is the DEFAULT_DNSDOMAIN zone.
+        my $editable = \@zones;
+        if ( Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
+            my $access = Netdot::Mojo::Permissions->allowed_objects( $class, $person );
+            my %edit = map { $_ => 1 } grep {
+                my $a = $access->{Zone}{$_};
+                ref $a && !exists $a->{none} && exists $a->{edit};
+            } keys %{ $access->{Zone} || {} };
+            $editable = [ grep { $edit{ $_->id } } @zones ];
+        }
+        if ( @$editable ) {
+            my $def    = Netdot::Model->config->get('DEFAULT_DNSDOMAIN');
+            my $def_id;
+            for my $z (@$editable) {
+                $def_id = $z->id, last if defined $def && $z->name eq $def;
+            }
+            $def_id = $editable->[0]->id unless $def_id;
+            $extra{new_rr} = {
+                zones  => $editable,
+                def_id => $def_id,
+                api    => $c->web_prefix . '/api/rr',
+                goto   => Netdot::Mojo::Registry::set_uri( '/management/rr/' ),
+            };
+        }
     } elsif ( $type eq 'physaddr' ) {
         $extra{search_title}       = 'Search MAC addresses';
         $extra{search_placeholder} = 'MAC address / OUI';

@@ -415,6 +415,16 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
           name lands in the current zone as a label (e.g. `www.google.com` →
           `www.google.com.localdomain`). Conflicts are handled by `RRCNAME->insert` (a name
           that already has other records → 400).
+          **RR — new name (list page /management/rr)**: a "New name" box (name + zone
+          `<select>`) sits side by side with the search box (`.cardrow` = flex row, equal
+          widths, 16px gap, wraps on narrow screens). Default zone = config
+          `DEFAULT_DNSDOMAIN` (pre-selected when present). **A User only sees the zones
+          they hold `edit` on** (from `allowed_objects->{Zone}`; the box is not rendered
+          if they have none). `POST /api/rr {name, zone}` → `RR->insert` (the model
+          validates the name; the API's `_can_create` re-checks `can('edit',$zone)`), then
+          a JS redirect to the new name's detail page (`/management/rr/<new id>` via the
+          `data-nd-redirect` attribute, handled in `netdot.js` `initForms`). The name is
+          created **without records**; its records are added afterwards on its own page.
    - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
     `management/zone.html`): record count (per type), apex record (A/NS/MX with
     links), generic has_many (subnets/records/aliases), recent changes (HostAudit).

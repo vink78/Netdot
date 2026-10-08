@@ -564,6 +564,16 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
             correspond à une zone éditée → cette zone (partie zone retirée) ; sinon nom
             long → zone courante (ex. `www.google.com` → `www.google.com.localdomain`).
             Conflits gérés par `RRCNAME->insert` (un nom qui a d'autres records → 400).
+           **RR — Nouveau nom (liste `/management/rr`)** : boîte « New name » (name +
+            `<select>` de zones) côte à côte avec la boîte de recherche (`.cardrow` =
+            flex/gap/wrap, largeur égale). Zone par défaut = config `DEFAULT_DNSDOMAIN`
+            (pré-sélectionnée si dans la liste). **Un User ne voit que les zones où il a
+            le droit `edit`** (hash `allowed_objects->{Zone}` ; s'il n'en a aucune → la
+            boîte n'est pas rendue). `POST /api/rr {name, zone}` → `RR->insert` (le modèle
+            valide le nom ; l'API `_can_create` re-vérifie `can('edit',$zone)`), puis
+            redirection JS sur `/management/rr/<nouveau id>` (attribut
+            `data-nd-redirect`, géré dans `netdot.js` `initForms`). Le nom est créé
+            **sans record** : ses records s'ajoutent ensuite sur sa page.
         ⚠️ **Champs temps (édition in-situ, tous les objets)** : les colonnes de type
        `timestamp` (Last ARP / Last FWT / Last Updated / First Discovered / …) sont
        **exclues du formulaire d'édition** (lecture seule, info seulement) — c'est ce

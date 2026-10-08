@@ -73,8 +73,16 @@
         for (var b = 0; b < btns.length; b++) { btns[b].disabled = true; }
         api(method, url, body).then(function (res) {
           if (res.ok) {
-            status(true, 'Saved');
-            setTimeout(function () { location.reload(); }, 700);
+            // data-nd-redirect: go to the created object's detail page
+            // (prefix ending in the object type + '/').
+            var redirect = form.getAttribute('data-nd-redirect');
+            if (redirect && res.data && res.data.id !== undefined) {
+              status(true, 'Created');
+              setTimeout(function () { location.href = redirect + res.data.id; }, 700);
+            } else {
+              status(true, 'Saved');
+              setTimeout(function () { location.reload(); }, 700);
+            }
           } else {
             var msg = (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
             status(false, msg, 8000);

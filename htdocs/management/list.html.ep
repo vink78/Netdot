@@ -11,31 +11,57 @@
 % my $s_ph       = $c->stash('search_placeholder') // 'Search...';
 % my $q          = $c->param('search')  // '';
 % my $zsel       = $c->param('zone_id') // '';
+% my $new_rr = $c->stash('new_rr');
+<div class="cardrow" style="margin-bottom:1em">
 % if ($search_url) {
-<div class="container" style="margin-bottom:1em">
-  <div class="containerhead"><%= $s_title %></div>
-  <div class="containerbody" style="padding:0.6em">
-    <form method="get" action="<%= $search_url %>">
-      <p>
-        <label><%= $s_ph %>:</label>
-        <input type="text" name="search" class="longtxt" value="<%= $q %>">
-      </p>
-      % if (@$zones) {
-      <p>
-        <label>Names within:</label>
-        <select name="zone_id">
-          <option value="0">All Zones</option>
-          % for my $z (@$zones) {
-          <option value="<%= $z->id %>" <%= $z->id eq $zsel ? 'selected' : '' %>><%= $z->get_label %></option>
-          % }
-        </select>
-      </p>
-      % }
-      <input type="submit" value="Find" class="btn">
-    </form>
+  <div class="container">
+    <div class="containerhead"><%= $s_title %></div>
+    <div class="containerbody" style="padding:0.6em">
+      <form method="get" action="<%= $search_url %>">
+        <p>
+          <label><%= $s_ph %>:</label>
+          <input type="text" name="search" class="longtxt" value="<%= $q %>">
+        </p>
+        % if (@$zones) {
+        <p>
+          <label>Names within:</label>
+          <select name="zone_id">
+            <option value="0">All Zones</option>
+            % for my $z (@$zones) {
+            <option value="<%= $z->id %>" <%= $z->id eq $zsel ? 'selected' : '' %>><%= $z->get_label %></option>
+            % }
+          </select>
+        </p>
+        % }
+        <input type="submit" value="Find" class="btn">
+      </form>
+    </div>
   </div>
-</div>
 % }
+% if ($new_rr) {
+  <div class="container">
+    <div class="containerhead">New name</div>
+    <div class="containerbody" style="padding:0.6em">
+      <form data-nd-api="<%= $new_rr->{api} %>" data-nd-method="POST" data-nd-redirect="<%= $new_rr->{goto} %>">
+        <p>
+          <label>Name:</label>
+          <input type="text" name="name" class="longtxt" required>
+        </p>
+        <p>
+          <label>Zone:</label>
+          <select name="zone" required>
+            % for my $z (@{ $new_rr->{zones} }) {
+            <option value="<%= $z->id %>" <%= $z->id eq $new_rr->{def_id} ? 'selected' : '' %>><%= $z->name %></option>
+            % }
+          </select>
+          <input type="submit" value="Create" class="btn">
+        </p>
+      </form>
+      <p style="margin:0.5em 0 0; font-size:0.9em">Creates the name (without records) in the selected zone; its records (A/AAAA, TXT, …) can then be added on its page.</p>
+    </div>
+  </div>
+% }
+</div>
 
 % my $can_delete = $c->stash('can_delete');
 % if (@$rows) {
