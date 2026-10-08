@@ -425,6 +425,23 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
           a JS redirect to the new name's detail page (`/management/rr/<new id>` via the
           `data-nd-redirect` attribute, handled in `netdot.js` `initForms`). The name is
           created **without records**; its records are added afterwards on its own page.
+          **RR — deleting the name itself (detail page)**: a "Delete" button sits next to
+          "Edit", rendered when `can('delete',$o)` (model rules apply: a User cannot
+          delete the zone apex or an RR linked to a device, …). Same generic mechanism as
+           the per-record delete buttons: `DELETE /api/rr/<id>` (the model's `delete()`),
+           with an adapted `confirm()` ("this object and all its records") then a redirect
+           to the list (`data-nd-goto`, supported by `netdot.js` `initRecDeletes`, which
+           now handles both reload and goto).
+           **Batch delete (generic list pages)**: the row checkboxes on every `browse#list`
+           page now go through the JSON API in a SINGLE call: `DELETE /api/<type>?id=1,2,3`
+           (`Api::generic` accepts a comma-separated id list in the query string, matching
+           the search model). `Api::_batch_delete` checks `can('delete')` **per object**
+           (one bad id does not abort the rest) and answers
+           `{deleted:[...], skipped:{id:reason}}` (200 if ≥1 deleted, else 400). The list's
+           "Delete" button is driven by `netdot.js` `initBatchDelete` (live "N selected"
+           counter, `confirm()`, reload after). **The old server-side route
+           `POST /management/<type>/delete` (`browse#delete`) is removed** — no more
+           server-side writes; everything goes through the JSON API.
    - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
     `management/zone.html`): record count (per type), apex record (A/NS/MX with
     links), generic has_many (subnets/records/aliases), recent changes (HostAudit).

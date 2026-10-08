@@ -2,14 +2,18 @@
 % my $rr       = $c->stash->{rr};
 % my $rr_attrs = $c->stash->{rr_attrs} // [];
 % my $sections = $c->stash->{sections} // [];
-% my $can_edit = $c->stash->{can_edit};
-% my $fields   = $c->stash->{fields}   // [];
-% my $api_path = $c->stash->{api_path} // '';
+% my $can_edit   = $c->stash->{can_edit};
+% my $can_delete = $c->stash->{can_delete};
+% my $fields     = $c->stash->{fields}   // [];
+% my $api_path   = $c->stash->{api_path} // '';
 
 <p>
   <a href="<%= $c->web_prefix %>/management/rr">&laquo; All DNS Records</a>
   % if ( $can_edit && @$fields ) {
   <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+  % if ( $can_delete ) {
+  <button type="button" class="btn nd-rec-delete" data-nd-del="<%= $c->stash->{del_path} %>" data-nd-goto="<%= $c->stash->{del_goto} %>" style="margin-left:0.6em">Delete</button>
   % }
 </p>
 

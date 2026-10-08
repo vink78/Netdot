@@ -21,10 +21,11 @@ sub show ($c) {
 
     # In-place edit form: scalar + FK fields, written via the JSON API (PATCH).
     # The system-managed timestamps (created/modified) are not user-editable.
-    my $is_admin = ( $c->user_type eq 'Admin' );
-    my $can_edit = $c->perm( 'edit', $o );
-    my $fields   = [];
-    my $api_path = '';
+    my $is_admin   = ( $c->user_type eq 'Admin' );
+    my $can_edit   = $c->perm( 'edit', $o );
+    my $can_delete = $c->perm( 'delete', $o );
+    my $fields     = [];
+    my $api_path   = '';
     if ($can_edit) {
         my %system = ( created => 1, modified => 1 );
         $fields   = [ grep { !$system{ $_->{name} } }
@@ -41,6 +42,9 @@ sub show ($c) {
         can_edit   => $can_edit,
         fields     => $fields,
         api_path   => $api_path,
+        can_delete => $can_delete,
+        del_path   => $can_delete ? $c->web_prefix . '/api/rr/' . $id : '',
+        del_goto   => $can_delete ? Netdot::Mojo::Registry::set_uri( '/management/rr' ) : '',
         sections   => _rr_sections( $o, is_admin => $is_admin ),
         add_types  => $can_edit ? _rr_add_types( $o, is_admin => $is_admin ) : [],
     );

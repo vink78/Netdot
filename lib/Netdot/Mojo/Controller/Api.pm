@@ -196,7 +196,23 @@ sub generic {
             return $c->render( json => \%meta, status => 200 );
         }
 
-        if ( defined $id && $id =~ /^\d+$/ ) {
+        if ( defined $id && $id =~ /^\d+(?:,\d+)*$/ ) {
+            if ( $method eq 'DELETE' ) {
+                my @ids = split /,/, $id;
+                if ( @ids > 1 ) {
+                    # Batch delete: one call for many rows (?id=2,3,4). Each id is
+                    # resolved and permission-checked on its own, so one bad id does
+                    # not abort the rest (the UI reports the per-id outcome).
+                    my ( $deleted, $skipped ) = _batch_delete( $class, $p, \@ids );
+                    my %res = ( deleted => $deleted );
+                    $res{skipped} = $skipped if keys %$skipped;
+                    return $c->render( json => \%res, status => @$deleted ? 200 : 400 );
+                }
+                _delete( $class, $id, $p );
+                return $c->render( json => { deleted => "$class/$id" }, status => 200 );
+            }
+            _err( 400, "Bad id: $id" ) if $id =~ /,/;    # lists are DELETE-only
+
             if ( $method eq 'GET' ) {
                 my $obj = $class->retrieve($id);
                 _err( 404, "$class/$id not found" ) unless $obj;
@@ -413,6 +429,23 @@ sub _delete {
     }
     eval { $obj->delete };
     _err( 400, 'Bad request' ) if $@;
+}
+
+# Batch delete (?id=1,2,3): one call for many rows. Mirrors _delete's checks per
+# object; a missing id or a denied delete is reported per id instead of aborting.
+sub _batch_delete {
+    my ( $class, $p, $ids ) = @_;
+    my ( @deleted, %skipped );
+    for my $oid ( @$ids ) {
+        my $obj = eval { $class->retrieve( $oid ) };
+        if ( $@ || ! $obj ) { $skipped{$oid} = 'not found'; next; }
+        my $ok = Netdot::Mojo::Permissions->can( $p, 'delete', $obj );
+        $ok = 0 if _admin_only_write( $class ) && Netdot::Mojo::Permissions->user_type( $p ) ne 'Admin';
+        unless ($ok) { $skipped{$oid} = 'not allowed'; next; }
+        if ( eval { $obj->delete } ) { push @deleted, "$class/$oid"; }
+        else { $skipped{$oid} = 'delete failed'; }
+    }
+    return ( \@deleted, \%skipped );
 }
 
 # Create a new alias (CNAME) pointing at $o: a new RR (the alias name) plus a

@@ -179,7 +179,6 @@ sub startup ($self) {
            ->to( $sc ? "$sc#search" : 'browse#search', type => $t )
            ->name("${t}_search");
         $r->get("/management/$t/csv")->to('browse#csv', type => $t)->name("${t}_csv");
-        $r->post("/management/$t/delete")->to('browse#delete', type => $t)->name("${t}_delete");
         my $ctrl = $show_ctrl{$t} // 'show';
         $r->get("/management/$t/:id")->to("${ctrl}#show", type => $t)->name("${t}_show");
     }

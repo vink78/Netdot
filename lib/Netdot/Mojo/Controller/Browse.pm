@@ -336,35 +336,4 @@ sub csv ($c) {
     $c->render( data => $csv );
 }
 
-# Delete the checked objects of one type (batch: params named "<type>__<id>").
-sub delete ($c) {
-    my $type  = $c->stash('type');
-    my $spec  = Netdot::Mojo::Registry::spec($type)
-        or return $c->reply->not_found;
-    my $class = $spec->{class};
-
-    my @ids;
-    for my $name ( @{ $c->req->params->names } ) {
-        my ($id) = $name =~ /^\Q$type\E__(\d+)$/;
-        push @ids, $id if $id;
-    }
-
-    # Only delete objects the current user may delete (Admin: all).
-    my $person = $c->current_person;
-    my $access = Netdot::Mojo::Permissions->user_type( $person ) eq 'Admin'
-               ? undef
-               : Netdot::Mojo::Permissions->allowed_objects( $person );
-
-    my $deleted = 0;
-    for my $id (@ids) {
-        my $o = eval { $class->retrieve( $id ) };
-        next unless $o;
-        next unless Netdot::Mojo::Permissions->can( $person, 'delete', $o, $access );
-        $deleted++ if eval { $o->delete };
-    }
-
-    # Back to the list with a small confirmation.
-    $c->redirect_to( $c->url_for( "${type}_list" ) . "?msg=deleted-$deleted" );
-}
-
 1;

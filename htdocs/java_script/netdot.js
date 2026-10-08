@@ -166,20 +166,69 @@
     }
   }
 
-  // Per-record Delete button: confirm, then DELETE /api/<type>/<id>, reload.
+  // Delete buttons: confirm, then DELETE <data-nd-del>, then reload — or go to
+  // data-nd-goto when the deleted object IS the current page (page-level delete).
   function initRecDeletes() {
     var dels = document.querySelectorAll('.nd-rec-delete');
     for (var i = 0; i < dels.length; i++) {
       dels[i].addEventListener('click', function () {
-        var btn = this;
-        var url = btn.getAttribute('data-nd-del');
+        var btn  = this;
+        var url  = btn.getAttribute('data-nd-del');
+        var goto = btn.getAttribute('data-nd-goto');
         if (!url) { return; }
-        if (!confirm('Delete this record?')) { return; }
+        if (!confirm(goto ? 'Delete this object and all its records?' : 'Delete this record?')) { return; }
         btn.disabled = true;
         api('DELETE', url).then(function (res) {
           if (res.ok) {
             status(true, 'Deleted');
-            setTimeout(function () { location.reload(); }, 700);
+            setTimeout(function () { goto ? (location.href = goto) : location.reload(); }, 700);
+          } else {
+            var msg = (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
+            status(false, msg, 8000);
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+  }
+
+  // List-page batch delete: checked rows -> ONE DELETE /api/<type>?id=1,2,3
+  // (the server checks each id on its own and reports {deleted, skipped}).
+  function initBatchDelete() {
+    var btns   = document.querySelectorAll('button.nd-batch-delete');
+    if (!btns.length) { return; }
+    var checks = document.querySelectorAll('.nd-batch-check');
+    var count  = document.querySelector('.nd-batch-count');
+    function checkedIds() {
+      var ids = [];
+      for (var i = 0; i < checks.length; i++) {
+        if (checks[i].checked) {
+          var parts = (checks[i].name || '').split('__');
+          var id    = parts[parts.length - 1];
+          if (/^\d+$/.test(id)) { ids.push(id); }
+        }
+      }
+      return ids;
+    }
+    function refresh() {
+      var n = checkedIds().length;
+      if (count) { count.textContent = n ? (n + ' selected') : ''; }
+    }
+    for (var i = 0; i < checks.length; i++) { checks[i].addEventListener('change', refresh); }
+    for (var j = 0; j < btns.length; j++) {
+      btns[j].addEventListener('click', function () {
+        var btn  = this;
+        var base = btn.getAttribute('data-nd-api');
+        if (!base) { return; }
+        var ids = checkedIds();
+        if (!ids.length) { status(false, 'Select at least one row to delete', 4000); return; }
+        if (!confirm('Delete ' + ids.length + ' object(s)? This cannot be undone.')) { return; }
+        btn.disabled = true;
+        api('DELETE', base + '?id=' + ids.join(',')).then(function (res) {
+          if (res.ok) {
+            var skipped = (res.data && res.data.skipped) ? Object.keys(res.data.skipped).length : 0;
+            status(true, 'Deleted ' + res.data.deleted.length + (skipped ? ' (' + skipped + ' skipped)' : ''), 5000);
+            setTimeout(function () { location.reload(); }, 1000);
           } else {
             var msg = (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
             status(false, msg, 8000);

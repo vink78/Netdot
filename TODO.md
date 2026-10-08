@@ -574,6 +574,24 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
             redirection JS sur `/management/rr/<nouveau id>` (attribut
             `data-nd-redirect`, géré dans `netdot.js` `initForms`). Le nom est créé
             **sans record** : ses records s'ajoutent ensuite sur sa page.
+            **RR — Delete du nom lui-même (page détail)** : bouton « Delete » à côté de
+             « Edit », rendu si `can('delete',$o)` (les règles du modèle s'appliquent : pas
+             de delete de l'apex par un User, pas de RR lié à un device, …). Même mécanique
+             générique que les boutons delete des records : `DELETE /api/rr/<id>` (le
+             `delete` du modèle), avec `confirm()` adapté (« this object and all its
+             records ») puis redirection sur la liste (`data-nd-goto`, géré dans
+             `netdot.js` `initRecDeletes` qui supporte aussi bien reload que goto).
+           **Suppression par lots (listes génériques)** : les cases à cocher des listes
+            (`browse#list`, tous les types) passent désormais par l'API en **un seul appel**
+            : `DELETE /api/<type>?id=1,2,3` (`Api::generic` accepte une liste d'ids en
+            query string, modèle de recherche). `Api::_batch_delete` vérifie `can('delete')`
+            **objet par objet** (pas d'abort au 1er id en erreur) et répond
+            `{deleted:[...], skipped:{id:raison}}` (200 si ≥1 supprimé, 400 sinon).
+            Le bouton « Delete » de la liste est piloté par `netdot.js`
+            `initBatchDelete` (compteur « N selected », `confirm()`, reload après).
+            **L'ancienne route serveur `POST /management/<type>/delete`
+            (`browse#delete`) est supprimée** — plus d'écriture côté serveur, tout passe
+            par l'API JSON.
         ⚠️ **Champs temps (édition in-situ, tous les objets)** : les colonnes de type
        `timestamp` (Last ARP / Last FWT / Last Updated / First Discovered / …) sont
        **exclues du formulaire d'édition** (lecture seule, info seulement) — c'est ce
