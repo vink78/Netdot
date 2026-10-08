@@ -5,6 +5,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 use Netdot::Model;
 use Netdot::Mojo::Registry;
 use Netdot::Mojo::Permissions;
+use Netdot::Mojo::Detail;
 
 # Per-type filter columns for list pages (equivalent of Mason's
 # search_obj.html?table=..&<col>=..&res=1). Only these columns may be passed.
@@ -254,6 +255,24 @@ sub list ($c) {
     } elsif ( $type eq 'physaddr' ) {
         $extra{search_title}       = 'Search MAC addresses';
         $extra{search_placeholder} = 'MAC address / OUI';
+    }
+
+    # "New <type>" create box for the generic list page (every type except rr,
+    # which has its own name+zone box): shown when the user may create an object
+    # of this type (class-level 'edit' — has_action already returns 1 for
+    # Admins; the API re-enforces it at write time via _can_create). The form
+    # POSTs to /api/<table> and the model's insert() validates the required
+    # fields (a missing one -> 400 with the model's own message).
+    if ( $type ne 'rr' && Netdot::Mojo::Permissions->has_action( $class, $person, 'edit' ) ) {
+        my @cfields = @{ Netdot::Mojo::Detail::build_create_fields( $class ) };
+        if (@cfields) {
+            $extra{new_obj} = {
+                label  => $spec->{label},
+                fields => \@cfields,
+                api    => $c->web_prefix . '/api/' . $class->table,
+                goto   => Netdot::Mojo::Registry::set_uri( '/management/' . $type . '/' ),
+            };
+        }
     }
 
     $c->render(

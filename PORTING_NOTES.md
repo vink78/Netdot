@@ -316,8 +316,14 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
     **ordered + paginated in SQL** (see `Detail.pm` below). Also a `picture` action
     (2026-10-05) serving SitePicture/FloorPicture BLOBs (see pitfall 2f). NOTE: `get_links_from`
    returns a **hash** and `get_labels` a **list** → use `my %h; eval { %h = ... }` /
-   `my @l; eval { @l = ... }` (the `eval {...} || ()` wantarray trap breaks both).
-    `Browse#list` page size also comes from `DEFAULT_PERPAGE`.
+    `my @l; eval { @l = ... }` (the `eval {...} || ()` wantarray trap breaks both).
+     `Browse#list` page size also comes from `DEFAULT_PERPAGE`.
+     **Generic delete (detail page)** (2026-10-08): a "Delete" button next to "Edit",
+     rendered when `can('delete',$o)`; reuses the `.nd-rec-delete` + `data-nd-del` /
+     `data-nd-goto` mechanism (same as the RR detail page) → `DELETE /api/<table>/<id>`
+     (the model's `delete()`), then redirects to the list. The API table is the DB table
+     name (`$class->table`), NOT `lc($type)` (they differ for DhcpScope: "dhcscope" vs
+     "dhcpscope") — the edit `api_path` was fixed to use `$class->table` too.
   - `lib/Netdot/Mojo/Detail.pm` — shared builders used by Show + the dedicated
     detail controllers: `build_attrs` (all-view attrs, FK→link), `build_relations`
     (has_many tables, paginated), `rel_columns`, `obj_text`. **Relation data access**

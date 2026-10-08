@@ -111,6 +111,69 @@ sub _fk_label {
     return ( defined $l && length $l ) ? $l : '#' . ( eval { $o->id } // '' );
 }
 
+# <select> options for an FK column's target table: all {id,label} when the
+# target is small (count <= DEFAULT_SELECTMAX); undef when large (the form then
+# renders a keyword search box that queries the API — the dropdown is never
+# dumped). Shared by the edit and create field builders.
+sub _fk_options {
+    my ( $tclass, $maxselect ) = @_;
+    my $count = eval { $tclass->count_all } // 0;
+    return undef unless $count <= $maxselect;
+    my @all = eval { $tclass->retrieve_all };    # list context (no "||" — it scalarizes)
+    @all    = sort { _fk_label( $a ) cmp _fk_label( $b ) } @all;
+    return [ map { { id => $_->id, label => _fk_label( $_ ) } } @all ];
+}
+
+# Field specs for a NEW object of $class (the generic list page's "New <type>"
+# create box): same shape as build_edit_fields but every value blank (FKs
+# unselected, scalars empty). Uses the class's BRIEF-view columns (the key
+# fields only) to keep the UI light; the model's insert() validates the
+# required fields (a missing one -> 400 with the model's own message) and fills
+# the rest with defaults. Timestamps are excluded (system-managed).
+sub build_create_fields {
+    my ( $class ) = @_;
+    my @fields;
+    my $maxselect = eval { Netdot->config->get('DEFAULT_SELECTMAX') } || 100;
+    for my $cd ( @{ Netdot::Mojo::Registry::display_brief_columns( $class ) } ) {
+        my ( $col, $tag ) = @$cd;
+        next if Netdot::Mojo::Registry::is_sensitive( $col );
+
+        my $target = Netdot::Mojo::Registry::column_link_key( $class, $col );
+        if ($target) {
+            my $tspec  = Netdot::Mojo::Registry::spec( $target );
+            my $tclass = $tspec ? $tspec->{class} : undef;
+            next unless $tclass;
+            push @fields, {
+                name      => $col,
+                tag       => $tag,
+                kind      => 'fk',
+                target    => $target,
+                max       => $maxselect,
+                cur_id    => 0,
+                cur_label => '',
+                options   => _fk_options( $tclass, $maxselect ),
+            };
+            next;
+        }
+
+        my $type = Netdot::Mojo::Registry::column_type( $class, $col );
+        next if defined $type && $type eq 'timestamp';
+        my $kind =
+            ( $type eq 'bool' )    ? 'checkbox'
+          : ( $type eq 'integer' ) ? 'number'
+          : ( $type eq 'text' )    ? 'textarea'
+          : ( $type eq 'date' )    ? 'date'
+          :                          'text';
+        push @fields, {
+            name  => $col,
+            tag   => $tag,
+            kind  => $kind,
+            value => ( $kind eq 'checkbox' ? 0 : '' ),
+        };
+    }
+    return \@fields;
+}
+
 # has_many relations (like the old Mason view.html "View" section): one table
 # per non-empty relation. Columns from _rel_columns (brief view; for join /
 # connector tables whose label IS the FK set the FK columns are shown as

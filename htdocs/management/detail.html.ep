@@ -1,9 +1,15 @@
 <h1><%= $title %></h1>
 
+% my $can_delete = $c->stash('can_delete');
+% my $del_path   = $c->stash('del_path') // '';
+% my $del_goto   = $c->stash('del_goto') // '';
 <p>
   <a href="<%= url_for( $type . '_list' ) %>">&laquo; <%= ucfirst($type) %></a>
   % if ( $can_edit && @$fields ) {
   <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+  % if ( $can_delete ) {
+  <button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" style="margin-left:0.6em">Delete</button>
   % }
 </p>
 

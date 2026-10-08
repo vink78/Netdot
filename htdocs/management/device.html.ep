@@ -4,6 +4,9 @@
 <% my $fqdn   = $c->stash->{fqdn} // ''; %>
 <% my $title  = $c->stash->{title} // 'Device'; %>
 <% my $base   = $c->set_uri( "/management/device/$id" ); %>
+<% my $can_delete = $c->stash('can_delete'); %>
+<% my $del_path   = $c->stash('del_path') // ''; %>
+<% my $del_goto   = $c->stash('del_goto') // ''; %>
 
 <h1><%= $title %></h1>
 <p>
@@ -11,6 +14,9 @@
   <a href="http://<%= $fqdn %>" target="_blank">[HTTP]</a>
   <a href="https://<%= $fqdn %>" target="_blank">[HTTPS]</a>
   <a href="<%= $base %>">[refresh]</a>
+  % if ( $can_delete ) {
+  <button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" data-nd-device="1" style="margin-left:1.2em">Delete</button>
+  % }
 </p>
 
 % my @tabs = (

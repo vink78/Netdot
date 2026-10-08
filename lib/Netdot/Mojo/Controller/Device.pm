@@ -36,6 +36,11 @@ sub show {
     # In-place edit form (Basics view only): scalar + FK fields, written via the
     # JSON API (PATCH). Computed only on Basics so the other views stay cheap.
     my $can_edit = $c->perm( 'edit', $o );
+    # Page-level delete (all views): shown when the user may delete this device.
+    # Device delete is special (see Device::delete) — the JS offers the
+    # default-off choice to also remove the device's IPs / DNS A/AAAA records
+    # (delete_ips), which cascades to the name RR once it has no sub_records.
+    my $can_delete = $c->perm( 'delete', $o );
     my %stash = (
         id       => $id,
         view     => $view,
@@ -44,6 +49,9 @@ sub show {
         can_edit => $can_edit,
         fields   => [],
         api_path => '',
+        can_delete => $can_delete,
+        del_path   => $can_delete ? $c->web_prefix . '/api/device/' . $id : '',
+        del_goto   => $can_delete ? Netdot::Mojo::Registry::set_uri( '/management/device' ) : '',
     );
 
     if ($view eq 'Basics') {

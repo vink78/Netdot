@@ -208,7 +208,7 @@ sub generic {
                     $res{skipped} = $skipped if keys %$skipped;
                     return $c->render( json => \%res, status => @$deleted ? 200 : 400 );
                 }
-                _delete( $class, $id, $p );
+                _delete( $class, $id, $p, $args );
                 return $c->render( json => { deleted => "$class/$id" }, status => 200 );
             }
             _err( 400, "Bad id: $id" ) if $id =~ /,/;    # lists are DELETE-only
@@ -411,6 +411,10 @@ sub _post {
         unless ( _can_create( $class, $p, \%a ) ) {
             _err( 403, 'User not allowed to create this object' );
         }
+        # Drop empty-string values so the model's insert() applies its defaults
+        # (and column defaults) instead of storing '' — the form sends blank
+        # text/number fields as "". FK selects already submit null when empty.
+        delete @a{ grep { defined $a{$_} && $a{$_} eq '' } keys %a };
         my $new = eval { $class->insert(\%a) };
         _err( 400, "Bad request: $@" ) if $@;
         $obj = $new;
@@ -419,7 +423,8 @@ sub _post {
 }
 
 sub _delete {
-    my ( $class, $id, $p ) = @_;
+    my ( $class, $id, $p, $args ) = @_;
+    $args = {} unless ref $args eq 'HASH';
     my $obj = $class->retrieve($id);
     _err( 404, 'Not found' ) unless $obj;
     _err( 403, 'Deleting this object is reserved for administrators' )
@@ -427,8 +432,26 @@ sub _delete {
     unless ( Netdot::Mojo::Permissions->can( $p, 'delete', $obj ) ) {
         _err( 403, 'User not allowed to delete this object' );
     }
-    eval { $obj->delete };
+    # Device-specific delete options (see Device::delete): delete_ips also removes
+    # the device's IP addresses (and their DNS A/AAAA records), which cascades to
+    # the name RR once it has no sub_records. The UI offers this as a default-off
+    # choice. Other classes' delete() take no args, so thread only for Device.
+    my %dopts;
+    if ( $class eq 'Netdot::Model::Device' ) {
+        $dopts{delete_ips}     = 1 if _truthy( $args->{delete_ips} );
+        $dopts{no_delete_name} = 1 if _truthy( $args->{no_delete_name} );
+    }
+    eval { $obj->delete( %dopts ) };
     _err( 400, 'Bad request' ) if $@;
+}
+
+# Coerce a request value (query string / JSON) to a boolean flag (1/0). Empty,
+# "0"/"false"/"no" and undef are falsy; anything else is truthy.
+sub _truthy {
+    my ($v) = @_;
+    return 0 unless defined $v;
+    return 0 if $v eq '' || $v eq '0' || $v eq 'false' || $v eq 'no';
+    return 1;
 }
 
 # Batch delete (?id=1,2,3): one call for many rows. Mirrors _delete's checks per

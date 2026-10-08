@@ -1,10 +1,33 @@
-% # Shared in-place edit form for read-write detail pages (generic + dedicated).
-% # Guarded by can_edit + fields (stashed by the controller). The matching
-% # "Edit" button lives in the page header; the toggle is wired by netdot.js
-% # (it hides #nd-readonly and shows this #nd-edit form).
+% # Shared in-place edit / create form for read-write detail pages (generic +
+% # dedicated) and the generic list page's "New <type>" create box. Guarded by
+% # can_edit + fields (stashed by the controller).
+% #   EDIT (default): hidden until the page header "Edit" toggle (wired by
+% #     netdot.js initToggle), PATCHes $api_path, then reloads.
+% #   CREATE (nd_create=1): always visible, POSTs to $api_path, then redirects
+% #     to $nd_redirect + <new id> (netdot.js initForms' data-nd-redirect).
+% # Create-mode knobs (stashed only by the generic list page's "New <type>" box).
+% # Read via $c->stash so the partial stays valid when rendered without them
+% # (detail pages): a bare stash var would fail the template's `use strict`.
+% my $nd_create   = $c->stash('nd_create');
+% my $nd_method   = $c->stash('nd_method');
+% my $nd_redirect = $c->stash('nd_redirect');
+% my $nd_label    = $c->stash('nd_label');
 % if ( $can_edit && @$fields ) {
-%   my @fl = @$fields;
-<form id="nd-edit" data-nd-api="<%= $api_path %>" data-nd-method="PATCH" data-nd-api-base="<%= $c->web_prefix %>/api" style="display:none">
+%   my @fl     = @$fields;
+%   my $create = $nd_create ? 1 : 0;
+%   my $method = $nd_method || 'PATCH';
+%   my $label  = $nd_label  || 'Save';
+<form id="<%= $create ? 'nd-create' : 'nd-edit' %>"
+      data-nd-api="<%= $api_path %>"
+      data-nd-method="<%= $method %>"
+% if ( $create && $nd_redirect ) {
+      data-nd-redirect="<%= $nd_redirect %>"
+% }
+      data-nd-api-base="<%= $c->web_prefix %>/api"
+% unless ($create) {
+      style="display:none"
+% }
+>
   <table class="datatable detail c2">
     <tbody>
     % for ( my $i = 0; $i < @fl; $i += 2 ) {
@@ -57,8 +80,10 @@
     </tbody>
   </table>
   <p style="margin-top:0.8em">
-    <button type="submit" class="btn">Save</button>
+    <button type="submit" class="btn"><%= $label %></button>
+% unless ($create) {
     <button type="button" class="btn" id="nd-edit-cancel" style="margin-left:0.6em">Cancel</button>
+% }
   </p>
 </form>
 % }

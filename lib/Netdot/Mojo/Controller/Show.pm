@@ -32,9 +32,17 @@ sub show ($c) {
     # Edit form (phase 2): editable scalar fields + the API endpoint the form
     # PATCHes to. Writes go through the JSON API (single path), not a server-side
     # form handler. FKs are excluded from the form (see Detail::build_edit_fields).
-    my $can_edit = $c->perm( 'edit', $obj );
-    my $fields   = $can_edit ? Netdot::Mojo::Detail::build_edit_fields( $obj, $class ) : [];
-    my $api_path = $can_edit ? $c->web_prefix . '/api/' . lc( $type ) . '/' . $id : '';
+    # The API table is the DB table name ($class->table), NOT lc($type): the two
+    # differ for DhcpScope (registry key "dhcscope" vs table "dhcpscope").
+    my $table      = $class->table;
+    my $can_edit   = $c->perm( 'edit', $obj );
+    my $fields     = $can_edit ? Netdot::Mojo::Detail::build_edit_fields( $obj, $class ) : [];
+    my $api_path   = $can_edit ? $c->web_prefix . '/api/' . $table . '/' . $id : '';
+    # Page-level delete (same generic mechanism as the RR detail page): shown when
+    # the user may delete this object; redirects to the list afterwards.
+    my $can_delete = $c->perm( 'delete', $obj );
+    my $del_path   = $can_delete ? $c->web_prefix . '/api/' . $table . '/' . $id : '';
+    my $del_goto   = $can_delete ? Netdot::Mojo::Registry::set_uri( "/management/$type" ) : '';
 
     # has_many relations (like the old Mason view.html "View" section): one table
     # per non-empty relation. Columns from the related class's brief view. Rows
@@ -99,6 +107,9 @@ sub show ($c) {
         can_edit => $can_edit,
         fields   => $fields,
         api_path => $api_path,
+        can_delete => $can_delete,
+        del_path   => $del_path,
+        del_goto   => $del_goto,
     );
 }
 

@@ -11,8 +11,9 @@
 % my $s_ph       = $c->stash('search_placeholder') // 'Search...';
 % my $q          = $c->param('search')  // '';
 % my $zsel       = $c->param('zone_id') // '';
-% my $new_rr = $c->stash('new_rr');
-<div class="cardrow" style="margin-bottom:1em">
+% my $new_obj = $c->stash('new_obj');
+% my $new_rr  = $c->stash('new_rr');
+<div class="cardrow" style="margin-bottom:1em; align-items:flex-start">
 % if ($search_url) {
   <div class="container">
     <div class="containerhead"><%= $s_title %></div>
@@ -35,6 +36,20 @@
         % }
         <input type="submit" value="Find" class="btn">
       </form>
+    </div>
+  </div>
+% }
+% if ($new_obj) {
+% # Generic create box (right of the search): "New <type>". Uses the class's
+% # brief-view fields (key fields only); the model's insert() fills the rest.
+  <div class="container">
+    <div class="containerhead">New <%= $new_obj->{label} %></div>
+    <div class="containerbody" style="padding:0.6em">
+      <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                                can_edit => 1, fields => $new_obj->{fields},
+                                api_path => $new_obj->{api},
+                                nd_create => 1, nd_method => 'POST',
+                                nd_redirect => $new_obj->{goto}, nd_label => 'Create' ) %>
     </div>
   </div>
 % }

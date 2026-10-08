@@ -235,6 +235,16 @@ sub display_columns {
     return [ map { [ $_, column_tag( $class, $_ ) ] } @cols ];
 }
 
+# Ordered columns of a class's "brief" view (the same columns the list shows),
+# as [ [col, tag], ... ], minus id. Used to drive the lightweight generic create
+# form: only the key fields are offered, the model's insert() fills the rest.
+sub display_brief_columns {
+    my ($class) = @_;
+    my @cols = _brief_cols( $class );
+    @cols    = grep { $_ ne 'id' } $class->columns unless @cols;
+    return [ map { [ $_, column_tag( $class, $_ ) ] } grep { $_ ne 'id' } @cols ];
+}
+
 # Map an object's class to its Registry key (the type used in routes/URLs).
 # lc(short class name) works for every type EXCEPT DhcpScope (class "DhcpScope"
 # -> "dhcpscope" but the registry key/route is "dhcscope"), so resolve by class

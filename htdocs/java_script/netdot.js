@@ -168,6 +168,9 @@
 
   // Delete buttons: confirm, then DELETE <data-nd-del>, then reload — or go to
   // data-nd-goto when the deleted object IS the current page (page-level delete).
+  // A device delete (data-nd-device) additionally offers the default-off choice
+  // to also remove the device's IP addresses (and their DNS A/AAAA records) —
+  // that cascades to the name RR once it has no sub_records (see Device::delete).
   function initRecDeletes() {
     var dels = document.querySelectorAll('.nd-rec-delete');
     for (var i = 0; i < dels.length; i++) {
@@ -176,7 +179,11 @@
         var url  = btn.getAttribute('data-nd-del');
         var goto = btn.getAttribute('data-nd-goto');
         if (!url) { return; }
-        if (!confirm(goto ? 'Delete this object and all its records?' : 'Delete this record?')) { return; }
+        if (btn.getAttribute('data-nd-device')) {
+          if (!confirm('Delete this device?\n\nIt will be moved to the available asset pool. If you intend to decommission the hardware, remember to remove the asset as well.')) { return; }
+          var delIps = confirm("Also delete this device's IP addresses and their DNS A/AAAA records?") ? 1 : 0;
+          url += (url.indexOf('?') === -1 ? '?' : '&') + 'delete_ips=' + delIps;
+        } else if (!confirm(goto ? 'Delete this object and all its records?' : 'Delete this record?')) { return; }
         btn.disabled = true;
         api('DELETE', url).then(function (res) {
           if (res.ok) {
