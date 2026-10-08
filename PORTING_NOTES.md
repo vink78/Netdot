@@ -388,9 +388,33 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
            the raw value (run by `insert`/`update` → 400 if bad): no line breaks (zone is
            line-oriented), only printable ASCII + tab (`^[\x09\x20-\x7E]+$`), and an even
            number of `"` (balanced quotes). Editing is **reserved to Admins**: the section
-           renders read-only for non-Admins (controller passes `is_admin` → `_rel_record
-           readonly`), the UI shows a disclaimer (section `warn` key), and the API gates
-           create/update/delete of `RRAttr` to Admins (`Api::_admin_only_write` → 403).
+          renders read-only for non-Admins (controller passes `is_admin` → `_rel_record
+          readonly`), the UI shows a disclaimer (section `warn` key), and the API gates
+          create/update/delete of `RRAttr` to Admins (`Api::_admin_only_write` → 403).
+          **RR — adding / deleting records** (`Rr.pm` + `rr.html.ep` + `netdot.js`
+          `initAddForm`/`initRecDeletes`): every record row has a Delete button
+          (`DELETE /api/<type>/<id>` behind a `confirm()`), and an "Add a record" section
+          offers the addable types (A/AAAA, MX, TXT, NS, HINFO, SRV, DS, NAPTR, LOC,
+          RRAttr admin-only; **PTR only in reverse zones** — `zone->is_dot_arpa`). Add
+          forms are meta-driven (`_rel_add_fields`): the parent FK (owner `rr`) is
+          auto-filled and hidden, small-table FKs (<100 rows, counted via
+          `search_count()`) render as `<select>`, TTL is pre-filled with the zone's
+          `default_ttl`, and A/AAAA/PTR address fields take a plain IP string
+          (`ipblock`). **Everything goes through the model's `insert`**
+          (`POST /api/<type>` → `Api::_post` → `$class->insert`): `RRADDR`/`RRPTR`
+          convert the address string to an Ipblock themselves
+          (`_convert_ipblock`: `Ipblock->search`, else `Ipblock->insert(status Static)`),
+          `RRPTR` validates the reverse zone, creates the owner RR and checks conflicting
+          types, `RRCNAME` enforces mutual exclusivity, and TTL falls back to the zone
+          default. The API adds only permission checks (`_can_create` per parent) — no
+          redundant conversion code. **CNAME/alias**: a dedicated "Add an alias (CNAME)"
+          box (`POST /api/rr/<id>/alias` → `Api::alias` → `_create_alias` →
+          `RR->insert({type=>'CNAME'})`). The new name's zone is resolved from the entered
+          name: a short name stays in the current zone; a long name whose domain part
+          matches an editable zone maps to that zone (zone part stripped); any other long
+          name lands in the current zone as a label (e.g. `www.google.com` →
+          `www.google.com.localdomain`). Conflicts are handled by `RRCNAME->insert` (a name
+          that already has other records → 400).
    - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
     `management/zone.html`): record count (per type), apex record (A/NS/MX with
     links), generic has_many (subnets/records/aliases), recent changes (HostAudit).

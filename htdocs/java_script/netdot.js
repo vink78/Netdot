@@ -158,6 +158,48 @@
     }
   }
 
+  // Per-record Delete button: confirm, then DELETE /api/<type>/<id>, reload.
+  function initRecDeletes() {
+    var dels = document.querySelectorAll('.nd-rec-delete');
+    for (var i = 0; i < dels.length; i++) {
+      dels[i].addEventListener('click', function () {
+        var btn = this;
+        var url = btn.getAttribute('data-nd-del');
+        if (!url) { return; }
+        if (!confirm('Delete this record?')) { return; }
+        btn.disabled = true;
+        api('DELETE', url).then(function (res) {
+          if (res.ok) {
+            status(true, 'Deleted');
+            setTimeout(function () { location.reload(); }, 700);
+          } else {
+            var msg = (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
+            status(false, msg, 8000);
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+  }
+
+  // "Add a record" section: a type <select> reveals the matching pre-rendered
+  // form (submitted via POST by initForms). Cancel resets the select.
+  function initAddForm() {
+    var sel = document.getElementById('nd-add-type');
+    if (!sel) { return; }
+    var forms = document.querySelectorAll('form.nd-add-form');
+    function show(type) {
+      for (var i = 0; i < forms.length; i++) {
+        forms[i].style.display = (forms[i].getAttribute('data-nd-type') === type) ? 'block' : 'none';
+      }
+    }
+    sel.addEventListener('change', function () { show(sel.value); });
+    var cancels = document.querySelectorAll('.nd-add-cancel');
+    for (var j = 0; j < cancels.length; j++) {
+      cancels[j].addEventListener('click', function () { sel.value = ''; show(''); });
+    }
+  }
+
   // Edit / Cancel toggle for the generic detail page.
   function initToggle() {
     var toggle   = document.getElementById('nd-edit-toggle');
@@ -181,6 +223,8 @@
     initForms();
     initToggle();
     initRecToggles();
+    initRecDeletes();
+    initAddForm();
     initFkSearch();
   });
 

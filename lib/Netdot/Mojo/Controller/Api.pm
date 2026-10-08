@@ -383,6 +383,12 @@ sub _post {
         _err( 400, "Bad request: $@" ) if $@;
     }
     else {
+        # Note: no argument translation here. The record models already handle
+        # domain knowledge: RRADDR/RRPTR->_convert_ipblock resolve an `ipblock`
+        # given as an address string (Ipblock->search, created if missing),
+        # RR->insert dispatches on `type` to the right record class, RRCNAME/
+        # RRPTR enforce mutual exclusivity, and TTLs fall back to the zone
+        # default. The controller only adds permission checks.
         # Per-parent enforcement: a User may create the object only if they hold
         # 'edit' on the specific parent it belongs to (or, for parentless classes,
         # on the class as a whole). Admin is unrestricted.
@@ -407,6 +413,70 @@ sub _delete {
     }
     eval { $obj->delete };
     _err( 400, 'Bad request' ) if $@;
+}
+
+# Create a new alias (CNAME) pointing at $o: a new RR (the alias name) plus a
+# rrcname (rr=new, cname=$o). The zone for the new name is resolved from the
+# entered name: a short name stays in $o's zone; a name whose domain part matches
+# a zone the user can edit is mapped to that zone (zone part stripped); any other
+# long name is placed in $o's zone as a label (www.google.com -> www.google.com.localdomain).
+# Conflicts (the name already has records) are handled by RRCNAME->insert internally.
+sub _create_alias {
+    my ( $o, $name, $ttl, $p ) = @_;
+    my $zone = $o->zone;
+    _err( 400, 'This RR has no zone' ) unless $zone && $zone->id;
+    my $an    = $name;
+    my @parts = split /\./, $name;
+    if ( @parts > 1 ) {
+        for my $i ( 1 .. $#parts ) {
+            my $dom = join( '.', @parts[ $i .. $#parts ] );
+            my $z   = eval { Zone->search( name => $dom )->first };
+            if ( $z && Netdot::Mojo::Permissions->can( $p, 'edit', $z ) ) {
+                $zone = $z;
+                $an   = join( '.', @parts[ 0 .. $i - 1 ] );
+                last;
+            }
+        }
+    }
+    my %ins = ( name => $an, zone => $zone->id, type => 'CNAME', cname => $o->get_label );
+    $ins{ttl} = $ttl if defined $ttl && length $ttl;
+    my $rec = eval { RR->insert( \%ins ) };
+    _err( 400, "Bad request: $@" ) if $@;
+    return $rec;
+}
+
+# POST /api/rr/:id/alias  {name, ttl} — create a new alias pointing at the RR.
+sub alias {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        my $tparam = $c->param('table');
+        my $id     = $c->param('id');
+        my $args   = _args($c);
+        _err( 400, 'Alias creation is only supported for RR' )
+            unless lc($tparam) eq 'rr';
+        _err( 400, 'Missing id' ) unless defined $id && $id =~ /^\d+$/;
+        my $o = RR->retrieve($id);
+        _err( 404, "RR/$id not found" ) unless $o;
+        unless ( Netdot::Mojo::Permissions->can( $p, 'edit', $o ) ) {
+            _err( 403, 'User not allowed to edit this object' );
+        }
+        my $name = _trim( $args->{name} // '' );
+        _err( 400, 'Missing alias name' ) unless length $name;
+        my $ttl  = _trim( $args->{ttl}  // '' );
+        my $rec  = _create_alias( $o, $name, $ttl, $p );
+        return $c->render( json => Netdot::Mojo::Api::get( $rec, $p, undef, depth => 0 ),
+                           status => 200 );
+    });
+}
+
+sub _trim {
+    my ($s) = @_;
+    $s = '' unless defined $s;
+    $s =~ s/^\s+//;
+    $s =~ s/\s+$//;
+    return $s;
 }
 
 # ---------------------------------------------------------------------------

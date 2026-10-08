@@ -537,11 +537,34 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
             Validation de la valeur brute (`RRAttr::_validate_value`, 400 si invalide) :
             pas de retour à la ligne (zone = 1 record/ligne), caractères imprimables + tab
             uniquement (`^[\x09\x20-\x7E]+$`), et nombre PAIR de `"` (guillemets équilibrés).
-            **Réservé aux Admins** : un mauvais champ peut invalider la zone complète → la
-            section est en lecture seule pour les non-admins (`is_admin` → `_rel_record
-            readonly`) avec un disclaimer (clé `warn` de la section), et l'API restreint
-            create/update/delete de `RRAttr` aux admins (`Api::_admin_only_write` → 403).
-       ⚠️ **Champs temps (édition in-situ, tous les objets)** : les colonnes de type
+             **Réservé aux Admins** : un mauvais champ peut invalider la zone complète → la
+             section est en lecture seule pour les non-admins (`is_admin` → `_rel_record
+             readonly`) avec un disclaimer (clé `warn` de la section), et l'API restreint
+             create/update/delete de `RRAttr` aux admins (`Api::_admin_only_write` → 403).
+           **RR — AJOUT / SUPPRESSION d'enregistrements** (`Rr.pm` + `rr.html.ep` +
+           `netdot.js` `initAddForm`/`initRecDeletes`) : chaque ligne d'enregistrement a un
+            bouton Delete (`DELETE /api/<type>/<id>`, `confirm()`), et une section « Add a
+            record » propose les types ajoutables (A/AAAA, MX, TXT, NS, HINFO, SRV, DS,
+            NAPTR, LOC, RRAttr admin-only ; **PTR uniquement dans les zones inverses**,
+            `zone->is_dot_arpa`). Les formulaires sont construits en meta (`_rel_add_fields`)
+            : FK du parent (owner `rr`) auto-remplie et cachée, FK petites tables (<100
+            lignes, comptées par `search_count()`) en `<select>`, TTL pré-rempli avec
+            `zone->default_ttl`, champs A/AAAA/PTR (`ipblock` = adresse IP en texte).
+            **Tout passe par le `insert` du modèle** (`POST /api/<type>` →
+            `Api::_post` → `$class->insert`) : `RRADDR`/`RRPTR` convertissent l'adresse
+            string en Ipblock eux-mêmes             (`_convert_ipblock` : `Ipblock->search`, sinon
+            `Ipblock->insert(status Static)`), `RRPTR` valide la zone inverse + crée le RR
+            owner + verifie les types conflictuels, `RRCNAME` verifie l'exclusivité,
+            TTL par defaut = zone. L'API n'ajoute que les verifications de permission
+            (`_can_create` par parent) — pas de code redondant de conversion.
+            **CNAME/alias** : boîtier dédié « Add an alias (CNAME) »
+            (`POST /api/rr/<id>/alias` → `Api::alias` → `_create_alias` →
+            `RR->insert({type=>'CNAME'})`). La zone du nouveau nom est resolue depuis le
+            nom saisi : nom court → zone courante ; nom long dont la partie domaine
+            correspond à une zone éditée → cette zone (partie zone retirée) ; sinon nom
+            long → zone courante (ex. `www.google.com` → `www.google.com.localdomain`).
+            Conflits gérés par `RRCNAME->insert` (un nom qui a d'autres records → 400).
+        ⚠️ **Champs temps (édition in-situ, tous les objets)** : les colonnes de type
        `timestamp` (Last ARP / Last FWT / Last Updated / First Discovered / …) sont
        **exclues du formulaire d'édition** (lecture seule, info seulement) — c'est ce
        que fait la vue Mason Basics (`edit=>0`). Elles restent visibles dans la table

@@ -21,6 +21,7 @@ sub show ($c) {
 
     # In-place edit form: scalar + FK fields, written via the JSON API (PATCH).
     # The system-managed timestamps (created/modified) are not user-editable.
+    my $is_admin = ( $c->user_type eq 'Admin' );
     my $can_edit = $c->perm( 'edit', $o );
     my $fields   = [];
     my $api_path = '';
@@ -40,7 +41,8 @@ sub show ($c) {
         can_edit   => $can_edit,
         fields     => $fields,
         api_path   => $api_path,
-        sections   => _rr_sections( $o, is_admin => ( $c->user_type eq 'Admin' ) ),
+        sections   => _rr_sections( $o, is_admin => $is_admin ),
+        add_types  => $can_edit ? _rr_add_types( $o, is_admin => $is_admin ) : [],
     );
 }
 
@@ -300,6 +302,126 @@ sub _rel_record {
 sub _rec {
     my ( $rec, $type, $fields ) = @_;
     return { fields => $fields, id => eval { $rec->id }, type => $type };
+}
+
+# lc(db_name) => model class, for the add forms (same mapping the API uses; the
+# type names below are lowercase table names, not class names — e.g. rrattr =>
+# Netdot::Model::RRAttr).
+my %_CLASS_BY_TABLE;
+sub _rr_class_for_type {
+    my ( $type ) = @_;
+    return $_CLASS_BY_TABLE{ $type } if exists $_CLASS_BY_TABLE{ $type };
+    for my $t ( Netdot->meta->get_tables() ) {
+        $_CLASS_BY_TABLE{ lc( $t->db_name ) } = $t->name;
+    }
+    return $_CLASS_BY_TABLE{ $type };
+}
+
+# Field list for an "add new record" form (POST /api/<type>). Scalar columns come
+# from the type's "all" view in meta order; the FK to the parent RR is auto-filled
+# as a hidden field; any other FK is rendered as a <select> only when the
+# referenced table is a small lookup. RRAttr is Admin-only (its raw value is
+# written verbatim to the zone file). The IP-based types (A/AAAA and PTR) take an
+# IP *address* the user types (the model's insert creates the Ipblock + any PTR),
+# so they get an address field instead of the meta-driven scalar fields.
+sub _rel_add_fields {
+    my ( $type, $parent_id, $is_admin, $default_ttl ) = @_;
+    return if $type eq 'rrattr' && ! $is_admin;
+    if ( $type eq 'rraddr' || $type eq 'rrptr' ) {
+        my @f = (
+            { tag => 'Address',   kind => 'text',   name => 'ipblock',  value => '' },
+            { tag => 'TTL',       kind => 'number', name => 'ttl',      value => $default_ttl // '' },
+        );
+        unshift @f, { tag => 'Forward name', kind => 'text', name => 'ptrdname', value => '' }
+            if $type eq 'rrptr';
+        return { type => $type, hidden => { rr => $parent_id }, fields => \@f };
+    }
+    my $classname = _rr_class_for_type( $type );
+    my $class     = $classname ? "Netdot::Model::$classname" : undef;
+    my $meta      = eval { $class && $class->meta_data };
+    return unless $meta;
+    my %order;
+    eval { %order = $meta->get_column_order( view => 'all' ) };
+    my @cols;
+    if ( keys %order ) {
+        @cols = sort { $order{$a} <=> $order{$b} } keys %order;
+    }
+    else {
+        @cols = grep { $_ ne 'id' } $meta->get_column_names;
+    }
+    my ( %hidden, @fields );
+    for my $c (@cols) {
+        my $col  = $meta->get_column( $c );
+        my $sql  = $col->sql_type // '';
+        next if $c eq 'id' || $sql eq 'timestamp';
+        my $lraw = $col->length // '';
+        my $len  = $lraw =~ /^\d+$/ ? $lraw + 0 : 0;
+        my $fk   = $col->links_to;
+        if ( $fk ) {
+            if ( $fk eq 'RR' ) {
+                $hidden{$c} = $parent_id;      # owner = this record
+            }
+            else {
+                my $refclass = "Netdot::Model::$fk";
+                # COUNT via SQL (no row transfer — the target may be huge, e.g.
+                # Ipblock). Only fetch the rows themselves when it's a small lookup.
+                my $count  = eval { $refclass->search_count() };
+                return if ! defined $count || $count > 100;
+                my @opts;
+                my $it = $refclass->retrieve_all;
+                while ( my $r = $it->next ) {
+                    my $lab = eval { $r->label };
+                    $lab = eval { $r->name } unless defined $lab && length $lab;
+                    $lab = $r->id unless defined $lab;
+                    push @opts, [ $r->id, $lab ];
+                }
+                @opts = sort { $a->[1] cmp $b->[1] } @opts;
+                push @fields, { tag => $col->tag // $c, kind => 'select',
+                                name => $c, value => '', options => \@opts };
+            }
+            next;
+        }
+        my $kind = $sql =~ /^(?:integer|int|bigint|smallint|mediumint|tinyint)$/ ? 'number'
+                 : ( $sql eq 'varchar' && $len > 255 )                            ? 'textarea'
+                 : $sql eq 'text'                                                 ? 'textarea'
+                 :                                                                  'text';
+        # Default the TTL to the zone's default_ttl (new records inherit it).
+        my $val = ( $c eq 'ttl' && defined $default_ttl ) ? $default_ttl : '';
+        push @fields, { tag => $col->tag // $c, kind => $kind, name => $c, value => $val };
+    }
+    return { type => lc $type, hidden => \%hidden, fields => \@fields };
+}
+
+# The record types a user may add to this RR (each with its add-form field list).
+# Types whose add form cannot be built inline (large FK, or Admin-only for a
+# non-Admin) are omitted.
+sub _rr_add_types {
+    my ( $o, %opts ) = @_;
+    my $is_admin    = $opts{is_admin} ? 1 : 0;
+    my $default_ttl = eval { $o->zone->default_ttl };
+    # No CNAME here: a CNAME is mutually exclusive with the other record types
+    # (RFC 1035), so it is added via the dedicated "Add an alias" box instead.
+    my $reverse = eval { $o->zone->is_dot_arpa } ? 1 : 0;
+    my @types = (
+        [ 'rraddr',  'Address (A/AAAA)' ],
+        [ 'rrmx',    'MX (Mail Exchanger)' ],
+        [ 'rrtxt',   'TXT (Text)' ],
+        [ 'rrns',    'NS (Name Server)' ],
+        [ 'rrhinfo', 'HINFO (Hardware)' ],
+        [ 'rrsrv',   'SRV (Service)' ],
+        [ 'rrds',    'DS (Delegation Signer)' ],
+        [ 'rrnaptr', 'NAPTR' ],
+        [ 'rrloc',   'LOC (Location)' ],
+        [ 'rrattr',  'Other (CAA, HTTPS, …)' ],
+    );
+    push @types, [ 'rrptr', 'PTR (Reverse)' ] if $reverse;
+    my @out;
+    for my $t (@types) {
+        my ( $type, $label ) = @$t;
+        my $add = _rel_add_fields( $type, $o->id, $is_admin, $default_ttl );
+        push @out, { type => $type, label => $label, add => $add } if $add;
+    }
+    return \@out;
 }
 
 # Build the unified field list (a listref of _f_ro/_f_ed hashes) for one related

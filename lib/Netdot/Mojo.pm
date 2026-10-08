@@ -227,6 +227,8 @@ sub startup ($self) {
     $r->post('/api/updatedev')->to('api#updatedev');
     $r->any('/api/:table')->to('api#generic');
     $r->any('/api/:table/:id')->to('api#generic');
+    # Create a new alias (CNAME) pointing at an RR: new RR + rrcname.
+    $r->post('/api/:table/:id/alias')->to('api#alias');
 
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');
