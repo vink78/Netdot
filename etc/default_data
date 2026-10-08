@@ -335,3 +335,11 @@ INSERT INTO zone (name, active, default_ttl, info, minimum, mname, refresh, retr
 INSERT INTO rr (name, active, zone, auto_update) VALUES ('@', '0', '1', true);
 INSERT INTO rrns (rr, nsdname, ttl) VALUES ('1', 'ns1.defaultdomain', '86400');
 INSERT INTO rrns (rr, nsdname, ttl) VALUES ('1', 'ns2.defaultdomain', '86400');
+
+INSERT INTO rrattrname (name, info) VALUES ('CAA', 'Certificate Authority Authorization');
+INSERT INTO rrattrname (name, info) VALUES ('HTTPS', 'HTTPS Service Parameter');
+INSERT INTO rrattrname (name, info) VALUES ('SSHFP', 'SSH Fingerprint');
+INSERT INTO rrattrname (name, info) VALUES ('SVCP', 'Service Parameters');
+INSERT INTO rrattrname (name, info) VALUES ('TLSA', 'Transport Layer Security Authentication');
+INSERT INTO rrattrname (name, info) VALUES ('URI', 'Uniform Resource Identifier');
+INSERT INTO rrattrname (name, info) VALUES ('SMIMEA', 'S/MIME Mailstream Authentication');

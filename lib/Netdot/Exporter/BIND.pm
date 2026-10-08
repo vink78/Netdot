@@ -193,13 +193,19 @@ sub print_zone_to_file {
     print $fh $zone->soa_string . "\n";
 
     foreach my $name ( sort { $rec->{$a}->{order} <=> $rec->{$b}->{order} } keys %$rec ){
-	foreach my $type ( qw/A AAAA TXT HINFO NS DS MX CNAME PTR NAPTR SRV LOC/ ){
+	foreach my $type ( qw/A AAAA TXT HINFO NS DS MX CNAME PTR NAPTR SRV LOC RRATTR/ ){
 	    if ( defined $rec->{$name}->{$type} ){
 		# Special cases.  These are relatively rare and harder to print.
 		if ( $type =~ /^(LOC|SRV|NAPTR)$/ ){
 		    my $rrclass = 'RR'.$type;
 		    foreach my $id ( sort keys %{$rec->{$name}->{$type}->{id}} ){
 			my $rr = $rrclass->retrieve($id);
+			print $fh $rr->as_text, "\n";
+		    }
+		}elsif ( $type eq 'RRATTR' ){
+		    # Modern DNS record types (CAA, HTTPS, SSHFP, ...) stored as raw values
+		    foreach my $id ( sort keys %{$rec->{$name}->{$type}->{id}} ){
+			my $rr = RRAttr->retrieve($id);
 			print $fh $rr->as_text, "\n";
 		    }
 		}else{

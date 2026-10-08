@@ -670,8 +670,9 @@ sub sub_records {
 
     my @records;
 
-    foreach my $m ( qw/a_records txt_records hinfo_records cnames ns_records 
-                     mx_records ptr_records naptr_records srv_records ds_records/ ){
+    foreach my $m ( qw/a_records txt_records hinfo_records cnames ns_records
+                      mx_records ptr_records naptr_records srv_records ds_records
+                      attributes/ ){
 	push @records, $self->$m;
     }
 

@@ -40,7 +40,7 @@ sub show ($c) {
         can_edit   => $can_edit,
         fields     => $fields,
         api_path   => $api_path,
-        sections   => _rr_sections( $o ),
+        sections   => _rr_sections( $o, is_admin => ( $c->user_type eq 'Admin' ) ),
     );
 }
 
@@ -306,7 +306,8 @@ sub _rec {
 # record. Each related record type is a "section" of such records.
 
 sub _rr_sections {
-    my ($o) = @_;
+    my ( $o, %opts ) = @_;
+    my $is_admin = $opts{is_admin} ? 1 : 0;
     my @sections;
     my $name  = $o->name // '';
     my $zone  = $o->zone;
@@ -493,6 +494,22 @@ sub _rr_sections {
             records => [ map {
                 _rec( $_, 'rrsrv', _rel_record( $_, links => [ 'target' ] ) )
             } @srvs ] };
+    }
+
+    # --- RR attributes (modern record types: CAA, HTTPS, SSHFP, ...) ---
+    # The value is a raw DNS record value (may contain spaces/quotes) written
+    # verbatim to the zone file; a bad value can invalidate the whole zone. Editing
+    # is therefore reserved to Admins (non-Admins see it read-only).
+    my @attrs = eval { $o->attributes };
+    if ( @attrs ) {
+        push @sections, {
+            title  => 'Other Record Types (CAA, HTTPS, …)',
+            warn   => 'Reserved for administrators. The value is written to the zone '
+                    . 'file verbatim; an invalid value can invalidate the whole zone.',
+            records => [ map {
+                _rec( $_, 'rrattr', _rel_record(
+                    $_, show_fk => { name => 'Type' }, readonly => ( $is_admin ? 0 : 1 ) ) )
+            } @attrs ] };
     }
 
     return \@sections;

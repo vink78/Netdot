@@ -45,6 +45,9 @@
     % my $sec = $sections->[$s];
     <div class="container">
       <div class="containerhead"><%= $sec->{title} %></div>
+      % if ( $sec->{warn} ) {
+      <p class="nd-sec-warn" style="margin:0.3em 0 0.6em;color:#a33;font-size:0.85em"><%= $sec->{warn} %></p>
+      % }
       <div class="containerbody">
       % for my $r (0 .. $#{ $sec->{records} }) {
           % my $rec   = $sec->{records}->[$r];

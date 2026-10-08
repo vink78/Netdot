@@ -525,10 +525,22 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
             « Reverse DNS (PTR) » sur la page d'un A est en **lecture seule**, purement
             informative). Le lien du détail de l'enregistrement est collé sur le **1er
             champ valeur** (TXT `TXT`, MX `Preference`, NS `Name Server`, NAPTR `Order`)
-            ; la ligne « Record » redondante est retirée. Le formulaire **affiche tous
-            les champs** (éditables en input, non-éditables en lecture seule) pour
-            conserver le contexte (IP, owner, etc.). TTL validé par le modèle
-            (`ttl_from_text`) ; valeur/TTL non conforme → 400.
+             ; la ligne « Record » redondante est retirée. Le formulaire **affiche tous
+             les champs** (éditables en input, non-éditables en lecture seule) pour
+             conserver le contexte (IP, owner, etc.). TTL validé par le modèle
+             (`ttl_from_text`) ; valeur/TTL non conforme → 400.
+           **RRAttr (« Other Record Types (CAA, HTTPS, …) »** : types modernes stockés
+           comme valeur brute (`RRAttr` : CAA/HTTPS/SSHFP/SVCP/TLSA/URI/SMIMEA, via
+           `rrattrname`). Section pilotée par la même routine `_rel_record` (meta) :
+           Type (FK `name`, lecture seule) + `value` (brute, peut contenir espaces/quotes
+           → échappement `&quot;` correct) + `ttl`, éditables, `PATCH /api/rrattr/<id>`.
+            Validation de la valeur brute (`RRAttr::_validate_value`, 400 si invalide) :
+            pas de retour à la ligne (zone = 1 record/ligne), caractères imprimables + tab
+            uniquement (`^[\x09\x20-\x7E]+$`), et nombre PAIR de `"` (guillemets équilibrés).
+            **Réservé aux Admins** : un mauvais champ peut invalider la zone complète → la
+            section est en lecture seule pour les non-admins (`is_admin` → `_rel_record
+            readonly`) avec un disclaimer (clé `warn` de la section), et l'API restreint
+            create/update/delete de `RRAttr` aux admins (`Api::_admin_only_write` → 403).
        ⚠️ **Champs temps (édition in-situ, tous les objets)** : les colonnes de type
        `timestamp` (Last ARP / Last FWT / Last Updated / First Discovered / …) sont
        **exclues du formulaire d'édition** (lecture seule, info seulement) — c'est ce

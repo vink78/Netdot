@@ -359,10 +359,60 @@ sub upg_107_200 {
         # use the numeric literal (identical column to a fresh install).
         push @statements, "ALTER TABLE zone ADD COLUMN dnssec bool NOT NULL DEFAULT 0;";
 
+	# RRAttr
+        push @statements, "CREATE TABLE `rrattrname` (
+                              `id` bigint NOT NULL auto_increment,
+                              `info` text NULL,
+                              `name` varchar(128) NOT NULL,
+                              PRIMARY KEY (`id`),
+                              UNIQUE INDEX `rrattrname1` (`name`)
+                           ) ENGINE=InnoDB;";
+
+        push @statements, "CREATE TABLE `rrattr` (
+                              `id` bigint NOT NULL auto_increment,
+                              `name` bigint NOT NULL,
+                              `rr` bigint NOT NULL,
+                              `ttl` varchar(32) NULL,
+                              `value` varchar(255) NOT NULL,
+                              PRIMARY KEY (`id`),
+                              INDEX `rrattr1` (`rr`),
+                              CONSTRAINT `fk_rrattr_name` FOREIGN KEY (`name`) REFERENCES `rrattrname` (`id`),
+                              CONSTRAINT `fk_rrattr_rr` FOREIGN KEY (`rr`) REFERENCES `rr` (`id`)
+                           ) ENGINE=InnoDB;";
+
+        foreach my $n ( qw/CAA HTTPS SSHFP SVCP TLSA URI SMIMEA/ ){
+            push @statements, "INSERT INTO rrattrname (name) VALUES ('$n');";
+        }
     }elsif ( $dbms eq 'Pg' ){
 
         push @statements, "ALTER TABLE zone ADD COLUMN dnssec bool NOT NULL default 'f';";
 
+	## RRAttr
+        push @statements, 'CREATE TABLE "rrattrname" (
+                              "id" bigint NOT NULL,
+                              "info" text,
+                              "name" character varying(128) NOT NULL,
+                              CONSTRAINT "rrattrname1" UNIQUE ("name"),
+                              CONSTRAINT "pk_rrattrname" PRIMARY KEY ("id")
+                               );';
+        push @statements, "GRANT SELECT,INSERT,UPDATE,DELETE ON rrattrname TO $netdot_user;";
+
+        push @statements, 'CREATE TABLE "rrattr" (
+                              "id" bigint NOT NULL,
+                              "name" bigint NOT NULL,
+                              "rr" bigint NOT NULL,
+                              "ttl" character varying(32),
+                              "value" character varying(255) NOT NULL,
+                              CONSTRAINT "pk_rrattr" PRIMARY KEY ("id"),
+                              CONSTRAINT "fk_name" FOREIGN KEY ("name") REFERENCES "rrattrname" ("id") DEFERRABLE,
+                              CONSTRAINT "fk_rr" FOREIGN KEY ("rr") REFERENCES "rr" ("id") DEFERRABLE
+                               );';
+        push @statements, 'CREATE INDEX "rrattr1" on "rrattr" ("rr");';
+        push @statements, "GRANT SELECT,INSERT,UPDATE,DELETE ON rrattr TO $netdot_user;";
+
+        foreach my $n ( qw/CAA HTTPS SSHFP SVCP TLSA URI SMIMEA/ ){
+            push @statements, "INSERT INTO rrattrname (name) VALUES ('$n');";
+        }
     }
 
     push @statements, "UPDATE schemainfo SET version='2.0.0' WHERE id=1;",

@@ -334,6 +334,14 @@ sub _create_parent {
     return ();
 }
 
+# Classes whose write operations (create/update/delete) are reserved to Admins:
+# raw values written verbatim to zone files; a bad value can invalidate the zone.
+sub _admin_only_write {
+    my ( $class ) = @_;
+    my $short = eval { $class->short_class } // lc( $class );
+    return $short eq 'RRAttr';
+}
+
 # May $p create an object of $class from args %a?
 #   - Admin: yes (insert validates required fields).
 #   - Parented class: require 'edit' on the SPECIFIC parent the record would
@@ -342,6 +350,7 @@ sub _create_parent {
 sub _can_create {
     my ( $class, $p, $a ) = @_;
     return 1 if Netdot::Mojo::Permissions->user_type( $p ) eq 'Admin';
+    return 0 if _admin_only_write( $class );
     my ( $parent_class, $fk ) = _create_parent( $class );
     if ( $parent_class ) {
         my $pid = $a->{$fk};
@@ -365,6 +374,8 @@ sub _post {
     if ($id) {
         $obj = $class->retrieve($id);
         _err( 404, "$class/$id not found" ) unless $obj;
+        _err( 403, 'Editing this object is reserved for administrators' )
+            if _admin_only_write( $class ) && Netdot::Mojo::Permissions->user_type( $p ) ne 'Admin';
         unless ( Netdot::Mojo::Permissions->can( $p, 'edit', $obj ) ) {
             _err( 403, 'User not allowed to edit this object' );
         }
@@ -389,6 +400,8 @@ sub _delete {
     my ( $class, $id, $p ) = @_;
     my $obj = $class->retrieve($id);
     _err( 404, 'Not found' ) unless $obj;
+    _err( 403, 'Deleting this object is reserved for administrators' )
+        if _admin_only_write( $class ) && Netdot::Mojo::Permissions->user_type( $p ) ne 'Admin';
     unless ( Netdot::Mojo::Permissions->can( $p, 'delete', $obj ) ) {
         _err( 403, 'User not allowed to delete this object' );
     }

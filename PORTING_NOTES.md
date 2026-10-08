@@ -299,10 +299,15 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   Subnet parent)/Discovered/Reserved; a subnet/container → Subnet/Container/Reserved
   ("Available" is a free-space/deletion indication, kept only if it is the current value).
   The API `PATCH` re-checks via the model `update()` (invalid status → 400).
-- `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
-  `_rr_sections`, `_search_all`, `_name_link`, `_obj_link`) + search. Now also renders the
-  shared edit form (name, zone, active, auto_update, expiration, info → JSON API PATCH);
-  the system timestamps `created`/`modified` are excluded (not user-editable).
+ - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
+   `_rr_sections`, `_rel_record`, `_search_all`, `_name_link`, `_obj_link`) + search.
+   Now also renders the shared edit form (name, zone, active, auto_update, expiration,
+   info → JSON API PATCH); the system timestamps `created`/`modified` are excluded (not
+   user-editable). `_rel_record` builds each associated record's fields **from
+   netdot.meta** ("all" view, in meta order) — a column added to the meta becomes editable
+   automatically; kind from the meta type (integer→number, varchar>255→textarea), FKs
+   hidden unless `show_fk`, `readonly`/`hidden`/`selects`/`links`/`link_on` options handle
+   the per-view cases.
   - `lib/Netdot/Mojo/Controller/Show.pm` — generic detail (most types): attrs
     (all view) + **has_many tables** (from `meta_data->get_links_from`, like
     Mason `view.html`): one table per non-empty relation, brief columns (label
@@ -370,9 +375,23 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
          The record's detail link is merged onto the **first value field** (TXT `TXT`,
          MX `Preference`, NS `Name Server`, NAPTR `Order`); the redundant "Record" row
          is dropped. The form shows **all** fields (editable as inputs, the rest
-         read-only) so context (IP, owner, …) stays visible while editing. TTL/value are
-         validated by the model (`ttl_from_text` / `_sanitize_ptrdname`) → 400 if bad.
-  - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
+          read-only) so context (IP, owner, …) stays visible while editing. TTL/value are
+          validated by the model (`ttl_from_text` / `_sanitize_ptrdname`) → 400 if bad.
+          **RRAttr** ("Other Record Types (CAA, HTTPS, …)"): modern types stored as a raw
+          value (`RRAttr`/`rrattrname`: CAA/HTTPS/SSHFP/SVCP/TLSA/URI/SMIMEA), same
+          `_rel_record` (meta-driven) routine: Type (FK `name`, read-only) + `value` (raw,
+          may contain spaces/quotes → `&quot;` escaping) + `ttl`, editable,
+          `PATCH /api/rrattr/<id>`. `RRAttr::as_text` emits the line with the **raw zone
+          name** (`rr->name`, apex = `@`) like the other record types, and the value verbatim
+          (Net::DNS has no `rdata_format` validation for these types and expects typed
+           fields, not the raw rdata — so it is not used). `RRAttr::_validate_value` guards
+           the raw value (run by `insert`/`update` → 400 if bad): no line breaks (zone is
+           line-oriented), only printable ASCII + tab (`^[\x09\x20-\x7E]+$`), and an even
+           number of `"` (balanced quotes). Editing is **reserved to Admins**: the section
+           renders read-only for non-Admins (controller passes `is_admin` → `_rel_record
+           readonly`), the UI shows a disclaimer (section `warn` key), and the API gates
+           create/update/delete of `RRAttr` to Admins (`Api::_admin_only_write` → 403).
+   - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
     `management/zone.html`): record count (per type), apex record (A/NS/MX with
     links), generic has_many (subnets/records/aliases), recent changes (HostAudit).
     Now also renders the **shared edit form** (`_edit_form.html.ep` partial; SOA fields +
