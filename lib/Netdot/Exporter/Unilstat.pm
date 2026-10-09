@@ -283,5 +283,5 @@ along with this program; if not, write to the Free Software Foundation,
 
 =cut
 
-#Be sure to return 1
+# Make sure to return 1
 1;

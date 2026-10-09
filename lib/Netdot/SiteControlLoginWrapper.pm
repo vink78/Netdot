@@ -25,7 +25,7 @@ In the apache configuration:
 
 =cut
 
-# Make sure to return true
+# Make sure to return 1
 1;
 
 =head2 login - Wraps Apache2::SiteControl::login

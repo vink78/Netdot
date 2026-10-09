@@ -402,7 +402,7 @@ sub _upsert_person_from_ldap {
     return 1;
 }
 
-#Be sure to return 1
+# Make sure to return 1
 1;
 
 

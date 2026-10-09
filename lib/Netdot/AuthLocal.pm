@@ -59,7 +59,7 @@ sub check_credentials {
     return 1;
 }
 
-#Be sure to return 1
+# Make sure to return 1
 1;
 
 __END__

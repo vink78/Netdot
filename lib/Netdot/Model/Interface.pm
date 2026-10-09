@@ -24,7 +24,7 @@ my %SPEED_MAP = ('1536000'     => 'T1',
 		 '622080000'   => 'OC-12',
     );
 
-#Be sure to return 1
+# Make sure to return 1
 1;
 
 =head1 NAME

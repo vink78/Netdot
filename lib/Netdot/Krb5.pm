@@ -32,7 +32,7 @@ In Apache configuration:
 
 =cut
 
-#Be sure to return 1
+# Make sure to return 1
 1;
 
 
