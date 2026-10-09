@@ -1,0 +1,149 @@
+#!/usr/bin/perl
+#
+# Netdot dev daemon launcher (double-fork, NON-hanging).
+#
+# Encapsulates everything needed to run the dev Mojolicious app so the pattern
+# survives context resets:
+#
+#   bin/dev-daemon [start|stop|status|log|restart] [--port=3000]
+#
+#     start    (default)  stop any daemon on the port, then start a fresh one.
+#                         Double-fork daemonizer: the PARENT returns after a
+#                         bounded wait for the port to actually listen (~15s max,
+#                         exits early as soon as it binds). It does NOT hold the
+#                         caller's stdout, so it never "hangs" the calling shell.
+#     stop             kill the daemon (port lookup, then pidfile).
+#     status           show pid + listening state.
+#     log              print the last 50 log lines, then follow (-F).
+#     restart          stop + start.
+#     --port=NNNN      port to listen on (default 3000).
+#
+# Constants (production path is systemd + Hypnotoad, see etc/netdot.service):
+#   log   : /tmp/netdot-dev.log
+#   pid   : /tmp/netdot-dev-<port>.pid
+#   app   : <root>/bin/mojo daemon -l http://127.0.0.1:<port>
+#   PERL5LIB: <root>/lib[:<parent>/netdot-lib]   (netdot-lib is optional)
+#
+# ONLY for local dev.
+
+use strict;
+use warnings;
+use FindBin;
+use File::Spec;
+use File::Basename qw(dirname);
+use POSIX        qw(setsid);
+
+my ($cmd, $port) = ('start', 3000);
+for my $a (@ARGV) {
+    $port = $1 if $a =~ /^--port=(\d+)$/;
+    $cmd  = $a  if $a =~ /^(start|stop|status|log|tail|restart)$/;
+}
+$cmd = 'start' unless $cmd =~ /^(start|stop|status|log|tail|restart)$/;
+
+my $root   = File::Spec->rel2abs( dirname( $FindBin::Bin ) );   # $FindBin::Bin = <root>/bin
+my $perl   = $^X;
+my $lib    = "$root/lib";
+my $nlib   = dirname($root) . '/netdot-lib';
+my $log    = '/tmp/netdot-dev.log';
+my $pidf   = "/tmp/netdot-dev-$port.pid";
+my $listen = "http://127.0.0.1:$port";
+
+sub _mkdir_logdir { system('mkdir', '-p', '/tmp') unless -d '/tmp'; }
+
+# Pid of the process actually LISTENING on the port (the authoritative "is it up").
+sub port_pid {
+    my ($pid) = `ss -ltnp 2>/dev/null | grep ":$port "` =~ /pid=(\d+)/;
+    return $pid;
+}
+
+# Resolve the daemon pid: the live listener first, else a live pid from the pidfile.
+sub find_pid {
+    my $pid = port_pid();
+    return $pid if $pid;
+    if ( -f $pidf ) {
+        my $p = do { open my $fh, '<', $pidf; <$fh> // '' };
+        chomp $p;
+        return $p if $p =~ /^\d+$/ && kill(0, $p);
+    }
+    return;
+}
+
+# Drop a stale pidfile (points at a dead process).
+sub _clear_stale_pidfile {
+    return unless -f $pidf;
+    my $p = do { open my $fh, '<', $pidf; <$fh> // '' };
+    chomp $p;
+    unlink $pidf unless $p =~ /^\d+$/ && kill(0, $p);
+}
+
+sub stop_daemon {
+    my $pid = find_pid();
+    unless ($pid) { _clear_stale_pidfile(); print "not running on port $port\n"; return 0; }
+    kill 'TERM', $pid;
+    for (1..10) { last unless kill(0, $pid); sleep 0.5; }
+    kill 'KILL', $pid if kill(0, $pid);
+    unlink $pidf;
+    print "stopped pid $pid\n";
+    return 0;
+}
+
+sub start_daemon {
+    _mkdir_logdir();
+    if (my $old = find_pid()) { print "stopping existing pid $old\n"; stop_daemon(); }
+    _clear_stale_pidfile();
+
+    my $pid = fork();
+    die "fork failed: $!" unless defined $pid;
+
+    if ($pid) {   # ---- PARENT (invoked by the tool): bounded wait for the port, then return
+        my $up;
+        for (1..30) { $up = port_pid() and last; sleep 0.5; }   # up to ~15s
+        if ($up) {
+            print "started (pid $up) listening at $listen\n";
+            print "log: $log\n";
+        }
+        elsif (my $alive = find_pid()) {
+            print "process $alive alive but port $port not bound after 15s -- check log: $log\n";
+        }
+        else {
+            print "FAILED to start (no process) -- check log: $log\n";
+        }
+        return 0;
+    }
+
+    # ---- CHILD 1 ----
+    chdir '/' or die "chdir /: $!";
+    my $pid2 = fork();
+    die "second fork failed: $!" unless defined $pid2;
+    if ($pid2) {   # child 1 records the daemon pid, then exits
+        open my $pf, '>', $pidf or die "cannot write $pidf: $!";
+        print $pf $pid2;
+        close $pf;
+        exit 0;
+    }
+
+    # ---- CHILD 2 = the daemon (fully detached: new session, own FDs) ----
+    setsid();
+    open STDIN,  '<',  '/dev/null'  or die "stdin: $!";
+    open STDOUT, '>>', $log         or die "stdout: $!";
+    open STDERR, '>&', \*STDOUT     or die "stderr: $!";
+    $ENV{PERL5LIB}     = "$lib:$nlib";
+    $ENV{MOJO_LOG_LEVEL} //= 'info';
+    exec($perl, "$root/bin/mojo", 'daemon', '-l', $listen);
+    die "exec failed: $!";
+}
+
+sub status_daemon {
+    my $pid = find_pid();
+    if ($pid) { print "running (pid $pid) at $listen\nlog: $log\n"; }
+    else      { print "not running\n"; }
+}
+
+if    ($cmd eq 'stop')    { stop_daemon(); }
+elsif ($cmd eq 'status')  { status_daemon(); }
+elsif ($cmd eq 'log' or $cmd eq 'tail') {
+    _mkdir_logdir();
+    system('tail', '-n', '50', '-F', $log);
+}
+elsif ($cmd eq 'restart') { stop_daemon(); start_daemon(); }
+else                       { start_daemon(); }

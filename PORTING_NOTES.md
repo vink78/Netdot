@@ -13,12 +13,14 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
 
 ## Validation workflow
 - Syntax: `perl -c -Ilib` on each modified perl file.
-- E2E test daemon — **port 12346** (do NOT use **12345**, the user's own test port):
-  `setsid perl bin/mojo daemon -l http://127.0.0.1:12346 </dev/null >>log 2>&1 &`
-  (use `setsid`+`disown` so it survives the shell/session; a plain `&` gets killed when
-  the shell tool times out). Kill by PID via `ss -ltnp | grep :12346` (avoid
-  `pkill -f` — its pattern can match the command's own string). Login:
-  `curl -c ck.txt -d "username=<user>&password=<pass>" http://127.0.0.1:12346/netdot/login`
+- E2E test daemon — use the non-hanging launcher **`bin/dev-daemon`** (double-fork: it
+  returns as soon as the port actually listens, ~15s max, and does NOT hold the shell's
+  stdout — the old inline `setsid perl bin/mojo daemon … &` pattern held stdout via the
+  intermediate `bash` and made the tool look frozen). Default port **3000** (do NOT use
+  **12345**, the user's own port):
+    bin/dev-daemon start|stop|status|log|restart [--port=3000]
+  Log: `/tmp/netdot-dev.log`; pid: `/tmp/netdot-dev-<port>.pid`.
+  Login: `curl -c ck.txt -d "username=<user>&password=<pass>" http://127.0.0.1:3000/netdot/login`
   (note the **`/netdot`** prefix).
 - Bare-`-e`: `use Netdot::Model` loads config+DB; but the RR* classes
   (RRMX, RRNS, …) only load via the RR relations.
