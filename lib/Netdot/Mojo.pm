@@ -39,6 +39,12 @@ sub startup ($self) {
     # leading slash), so the base must carry a trailing slash.
     $self->helper( web_root => sub { $base eq '' ? '/' : $base . '/' } );
     $self->helper( set_uri    => sub ($c, $uri) { Netdot::Mojo::Registry::set_uri( $uri ) } );
+    # Site footer (all pages): version (static, from Netdot.pm) + git repo page
+    # (WEB_GIT_URL, deployment-configurable so each deploy can link its own fork).
+    $self->helper( nd_version => sub { $Netdot::VERSION } );
+    my $git_url = eval { Netdot->config->get('WEB_GIT_URL') };
+    $git_url = 'https://github.com/vink78/Netdot' unless defined $git_url && !ref $git_url;
+    $self->helper( nd_git_url => sub { $git_url } );
     # client_ip: the real client IP behind the frontend reverse proxy. X-Forwarded-For
     # (a "client, proxy1, …" list; leftmost = the client) is honored ONLY when the direct
     # TCP peer is a *trusted* proxy — the config list TRUSTED_PROXY_IPS (an array ref of

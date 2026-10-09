@@ -72,5 +72,15 @@
   <div id="content">
     <%= content %>
   </div>
+  <!--
+      Copyright (C) 2026 Vincent Magnin
+      This program is free software; you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation; either version 2 of the License, or
+      (at your option) any later version.
+  -->
+  <footer id="footer">
+    <p>&copy; GPL &middot; <a href="<%= $c->nd_git_url %>">Netdot: NETwork DOcumentation Tool</a> v<%= $c->nd_version %></p>
+  </footer>
 </body>
 </html>

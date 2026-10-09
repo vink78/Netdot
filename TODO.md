@@ -338,7 +338,13 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
      ne montre que les customisations du site (les commentaires de section s'alignent en contexte).
      Vérifié : `perl -c` OK, config effective **inchangée** (`do(Default)`+`do(Site)` = avant/après),
      aucun marqueur `<<Make:PREFIX>>` restant, `Netdot->config` charge bien les 5 plugins `REMOTE_PLUGIN`
-     et `LOG_OPTIONS` (18 sauts de ligne intacts).
+      et `LOG_OPTIONS` (18 sauts de ligne intacts).
+   - [x] ✅ **Footer (toutes pages)** : `<footer id="footer">` dans le layout `default.html.ep` —
+     ligne `© GPL · <a>Netdot: NETwork DOcumentation Tool</a> v<version>` (version = statique
+     `$Netdot::VERSION` ; repo git = config **`WEB_GIT_URL`**, défaut `https://github.com/vink78/Netdot`,
+     configurable par déploiement/fork) + un **commentaire HTML** de copyright GPL standard.
+     Helpers `nd_version`/`nd_git_url` (`Netdot::Mojo`). La ligne « Read-only » de l'accueil
+     (`index.html.ep`) est remplacée par un texte qui reflète l'écriture via l'API.
  
  ## 10. UI moderne (design 2026) — ✅ porté
 
@@ -421,9 +427,16 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 `address_tasks`, `addneighbor`, `addservice`, `choose_ip`, `updatedevice`, `template_edit`,
 `ip-rec`.
 
-> **Nuance (2026-10-02)** : l'**UI HTML** reste lecture seule, mais l'**API JSON** `/api`
-> supporte les **écritures autorisées** (create / update / delete + host) avec le modèle de
-> permissions complet — l'écriture se fait via l'API, pas via des pages HTML. Cf. §9.
+ > **État écriture (2026-10-09)** : l'écriture se fait **via l'API JSON** (plus de pages HTML
+ > d'écriture legacy). Porté **in-situ** dans l'UI : **édition** (détail générique + dédié
+ > device/zone/contactlist/closet/ipblock/ipaddress/rr + par-record + RRAttr admin), **création**
+ > (boîte générique « New \<type\> » sur les listes + RR New name / Add a record / Add alias),
+ > **suppression** (batch sur les listes + détail, device en 2 étapes `delete_ips`). **Reste à
+ > porter** : (1) **Ipblock REBLOCK** (changement d'identité address/prefix/version — recréation de
+ > la hiérarchie), (2) **édition de relations has_many** générique (ajout/retrait d'enfants, ex.
+ > interfaces d'un device, contacts d'un contactlist) — lecture seule aujourd'hui, (3) **créations
+ > complexes** multi-étapes (device site/os, ipblock hiérarchie). Hors CRUD (opérationnel) :
+ > re-poll `updatedevice`, allocation IP interactive `choose_ip`.
 
 ## Déprécié / non migré — ⛔
 

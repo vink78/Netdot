@@ -24,4 +24,4 @@
 % } else {
   <p>You have no access to any object type.</p>
 % }
-<p class="muted">Read-only: click any id to see all its attributes; related objects are linked.</p>
+<p class="muted">Click any id to see all its attributes (related objects are linked). Objects can be created, edited and deleted in place — changes are saved via the API and logged in the Changelog.</p>
