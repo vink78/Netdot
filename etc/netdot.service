@@ -13,9 +13,21 @@ WorkingDirectory=<<Make:PREFIX>>
 # info-level logging: keeps the ACCESS/LOGIN lines, drops the verbose
 # trace/debug per-request noise. Set to debug|trace to troubleshoot.
 Environment=MOJO_LOG_LEVEL=info
-# Listen on loopback only; Apache/nginx reverse-proxies /netdot to it (see
-# etc/netdot_apache.conf). Change the port if 3000 is taken.
-ExecStart=<<Make:PERL>> <<Make:PREFIX>>/bin/mojo daemon -l http://127.0.0.1:3000
+# Production runs the pre-fork server Hypnotoad (NOT the single-process
+# `mojo daemon`): a manager spawns NETDOT_WORKERS workers, so a slow request
+# (e.g. a device delete cascading interfaces/ARP/FDB) blocks only its worker,
+# not the others — like the old Apache ~10-fork mod_perl setup.
+# - `-f` keeps the manager in the FOREGROUND (systemd must track it; hypnotoad
+#   daemonizes otherwise).
+# - Loopback only; Apache/nginx reverse-proxies /netdot to it (see
+#   etc/netdot_apache.conf, ProxyPass -> http://127.0.0.1:3000).
+# - Ima::DBI re-opens the DB connection per worker (fork-aware); InactiveDestroy
+#   (lib/Netdot/Model.pm) guards the inherited handle on worker exit.
+# - Set NETDOT_MOCK to a real secret in the deployment (sessions are signed with it).
+Environment=NETDOT_LISTEN=http://127.0.0.1:3000
+Environment=NETDOT_WORKERS=10
+Environment=NETDOT_PID_FILE=<<Make:PREFIX>>/tmp/hypnotoad.pid
+ExecStart=<<Make:PERL>> /usr/bin/hypnotoad -f <<Make:PREFIX>>/bin/mojo
 Restart=on-failure
 RestartSec=5
 

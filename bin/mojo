@@ -6,7 +6,11 @@ use lib "$FindBin::Bin/../lib";
 
 use Netdot::Mojo;
 
-# Standard pattern (cf. Mojo::HelloWorld): instantiate, then call ->start on the instance.
-# (->start as a class method is broken in v9.39: lazy attrs accessed on the class string).
+# Entry point for both a server (hypnotoad/daemon/morbo) and a direct run.
+# A server loads this file with `do` (see Mojo::Server::load_app) and expects the
+# last expression to BE the app object -> when there is a caller (the server's
+# sandbox) we return the instance. Run directly (no caller), ->start dispatches
+# the command from @ARGV (e.g. `bin/mojo daemon -l ...`).
+# (->start as a class method is broken in v9.39: lazy attrs accessed on the class string.)
 my $app = Netdot::Mojo->new;
-$app->start;
+caller() ? $app : $app->start;

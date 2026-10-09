@@ -69,9 +69,24 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
    **Deployment files**: `etc/netdot_apache.conf` is a **version-agnostic** (Apache 2.2/2.4,
    `mod_proxy`) reverse proxy — it replaced the six per-version/per-auth mod_perl configs
    (`netdot_apache2{,4}_{local,ldap,krb5,radius}.conf`, now deleted; auth lives in the app).
-    `etc/netdot.service` is the **systemd** unit running `bin/mojo daemon -l
-    http://127.0.0.1:3000`; `User=<<Make:APACHEUSER>>`/`Group=<<Make:APACHEGROUP>>` (default
-    `apache`) plus `<<Make:PREFIX>>`/`<<Make:PERL>>` are substituted by the Makefile at install
+     `etc/netdot.service` is the **systemd** unit running **Hypnotoad** (the pre-fork
+     production server): `perl /usr/bin/hypnotoad -f <<Make:PREFIX>>/bin/mojo` with
+     `NETDOT_LISTEN=http://127.0.0.1:3000`, `NETDOT_WORKERS=10`,
+     `NETDOT_PID_FILE=<<Make:PREFIX>>/tmp/hypnotoad.pid`. A manager spawns N workers so a
+     **slow request (e.g. a device delete cascading interfaces/ARP/FDB) blocks only its
+     worker, not the others** — the same isolation the old Apache ~10-fork mod_perl gave.
+     `-f` keeps the manager in the **foreground** (systemd must track it; hypnotoad
+     daemonizes otherwise); stop with `hypnotoad -s`. The workers come from
+     `Netdot::Mojo` `startup` `config(hypnotoad => {listen, workers, pid_file})`
+     (env-overridable). `bin/mojo` is loadable by a server: a server `do`s it
+     (`Mojo::Server::load_app`) and the last expression returns the app when there is a
+     caller, else `->start` runs the command from `@ARGV` (so `bin/mojo daemon -l …` still
+     works for dev). **DB under fork**: Ima::DBI (`db_Main`) is fork-aware — it re-opens a
+     per-worker connection on PID change (no manual reconnect); `Model.pm` sets
+     `dbi_options->{InactiveDestroy}=1` so a recycled worker only detaches (not
+     disconnects) the inherited socket, protecting the manager's connection.
+     `User=<<Make:APACHEUSER>>`/`Group=<<Make:APACHEGROUP>>` (default
+     `apache`) plus `<<Make:PREFIX>>`/`<<Make:PERL>>` are substituted by the Makefile at install
     (`APACHEUSER`/`APACHEGROUP` were added to `etc/utility-Makefile` `REPLACEABLES`; the top-level
     `export` propagates them to sub-makes). `lib/Makefile` `NDIR` now includes `Netdot/Mojo` and
     `Netdot/Mojo/Controller` so the 25 new modules install. `htdocs/Makefile` deploys the `.ep`

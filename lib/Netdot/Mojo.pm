@@ -69,6 +69,23 @@ sub startup ($self) {
     # ---- Sessions / cookies ----
     $self->secrets([ $ENV{NETDOT_MOCK} // 'netdot-mojo-dev-change-me' ]);
 
+    # ---- Hypnotoad (production pre-fork server) ----
+    # Production runs `hypnotoad bin/mojo` (see etc/netdot.service) instead of the
+    # single-process `bin/mojo daemon`: a pre-fork manager spawns N workers, so a
+    # slow request (e.g. a device delete cascading interfaces/ARP/FDB) blocks only
+    # its own worker, not the others — the same behaviour as the old Apache
+    # ~10-fork mod_perl setup. The single-process `mojo daemon` (dev) ignores this
+    # config. Ima::DBI re-opens the DB connection per worker (fork-aware), so no
+    # manual reconnect is needed; see Model.pm (InactiveDestroy) for the fork guard.
+    my $workers = $ENV{NETDOT_WORKERS} // 10;
+    $workers    = 10 unless $workers =~ /^\d+$/ && $workers > 0;
+    my $listen  = $ENV{NETDOT_LISTEN} // 'http://127.0.0.1:3000';
+    $self->config( hypnotoad => {
+        listen   => [ split /,/, $listen ],
+        workers  => $workers,
+        pid_file => $ENV{NETDOT_PID_FILE} // 'tmp/hypnotoad.pid',
+    } );
+
     # ---- Current user + permissions (mirrors the old Apache2::SiteControl manager) ----
     # current_person: the logged-in Person (resolved from the session username, cached per request).
     $self->helper(current_person => sub ($c) {

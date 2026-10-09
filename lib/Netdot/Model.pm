@@ -48,6 +48,12 @@ BEGIN {
     $defaults{user}        = __PACKAGE__->config->get('DB_NETDOT_USER');
     $defaults{password}    = __PACKAGE__->config->get('DB_NETDOT_PASS');
     $defaults{dbi_options} = {};
+    # InactiveDestroy: a pre-fork server (hypnotoad) forks workers that inherit
+    # the manager's DB handle; when a worker recycles/exits, DESTROY must only
+    # detach (not disconnect) the shared socket, or it would break the manager's
+    # connection. Ima::DBI already re-opens a per-worker connection on fork
+    # (fork-aware), this just guards the inherited handle on exit.
+    $defaults{dbi_options}->{InactiveDestroy} = 1;
     if ($db_type eq "mysql") {
         $defaults{dbi_options}->{AutoCommit} = 1;
         $defaults{dbi_options}->{mysql_enable_utf8} = 1;

@@ -263,8 +263,16 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
    Remplace les **6** anciennes configs mod_perl par version/méthode d'auth
    (`netdot_apache2{,4}_{local,ldap,krb5,radius}.conf`, **supprimées** — l'auth est désormais
    dans l'app, plus de mod_perl). `etc/netdot.service` (**systemd**) lance
-   `bin/mojo daemon -l http://127.0.0.1:3000` ; marqueurs `<<Make:PREFIX>>`/`<<Make:PERL>>`
-   substitués par le Makefile à l'install. **Makefiles** : `htdocs/Makefile` déploie maintenant
+   **Hypnotoad** (`perl /usr/bin/hypnotoad -f bin/mojo`) : un manager **préfork** spawn
+   `NETDOT_WORKERS=10` workers → une requête lente (ex. suppression d'un device qui cascade
+   interfaces/ARP/FDB) bloque **son** worker seulement, pas les autres (comme l'ancien
+   mod_perl ~10 forks). `-f` = foreground (systemd suit le process) ; arrêt via `hypnotoad -s`.
+   Config dans `Netdot::Mojo` `startup` `config(hypnotoad=>{listen,workers,pid_file})`
+   (overridable par `NETDOT_LISTEN`/`NETDOT_WORKERS`/`NETDOT_PID_FILE`). `bin/mojo` chargeable
+   par un serveur (retourne l'app en `do` si caller, sinon `->start`). **BDD sous fork** :
+   Ima::DBI rouvre une connexion **par worker** (fork-aware) ; `dbi_options->{InactiveDestroy}
+   =1` (Model.pm) pour qu'un worker recyclé ne casse pas le socket du manager. Marqueurs
+   `<<Make:PREFIX>>`/`<<Make:PERL>>` substitués par le Makefile à l'install. **Makefiles** : `htdocs/Makefile` déploie maintenant
      les templates `.ep` (pattern `FILES` `\.ep`) + **tout sous-dir de templates** dans `NDIR`
      (`layouts`, `advanced`, `search`, … — le `NDIR` crée les dirs, `install` échoue silencieusement
      pour un `.ep` dont le dir parent n'est pas listé), `etc/Makefile`
