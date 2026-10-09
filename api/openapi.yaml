@@ -2016,6 +2016,21 @@ components:
       required:
       - id
       type: object
+    FkReference_RRAttrName:
+      description: 'Nested reference to a RRAttrName: {id, url} plus its label fields.'
+      properties:
+        id:
+          description: Id of the referenced object.
+          type: integer
+        name:
+          description: Label field 'name' of the referenced object.
+          type: string
+        url:
+          description: Resource URL of the referenced object (e.g. /netdot/api/<table>/<id>/).
+          type: string
+      required:
+      - id
+      type: object
     FkReference_Room:
       description: 'Nested reference to a Room: {id, url} plus its label fields.'
       properties:
@@ -3040,6 +3055,50 @@ components:
           type: ~
         ttl:
           description: 'TTL: Record TTL'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
+      type: object
+    RRAttr:
+      description: A DNS resource record attribute holding a modern record type (CAA,
+        HTTPS, SSHFP, ...) as a raw value
+      properties:
+        name:
+          anyOf:
+          - type: integer
+          - $ref: '#/components/schemas/FkReference_RRAttrName'
+          description: 'Name: Name of this attribute (DNS record type, e.g. CAA, HTTPS,
+            SSHFP) Foreign key to RRAttrName (pass the id on write; on read a nested
+            {id, url, ...label fields} reference).'
+          type: ~
+        rr:
+          anyOf:
+          - type: integer
+          - $ref: '#/components/schemas/FkReference_RR'
+          description: 'Resource Record: Resource record to which this attribute is
+            assigned Foreign key to RR (pass the id on write; on read a nested {id,
+            url, ...label fields} reference).'
+          type: ~
+        ttl:
+          description: 'TTL: Record TTL'
+          type: string
+        url:
+          description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
+          type: string
+        value:
+          description: 'Value: Raw value for this attribute (may contain spaces and
+            quotes)'
+          type: string
+      type: object
+    RRAttrName:
+      description: A DNS resource record attribute name (record type)
+      properties:
+        info:
+          description: Comments
+          type: string
+        name:
+          description: Name
           type: string
         url:
           description: URL of this resource, e.g. /netdot/api/<table>/<id>/.
@@ -20066,6 +20125,532 @@ paths:
                   type: object
             description: Not found
       summary: Update a RRADDR (body = fields to change; FK fields as their id)
+  /rrattr:
+    get:
+      operationId: list_rrattr
+      parameters:
+      - description: Filter by name.
+        in: query
+        name: name
+        required: 0
+        schema:
+          type: string
+      - description: Filter by value.
+        in: query
+        name: value
+        required: 0
+        schema:
+          type: string
+      - description: Filter by rr.
+        in: query
+        name: rr
+        required: 0
+        schema:
+          type: string
+      - description: Any non-FK column can also be used as a ?column=value filter
+          (e.g. ?name=foo&site=2).
+        in: query
+        name: column
+        required: 0
+        schema:
+          type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
+                    items:
+                      $ref: '#/components/schemas/RRAttr'
+                    type: array
+                type: object
+          description: Paginated list of RRAttr objects (count / next / previous /
+            results).
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+      summary: List rrattr objects (all, or filtered with ?column=value)
+    post:
+      operationId: create_rrattr
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RRAttr'
+        required: 1
+      responses:
+        '200':
+          '200':
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RRAttr'
+            description: Created object.
+        '400':
+          '400':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Bad request
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+        '403':
+          '403':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not allowed
+      summary: Create a RRAttr (body = field values; FK fields as their id)
+  /rrattr/meta_data:
+    get:
+      operationId: meta_rrattr
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+          description: The class metadata as a JSON object.
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+      summary: Class metadata for rrattr (columns, order, labels, links)
+  /rrattr/{id}:
+    delete:
+      operationId: delete_rrattr
+      responses:
+        '200':
+          description: Deleted.
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+        '403':
+          '403':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not allowed
+        '404':
+          '404':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not found
+      summary: Delete a RRAttr
+    get:
+      operationId: get_rrattr
+      parameters:
+      - description: Object id (integer).
+        in: path
+        name: id
+        required: 1
+        schema:
+          type: string
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id, url, ...label fields} references only).
+        in: query
+        name: depth
+        required: 0
+        schema:
+          default: 0
+          type: integer
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id, url, ...label fields} references).
+        in: query
+        name: linked_from
+        required: 0
+        schema:
+          type: string
+      responses:
+        '200':
+          '200':
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RRAttr'
+            description: The RRAttr object.
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+        '403':
+          '403':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not allowed
+        '404':
+          '404':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not found
+      summary: 'Get a RRAttr by id (options: depth, linked_from)'
+    parameters:
+    - description: Object id (integer).
+      in: path
+      name: id
+      required: 1
+      schema:
+        type: string
+    post:
+      operationId: update_rrattr
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RRAttr'
+        required: 1
+      responses:
+        '200':
+          '200':
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RRAttr'
+            description: Updated object.
+        '400':
+          '400':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Bad request
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+        '403':
+          '403':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not allowed
+        '404':
+          '404':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not found
+      summary: Update a RRAttr (body = fields to change; FK fields as their id)
+  /rrattrname:
+    get:
+      operationId: list_rrattrname
+      parameters:
+      - description: Filter by name.
+        in: query
+        name: name
+        required: 0
+        schema:
+          type: string
+      - description: Any non-FK column can also be used as a ?column=value filter
+          (e.g. ?name=foo&site=2).
+        in: query
+        name: column
+        required: 0
+        schema:
+          type: string
+      - description: Maximum results per page (default 50, max 1000).
+        in: query
+        name: limit
+        required: 0
+        schema:
+          default: 50
+          maximum: 1000
+          minimum: 1
+          type: integer
+      - description: Number of results to skip (use the "next" pointer to page forward).
+        in: query
+        name: offset
+        required: 0
+        schema:
+          default: 0
+          minimum: 0
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                properties:
+                  count:
+                    description: Total number of matching objects (before paging).
+                    type: integer
+                  next:
+                    description: URL of the next page, or null.
+                    nullable: 1
+                    type: string
+                  previous:
+                    description: URL of the previous page, or null.
+                    nullable: 1
+                    type: string
+                  results:
+                    description: Objects on this page (up to "limit").
+                    items:
+                      $ref: '#/components/schemas/RRAttrName'
+                    type: array
+                type: object
+          description: Paginated list of RRAttrName objects (count / next / previous
+            / results).
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+      summary: List rrattrname objects (all, or filtered with ?column=value)
+    post:
+      operationId: create_rrattrname
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RRAttrName'
+        required: 1
+      responses:
+        '200':
+          '200':
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RRAttrName'
+            description: Created object.
+        '400':
+          '400':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Bad request
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+        '403':
+          '403':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not allowed
+      summary: Create a RRAttrName (body = field values; FK fields as their id)
+  /rrattrname/meta_data:
+    get:
+      operationId: meta_rrattrname
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+          description: The class metadata as a JSON object.
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+      summary: Class metadata for rrattrname (columns, order, labels, links)
+  /rrattrname/{id}:
+    delete:
+      operationId: delete_rrattrname
+      responses:
+        '200':
+          description: Deleted.
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+        '403':
+          '403':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not allowed
+        '404':
+          '404':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not found
+      summary: Delete a RRAttrName
+    get:
+      operationId: get_rrattrname
+      parameters:
+      - description: Object id (integer).
+        in: path
+        name: id
+        required: 1
+        schema:
+          type: string
+      - description: How many levels of referenced (FK) objects to inline as full
+          objects (0 = nested {id, url, ...label fields} references only).
+        in: query
+        name: depth
+        required: 0
+        schema:
+          default: 0
+          type: integer
+      - description: Set to 1 to include a "linked_from" key of back-references (arrays
+          of {id, url, ...label fields} references).
+        in: query
+        name: linked_from
+        required: 0
+        schema:
+          type: string
+      responses:
+        '200':
+          '200':
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RRAttrName'
+            description: The RRAttrName object.
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+        '403':
+          '403':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not allowed
+        '404':
+          '404':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not found
+      summary: 'Get a RRAttrName by id (options: depth, linked_from)'
+    parameters:
+    - description: Object id (integer).
+      in: path
+      name: id
+      required: 1
+      schema:
+        type: string
+    post:
+      operationId: update_rrattrname
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RRAttrName'
+        required: 1
+      responses:
+        '200':
+          '200':
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/RRAttrName'
+            description: Updated object.
+        '400':
+          '400':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Bad request
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+        '403':
+          '403':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not allowed
+        '404':
+          '404':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not found
+      summary: Update a RRAttrName (body = fields to change; FK fields as their id)
   /rrcname:
     get:
       operationId: list_rrcname
