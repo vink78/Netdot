@@ -179,8 +179,9 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
    `zone.info` (export NAMED ⇒ bloc inline-signing ; `HIDDEN` reste dans `info`).
    - Fichiers : `netdot.meta` (colonne + vue `all` `Zone`), `Zone.pm` (insert/copy),
      `NAMED.pm` (lit la colonne), `upg_107_200` (migration upgrade 1.x→2.0.0).
-   - ⚠️ strict mode : `DEFAULT 'false'` (SQLT) rejeté → `DEFAULT 0` ; l'install neuf
-     (`initdb`) reste à corriger dans SQLT si sous `STRICT_TRANS_TABLES`.
+    - ✅ strict mode : `sql_schema('MySQL')` convertit les `DEFAULT 'false'`/`'true'`
+      (colonnes bool, 41) en `DEFAULT 0`/`1` (même pattern que le fix `bigserial` pour
+      PostgreSQL) → un `initdb` neuf passe sous `STRICT_TRANS_TABLES`.
    - Bool : `Yes`/`No` dans l'UI (helper `Registry::attr_display` : pages détail
      Device/Closet/Interface/Zone/ContactList) et `true`/`false` en JSON (API).
    - Vérifié : 53 zones `dnssec=1` ⇒ 53 blocs inline-signing ; page + API OK.

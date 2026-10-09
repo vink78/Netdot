@@ -62,6 +62,11 @@ sub sql_schema {
 	# Bug in SQLT
 	# https://rt.cpan.org/Public/Bug/Display.html?id=58420
 	$output =~ s/serial NOT NULL/bigserial NOT NULL/smg;
+    } elsif ( $type eq 'MySQL' ){
+	# MySQL rejects a string default on a BOOL (TINYINT(1)) column under
+	# STRICT_TRANS_TABLES; emit numeric 0/1 instead of 'false'/'true'.
+	$output =~ s/DEFAULT 'false'/DEFAULT 0/g;
+	$output =~ s/DEFAULT 'true'/DEFAULT 1/g;
     }
     return $output;
 }
