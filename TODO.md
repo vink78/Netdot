@@ -280,16 +280,31 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
     **Autres** : `lib/Makefile` NDIR += `Netdot/Mojo` + `Netdot/Mojo/Controller` (les 25 modules
     de la nouvelle couche s'installent) ; `etc/utility-Makefile` REPLACEABLES += `APACHEUSER`/
     `APACHEGROUP` (le `.service` utilise `User=<<Make:APACHEUSER>>`/`Group=<<Make:APACHEGROUP>>`,
-    défaut `apache`) ;     `bin/perldeps.pl` : ajout **Mojolicious, JSON, Net::LDAP, YAML::XS** ET **purge** des modules
+    défaut `apache`) ;     `bin/perldeps.pl` : ajout **Mojolicious, JSON, Net::LDAP, YAML::XS, Crypt::URandom** ET **purge** des modules
     web legacy (`mod_perl`, `Apache2::Request`, `HTML::Mason`, `Apache::Session`,
     `Apache2::AuthCookie`, `Apache2::SiteControl`, `Authen::Radius`) — la nouvelle app ne les
     charge pas (vérifié via `%INC` : permissions réimplémentées dans `Netdot::Mojo::Permissions`,
-    sessions = cookies signés Mojolicious) ; `htdocs/Makefile` `dir:` + `NDIR` : plus de
+     sessions = **id aléatoire 128 bits** dans le cookie + données sur disque via
+     `Netdot::Mojo::Sessions`) ; `htdocs/Makefile` `dir:` + `NDIR` : plus de
     `masondata`/`obj`/`chcon` ; Makefile principal : `DIR` sans `tmp/sessions`/`locks`, cible
     `dir:` sans `chcon` SELinux ; `export/Makefile` : plus de `chcon` (contexte
      `httpd_sys_rw_content_t` obsolète pour le daemon systemd — sur RHEL+SELinux, le contexte du
      daemon se gère par une politique dédiée).
- - [x] ✅ **Access-log (journald)** : hook `after_dispatch` (`Netdot::Mojo`) loggue 1 ligne/requête
+  - [x] ✅ **Sessions serveur (flat-file, `Netdot::Mojo::Sessions`)** : le cookie ne porte qu'un
+     **id opaque aléatoire 128 bits** (CSPRNG `Crypt::URandom::urandom`) — plus de clé symétrique
+     (le cookie ne peut pas être « cassé ») ; les données de session vivent sur disque
+     (`SESSION_DIR`, défaut `<<Make:PREFIX>>/tmp/sessions` = `$NETDOT_PATH/tmp/sessions`), 1 fichier
+     JSON/session (0600 dans un dir 0700). Sous-classe de `Mojolicious::Sessions` qui surcharge
+     `load`/`store` : la regex `^[0-9a-f]{32}$` est testée **avant** tout accès fichier (un cookie
+     forgé avec `/`/`$`/`..` est ignoré — pas de path-traversal), écriture atomique (temp+rename),
+     purge au logout, nettoyage opportuniste des fichiers expirés. Config : `SESSION_DIR`,
+     `SESSION_SECURE` (flag `Secure`, prod derrière TLS), `SESSION_IDLE` (délai d'inactivité,
+     **glissant** — la session est renouvelée à chaque requête ; défaut 3600s). Multi-worker
+     (Hypnotoad) : tous les workers partagent les fichiers → la session survit au worker.
+     **Gotcha** : lire l'id avec `$c->cookie('name')` (retourne la valeur), **pas**
+     `$c->req->cookie('name')` (objet `Mojo::Cookie`, forme string `name=value` → ne matche pas la
+     regex → un id/fichier neuf à chaque requête).
+  - [x] ✅ **Access-log (journald)** : hook `after_dispatch` (`Netdot::Mojo`) loggue 1 ligne/requête
    `ACCESS <ip> <user> <méthode> <controller>#<action> <path> <statut>` (hors assets statiques) ;
    `Auth#login_submit` loggue `LOGIN <ip> user=<u> success|FAILED` (tentatives de login, IP incluse). Le `<ip>` = la **vraie IP client** : le helper `client_ip`
     lit la 1ʳᵉ valeur de `X-Forwarded-For` **uniquement** si le peer direct est un proxy de

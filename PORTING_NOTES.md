@@ -92,10 +92,11 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
     `Netdot/Mojo/Controller` so the 25 new modules install. `htdocs/Makefile` deploys the `.ep`
     templates + `layouts/` (`FILES` pattern += `\.ep`, `NDIR` += `layouts`); its `dir:` target
     dropped the Mason `masondata`/`obj`/`chcon` steps. `bin/perldeps.pl` adds **Mojolicious,
-     JSON, Net::LDAP, YAML::XS** (checked by `make testdeps`) and **prunes** the legacy web
+      JSON, Net::LDAP, YAML::XS, Crypt::URandom** (checked by `make testdeps`) and **prunes** the legacy web
      modules (`mod_perl`, `Apache2::Request`, `HTML::Mason`, `Apache::Session`, `Apache2::AuthCookie`,
      `Apache2::SiteControl`, `Authen::Radius`) — verified via `%INC` that the new app loads none of
-     them (permissions re-implemented in `Netdot::Mojo::Permissions`; sessions = signed cookies).
+      them (permissions re-implemented in `Netdot::Mojo::Permissions`; sessions = server-side
+      flat-file via `Netdot::Mojo::Sessions` — opaque random id cookie, see "Server-side sessions").
      Top-level `Makefile`: `DIR` no longer creates `tmp/sessions`/`locks` and `dir:` dropped the
      SELinux `chcon`; `export/Makefile` dropped its `chcon` too (the `httpd_sys_rw_content_t`
      context is obsolete for the systemd daemon — on RHEL+SELinux the daemon's context is handled
@@ -112,6 +113,23 @@ Goal: port the Netdot web app (Apache/mod_perl + Mason `.mhtml`) to
    trace/debug per-request noise is dropped. Read with `journalctl -u netdot | grep ACCESS`. This
    complements the write-only audit in the `audit` table (page Changelog), which captures neither IP
    nor reads.
+
+### Server-side sessions (`Netdot::Mojo::Sessions`)
+Sessions are **server-side flat-file** instead of signed/encrypted cookies:
+- The cookie holds only an **opaque 128-bit random id** (`Crypt::URandom::urandom(16)`),
+  a plain (unsigned, `HttpOnly`, `SameSite=Lax`) cookie — no symmetric key, so it can't
+  be "cracked". `SESSION_SECURE=1` sets the `Secure` flag (prod, behind TLS).
+- Session data is stored on disk as one JSON file per session under `SESSION_DIR`
+  (default `<<Make:PREFIX>>/tmp/sessions` = `$NETDOT_PATH/tmp/sessions`): `0600` files in a
+  `0700` dir, written atomically (temp + `rename`).
+- `Netdot::Mojo::Sessions` subclasses `Mojolicious::Sessions` and overrides `load`/`store`:
+  the id is validated against `^[0-9a-f]{32}$` **before any file access** (a forged cookie
+  with `/`/`$`/`..` is rejected → treated as unauthenticated; no path traversal), the file
+  is removed on logout, and expired files are opportunistically pruned.
+- `SESSION_IDLE` (seconds, default 3600) is the **idle timeout** (sliding — refreshed on
+  every request; not a fixed lifetime from login).
+- Multi-worker safe (Hypnotoad): all workers read/write the same files, so a session
+  survives being served by a different worker.
 
 ## Pitfalls (critical)
 
@@ -162,8 +180,14 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
 - **2-arg stash**: `$c->stash('key', $value)` is the correct form.
   `$c->stash(key => $value)` (named-arg form) does NOT work in Mojolicious.
 - **String appender for log capture** (Export): `Log::Log4perl::Logger->get_logger`
-  + a `Log::Log4perl::Appender::String` appender captures the exporter's log
-  output into a variable for display in the template.
+   + a `Log::Log4perl::Appender::String` appender captures the exporter's log
+   output into a variable for display in the template.
+- **Read a request cookie with `$c->cookie($name)`, NOT `$c->req->cookie($name)`**:
+  `$c->req->cookie($name)` returns a **`Mojo::Cookie` object** (the controller's
+  `$c->cookie($name)` is what calls `->value` on it). Stringifying the object gives
+  `"name=value"`, so matching the raw value (e.g. a session-id regex `^[0-9a-f]{32}$`)
+  silently fails — in `Netdot::Mojo::Sessions` this regenerated the id (and wrote a new
+  file) on every request.
 
 ### 2c. System `Mojo::Parameters` is patched (`names` returns an arrayref)
 The system `/usr/share/perl5/Mojo/Parameters.pm` is **patched**: `names` was

@@ -8,6 +8,7 @@ use Cwd          qw(abs_path);
 use Netdot::Model;    # loads Netdot (config + meta) and connects to the DB
 use Netdot::Mojo::Registry;
 use Netdot::Mojo::Permissions;
+use Netdot::Mojo::Sessions;
 
 sub startup ($self) {
 
@@ -66,8 +67,31 @@ sub startup ($self) {
     # override with MOJO_LOG_LEVEL=debug|trace to troubleshoot. ----
     $self->log->level( $ENV{MOJO_LOG_LEVEL} // 'info' );
 
-    # ---- Sessions / cookies ----
-    $self->secrets([ $ENV{NETDOT_MOCK} // 'netdot-mojo-dev-change-me' ]);
+    # ---- Sessions: opaque random-id cookie + server-side (flat-file) data ----
+    # The cookie carries ONLY a 128-bit random id (plain/unsigned, HttpOnly,
+    # SameSite=Lax); the session data itself lives on disk (one JSON file per
+    # session, 0600 in a 0700 dir). No symmetric key is needed: the id is
+    # unguessable and validated server-side by file existence, so the cookie
+    # holds nothing sensitive and can't be "cracked". See
+    # Netdot::Mojo::Sessions (path-traversal guard, atomic writes, logout
+    # purge, opportunistic cleanup of expired files).
+    # Dir + Secure flag + idle timeout come from Netdot config (Default.conf / Site.conf):
+     #   SESSION_DIR     session file dir  (default << Make: PREFIX >>/tmp/sessions)
+    #   SESSION_SECURE  1 = set the cookie Secure flag (prod, behind TLS)
+    #   SESSION_IDLE    idle timeout in seconds (sliding; refreshed on every request)
+    my $sess_dir = eval { Netdot->config->get('SESSION_DIR') };
+    # `make install` substitutes << Make: PREFIX >> in Default.conf, and the dev
+    # Site.conf already holds a real path -- so SESSION_DIR is always a usable
+    # path at runtime. Fall back only if the key is somehow missing/empty.
+    $sess_dir = '/tmp/sessions' unless defined $sess_dir && length $sess_dir;
+    my $sess_secure = eval { Netdot->config->get('SESSION_SECURE') } ? 1 : 0;
+    my $sess_idle   = eval { Netdot->config->get('SESSION_IDLE') };
+    $sess_idle = 3600 unless defined $sess_idle && $sess_idle =~ /^\d+$/ && $sess_idle > 0;
+    $self->sessions( Netdot::Mojo::Sessions->new(
+        dir                => $sess_dir,
+        secure             => $sess_secure,
+        default_expiration => $sess_idle,
+    ) );
 
     # ---- Hypnotoad (production pre-fork server) ----
     # Production runs `hypnotoad bin/mojo` (see etc/netdot.service) instead of the

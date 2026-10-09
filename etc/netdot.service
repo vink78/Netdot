@@ -1,6 +1,6 @@
 [Unit]
 Description=Netdot (Mojolicious web app)
-Documentation=https://github.com/netdot/netdot
+Documentation=https://github.com/vink78/Netdot
 After=network.target
 
 [Service]

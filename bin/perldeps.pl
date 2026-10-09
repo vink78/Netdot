@@ -26,6 +26,7 @@ my @DEPS = (
     {apt=>'apache2', rpm=>'httpd'},
     # --- Mojolicious web app (new web layer) ---
     {cpan=>'Mojolicious', apt=>'libmojolicious-perl', rpm=>'perl-Mojolicious'},
+    {cpan=>'Crypt::URandom', apt=>'libcrypt-urandom-perl', rpm=>'perl-Crypt-URandom'},
     {cpan=>'JSON', apt=>'libjson-perl', rpm=>'perl-JSON-PP'},
     {cpan=>'Net::LDAP', apt=>'libnet-ldap-perl', rpm=>'perl-Net-LDAP'},
     {cpan=>'YAML::XS', apt=>'libyaml-xs-perl', rpm=>'perl-YAML-XS'},
