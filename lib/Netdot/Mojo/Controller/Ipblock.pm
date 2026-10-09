@@ -204,6 +204,20 @@ sub show ($c) {
 
         my @block_attrs = _block_attributes( $o );
 
+        # Page-level delete (Mason ip.html:442-481): shown when the user may delete
+        # this block. The JSON API threads `recursive` (default off): when set, the
+        # block AND all its children are removed; otherwise _tree_delete() re-attaches
+        # the children to this block's parent. The children-count is passed to the UI
+        # so it offers the "also delete children?" choice only when children exist.
+        my $can_delete = $c->perm( 'delete', $o );
+        my @children   = $can_delete ? _ipblock_children( $o ) : ();
+        my $parent     = eval { $o->parent };
+        my $pid        = eval { $parent && $parent->id };
+        my $del_path   = $can_delete ? $c->web_prefix . '/api/ipblock/' . $id : '';
+        my $del_goto   = $can_delete
+            ? Netdot::Mojo::Registry::set_uri( $pid ? '/management/ipblock/' . $pid : '/management/ipblock' )
+            : '';
+
         $c->render(
             template   => 'management/ipblock',
             layout     => 'default',
@@ -211,6 +225,10 @@ sub show ($c) {
             view       => $view,
             tabs       => \@tabs,
             block_attrs => \@block_attrs,
+            can_delete => $can_delete,
+            del_path   => $del_path,
+            del_goto   => $del_goto,
+            nd_children => scalar @children,
             viewtype   => $viewtype,
             viewformat => $vfmt,
             modes      => \@modes,

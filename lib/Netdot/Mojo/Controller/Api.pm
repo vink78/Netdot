@@ -432,14 +432,23 @@ sub _delete {
     unless ( Netdot::Mojo::Permissions->can( $p, 'delete', $obj ) ) {
         _err( 403, 'User not allowed to delete this object' );
     }
-    # Device-specific delete options (see Device::delete): delete_ips also removes
-    # the device's IP addresses (and their DNS A/AAAA records), which cascades to
-    # the name RR once it has no sub_records. The UI offers this as a default-off
-    # choice. Other classes' delete() take no args, so thread only for Device.
+    # Per-class delete options (default-off, offered by the UI). $class is the SHORT
+    # package name (see _model_tables / _admin_only_write), so compare via short_class,
+    # not the full Netdot::Model::* name.
+    #   Device  - delete_ips also removes the device's IP addresses (and their DNS
+    #             A/AAAA records), which cascades to the name RR once it has no
+    #             sub_records.
+    #   Ipblock - recursive deletes the block AND all its children; when omitted,
+    #             _tree_delete() re-attaches the children to the block's parent.
+    # Other classes' delete() take no args, so thread only where needed.
     my %dopts;
-    if ( $class eq 'Netdot::Model::Device' ) {
+    my $dshort = eval { $class->short_class } // lc( $class );
+    if ( $dshort eq 'Device' ) {
         $dopts{delete_ips}     = 1 if _truthy( $args->{delete_ips} );
         $dopts{no_delete_name} = 1 if _truthy( $args->{no_delete_name} );
+    }
+    elsif ( $dshort eq 'Ipblock' ) {
+        $dopts{recursive} = 1 if _truthy( $args->{recursive} );
     }
     eval { $obj->delete( %dopts ) };
     _err( 400, 'Bad request' ) if $@;

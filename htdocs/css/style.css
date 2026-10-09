@@ -1176,4 +1176,80 @@ input[type=button]:hover {
 .nd-status.ok   { background: #2e7d32; }
 .nd-status.err  { background: #c62828; }
 
+/* ---------- Modal confirm dialog (netdot.js: destructive-action confirm) ---------- */
+/* A <div>-based prompt, not a native confirm(): native dialogs trigger the
+   browser's anti-dialog "don't ask again" permission prompt. A div avoids it.
+   Carries an optional checkbox so the choice is made in a single dialog. */
+.nd-modal-ov {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.nd-modal {
+    background: #ffffff;
+    color: #222222;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, .35);
+    padding: 20px 22px;
+    width: 400px;
+    max-width: calc(100vw - 32px);
+    font-size: 0.95em;
+    line-height: 1.45;
+}
+.nd-modal-msg { white-space: pre-line; }
+.nd-modal-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 1em 0 0.2em;
+    font-size: 0.92em;
+    color: #444;
+}
+.nd-modal-check input { margin-top: 2px; flex: 0 0 auto; }
+.nd-modal-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 1.3em;
+}
+.nd-modal .nd-modal-ok { background: #fdecea; color: #c62828; border-color: #f0b3ac; }
+.nd-modal .nd-modal-ok:hover { background: #c62828; color: #ffffff; border-color: #c62828; }
+
+/* ---------- Busy overlay (netdot.js: slow writes, e.g. recursive delete) ---------- */
+.nd-busy {
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 255, 255, .7);
+    z-index: 10001;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.nd-busy-card {
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, .25);
+    padding: 26px 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    font-size: 0.95em;
+    color: #333333;
+}
+.nd-busy-spin {
+    width: 38px;
+    height: 38px;
+    border: 3px solid #e3e8e3;
+    border-top-color: #006600;
+    border-radius: 50%;
+    animation: nd-busy-rot .8s linear infinite;
+}
+.nd-busy-msg { font-weight: 600; }
+@keyframes nd-busy-rot { to { transform: rotate(360deg); } }
+
 

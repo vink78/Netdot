@@ -338,8 +338,16 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   `status` field is also restricted to the values valid for the block type
   (`Model::Ipblock::_validate`): an address → Static/Dynamic(only under a DHCP-enabled
   Subnet parent)/Discovered/Reserved; a subnet/container → Subnet/Container/Reserved
-  ("Available" is a free-space/deletion indication, kept only if it is the current value).
-  The API `PATCH` re-checks via the model `update()` (invalid status → 400).
+   ("Available" is a free-space/deletion indication, kept only if it is the current value).
+   The API `PATCH` re-checks via the model `update()` (invalid status → 400).
+   **Page-level delete** (2026-10-09): the block view renders a "Delete" button (when
+   `can('delete',$o)`) that threads a default-off choice — **delete the children too**.
+   The controller stashes `can_delete`/`del_path`/`del_goto` (→ the parent's page, or the
+   roots list when parentless) + `nd_children` (direct-children count, so the UI shows the
+   choice only when there are children — like legacy Mason `ip.html`). The JS appends
+   `?recursive=1` only when checked; the API threads it to `Ipblock->delete(recursive=>1)`.
+   The model already handled the non-recursive case via `_tree_delete` (children re-attach
+   to the block's parent / become roots).
  - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
    `_rr_sections`, `_rel_record`, `_search_all`, `_name_link`, `_obj_link`) + search.
    Now also renders the shared edit form (name, zone, active, auto_update, expiration,
@@ -485,10 +493,19 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
            the search model). `Api::_batch_delete` checks `can('delete')` **per object**
            (one bad id does not abort the rest) and answers
            `{deleted:[...], skipped:{id:reason}}` (200 if ≥1 deleted, else 400). The list's
-           "Delete" button is driven by `netdot.js` `initBatchDelete` (live "N selected"
-           counter, `confirm()`, reload after). **The old server-side route
-           `POST /management/<type>/delete` (`browse#delete`) is removed** — no more
-           server-side writes; everything goes through the JSON API.
+            "Delete" button is driven by `netdot.js` `initBatchDelete` (live "N selected"
+            counter, reload after). **The old server-side route
+            `POST /management/<type>/delete` (`browse#delete`) is removed** — no more
+            server-side writes; everything goes through the JSON API.
+            **Delete UX — modal + busy overlay** (2026-10-09): all delete confirms use a
+            `netdot.js` **`ndConfirm`** `<div>` modal (NOT a native `confirm()`, which
+            triggers the browser's anti-dialog "don't ask again" permission prompt). A single
+            dialog carries the optional default-off checkbox: Device = "also delete its IPs /
+            DNS A/AAAA" (`delete_ips`), Ipblock = "also delete the N child blocks"
+            (`recursive`, offered only when `data-nd-children` > 0). While the (possibly
+            slow, recursive) `DELETE` is in flight a full-screen **`spinner`** "Deleting…"
+            overlay blocks interaction; on success the `ND.status` box + reload/goto. CSS in
+            `style.css` (`.nd-modal*`, `.nd-busy*`).
    - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
     `management/zone.html`): record count (per type), apex record (A/NS/MX with
     links), generic has_many (subnets/records/aliases), recent changes (HostAudit).
@@ -617,8 +634,16 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       `no_update_tree` (alongside `depth`/`linked_from`) so a client cannot disable the
       models' `update()` validation — e.g. an invalid Ipblock status via `{"validate":0}`
       or `{"no_update_tree":1}`. All API writes therefore go through the model `update()`
-      → `_validate()`. (Note: `Ipblock->validate` is a *different* method — it only checks
-      address format via `_prevalidate`.)
+    → `_validate()`. (Note: `Ipblock->validate` is a *different* method — it only checks
+    address format via `_prevalidate`.)
+  - **DELETE per-class options** (`_delete`, 2026-10-09): the default-off flags the UI
+    offers are threaded to the model `delete()` only for the classes that take them —
+    Device (`delete_ips`, `no_delete_name`) and Ipblock (`recursive`). ⚠️ **`$class` is the
+    SHORT package name** (`Ipblock`/`Device` — `_model_tables` uses the meta `->name`), so
+    compare via `$class->short_class` (same pattern as `_admin_only_write`), **NOT**
+    `Netdot::Model::*`. That earlier `Netdot::Model::Device`/`Netdot::Model::Ipblock`
+    comparison never matched, so `recursive`/`delete_ips` were silently dropped (children
+    got re-parented instead of deleted) — the fix normalizes with `short_class`.
  - `lib/Netdot/Mojo/OpenAPI.pm` — `build_spec()`: OpenAPI 3.0.3 from `Netdot->meta`
   (88 typed schemas + per-table paths + dedicated endpoints); `servers` from the
   `WEB_BASE_URL` prefix. Per-class **reference schemas** `FkReference_<Classe>` (`{id,url}`

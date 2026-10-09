@@ -42,6 +42,29 @@
     }, ms || 4000);
   }
 
+  // Full-screen "busy" overlay with a spinner (a <div>, not a native dialog) shown
+  // while a slow server-side write runs (e.g. a recursive Ipblock delete). Blocks
+  // interaction until hidden.
+  function spinner(show, msg) {
+    var el = document.getElementById('nd-busy');
+    if (show) {
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'nd-busy';
+        el.className = 'nd-busy';
+        el.innerHTML = '<div class="nd-busy-card"><div class="nd-busy-spin"></div>' +
+                       '<div class="nd-busy-msg"></div></div>';
+        document.body.appendChild(el);
+      }
+      el.querySelector('.nd-busy-msg').textContent = msg || 'Please wait…';
+      el.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+    } else if (el) {
+      el.style.display = 'none';
+      document.body.style.overflow = '';
+    }
+  }
+
   // Collect a form's named inputs/selects/textarea into a JSON body.
   // checkboxes -> true/false, selects -> id (string) or null, others -> string.
   function collect(form) {
@@ -166,11 +189,68 @@
     }
   }
 
-  // Delete buttons: confirm, then DELETE <data-nd-del>, then reload — or go to
-  // data-nd-goto when the deleted object IS the current page (page-level delete).
-  // A device delete (data-nd-device) additionally offers the default-off choice
-  // to also remove the device's IP addresses (and their DNS A/AAAA records) —
-  // that cascades to the name RR once it has no sub_records (see Device::delete).
+  // Modal confirm dialog (a <div>, not a native confirm()). Native confirm()
+  // triggers the browser's anti-dialog "don't ask again" permission prompt; a
+  // custom div avoids that. Carries an optional checkbox so the choice is made in
+  // ONE dialog (no second popup). Resolves {ok, check}: ok=false on Cancel/ESC.
+  // Enter does NOT confirm (these are destructive); only the OK button does.
+  function ndConfirm(opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var ov = document.createElement('div');
+      ov.className = 'nd-modal-ov';
+      var card = document.createElement('div');
+      card.className = 'nd-modal';
+      var msg = document.createElement('div');
+      msg.className = 'nd-modal-msg';
+      msg.textContent = opts.message || '';
+      card.appendChild(msg);
+      var cb = null;
+      if (opts.checkbox) {
+        var lbl = document.createElement('label');
+        lbl.className = 'nd-modal-check';
+        cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!opts.checkbox.defaultOn;
+        lbl.appendChild(cb);
+        lbl.appendChild(document.createTextNode(' ' + opts.checkbox.label));
+        card.appendChild(lbl);
+      }
+      var row = document.createElement('div');
+      row.className = 'nd-modal-row';
+      var okBtn = document.createElement('button');
+      okBtn.type = 'button';
+      okBtn.className = 'btn nd-modal-ok';
+      okBtn.textContent = opts.okLabel || 'OK';
+      var cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'btn';
+      cancelBtn.textContent = opts.cancelLabel || 'Cancel';
+      row.appendChild(okBtn);
+      row.appendChild(cancelBtn);
+      card.appendChild(row);
+      ov.appendChild(card);
+      document.body.appendChild(ov);
+      okBtn.focus();
+      function done(ok) {
+        document.removeEventListener('keydown', onKey, true);
+        if (ov.parentNode) { ov.parentNode.removeChild(ov); }
+        resolve({ ok: ok, check: cb ? cb.checked : false });
+      }
+      function onKey(e) { if (e.key === 'Escape') { done(false); } }
+      document.addEventListener('keydown', onKey, true);
+      okBtn.addEventListener('click', function () { done(true); });
+      cancelBtn.addEventListener('click', function () { done(false); });
+      ov.addEventListener('click', function (e) { if (e.target === ov) { done(false); } });
+    });
+  }
+
+  // Delete buttons: confirm (modal), then DELETE <data-nd-del>, then reload — or
+  // go to data-nd-goto when the deleted object IS the current page (page-level
+  // delete). An Ipblock delete (data-nd-ipblock) offers the default-off choice to
+  // also delete its children (recursive); when off the children are re-attached to
+  // the block's parent. A device delete (data-nd-device) offers the default-off
+  // choice to also remove its IP addresses / DNS A/AAAA records (see Device::delete).
   function initRecDeletes() {
     var dels = document.querySelectorAll('.nd-rec-delete');
     for (var i = 0; i < dels.length; i++) {
@@ -179,21 +259,37 @@
         var url  = btn.getAttribute('data-nd-del');
         var goto = btn.getAttribute('data-nd-goto');
         if (!url) { return; }
-        if (btn.getAttribute('data-nd-device')) {
-          if (!confirm('Delete this device?\n\nIt will be moved to the available asset pool. If you intend to decommission the hardware, remember to remove the asset as well.')) { return; }
-          var delIps = confirm("Also delete this device's IP addresses and their DNS A/AAAA records?") ? 1 : 0;
-          url += (url.indexOf('?') === -1 ? '?' : '&') + 'delete_ips=' + delIps;
-        } else if (!confirm(goto ? 'Delete this object and all its records?' : 'Delete this record?')) { return; }
-        btn.disabled = true;
-        api('DELETE', url).then(function (res) {
-          if (res.ok) {
-            status(true, 'Deleted');
-            setTimeout(function () { goto ? (location.href = goto) : location.reload(); }, 700);
-          } else {
-            var msg = (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
-            status(false, msg, 8000);
-            btn.disabled = false;
+        var opt = { message: (goto ? 'Delete this object and all its records?' : 'Delete this record?') };
+        if (btn.getAttribute('data-nd-ipblock')) {
+          opt.message = 'Delete this IP block?';
+          var nch = parseInt(btn.getAttribute('data-nd-children') || '0', 10);
+          if (nch > 0) {
+            // Default off (Mason): unchecked -> children re-attached to the
+            // block's parent (see Ipblock::delete / _tree_delete).
+            opt.checkbox = { label: 'Also delete the ' + nch + ' child block(s). If unchecked, they will be re-attached to this block\'s parent.', defaultOn: false };
           }
+        } else if (btn.getAttribute('data-nd-device')) {
+          opt.message = 'Delete this device?\n\nIt will be moved to the available asset pool. If you intend to decommission the hardware, remember to remove the asset as well.';
+          opt.checkbox = { label: 'Also delete this device\'s IP addresses and their DNS A/AAAA records.', defaultOn: false };
+        }
+        ndConfirm(opt).then(function (r) {
+          if (!r.ok) { return; }
+          var sep = (url.indexOf('?') === -1 ? '?' : '&');
+          if (btn.getAttribute('data-nd-ipblock') && r.check) { url += sep + 'recursive=1'; }
+          else if (btn.getAttribute('data-nd-device') && r.check) { url += sep + 'delete_ips=1'; }
+          btn.disabled = true;
+          spinner(true, 'Deleting…');
+          api('DELETE', url).then(function (res) {
+            spinner(false);
+            if (res.ok) {
+              status(true, 'Deleted');
+              setTimeout(function () { goto ? (location.href = goto) : location.reload(); }, 700);
+            } else {
+              var msg = (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
+              status(false, msg, 8000);
+              btn.disabled = false;
+            }
+          });
         });
       });
     }
@@ -229,18 +325,22 @@
         if (!base) { return; }
         var ids = checkedIds();
         if (!ids.length) { status(false, 'Select at least one row to delete', 4000); return; }
-        if (!confirm('Delete ' + ids.length + ' object(s)? This cannot be undone.')) { return; }
-        btn.disabled = true;
-        api('DELETE', base + '?id=' + ids.join(',')).then(function (res) {
-          if (res.ok) {
-            var skipped = (res.data && res.data.skipped) ? Object.keys(res.data.skipped).length : 0;
-            status(true, 'Deleted ' + res.data.deleted.length + (skipped ? ' (' + skipped + ' skipped)' : ''), 5000);
-            setTimeout(function () { location.reload(); }, 1000);
-          } else {
-            var msg = (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
-            status(false, msg, 8000);
-            btn.disabled = false;
-          }
+        ndConfirm({ message: 'Delete ' + ids.length + ' object(s)? This cannot be undone.' }).then(function (r) {
+          if (!r.ok) { return; }
+          btn.disabled = true;
+          spinner(true, 'Deleting ' + ids.length + ' object(s)…');
+          api('DELETE', base + '?id=' + ids.join(',')).then(function (res) {
+            spinner(false);
+            if (res.ok) {
+              var skipped = (res.data && res.data.skipped) ? Object.keys(res.data.skipped).length : 0;
+              status(true, 'Deleted ' + res.data.deleted.length + (skipped ? ' (' + skipped + ' skipped)' : ''), 5000);
+              setTimeout(function () { location.reload(); }, 1000);
+            } else {
+              var msg = (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
+              status(false, msg, 8000);
+              btn.disabled = false;
+            }
+          });
         });
       });
     }

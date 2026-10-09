@@ -16,6 +16,10 @@
 % my $can_edit   = $c->stash->{can_edit};   # in-place edit (block detail only)
 % my $fields     = $c->stash->{fields}   // [];  # edit form fields (block detail only)
 % my $api_path   = $c->stash->{api_path} // '';  # JSON API PATCH path
+% my $can_delete = $c->stash->{can_delete};      # page-level delete (block detail only)
+% my $del_path   = $c->stash->{del_path} // '';  # JSON API DELETE path
+% my $del_goto   = $c->stash->{del_goto} // '';  # where to go after the delete
+% my $nd_children= $c->stash->{nd_children} // 0; # direct children count (offers the "delete children" choice)
 % my $is_addr    = ( $viewtype eq 'address' );
 %# Section-tab data (block detail).
 % my $sites      = $c->stash->{sites}    // [];
@@ -105,6 +109,9 @@
 %   my @list = @$block_attrs;
 % if ( $can_edit && @$fields ) {
 <button type="button" class="btn" id="nd-edit-toggle" style="margin:0 0 0.5em 0">Edit</button>
+% }
+% if ( $can_delete ) {
+<button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" data-nd-ipblock="1" data-nd-children="<%= $nd_children %>" style="margin:0 0 0.5em 0.6em">Delete</button>
 % }
 <div class="container" id="nd-readonly">
   <div class="containerhead"><%= $title %></div>

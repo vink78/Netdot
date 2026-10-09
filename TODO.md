@@ -431,7 +431,12 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
  > d'écriture legacy). Porté **in-situ** dans l'UI : **édition** (détail générique + dédié
  > device/zone/contactlist/closet/ipblock/ipaddress/rr + par-record + RRAttr admin), **création**
  > (boîte générique « New \<type\> » sur les listes + RR New name / Add a record / Add alias),
- > **suppression** (batch sur les listes + détail, device en 2 étapes `delete_ips`). **Reste à
+   > **suppression** (batch sur les listes + détail, device `delete_ips`, **ipblock
+   > « delete children »** : modale `<div>` `ndConfirm` + checkbox défaut off → sinon les
+   > enfants sont re-rattachés au grand-père via `_tree_delete` ; overlay « Deleting… »
+   > pendant l'écriture lente. Fix API : les options de delete sont comparées via
+   > `short_class` — avant, `Netdot::Model::*` ne matchait jamais, donc `recursive`/`delete_ips`
+   > étaient silencieusement ignorées). **Reste à
  > porter** : (1) **Ipblock REBLOCK** (changement d'identité address/prefix/version — recréation de
  > la hiérarchie), (2) **édition de relations has_many** générique (ajout/retrait d'enfants, ex.
  > interfaces d'un device, contacts d'un contactlist) — lecture seule aujourd'hui, (3) **créations
