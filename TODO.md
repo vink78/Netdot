@@ -632,7 +632,25 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 5. 🔶 **Création — raffiner la permission par parent** : `_can_create` est une approximation
    (l'objet cible n'existe pas → `can('edit', $parent)` sur le parent FK) ; couvre zone→rr,
    rr→rrtxt/rrcname, device→interface, contactlist→contact. À évaluer : faut-il aussi couvrir
-   le fallback « IP dans un bloc autorisé » (héritage complet `ObjectAccessRule`) pour la création ?
+    le fallback « IP dans un bloc autorisé » (héritage complet `ObjectAccessRule`) pour la création ?
+6. ⬜ **Perf affichage IP (gros sous-réseaux)** — discussion 2026-10-09, **non engagé** :
+   - **Symptôme** : affichage d'une plage d'IP lent sur de très gros sous-réseaux.
+   - **Cause** (`Ipblock::search_like`, `lib/Netdot/Model/Ipblock.pm:269-302`) : sur le range
+     `address>=? AND address<=?`, **par ligne** `search(address=>$x)->first` (**N+1**, le vrai
+     tueur) + `int2ip` (`Math::BigInt`) + `cidr()` ; puis **tri Perl** `address_numeric <=>`.
+   - **Options discutées** :
+     - `VARBINARY(16)` / PG `INET` : binaire natif → `INET6_NTOA` en SQL (zéro `Math::BigInt`)
+       + `ORDER BY` byte-wise en SQL (indexable). **Coût** : refacto du modèle `Ipblock` (tout est
+       en entier : `ip2int`/`int2ip`, maths first/last/mask/usage, `address_numeric`) → **pas un
+       drop-in**. Ordre « v4 avant v6, 128 bits » : `ORDER BY version, address` (ou `family()` en PG).
+     - Fonctions natives `inet_pton`/`inet_ntop` : `INET6_ATON`/`INET6_NTOA` (v4+v6, **binaire**)
+       depuis **MySQL 5.6.24 / MariaDB 10.0** ; `INET_ATON`/`INET_NTOA` (v4, entier). **Serveur
+       actuel = MariaDB 11.8.6 → déjà dispo** (vérifié `INET6_NTOA(INET6_ATON('::1'))` = `::1`).
+   - **Plan recommandé (2 phases)** :
+     1. **Sans changer le schéma** : réécrire `search_like` en **une seule requête** (supprimer le
+        N+1) + `ORDER BY address` en SQL → plus gros gain, risque faible.
+     2. **Optionnel** : colonne `VARBINARY(16)`/`INET` → affichage 100 % natif (`INET6_NTOA`).
+   - **Décision (2026-10-09)** : non engagé pour l'instant.
 
 > ✅ **Détails spécialisés tranchés (2026-10-01)** : seuls **3** des 11 types du
 > détail générique avaient une vraie page Mason dédiée (`%VIEWPAGE` dans
