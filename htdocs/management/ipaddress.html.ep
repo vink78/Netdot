@@ -10,14 +10,13 @@
 % my $dhcp       = $c->stash->{dhcp}        // [];
 % my $arp        = $c->stash->{arp}         // [];
 % my $audit      = $c->stash->{audit}       // [];
-% my $can_edit   = $c->stash->{can_edit};   # in-place edit
+% my $can_edit   = $c->stash->{can_edit};    # in-place edit
+% my $can_delete = $c->stash->{can_delete};  # page-level delete (button)
+% my $del_path   = $c->stash->{del_path}   // '';
+% my $del_goto   = $c->stash->{del_goto}   // '';
 % my $fields     = $c->stash->{fields}   // [];
 % my $api_path   = $c->stash->{api_path} // '';
 % my $ip_version = $c->stash->{ip_version} // 4;
-% my $services_l = $c->stash->{services_list}    // [];
-% my $contacts_l = $c->stash->{contactlists_list} // [];
-% my $attrnames_l= $c->stash->{attr_names_list}  // [];
-% my $dhcp_add   = $c->stash->{dhcp_add}    // { enabled => 0, container => 0 };
 %# Breadcrumb: Roots > a > b > (current, bold).
 % if ($current) {
     <div class="breadcrumb" style="margin:0 0 1em 0; font-size:0.95em">
@@ -34,6 +33,9 @@
 % my $add_types  = $c->stash->{add_types}  // [];
 % if ( $can_edit && @$fields ) {
 <button type="button" class="btn" id="nd-edit-toggle" style="margin:0 0 0.5em 0">Edit</button>
+% }
+% if ( $can_delete ) {
+<button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" data-nd-ipblock="1" data-nd-children="0" style="margin:0 0 0.5em 0.6em">Delete</button>
 % }
 <div class="container" id="nd-readonly">
   <div class="containerhead"><%= $title %></div>
@@ -70,64 +72,60 @@
     </div>
 </div>
 
-%# DNS A records
+%# DNS A records (hidden when empty)
+% if (@$a_records) {
 <div class="container">
     <div class="containerhead">DNS A Records</div>
     <div class="containerbody" style="padding:0.6em">
-    % if (@$a_records) {
-        <table class="datatable" style="width:100%">
-            <thead><tr><th>Name</th><th>Zone</th></tr></thead>
-            <tbody>
-            % for my $r (@$a_records) {
-                <tr>
-                    <td><%== $r->{name_html} %></td>
-                    <td>
-                    % if ($r->{zone_href}) {
-                        <a href="<%= $r->{zone_href} %>"><%= $r->{zone} %></a>
-                    % } else {
-                        <%= $r->{zone} %>
-                    % }
-                    </td>
-                </tr>
-            % }
-            </tbody>
-        </table>
-    % } else {
-        <p style="color:#888">None.</p>
-    % }
+    <table class="datatable" style="width:100%">
+        <thead><tr><th>Name</th><th>Zone</th></tr></thead>
+        <tbody>
+        % for my $r (@$a_records) {
+            <tr>
+                <td><%== $r->{name_html} %></td>
+                <td>
+                % if ($r->{zone_href}) {
+                    <a href="<%= $r->{zone_href} %>"><%= $r->{zone} %></a>
+                % } else {
+                    <%= $r->{zone} %>
+                % }
+                </td>
+            </tr>
+        % }
+        </tbody>
+    </table>
     </div>
 </div>
+% }
 
-%# DNS PTR records
+%# DNS PTR records (hidden when empty)
+% if (@$ptr_records) {
 <div class="container">
     <div class="containerhead">DNS PTR Records</div>
     <div class="containerbody" style="padding:0.6em">
-    % if (@$ptr_records) {
-        <table class="datatable" style="width:100%">
-            <thead><tr><th>Name</th><th>Zone</th></tr></thead>
-            <tbody>
-            % for my $r (@$ptr_records) {
-                <tr>
-                    <td><%== $r->{name_html} %></td>
-                    <td>
-                    % if ($r->{zone_href}) {
-                        <a href="<%= $r->{zone_href} %>"><%= $r->{zone} %></a>
-                    % } else {
-                        <%= $r->{zone} %>
-                    % }
-                    </td>
-                </tr>
-            % }
-            </tbody>
-        </table>
-    % } else {
-        <p style="color:#888">None.</p>
-    % }
+    <table class="datatable" style="width:100%">
+        <thead><tr><th>Name</th><th>Zone</th></tr></thead>
+        <tbody>
+        % for my $r (@$ptr_records) {
+            <tr>
+                <td><%== $r->{name_html} %></td>
+                <td>
+                % if ($r->{zone_href}) {
+                    <a href="<%= $r->{zone_href} %>"><%= $r->{zone} %></a>
+                % } else {
+                    <%= $r->{zone} %>
+                % }
+                </td>
+            </tr>
+        % }
+        </tbody>
+    </table>
     </div>
 </div>
+% }
 
 %# Services
-% if (@$services || ($can_edit && @$services_l && @$contacts_l)) {
+% if (@$services) {
 <div class="container">
     <div class="containerhead">Services</div>
     <div class="containerbody" style="padding:0.6em">
@@ -148,7 +146,7 @@
 % }
 
 %# Custom Attributes
-% if (@$attributes || ($can_edit && @$attrnames_l)) {
+% if (@$attributes) {
 <div class="container">
     <div class="containerhead">Custom Attributes</div>
     <div class="containerbody" style="padding:0.6em">
@@ -169,7 +167,7 @@
 % }
 
 %# DHCP Host
-% if (@$dhcp || ($can_edit && $dhcp_add->{enabled})) {
+% if (@$dhcp) {
 <div class="container">
     <div class="containerhead">DHCP Host</div>
     <div class="containerbody" style="padding:0.6em">
@@ -216,11 +214,11 @@
         <form class="nd-rec-form nd-add-form" data-nd-type="<%= $t->{type} %>"
               data-nd-api="<%= $c->web_prefix %>/api/<%= $t->{type} %>"
               data-nd-method="POST" style="display:none;margin-top:0.5em">
+            % for my $h ( sort keys %{ $t->{add}{hidden} } ) {
+            <input type="hidden" name="<%= $h %>" value="<%= $t->{add}{hidden}{$h} %>" data-nd-int>
+            % }
             <table class="datatable detail">
                 <tbody>
-                % for my $h ( sort keys %{ $t->{add}{hidden} } ) {
-                <tr><td colspan="2"><input type="hidden" name="<%= $h %>" value="<%= $t->{add}{hidden}{$h} %>" data-nd-int></td></tr>
-                % }
                 % for my $f ( @{ $t->{add}{fields} } ) {
                 <tr>
                     <th><%= $f->{tag} %></th>

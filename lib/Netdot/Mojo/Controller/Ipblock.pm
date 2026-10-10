@@ -226,12 +226,27 @@ sub show ($c) {
                 };
             }
 
+            # Page-level delete (address). An address has no children, so the modal
+            # offers no "delete children" choice (nd_children=0). After the delete,
+            # go to the parent's page (or the roots list when parentless).
+            my $can_delete = $c->perm( 'delete', $o );
+            my $parent     = eval { $o->parent };
+            my $pid        = eval { $parent && $parent->id };
+            my $del_path   = $can_delete ? $c->web_prefix . '/api/ipblock/' . $o->id : '';
+            my $del_goto   = $can_delete
+                ? Netdot::Mojo::Registry::set_uri( $pid ? '/management/ipblock/' . $pid : '/management/ipblock' )
+                : '';
+
             $c->render(
                 template    => 'management/ipaddress',
                 layout      => 'default',
                 title       => "Ip " . $o->get_label,
                 current     => $o,
                 can_edit    => $can_edit,
+                can_delete  => $can_delete,
+                del_path    => $del_path,
+                del_goto    => $del_goto,
+                nd_children => 0,
                 fields      => $fields,
                 api_path    => $api_path,
                 breadcrumb  => \@crumbs,
@@ -246,10 +261,6 @@ sub show ($c) {
                 audit       => \@audit,
                 ip_version  => $o->version,
                 add_types   => \@add_types,
-                services_list    => \@services_list,
-                contactlists_list => \@contactlists_list,
-                attr_names_list   => \@attr_names_list,
-                dhcp_add    => $dhcp_add,
             );
             return;
         }
