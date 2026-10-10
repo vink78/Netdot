@@ -26,6 +26,11 @@
     });
   }
 
+  // Human-readable error from an api() result: the server's message, else the status.
+  function errMsg(res) {
+    return (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
+  }
+
   // Transient status box, fixed at the bottom of the viewport.
   var box = null, timer = null;
   function status(ok, msg, ms) {
@@ -111,7 +116,7 @@
               setTimeout(function () { location.reload(); }, 700);
             }
           } else {
-            var msg = (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
+            var msg = errMsg(res);
             status(false, msg, 8000);
             for (var b = 0; b < btns.length; b++) { btns[b].disabled = false; }
           }
@@ -289,7 +294,7 @@
               status(true, 'Deleted');
               setTimeout(function () { goto ? (location.href = goto) : location.reload(); }, 700);
             } else {
-              var msg = (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
+              var msg = errMsg(res);
               status(false, msg, 8000);
               btn.disabled = false;
             }
@@ -340,7 +345,7 @@
               status(true, 'Deleted ' + res.data.deleted.length + (skipped ? ' (' + skipped + ' skipped)' : ''), 5000);
               setTimeout(function () { location.reload(); }, 1000);
             } else {
-              var msg = (res.data && res.data.error) ? res.data.error : ('Error ' + res.status);
+              var msg = errMsg(res);
               status(false, msg, 8000);
               btn.disabled = false;
             }
@@ -391,7 +396,8 @@
   // (container view) or an unassigned address (subnet view). Confirms the creation of
   // a not-yet-existing IP address or block and lets the user pick the status —
   // block: Container/Reserved/Subnet (default Container); address: Static/Reserved
-  // (+ Dynamic when the Subnet parent has DHCP). POSTs /api/ipblock, reloads on success.
+  // (+ Dynamic when the Subnet parent has DHCP). POSTs /api/ipblock, then goes to the
+  // new block's detail page.
   function ndCreateIpblock(opts) {
     var parts  = opts.address.split('/');
     var prefix = parts.length > 1 ? parseInt(parts[1], 10) : (parts[0].indexOf(':') >= 0 ? 128 : 32);
@@ -400,6 +406,9 @@
       ? (['Static', 'Reserved'].concat(opts.dhcp ? ['Dynamic'] : []))
       : ['Container', 'Reserved', 'Subnet'];
     var defStatus = isAddr ? 'Static' : 'Container';
+    // API base derives from the page URL (…/<prefix>/management/… → <prefix>/api/ipblock);
+    // the API auto-attaches the new block to its parent, so no `parent` in the body.
+    var webPrefix = location.pathname.split('/management')[0];
     return new Promise(function (resolve) {
       var ov = document.createElement('div'); ov.className = 'nd-modal-ov';
       var card = document.createElement('div'); card.className = 'nd-modal';
@@ -431,21 +440,17 @@
         var st = sel.value;
         okBtn.disabled = true;
         spinner(true, 'Creating ' + opts.address + '…');
-        // API base derives from the page URL (…/<prefix>/management/… → <prefix>/api/ipblock);
-        // the API auto-attaches the new block to its parent, so no `parent` in the body.
-        var base = location.pathname.split('/management')[0] + '/api/ipblock';
-        api('POST', base, { address: opts.address, status: st }).then(function (res) {
+        api('POST', webPrefix + '/api/ipblock', { address: opts.address, status: st }).then(function (res) {
           spinner(false);
           if (res.ok) {
             // Go to the new block's detail page so the user can add info (description,
             // DNS A/AAAA record for a hostname, owner, …) right away.
             close(); status(true, 'Created');
             var pid = res.data && res.data.id;
-            var prefix = location.pathname.split('/management')[0];
-            setTimeout(function () { location.href = pid ? prefix + '/management/ipblock/' + pid : location.href.replace(/[?#].*$/, ''); }, 600);
+            setTimeout(function () { location.href = pid ? webPrefix + '/management/ipblock/' + pid : location.href.replace(/[?#].*$/, ''); }, 600);
             resolve({ ok: true });
           }
-          else { close(); status(false, (res.data && res.data.error) ? res.data.error : ('Error ' + res.status), 8000); resolve({ ok: false }); }
+          else { close(); status(false, errMsg(res), 8000); resolve({ ok: false }); }
         });
       });
       cancelBtn.addEventListener('click', function () { close(); resolve({ ok: false }); });
