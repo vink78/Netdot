@@ -433,10 +433,16 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   > (boîte générique « New \<type\> » sur les listes + RR New name / Add a record / Add alias +
    > **ipblock** : boîte « New Ipblock » sur les racines + **clic-to-create** (Mason `ADD_BLOCK`)
    > : sur la vue container, clic sur une partition libre ; sur la vue subnet, clic sur une IP
-   > non assignée → modale « does not yet exist, create it ? » + select statut (bloc :
-   > Container/Reserved/Subnet, défaut Container ; IP : Static/Reserved/+Dynamic si DHCP),
-   > POST `/api/ipblock` sans `parent` (l'API auto-attache),
-   > **suppression** (batch sur les listes + détail, device `delete_ips`, **ipblock
+    > non assignée → modale « does not yet exist, create it ? » + select statut (bloc :
+    > Container/Reserved/Subnet, défaut Container ; IP : Static/Reserved/+Dynamic si DHCP),
+    > POST `/api/ipblock` sans `parent` (l'API auto-attache) + **page IP** : boîte « Add a
+    > record » (style page RR : select de type → formulaire pré-rendu, `initAddForm`/`initForms`),
+    > avant la section ARP — A Record (`/api/rr`), PTR (`/api/rrptr`), Service (`/api/ipservice`),
+    > Attribute (`/api/ipblockattr`), DHCP Host (`/api/dhcpscope`, si le parent subnet a du DHCP) ;
+    > zone A = select (zones forward éditables par l'user, défaut = zone de l'IP / ancêtre le plus
+    > proche), zone PTR = fixée à la zone inverse de l'IP (lecture seule, masquée si absente) ;
+    > selects = FK, `collect()` coercit les champs `data-nd-int` numériques en entier,
+    > **suppression** (batch sur les listes + détail, device `delete_ips`, **ipblock
    > « delete children »** : modale `<div>` `ndConfirm` + checkbox défaut off → sinon les
    > enfants sont re-rattachés au grand-père via `_tree_delete` ; overlay « Deleting… »
    > pendant l'écriture lente. Fix API : les options de delete sont comparées via

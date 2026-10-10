@@ -96,6 +96,136 @@ sub show ($c) {
             my @arp    = _ip_last_arp( $o );
             my @audit  = _ip_audit_records( $o );
 
+            # Option lists for the "Add a record" box (below) and the section
+            # visibility — mirrors legacy ip.html (ADD_A_RECORD /
+            # edit.html?table=RRPTR|IpService|IpblockAttr / VIEW_ADD_DHCP). Only
+            # computed when the user may edit; the API re-checks permissions on create.
+            #
+            # A record: the zone <select> offers the FORWARD (non-arpa) zones the user
+            # may edit — a User only their own (the API re-enforces can('edit',$zone) at
+            # write time, mirroring Browse#list's "New name" box); an Admin sees all.
+            # The default is this IP's forward zone (forward_zone()/dns_zones() already
+            # walks up to the nearest ancestor holding a zone), else the first editable.
+            # PTR record: the zone is FIXED to this IP's reverse zone (the only one
+            # matching its address) — rendered read-only, hidden from the submit.
+            my ( @a_zones, $a_def_id, $ptr_zone, @services_list, @contactlists_list, @attr_names_list );
+            my $dhcp_add = { enabled => 0, container => 0 };
+            if ( $can_edit ) {
+                # CDBI list-context: assign INSIDE the eval (the `eval {...} || ()`
+                # trap degrades wantarray -> retrieve_all yields an iterator).
+                my @zones;
+                eval { @zones = sort { $a->name cmp $b->name } Zone->retrieve_all };
+                @zones = () if $@;
+                # Forward zones the user may edit (a User only their own; Admin all).
+                my %zone_edit;
+                my $person = $c->current_person;
+                if ( defined $person && Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
+                    my $access = Netdot::Mojo::Permissions->allowed_objects( $person );
+                    %zone_edit = map { $_ => 1 } grep {
+                        my $a = $access->{Zone}{$_};
+                        ref $a && !exists $a->{none} && exists $a->{edit};
+                    } keys %{ $access->{Zone} || {} };
+                }
+                my @fwd_zones = grep { !$_->is_dot_arpa } @zones;
+                @fwd_zones = grep { $zone_edit{ $_->id } } @fwd_zones if keys %zone_edit;
+                push @a_zones, map { { id => $_->id, name => $_->get_label } } @fwd_zones;
+                # Default = this IP's forward zone (or nearest ancestor's) if it is
+                # editable; else the first editable forward zone.
+                my $fwd = eval { $o->forward_zone };
+                for my $z (@a_zones) { $a_def_id = $z->{id}, last if $fwd && $z->{id} == $fwd->id; }
+                $a_def_id = $a_zones[0]{id} unless $a_def_id;
+                # PTR: fixed to this IP's reverse zone (none -> not offered).
+                $ptr_zone = eval { $o->reverse_zone };
+                $ptr_zone = undef unless $ptr_zone && $ptr_zone->id;
+                my @svcs; eval { @svcs = Service->retrieve_all }; @svcs = () if $@;
+                push @services_list, map { { id => $_->id, name => $_->name } } @svcs;
+                my @cls; eval { @cls = ContactList->retrieve_all }; @cls = () if $@;
+                push @contactlists_list, map { { id => $_->id, name => $_->name } } @cls;
+                my @ans; eval { @ans = IpblockAttrName->retrieve_all }; @ans = () if $@;
+                push @attr_names_list, map { { id => $_->id, name => $_->name } } @ans;
+                my $parent = eval { $o->parent };
+                my @pscopes;
+                eval { @pscopes = $parent->dhcp_scopes };
+                @pscopes = () if $@;
+                if ( @pscopes ) {
+                    my $cont = eval { $pscopes[0]->container };
+                    $dhcp_add = { enabled => 1, container => eval { $cont->id } || 0 };
+                }
+            }
+
+            # "Add a record" box (RR-page style): one pre-rendered form per type,
+            # revealed by a type <select> and submitted via initForms (collect + POST).
+            # Mirrors legacy ip.html (ADD_A_RECORD / edit.html?table=RRPTR|IpService|
+            # IpblockAttr / VIEW_ADD_DHCP). Each entry follows the _rel_add_fields shape:
+            # { type => <api resource>, label, add => { hidden => {hash}, fields => [...] } }.
+            # Select/hidden ids are marked data-nd-int in the template; collect() coerces
+            # purely-numeric values to integers (FK ids) while names/addresses stay strings.
+            my @a_opt   = map { [ $_->{id}, $_->{name} ] } @a_zones;
+            my @svc_opt = map { [ $_->{id}, $_->{name} ] } @services_list;
+            my @cl_opt  = map { [ $_->{id}, $_->{name} ] } @contactlists_list;
+            my @att_opt = map { [ $_->{id}, $_->{name} ] } @attr_names_list;
+            my @add_types;
+            push @add_types, {
+                type  => 'rr',
+                label => 'DNS A Record',
+                add   => {
+                    hidden => { type => 'A', ipblock => $o->id },
+                    fields => [
+                        { tag => 'Name', kind => 'text',   name => 'name', value => '' },
+                        { tag => 'Zone', kind => 'select', name => 'zone', value => $a_def_id, options => \@a_opt },
+                    ],
+                },
+            } if @a_opt;
+            if ( $ptr_zone ) {
+                push @add_types, {
+                    type  => 'rrptr',
+                    label => 'DNS PTR Record',
+                    add   => {
+                        hidden => { ipblock => $o->id, zone => $ptr_zone->id },
+                        fields => [
+                            { tag => 'Zone',       kind => 'readonly', value => $ptr_zone->get_label },
+                            { tag => 'PTR target', kind => 'text',     name => 'ptrdname', value => '' },
+                        ],
+                    },
+                };
+            }
+            push @add_types, {
+                type  => 'ipservice',
+                label => 'Service',
+                add   => {
+                    hidden => { ip => $o->id },
+                    fields => [
+                        { tag => 'Service',      kind => 'select', name => 'service',     value => '', options => \@svc_opt },
+                        { tag => 'Contact list', kind => 'select', name => 'contactlist', value => '', options => \@cl_opt },
+                    ],
+                },
+            } if @svc_opt && @cl_opt;
+            push @add_types, {
+                type  => 'ipblockattr',
+                label => 'Custom Attribute',
+                add   => {
+                    hidden => { ipblock => $o->id },
+                    fields => [
+                        { tag => 'Attribute', kind => 'select', name => 'name',  value => '', options => \@att_opt },
+                        { tag => 'Value',     kind => 'text',   name => 'value', value => '' },
+                    ],
+                },
+            } if @att_opt;
+            if ( $dhcp_add->{enabled} ) {
+                my $dfield = ( $o->version == 6 )
+                    ? { tag => 'DUID',           kind => 'text', name => 'duid',     value => '' }
+                    : { tag => 'Ethernet (MAC)', kind => 'text', name => 'physaddr', value => '' };
+                push @add_types, {
+                    type  => 'dhcpscope',
+                    label => 'DHCP Host',
+                    add   => {
+                        hidden => { type => 'host', name => $o->address, ipblock => $o->id,
+                                    container => $dhcp_add->{container} },
+                        fields => [ $dfield ],
+                    },
+                };
+            }
+
             $c->render(
                 template    => 'management/ipaddress',
                 layout      => 'default',
@@ -114,6 +244,12 @@ sub show ($c) {
                 dhcp        => \@dhcp,
                 arp         => \@arp,
                 audit       => \@audit,
+                ip_version  => $o->version,
+                add_types   => \@add_types,
+                services_list    => \@services_list,
+                contactlists_list => \@contactlists_list,
+                attr_names_list   => \@attr_names_list,
+                dhcp_add    => $dhcp_add,
             );
             return;
         }
@@ -146,7 +282,10 @@ sub show ($c) {
             @modes = ( 'list' );
             if ( $v4 && $max && $prefix >= $max ) {
                 push @modes, 'block';
-                push @modes, 'tree';
+                # The tree view shows the block hierarchy (get_descendants, no addresses);
+                # a Subnet's children are individual addresses, so a tree is meaningless —
+                # only Containers get the tree mode.
+                push @modes, 'tree' unless $status eq 'Subnet';
             }
 
             # Effective view_format: requested (sanitized), defaulting to the config

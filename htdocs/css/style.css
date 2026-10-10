@@ -1210,7 +1210,28 @@ input[type=button]:hover {
     color: #444;
 }
 .nd-modal-check input { margin-top: 2px; flex: 0 0 auto; }
-.nd-modal-field { margin: 1em 0 0.2em; font-size: 0.92em; color: #444; }
+.nd-modal-field { margin: 0.8em 0 0.2em; font-size: 0.92em; color: #444; }
+.nd-modal-input {
+    display: block;
+    margin-top: 5px;
+    padding: 5px 8px;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
+    font-size: 0.95em;
+    background: #ffffff;
+}
+.nd-add-btn {
+    float: right;
+    margin: -2px 0 0 0.8em;
+    padding: 2px 9px;
+    font-size: 0.78em;
+    background: #e6f4ea;
+    color: #1e7e34;
+    border: 1px solid #bfe3c8;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.nd-add-btn:hover { background: #1e7e34; color: #ffffff; }
 .nd-modal-select {
     display: block;
     margin-top: 5px;

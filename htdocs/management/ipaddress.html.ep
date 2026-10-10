@@ -13,6 +13,11 @@
 % my $can_edit   = $c->stash->{can_edit};   # in-place edit
 % my $fields     = $c->stash->{fields}   // [];
 % my $api_path   = $c->stash->{api_path} // '';
+% my $ip_version = $c->stash->{ip_version} // 4;
+% my $services_l = $c->stash->{services_list}    // [];
+% my $contacts_l = $c->stash->{contactlists_list} // [];
+% my $attrnames_l= $c->stash->{attr_names_list}  // [];
+% my $dhcp_add   = $c->stash->{dhcp_add}    // { enabled => 0, container => 0 };
 %# Breadcrumb: Roots > a > b > (current, bold).
 % if ($current) {
     <div class="breadcrumb" style="margin:0 0 1em 0; font-size:0.95em">
@@ -26,6 +31,7 @@
     <span style="color:#999"> » </span><strong><%= $current->get_label %></strong>
     </div>
 % }
+% my $add_types  = $c->stash->{add_types}  // [];
 % if ( $can_edit && @$fields ) {
 <button type="button" class="btn" id="nd-edit-toggle" style="margin:0 0 0.5em 0">Edit</button>
 % }
@@ -121,10 +127,13 @@
 </div>
 
 %# Services
-% if (@$services) {
+% if (@$services || ($can_edit && @$services_l && @$contacts_l)) {
 <div class="container">
     <div class="containerhead">Services</div>
     <div class="containerbody" style="padding:0.6em">
+    % if (!@$services) {
+        <p style="color:#888">None.</p>
+    % } else {
         <table class="datatable" style="width:100%">
             <thead><tr><th>Service</th><th>Contact List</th></tr></thead>
             <tbody>
@@ -133,15 +142,19 @@
             % }
             </tbody>
         </table>
+    % }
     </div>
 </div>
 % }
 
 %# Custom Attributes
-% if (@$attributes) {
+% if (@$attributes || ($can_edit && @$attrnames_l)) {
 <div class="container">
     <div class="containerhead">Custom Attributes</div>
     <div class="containerbody" style="padding:0.6em">
+    % if (!@$attributes) {
+        <p style="color:#888">None.</p>
+    % } else {
         <table class="datatable" style="width:100%">
             <thead><tr><th>Name</th><th>Value</th></tr></thead>
             <tbody>
@@ -150,15 +163,19 @@
             % }
             </tbody>
         </table>
+    % }
     </div>
 </div>
 % }
 
 %# DHCP Host
-% if (@$dhcp) {
+% if (@$dhcp || ($can_edit && $dhcp_add->{enabled})) {
 <div class="container">
     <div class="containerhead">DHCP Host</div>
     <div class="containerbody" style="padding:0.6em">
+    % if (!@$dhcp) {
+        <p style="color:#888">None.</p>
+    % } else {
         <table class="datatable" style="width:100%">
             <thead><tr><th>Type</th><th>Name</th><th>Ethernet</th><th>DUID</th><th>Active?</th></tr></thead>
             <tbody>
@@ -173,6 +190,70 @@
             % }
             </tbody>
         </table>
+    % }
+    </div>
+</div>
+% }
+
+%# Add a record (unified box, RR-page style): a type <select> reveals the matching
+%# pre-rendered form; initForms POSTs collect(form) to data-nd-api. data-nd-int marks
+%# FK id fields; collect() coerces purely-numeric values to integers (leaves names/
+%# addresses as strings). Placed before the read-only ARP section.
+% if ( $can_edit && @$add_types ) {
+<div class="container">
+    <div class="containerhead">Add a record</div>
+    <div class="containerbody" style="padding:0.6em">
+        <p style="margin-bottom:0.5em">
+            Type:
+            <select id="nd-add-type" class="nd-add-select">
+                <option value="">-- Choose a record type --</option>
+                % for my $t ( @$add_types ) {
+                <option value="<%= $t->{type} %>"><%= $t->{label} %></option>
+                % }
+            </select>
+        </p>
+        % for my $t ( @$add_types ) {
+        <form class="nd-rec-form nd-add-form" data-nd-type="<%= $t->{type} %>"
+              data-nd-api="<%= $c->web_prefix %>/api/<%= $t->{type} %>"
+              data-nd-method="POST" style="display:none;margin-top:0.5em">
+            <table class="datatable detail">
+                <tbody>
+                % for my $h ( sort keys %{ $t->{add}{hidden} } ) {
+                <tr><td colspan="2"><input type="hidden" name="<%= $h %>" value="<%= $t->{add}{hidden}{$h} %>" data-nd-int></td></tr>
+                % }
+                % for my $f ( @{ $t->{add}{fields} } ) {
+                <tr>
+                    <th><%= $f->{tag} %></th>
+                    <td>
+                        % if ( $f->{kind} eq 'number' ) {
+                        <input type="number" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+                        % } elsif ( $f->{kind} eq 'textarea' ) {
+                        <textarea name="<%= $f->{name} %>" rows="2"><%= $f->{value} %></textarea>
+                        % } elsif ( $f->{kind} eq 'readonly' ) {
+                        <input type="text" value="<%= $f->{value} %>" disabled>
+                        % } elsif ( $f->{kind} eq 'select' ) {
+                        <select name="<%= $f->{name} %>" data-nd-int>
+                            % unless ( $f->{value} ) {
+                            <option value=""></option>
+                            % }
+                            % for my $opt ( @{ $f->{options} } ) {
+                            <option value="<%= $opt->[0] %>"<%== ( $f->{value} && $opt->[0] == $f->{value} ) ? ' selected' : '' %>><%= $opt->[1] %></option>
+                            % }
+                        </select>
+                        % } else {
+                        <input type="text" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+                        % }
+                    </td>
+                </tr>
+                % }
+                </tbody>
+            </table>
+            <p style="margin-top:0.4em">
+                <button type="submit" class="btn">Add</button>
+                <button type="button" class="btn nd-add-cancel" style="margin-left:0.5em">Cancel</button>
+            </p>
+        </form>
+        % }
     </div>
 </div>
 % }

@@ -362,9 +362,29 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
     Container/Reserved/Subnet (default Container); an **address** offers Static/Reserved
     (+ Dynamic only when `data-nd-dhcp`). OK POSTs the chosen status (no `parent` — the API
     auto-attaches) and redirects to the new block's detail page so the user can add info
-    (description, a DNS A/AAAA record for a hostname, owner, …). Discovered (discovery tools)
-    and, for a *new* block, a Static/Container status, are not offered.
-  - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
+     (description, a DNS A/AAAA record for a hostname, owner, …). Discovered (discovery tools)
+     and, for a *new* block, a Static/Container status, are not offered.
+     **IP address — adding related objects** (2026-10-10): the individual-address view
+     (`ipaddress.html.ep`) has a single "Add a record" box (RR-page style: a type
+     `<select>` reveals one pre-rendered form; reuses `initAddForm`/`initForms`), placed
+     before the read-only ARP section. It is meta-built in the controller as an `add_types`
+     list (the `_rel_add_fields` shape: `{type, label, add:{hidden, fields}}`) and offers,
+     each `POST`-ing to the JSON API: A Record (`/api/rr` `{type:A, name, zone, ipblock}`),
+     PTR (`/api/rrptr` `{ptrdname, zone, ipblock}` — the model creates the owner RR),
+     Service (`/api/ipservice` `{service, contactlist, ip}`), Custom Attribute
+     (`/api/ipblockattr` `{name, value, ipblock}`), and DHCP Host (`/api/dhcpscope`
+     `{type:host, name, ipblock, container, physaddr|duid}`, only when the Subnet parent has
+     DHCP scopes). Zone handling: the **A-record** zone `<select>` offers the forward
+     (non-arpa) zones the user may edit (a User only their own — `allowed_objects`
+     `{Zone}{id}` with an `edit` action, mirroring `Browse#list`'s "New name" box; an Admin
+     sees all), pre-selecting this IP's forward zone (`forward_zone()`/`dns_zones()` walks up
+     to the nearest ancestor holding a zone) and falling back to the first. The **PTR** zone
+     is **fixed** to this IP's reverse zone (`reverse_zone()`, the only one matching its
+     address) — rendered read-only and sent as a hidden field, and the type is omitted when
+     there is no reverse zone. The selects/hidden id fields carry `data-nd-int`; `netdot.js
+     collect()` coerces a purely-numeric value to an integer so FK ids go out numeric
+     (names/addresses stay strings). This replaced an earlier per-section "Add" modal approach.
+   - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
    `_rr_sections`, `_rel_record`, `_search_all`, `_name_link`, `_obj_link`) + search.
    Now also renders the shared edit form (name, zone, active, auto_update, expiration,
    info → JSON API PATCH); the system timestamps `created`/`modified` are excluded (not

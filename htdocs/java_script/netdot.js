@@ -66,7 +66,9 @@
   }
 
   // Collect a form's named inputs/selects/textarea into a JSON body.
-  // checkboxes -> true/false, selects -> id (string) or null, others -> string.
+  // checkboxes -> true/false, selects -> id or null, others -> string.
+  // Fields marked data-nd-int that hold a purely-numeric value are sent as an
+  // integer (FK ids); non-numeric values (types, addresses) are left as strings.
   function collect(form) {
     var body = {};
     var els = form.querySelectorAll('input[name], select[name], textarea[name]');
@@ -74,6 +76,8 @@
       var el = els[i];
       if (el.type === 'checkbox') {
         body[el.name] = el.checked;
+      } else if (el.hasAttribute('data-nd-int') && /^\d+$/.test(el.value)) {
+        body[el.name] = parseInt(el.value, 10);
       } else if (el.tagName === 'SELECT') {
         body[el.name] = el.value === '' ? null : el.value;
       } else {
