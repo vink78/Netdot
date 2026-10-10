@@ -429,8 +429,13 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 
  > **État écriture (2026-10-09)** : l'écriture se fait **via l'API JSON** (plus de pages HTML
  > d'écriture legacy). Porté **in-situ** dans l'UI : **édition** (détail générique + dédié
- > device/zone/contactlist/closet/ipblock/ipaddress/rr + par-record + RRAttr admin), **création**
- > (boîte générique « New \<type\> » sur les listes + RR New name / Add a record / Add alias),
+  > device/zone/contactlist/closet/ipblock/ipaddress/rr + par-record + RRAttr admin), **création**
+  > (boîte générique « New \<type\> » sur les listes + RR New name / Add a record / Add alias +
+   > **ipblock** : boîte « New Ipblock » sur les racines + **clic-to-create** (Mason `ADD_BLOCK`)
+   > : sur la vue container, clic sur une partition libre ; sur la vue subnet, clic sur une IP
+   > non assignée → modale « does not yet exist, create it ? » + select statut (bloc :
+   > Container/Reserved/Subnet, défaut Container ; IP : Static/Reserved/+Dynamic si DHCP),
+   > POST `/api/ipblock` sans `parent` (l'API auto-attache),
    > **suppression** (batch sur les listes + détail, device `delete_ips`, **ipblock
    > « delete children »** : modale `<div>` `ndConfirm` + checkbox défaut off → sinon les
    > enfants sont re-rattachés au grand-père via `_tree_delete` ; overlay « Deleting… »

@@ -176,6 +176,8 @@ sub show ($c) {
                     $grid = _build_subnet_grid( $o );               # the address grid
                 } else {
                     # Container: the proportional usage visualization (port of container.mhtml).
+                    # Free-partition cells carry data-nd-create so clicking one opens the
+                    # "create block" modal (Mason ADD_BLOCK).
                     $container_grid = _build_container_grid_html(
                         $o,
                         rowsize => $c->param('rowsize'),
@@ -497,7 +499,8 @@ sub _build_container_grid_html {
     my $cellsperrow = ( $rowsize >= 22 ) ? 1024 : 2 ** ( 32 - $rowsize );
 
     my @children  = sort { $a->address_numeric <=> $b->address_numeric } _ipblock_children( $o );
-    my @freespace = sort { $a->numeric <=> $b->numeric } $o->free_space( $divide );
+    my @freespace = $opt{freespace} ? @{ $opt{freespace} }
+                    : sort { $a->numeric <=> $b->numeric } $o->free_space( $divide );
 
     my $base_url = Netdot::Mojo::Registry::set_uri( '/management/ipblock/' . $o->id . '?view_format=block' );
     my $html     = '';
@@ -525,14 +528,18 @@ sub _build_container_grid_html {
     my $prevclass = '';
     my $needtr    = 1;
     while ( @children || @freespace ) {
-        my ( $class, $rowtitle, $title, $width, $link );
+        my ( $class, $rowtitle, $title, $width, $link, $data );
         if ( ! @children || ( @freespace && $freespace[0]->numeric < $children[0]->address_numeric ) ) {
             my $child = shift @freespace;
             $class = 'ipaddr_available';
             $class .= '_2' if $prevclass eq $class;
             $rowtitle = $child->addr;
             $title    = $child;
-            $link     = '#';    # "add block" write action not yet migrated
+            $link     = '#';
+            # Clicking a free partition opens the "create block" modal (Mason ADD_BLOCK);
+            # the cell carries the partition CIDR. The API auto-attaches the new block
+            # to the smallest containing parent, so no parent id is posted.
+            $data     = 'data-nd-create="' . $child->addr . '/' . $child->masklen . '"';
             $width = ( $rowsize >= 22 ) ? ( 2 ** ( 32 - $child->masklen ) ) * ( 2 ** ( $rowsize - 22 ) ) : 2 ** ( 32 - $child->masklen );
             $count += $width;
             $prevclass = $class;
@@ -548,6 +555,7 @@ sub _build_container_grid_html {
             $width = ( $rowsize >= 22 ) ? ( 2 ** ( 32 - $child->prefix ) ) * ( 2 ** ( $rowsize - 22 ) ) : 2 ** ( 32 - $child->prefix );
             $count += $width;
             $link      = Netdot::Mojo::Registry::set_uri( '/management/ipblock/' . $child->id );
+            $data      = '';
             $prevclass = $class;
         }
         else {
@@ -563,7 +571,7 @@ sub _build_container_grid_html {
         if ( $width > $cellsperrow ) {
             my $height = $width / $cellsperrow * 15;
             $html .= '<td title="' . _esc( $title ) . '"><a href="' . $link . '" class="' . $class
-                   . '" style="display:block;width:' . $cellsperrow . 'px;border:0;height:' . $height . 'px"><table>';
+                   . '" ' . $data . ' style="display:block;width:' . $cellsperrow . 'px;border:0;height:' . $height . 'px"><table>';
             for ( my $i = 0; $i < $width / $cellsperrow; $i++ ) {
                 $html .= '<tr><td></td></tr>';
             }
@@ -571,7 +579,7 @@ sub _build_container_grid_html {
         }
         else {
             $html .= '<td title="' . _esc( $title ) . '"><a href="' . $link . '" class="' . $class
-                   . '" style="display:block;width:' . $width . 'px;border:0;height:15px"></a></td>';
+                   . '" ' . $data . ' style="display:block;width:' . $width . 'px;border:0;height:15px"></a></td>';
         }
 
         if ( $count >= $cellsperrow ) {
@@ -597,6 +605,9 @@ sub _build_subnet_grid {
 
     # Used addresses in this subnet (id, numeric address, description, status, dns, device).
     my $id  = $o->id;
+    # "Dynamic" is a valid status for a new address only if this (Subnet) parent has DHCP
+    # scopes (Model::Ipblock::_validate). The create modal offers it when this is true.
+    my $has_dhcp = eval { $o->dhcp_scopes } ? 1 : 0;
     my $dbh = Netdot::Model->db_Main();
     my $q   = "SELECT ipblock.id, ipblock.address, ipblock.description, ipblockstatus.name, rr.name, device.id
                FROM ipblockstatus, ipblock
@@ -650,9 +661,17 @@ sub _build_subnet_grid {
             } else {
                 my $inner = qq{<div class="$divclass" title="$divtitle" width="100%">$disp</div>};
                 my $aid   = $ids{ $net->numeric };
-                $cell = ( exists $used{ $net->numeric } && $aid )
-                    ? qq{<a href="} . Netdot::Mojo::Registry::set_uri( "/management/ipblock/$aid" ) . qq{" class="ipaddr">$inner</a>}
-                    : $inner;
+                if ( exists $used{ $net->numeric } && $aid ) {
+                    $cell = qq{<a href="} . Netdot::Mojo::Registry::set_uri( "/management/ipblock/$aid" ) . qq{" class="ipaddr">$inner</a>};
+                } else {
+                    # Unassigned address: clickable to create it (Mason ADD_BLOCK for an IP).
+                    # The cell carries the /32 (or /128) CIDR; the API auto-attaches it to
+                    # this subnet. data-nd-dhcp lets the modal offer the Dynamic status.
+                    my $cidr  = $net->addr . '/' . $bits;
+                    my $attrs = qq{data-nd-create="$cidr"};
+                    $attrs .= ' data-nd-dhcp="1"' if $has_dhcp;
+                    $cell = qq{<a class="ipaddr" href="#" $attrs>$inner</a>};
+                }
             }
             push @row, $cell;
             $net++;

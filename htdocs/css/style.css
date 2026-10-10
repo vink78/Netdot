@@ -1210,6 +1210,16 @@ input[type=button]:hover {
     color: #444;
 }
 .nd-modal-check input { margin-top: 2px; flex: 0 0 auto; }
+.nd-modal-field { margin: 1em 0 0.2em; font-size: 0.92em; color: #444; }
+.nd-modal-select {
+    display: block;
+    margin-top: 5px;
+    padding: 5px 8px;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
+    font-size: 0.95em;
+    background: #ffffff;
+}
 .nd-modal-row {
     display: flex;
     justify-content: flex-end;
@@ -1218,6 +1228,8 @@ input[type=button]:hover {
 }
 .nd-modal .nd-modal-ok { background: #fdecea; color: #c62828; border-color: #f0b3ac; }
 .nd-modal .nd-modal-ok:hover { background: #c62828; color: #ffffff; border-color: #c62828; }
+.nd-modal .nd-modal-create { background: #e6f4ea; color: #1e7e34; border-color: #bfe3c8; }
+.nd-modal .nd-modal-create:hover { background: #1e7e34; color: #ffffff; border-color: #1e7e34; }
 
 /* ---------- Busy overlay (netdot.js: slow writes, e.g. recursive delete) ---------- */
 .nd-busy {

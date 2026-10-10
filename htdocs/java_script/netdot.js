@@ -383,6 +383,89 @@
     }
   }
 
+  // "Create block/IP" modal (Mason ADD_BLOCK): shown when clicking a free partition
+  // (container view) or an unassigned address (subnet view). Confirms the creation of
+  // a not-yet-existing IP address or block and lets the user pick the status —
+  // block: Container/Reserved/Subnet (default Container); address: Static/Reserved
+  // (+ Dynamic when the Subnet parent has DHCP). POSTs /api/ipblock, reloads on success.
+  function ndCreateIpblock(opts) {
+    var parts  = opts.address.split('/');
+    var prefix = parts.length > 1 ? parseInt(parts[1], 10) : (parts[0].indexOf(':') >= 0 ? 128 : 32);
+    var isAddr = (prefix === 32 || prefix === 128);
+    var statuses = isAddr
+      ? (['Static', 'Reserved'].concat(opts.dhcp ? ['Dynamic'] : []))
+      : ['Container', 'Reserved', 'Subnet'];
+    var defStatus = isAddr ? 'Static' : 'Container';
+    return new Promise(function (resolve) {
+      var ov = document.createElement('div'); ov.className = 'nd-modal-ov';
+      var card = document.createElement('div'); card.className = 'nd-modal';
+      var msg = document.createElement('div'); msg.className = 'nd-modal-msg';
+      msg.textContent = 'The IP address or block ' + opts.address + ' does not yet exist. Are you sure that you want to create it?';
+      card.appendChild(msg);
+      var selWrap = document.createElement('div'); selWrap.className = 'nd-modal-field';
+      var sel = document.createElement('select'); sel.className = 'nd-modal-select';
+      for (var i = 0; i < statuses.length; i++) {
+        var op = document.createElement('option');
+        op.value = statuses[i]; op.textContent = statuses[i];
+        if (statuses[i] === defStatus) { op.selected = true; }
+        sel.appendChild(op);
+      }
+      selWrap.appendChild(sel);
+      card.appendChild(selWrap);
+      var row = document.createElement('div'); row.className = 'nd-modal-row';
+      var okBtn = document.createElement('button'); okBtn.type = 'button'; okBtn.className = 'btn nd-modal-create'; okBtn.textContent = 'Create';
+      var cancelBtn = document.createElement('button'); cancelBtn.type = 'button'; cancelBtn.className = 'btn'; cancelBtn.textContent = 'Cancel';
+      row.appendChild(okBtn); row.appendChild(cancelBtn); card.appendChild(row);
+      ov.appendChild(card); document.body.appendChild(ov); okBtn.focus();
+      function close() {
+        document.removeEventListener('keydown', onKey, true);
+        if (ov.parentNode) { ov.parentNode.removeChild(ov); }
+      }
+      function onKey(e) { if (e.key === 'Escape') { close(); resolve({ ok: false }); } }
+      document.addEventListener('keydown', onKey, true);
+      okBtn.addEventListener('click', function () {
+        var st = sel.value;
+        okBtn.disabled = true;
+        spinner(true, 'Creating ' + opts.address + '…');
+        // API base derives from the page URL (…/<prefix>/management/… → <prefix>/api/ipblock);
+        // the API auto-attaches the new block to its parent, so no `parent` in the body.
+        var base = location.pathname.split('/management')[0] + '/api/ipblock';
+        api('POST', base, { address: opts.address, status: st }).then(function (res) {
+          spinner(false);
+          if (res.ok) {
+            // Go to the new block's detail page so the user can add info (description,
+            // DNS A/AAAA record for a hostname, owner, …) right away.
+            close(); status(true, 'Created');
+            var pid = res.data && res.data.id;
+            var prefix = location.pathname.split('/management')[0];
+            setTimeout(function () { location.href = pid ? prefix + '/management/ipblock/' + pid : location.href.replace(/[?#].*$/, ''); }, 600);
+            resolve({ ok: true });
+          }
+          else { close(); status(false, (res.data && res.data.error) ? res.data.error : ('Error ' + res.status), 8000); resolve({ ok: false }); }
+        });
+      });
+      cancelBtn.addEventListener('click', function () { close(); resolve({ ok: false }); });
+      ov.addEventListener('click', function (e) { if (e.target === ov) { close(); resolve({ ok: false }); } });
+    });
+  }
+
+  // Clickable free cells — container free partitions + subnet unassigned addresses —
+  // open the "create block/IP" modal above.
+  function initCreateBlocks() {
+    var cells = document.querySelectorAll('[data-nd-create]');
+    for (var i = 0; i < cells.length; i++) {
+      cells[i].addEventListener('click', function (e) {
+        e.preventDefault();
+        var cidr = this.getAttribute('data-nd-create');
+        if (!cidr) { return; }
+        ndCreateIpblock({
+          address: cidr,
+          dhcp:    this.getAttribute('data-nd-dhcp') === '1'
+        });
+      });
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
     initToggle();
@@ -390,6 +473,7 @@
     initRecDeletes();
     initAddForm();
     initFkSearch();
+    initCreateBlocks();
   });
 
   window.ND = { api: api, status: status, collect: collect };

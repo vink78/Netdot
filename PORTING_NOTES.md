@@ -346,9 +346,25 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
    roots list when parentless) + `nd_children` (direct-children count, so the UI shows the
    choice only when there are children — like legacy Mason `ip.html`). The JS appends
    `?recursive=1` only when checked; the API threads it to `Ipblock->delete(recursive=>1)`.
-   The model already handled the non-recursive case via `_tree_delete` (children re-attach
-   to the block's parent / become roots).
- - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
+    The model already handled the non-recursive case via `_tree_delete` (children re-attach
+    to the block's parent / become roots).
+    **Creation** (2026-10-10): two entry points, both posting to `POST /api/ipblock`
+    (`{address, status, parent}` → `Ipblock->insert`; a duplicate `address`+`prefix` is a
+    DB unique violation → 400, shown as a status box — no pre-check in the UI):
+    (a) a "New Ipblock" box on the roots list (`Browse#list`, shown when `can('edit')`) —
+    `address` (CIDR) + `status`; (b) **click-to-create** (Mason `ADD_BLOCK`): on the
+    container **block view** every free partition is clickable, and on a Subnet **block
+    view** every unassigned address is. A free cell carries `data-nd-create` (the partition
+    CIDR or the `/32`/`/128` address) + `data-nd-parent` (this block's id) and, for an
+    address, `data-nd-dhcp` when the Subnet parent has DHCP scopes. Clicking it opens a
+    confirm modal — *"The IP address or block X does not yet exist. Are you sure that you
+    want to create it?"* — with a status `<select>`: a **block** (prefix < 32/128) offers
+    Container/Reserved/Subnet (default Container); an **address** offers Static/Reserved
+    (+ Dynamic only when `data-nd-dhcp`). OK POSTs the chosen status (no `parent` — the API
+    auto-attaches) and redirects to the new block's detail page so the user can add info
+    (description, a DNS A/AAAA record for a hostname, owner, …). Discovered (discovery tools)
+    and, for a *new* block, a Static/Container status, are not offered.
+  - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
    `_rr_sections`, `_rel_record`, `_search_all`, `_name_link`, `_obj_link`) + search.
    Now also renders the shared edit form (name, zone, active, auto_update, expiration,
    info → JSON API PATCH); the system timestamps `created`/`modified` are excluded (not
