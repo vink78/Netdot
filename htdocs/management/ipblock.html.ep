@@ -33,6 +33,7 @@
 % my $show_children = $current ? ( $view eq 'Children' || $view eq 'All' ) : 1;
 % my $rootversion = $c->stash->{rootversion} // 'all';
 % my $show_util   = $c->stash->{show_util} ? 1 : 0;
+% my $can_create  = $c->stash->{can_create};   # "New Ipblock" box (roots view only)
 %# Utilization column: always on a block's Children view; on the roots list it is
 %# toggled by show_util (the "Show Utilization" checkbox).
 % my $util = $is_addr ? 0 : ( $current ? 1 : $show_util );
@@ -72,7 +73,8 @@
     <label>Show Utilization</label>
   </form>
 </div>
-<div class="container" style="margin-bottom:1em">
+<div class="cardrow" style="margin-bottom:1em; align-items:flex-start">
+<div class="container">
   <div class="containerhead">Search Address Space</div>
   <div class="containerbody" style="padding:0.6em">
     <form method="get" action="<%= url_for('ipblock_search') %>">
@@ -97,6 +99,31 @@
       </p>
     </form>
   </div>
+</div>
+% if ($can_create) {
+<div class="container">
+  <div class="containerhead">New Ipblock</div>
+  <div class="containerbody" style="padding:0.6em">
+    <form data-nd-api="<%= $c->web_prefix %>/api/ipblock" data-nd-method="POST" data-nd-redirect="<%= $c->web_prefix %>/management/ipblock/">
+      <p>
+        <label>IP/prefix:</label>
+        <input type="text" name="address" class="longtxt" required placeholder="10.0.0.0/24">
+      </p>
+      <p>
+        <label>Status:</label>
+        <select name="status" required>
+          <option value="Container">Container</option>
+          <option value="Subnet">Subnet</option>
+          <option value="Static">Static</option>
+          <option value="Reserved">Reserved</option>
+        </select>
+        <input type="submit" value="Create" class="btn">
+      </p>
+    </form>
+    <p style="margin:0.5em 0 0; font-size:0.9em">Creates a new block or address. If it fits within an existing block, the tree attaches it as a child automatically.</p>
+  </div>
+</div>
+% }
 </div>
 % }
 

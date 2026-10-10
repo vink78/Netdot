@@ -89,6 +89,12 @@ sub list ($c) {
             }
             @roots = grep { $keep{ $_->id } } @roots;
         }
+        # "New Ipblock" box (roots view only): shown when the user may create a
+        # block (class-level 'edit', re-enforced by the API's _can_create at write
+        # time). The model's insert() validates address/status (a bad combo -> 400),
+        # and a duplicate (same address+prefix) -> 400 (unique constraint), so the
+        # UI needs no pre-check / confirm (the error surfaces directly).
+        my $can_create = Netdot::Mojo::Permissions->has_action( $class, $person, 'edit' );
         $c->render(
             template    => 'management/ipblock',
             layout      => 'default',
@@ -98,6 +104,7 @@ sub list ($c) {
             breadcrumb  => [],
             rootversion => $rootversion,
             show_util   => $show_util,
+            can_create  => $can_create,
         );
         return;
     }
