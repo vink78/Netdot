@@ -16,6 +16,8 @@
 % my $block_attrs = $c->stash->{block_attrs};    # arrayref of [label, value_html] (block detail only)
 % my $can_edit   = $c->stash->{can_edit};   # in-place edit (block detail only)
 % my $fields     = $c->stash->{fields}   // [];  # edit form fields (block detail only)
+% use JSON;
+% my $json = JSON->new->canonical;
 % my $api_path   = $c->stash->{api_path} // '';  # JSON API PATCH path
 % my $can_delete = $c->stash->{can_delete};      # page-level delete (block detail only)
 % my $del_path   = $c->stash->{del_path} // '';  # JSON API DELETE path
@@ -41,6 +43,13 @@
 % my $rights       = $c->stash->{rights}       // [];  # [{type,name,subject_html,access,access_name,del_subject}...]
 % my $right_users  = $c->stash->{right_users};   # [[id,label]...] for the "Add rights" form
 % my $right_groups = $c->stash->{right_groups};  # [[id,label]...] for the "Add rights" form
+% my $entities     = $c->stash->{entities}      // [];  # [[id,name]...] for the range form
+% my $range_fzones = $c->stash->{range_fzones}  // [];  # [[id,name]...] for the range form
+% my $fzone_default = $c->stash->{fzone_default};        # pre-select fzone
+% my $range_first  = $c->stash->{range_first}  // '';   # default start IP
+% my $range_last   = $c->stash->{range_last}   // '';   # default end IP
+% my $range_dns_prefix = $c->stash->{range_dns_prefix} // '';
+% my $range_dns_suffix = $c->stash->{range_dns_suffix} // '';
 %# Children (list/grid/tree) show on the roots page (no current) or on Children/All.
 % my $show_children = $current ? ( $view eq 'Children' || $view eq 'All' ) : 1;
 % my $rootversion = $c->stash->{rootversion} // 'all';
@@ -191,6 +200,15 @@
   % for my $m (@$modes) {
     <a class="tab<%= $viewformat eq $m ? ' active' : '' %>" href="<%= $c->web_prefix %>/management/ipblock/<%= $current->id %>?view_format=<%= $m %>"><%= $m eq 'list' ? 'List' : $m eq 'block' ? 'Block' : 'Tree' %> View</a>
   % }
+  % if ($can_edit && $current->status && $current->status->name eq 'Subnet') {
+    <button type="button" class="btn btn-sm" id="nd-range-btn"
+            data-nd-range-id="<%= $current->id %>"
+            data-nd-range-first="<%= $range_first // '' %>"
+            data-nd-range-last="<%= $range_last // '' %>"
+            data-nd-range-api="<%= $c->web_prefix %>/api/ipblock/<%= $current->id %>/range"
+            style="margin-left:0.6em">Range</button>
+    <span style="margin-left:0.6em; font-size:0.85em; color:#666">Click Range to select a range of IPs on the grid (click or drag), then choose options and create.</span>
+  % }
   </div>
 % }
 %# Children: address grid (subnet), container grid, tree graph, or the table.
@@ -277,56 +295,15 @@
 % }
 
 % if ($current && $can_edit && $current->status && $current->status->name eq 'Subnet') {
-<div class="container" style="margin-top:0.6em">
-    <div class="containerhead">Add IP Range</div>
-    <div class="containerbody" style="padding:0.6em">
-    <form data-nd-api="<%= $c->web_prefix %>/api/ipblock/<%= $current->id %>/range" data-nd-method="POST" style="margin-top:0.4em">
-    <table class="datatable detail" style="width:100%">
-        <tbody>
-        <tr><th>Start IP</th><td><input type="text" name="start" required value="<%= $range_first // '' %>"></td></tr>
-        <tr><th>End IP</th><td><input type="text" name="end" required value="<%= $range_last // '' %>"></td></tr>
-        <tr><th>Status</th><td>
-            <select name="status" required>
-                <option value="">--SELECT--</option>
-                <option value="Static">Static</option>
-                <option value="Reserved">Reserved</option>
-                <option value="Dynamic">Dynamic</option>
-            </select>
-        </td></tr>
-        <tr><th>Owner</th><td>
-            <select name="owner" data-nd-int>
-                <option value="">--SELECT--</option>
-                % for my $e (@$entities) {
-                <option value="<%= $e->[0] %>"><%= $e->[1] %></option>
-                % }
-            </select>
-        </td></tr>
-        <tr><th>Used By</th><td>
-            <select name="used_by" data-nd-int>
-                <option value="">--SELECT--</option>
-                % for my $e (@$entities) {
-                <option value="<%= $e->[0] %>"><%= $e->[1] %></option>
-                % }
-            </select>
-        </td></tr>
-        <tr><th>Description</th><td><input type="text" name="description"></td></tr>
-        <tr><th>Auto-generate DNS</th><td><input type="checkbox" name="gen_dns" value="1"></td></tr>
-        <tr><th>DNS name prefix</th><td><input type="text" name="name_prefix" placeholder="e.g. host"></td></tr>
-        <tr><th>DNS name suffix</th><td><input type="text" name="name_suffix"></td></tr>
-        <tr><th>Forward Zone</th><td>
-            <select name="fzone" data-nd-int>
-                <option value="">--SELECT--</option>
-                % for my $z (@$range_fzones) {
-                <option value="<%= $z->[0] %>"<%= ' selected' if $z->[0] == ($fzone_default // 0) %>><%= $z->[1] %></option>
-                % }
-            </select>
-        </td></tr>
-        </tbody>
-    </table>
-    <p style="margin-top:0.4em"><button type="submit" class="btn">Create range</button></p>
-    </form>
-    </div>
-</div>
+    <script>
+      window.ND_RANGE_DATA = {
+        entities: <%== $json->encode($entities // []) %>,
+        fzones: <%== $json->encode($range_fzones // []) %>,
+        fzoneDefault: <%== $json->encode($fzone_default // '') %>,
+        dnsPrefix: <%== $json->encode($range_dns_prefix) %>,
+        dnsSuffix: <%== $json->encode($range_dns_suffix) %>
+      };
+    </script>
 % }
 
 %# ---- Section-tab body (block detail) ----

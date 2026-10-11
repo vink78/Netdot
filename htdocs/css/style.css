@@ -468,6 +468,29 @@ html>body, html>body #contents {
     .ipaddr_container_2 { background-color: #eedd66; }
     .ipaddr_discovered { background-color: #9999ff; }
     .ipaddr_discovered_2 { background-color: #0000ee; }
+    .ipaddr-range-selected { background-color: #44aaff !important; opacity: 0.85; }
+    .nd-range-mode .ipaddr:not(.ipaddr_disabled) { cursor: crosshair; }
+    .nd-range-mode .ipaddr:not(.ipaddr_disabled):hover { outline: 2px solid #2277cc; }
+
+    .nd-range-panel {
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: #fff; border: 1px solid #ccc; border-radius: 6px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.25); padding: 1em; z-index: 10000;
+        width: 320px; font-size: 0.9em;
+    }
+    .nd-range-panel h4 { margin: 0 0 0.5em; font-size: 1.05em; cursor: move; user-select: none;
+        display: flex; justify-content: space-between; align-items: center; }
+    .nd-range-panel h4 .nd-range-close { cursor: pointer; font-size: 1.2em; color: #888; }
+    .nd-range-panel h4 .nd-range-close:hover { color: #333; }
+    .nd-range-panel label { display: block; margin: 0.35em 0 0.1em; font-weight: 600; }
+    .nd-range-panel input, .nd-range-panel select {
+        width: 100%; padding: 0.25em 0.4em; border: 1px solid #ccc; border-radius: 4px;
+        font-size: 0.95em; box-sizing: border-box;
+    }
+    .nd-range-panel .nd-range-row { display: flex; gap: 0.5em; }
+    .nd-range-panel .nd-range-row > div { flex: 1; }
+    .nd-range-panel .nd-range-actions { margin-top: 0.6em; display: flex; gap: 0.4em; }
+    .nd-range-panel .nd-range-info { color: #555; margin-bottom: 0.5em; font-size: 0.9em; }
 
 
     .ipaddr_disabled:hover { background-color: #eeeeee; }

@@ -392,7 +392,7 @@ sub show ($c) {
         #  - Zones: forward-zone options (active non-arpa, not already linked) for
         #    "Add forward zone" (POST /api/subnetzone), and the block's arpa names
         #    not yet existing as a zone for "Add reverse zone" (POST /api/zone).
-        my ( $attr_names, $dhcp_globals, $dhcp_router, $site_list, $fzone_options, $rzone_names, $stash_entities, $stash_fzones, $stash_fzone_default, $stash_range_first, $stash_range_last );
+        my ( $attr_names, $dhcp_globals, $dhcp_router, $site_list, $fzone_options, $rzone_names, $stash_entities, $stash_fzones, $stash_fzone_default, $stash_range_first, $stash_range_last, $stash_range_dns_prefix, $stash_range_dns_suffix );
         if ( $can_edit ) {
             if ( $show->('Attributes') ) {
                 my @ans; eval { @ans = IpblockAttrName->retrieve_all }; @ans = () if $@;
@@ -442,6 +442,10 @@ sub show ($c) {
                     sort { $a->get_label cmp $b->get_label } @zs2,
                 ];
                 my $fz = eval { $o->forward_zone };
+                unless ( $fz ) {
+                    my $def = Netdot::Model->config->get('DEFAULT_DNSDOMAIN');
+                    $fz = eval { Zone->first(name => $def) } if $def;
+                }
                 $stash_fzone_default = $fz ? $fz->id : undef;
                 # Default range boundaries: first and last usable IP of the subnet.
                 my $n = NetAddr::IP->new( $o->address, 0 + $o->prefix );
@@ -449,6 +453,8 @@ sub show ($c) {
                     $stash_range_first = $n->first->addr;
                     $stash_range_last  = $n->last->addr;
                 }
+                $stash_range_dns_prefix  = Netdot::Model->config->get('IP_RANGE_DNS_DEFAULT_PREFIX')  // '';
+                $stash_range_dns_suffix  = Netdot::Model->config->get('IP_RANGE_DNS_DEFAULT_SUFFIX')  // '';
             }
         }
 
@@ -531,6 +537,8 @@ sub show ($c) {
             fzone_default => $stash_fzone_default, # pre-select the block's forward zone
             range_first  => $stash_range_first, # default start IP (first usable)
             range_last   => $stash_range_last,  # default end IP (last usable)
+            range_dns_prefix => $stash_range_dns_prefix,
+            range_dns_suffix => $stash_range_dns_suffix,
             can_rights     => $can_rights,   # may view/manage access rights (Admin/Operator)
             can_rights_edit => $can_rights_edit, # may grant/revoke (Admin only)
             rights       => $rights,        # arrayref of {type,name,subject_html,access,...}
@@ -941,21 +949,22 @@ sub _build_subnet_grid {
                 $disp =~ s/^\d+\.(\d+\.\d+\.\d+)$/$1/o    if $mask >= 8  && $mask < 16;
             }
             my $cell;
+            my $full_ip = $net->addr;
             if ( $mask != 31 && $net->numeric == $net->network->numeric && !$o->use_network_broadcast ) {
-                $cell = qq{<div class="ipaddr_disabled" title="Network">$disp</div>};
+                $cell = qq{<div class="ipaddr_disabled" data-nd-ip="$full_ip" title="Network">$disp</div>};
             } elsif ( $mask != 31 && $net->numeric == $net->broadcast->numeric && !$o->use_network_broadcast ) {
-                $cell = qq{<div class="ipaddr_disabled" title="Broadcast">$disp</div>};
+                $cell = qq{<div class="ipaddr_disabled" data-nd-ip="$full_ip" title="Broadcast">$disp</div>};
             } else {
                 my $inner = qq{<div class="$divclass" title="$divtitle" width="100%">$disp</div>};
                 my $aid   = $ids{ $net->numeric };
                 if ( exists $used{ $net->numeric } && $aid ) {
-                    $cell = qq{<a href="} . Netdot::Mojo::Registry::set_uri( "/management/ipblock/$aid" ) . qq{" class="ipaddr">$inner</a>};
+                    $cell = qq{<a href="} . Netdot::Mojo::Registry::set_uri( "/management/ipblock/$aid" ) . qq{" class="ipaddr" data-nd-ip="$full_ip">$inner</a>};
                 } else {
                     # Unassigned address: clickable to create it (Mason ADD_BLOCK for an IP).
                     # The cell carries the /32 (or /128) CIDR; the API auto-attaches it to
                     # this subnet. data-nd-dhcp lets the modal offer the Dynamic status.
                     my $cidr  = $net->addr . '/' . $bits;
-                    my $attrs = qq{data-nd-create="$cidr"};
+                    my $attrs = qq{data-nd-create="$cidr" data-nd-ip="$full_ip"};
                     $attrs .= ' data-nd-dhcp="1"' if $has_dhcp;
                     $cell = qq{<a class="ipaddr" href="#" $attrs>$inner</a>};
                 }

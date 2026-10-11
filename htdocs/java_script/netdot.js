@@ -584,6 +584,255 @@
     }
   }
 
+  // Range mode: click "Range" button → select IPs on the grid (mousedown=start,
+  // mouseup=end), a side panel shows the form, submit creates the range via API.
+  function initRange() {
+    var btn = document.getElementById('nd-range-btn');
+    if (!btn) { return; }
+    var data = window.ND_RANGE_DATA || {};
+    var entities = data.entities || [];
+    var fzones = data.fzones || [];
+    var defaultFzone = String(data.fzoneDefault || '');
+    var defaultDnsPrefix = data.dnsPrefix || '';
+    var defaultDnsSuffix = data.dnsSuffix || '';
+    var apiUrl = btn.getAttribute('data-nd-range-api');
+    var grid = document.querySelector('table.ipgrid');
+
+    var active = false, selStart = null, selEnd = null, dragging = false;
+    var panel = null;
+
+    function cellIp(el) {
+      var target = el.closest('[data-nd-ip]');
+      return target ? target.getAttribute('data-nd-ip') : null;
+    }
+
+    function highlightRange(ip1, ip2) {
+      if (!grid) { return; }
+      clearHighlight();
+      if (!ip1 || !ip2) { return; }
+      var n1 = ip2ipv4(ip1), n2 = ip2ipv4(ip2);
+      if (n1 === null || n2 === null) { return; }
+      var lo = Math.min(n1, n2), hi = Math.max(n1, n2);
+      var cells = grid.querySelectorAll('[data-nd-ip]');
+      for (var i = 0; i < cells.length; i++) {
+        var n = ip2ipv4(cells[i].getAttribute('data-nd-ip'));
+        if (n !== null && n >= lo && n <= hi) {
+          var inner = cells[i].querySelector('div');
+          if (inner) { inner.classList.add('ipaddr-range-selected'); }
+        }
+      }
+    }
+
+    function clearHighlight() {
+      if (!grid) { return; }
+      var sel = grid.querySelectorAll('.ipaddr-range-selected');
+      for (var i = 0; i < sel.length; i++) { sel[i].classList.remove('ipaddr-range-selected'); }
+    }
+
+    function buildPanel(start, end) {
+      if (panel) { panel.remove(); }
+      panel = document.createElement('div');
+      panel.className = 'nd-range-panel';
+      var ownerOpts = '<option value="">--SELECT--</option>';
+      for (var i = 0; i < entities.length; i++) {
+        ownerOpts += '<option value="' + entities[i][0] + '">' + entities[i][1] + '</option>';
+      }
+      var fzoneOpts = '<option value="">--SELECT--</option>';
+      for (var i = 0; i < fzones.length; i++) {
+        var sel = (String(fzones[i][0]) === String(defaultFzone)) ? ' selected' : '';
+        fzoneOpts += '<option value="' + fzones[i][0] + '"' + sel + '>' + fzones[i][1] + '</option>';
+      }
+      panel.innerHTML =
+        '<h4 class="nd-range-drag">IP Range <span class="nd-range-close" id="nd-r-close">&times;</span></h4>' +
+        '<p class="nd-range-info" id="nd-r-info">' + (start || '?') + ' \u2192 ' + (end || '?') + '</p>' +
+        '<label>Start IP</label><input id="nd-r-start" type="text" value="' + (start || '') + '">' +
+        '<label>End IP</label><input id="nd-r-end" type="text" value="' + (end || '') + '">' +
+        '<label>Status</label>' +
+        '<select id="nd-r-status">' +
+        '<option value="">--SELECT--</option>' +
+        '<option value="Static">Static</option>' +
+        '<option value="Reserved">Reserved</option>' +
+        '<option value="Dynamic">Dynamic</option>' +
+        '</select>' +
+        '<label>Owner</label><select id="nd-r-owner">' + ownerOpts + '</select>' +
+        '<label>Used By</label><select id="nd-r-usedby">' + ownerOpts + '</select>' +
+        '<label>Description</label><input id="nd-r-desc" type="text">' +
+        '<label><input id="nd-r-dns" type="checkbox" style="width:auto"> Auto-generate DNS</label>' +
+        '<label>DNS prefix</label><input id="nd-r-prefix" type="text" placeholder="e.g. host" value="' + defaultDnsPrefix + '">' +
+        '<label>DNS suffix</label><input id="nd-r-suffix" type="text" value="' + defaultDnsSuffix + '">' +
+        '<label>Forward Zone</label><select id="nd-r-fzone">' + fzoneOpts + '</select>' +
+        '<div class="nd-range-actions">' +
+        '<button type="button" class="btn" id="nd-r-create">Create</button>' +
+        '<button type="button" class="btn" id="nd-r-cancel">Cancel</button>' +
+        '</div>';
+      document.body.appendChild(panel);
+      // Draggable by the header.
+      var dragEl = panel.querySelector('.nd-range-drag');
+      var dragStart = null;
+      dragEl.addEventListener('mousedown', function (e) {
+        if (e.target.id === 'nd-r-close') { return; }
+        e.preventDefault();
+        var rect = panel.getBoundingClientRect();
+        dragStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        panel.style.transform = 'none';
+        panel.style.left = rect.left + 'px';
+        panel.style.top = rect.top + 'px';
+        function onMove(ev) {
+          panel.style.left = (ev.clientX - dragStart.x) + 'px';
+          panel.style.top = (ev.clientY - dragStart.y) + 'px';
+        }
+        function onUp() {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+      document.getElementById('nd-r-close').addEventListener('click', closeRange);
+      document.getElementById('nd-r-create').addEventListener('click', function () {
+        var s = document.getElementById('nd-r-start').value.trim();
+        var en = document.getElementById('nd-r-end').value.trim();
+        var st = document.getElementById('nd-r-status').value;
+        if (!s || !en) { status(false, 'Enter start and end IPs.', 3000); return; }
+        if (!st) { status(false, 'Select a status.', 3000); return; }
+        // Ensure start <= end (numeric).
+        var n1 = ip2ipv4(s), n2 = ip2ipv4(en);
+        if (n1 !== null && n2 !== null && n1 > n2) { var t = s; s = en; en = t; }
+        var body = { start: s, end: en, status: st };
+        var own = document.getElementById('nd-r-owner').value;
+        if (own) { body.owner = parseInt(own, 10); }
+        var ub = document.getElementById('nd-r-usedby').value;
+        if (ub) { body.used_by = parseInt(ub, 10); }
+        var desc = document.getElementById('nd-r-desc').value;
+        if (desc) { body.description = desc; }
+        if (document.getElementById('nd-r-dns').checked) { body.gen_dns = true; }
+        var np = document.getElementById('nd-r-prefix').value;
+        if (np) { body.name_prefix = np; }
+        var ns = document.getElementById('nd-r-suffix').value;
+        if (ns) { body.name_suffix = ns; }
+        var fz = document.getElementById('nd-r-fzone').value;
+        if (fz) { body.fzone = parseInt(fz, 10); }
+        var cb = document.getElementById('nd-r-create');
+        cb.disabled = true;
+        api('POST', apiUrl, body).then(function (res) {
+          if (res.ok) {
+            status(true, 'Range created (' + res.data.created + ' IPs).');
+            closeRange();
+            setTimeout(function () { location.reload(); }, 700);
+          } else {
+            status(false, errMsg(res), 8000);
+            cb.disabled = false;
+          }
+        });
+      });
+      document.getElementById('nd-r-cancel').addEventListener('click', closeRange);
+      // Sync info + highlight when start/end are edited manually.
+      function syncFromInputs() {
+        var s = document.getElementById('nd-r-start').value.trim();
+        var en = document.getElementById('nd-r-end').value.trim();
+        var info = document.getElementById('nd-r-info');
+        if (s && en) {
+          var n1 = ip2ipv4(s), n2 = ip2ipv4(en);
+          if (n1 !== null && n2 !== null) {
+            var lo = n1 <= n2 ? s : en;
+            var hi = n1 <= n2 ? en : s;
+            info.textContent = lo + ' \u2192 ' + hi + ' (' + countRange(lo, hi) + ' IPs)';
+            highlightRange(s, en);
+          } else {
+            info.textContent = s + ' \u2192 ' + en;
+            clearHighlight();
+          }
+        } else {
+          info.textContent = (s || '?') + ' \u2192 ' + (en || '?');
+          clearHighlight();
+        }
+      }
+      document.getElementById('nd-r-start').addEventListener('input', syncFromInputs);
+      document.getElementById('nd-r-end').addEventListener('input', syncFromInputs);
+    }
+
+    function countRange(ip1, ip2) {
+      var a = ip2ipv4(ip1), b = ip2ipv4(ip2);
+      if (a === null || b === null) { return '?'; }
+      var lo = Math.min(a, b), hi = Math.max(a, b);
+      return (hi - lo + 1);
+    }
+
+    function ip2ipv4(ip) {
+      var parts = ip.split('.');
+      if (parts.length !== 4) { return null; }
+      var n = 0;
+      for (var i = 0; i < 4; i++) { n = n * 256 + parseInt(parts[i], 10); }
+      return n;
+    }
+
+    function closeRange() {
+      active = false;
+      dragging = false;
+      selStart = null; selEnd = null;
+      clearHighlight();
+      if (grid) { grid.classList.remove('nd-range-mode'); }
+      if (panel) { panel.remove(); panel = null; }
+    }
+
+    if (grid) {
+      grid.addEventListener('mousedown', function (e) {
+        if (!active) { return; }
+        e.preventDefault();
+        var ip = cellIp(e.target);
+        if (!ip) { return; }
+        dragging = true;
+        selStart = ip; selEnd = ip;
+        highlightRange(ip, ip);
+        if (panel) {
+          panel.querySelector('#nd-r-start').value = ip;
+          panel.querySelector('#nd-r-end').value = ip;
+          panel.querySelector('#nd-r-info').textContent = ip + ' \u2192 ' + ip + ' (1 IP)';
+        }
+      });
+
+      grid.addEventListener('mouseover', function (e) {
+        if (!active || !dragging) { return; }
+        var ip = cellIp(e.target);
+        if (!ip) { return; }
+        selEnd = ip;
+        var n1 = ip2ipv4(selStart), n2 = ip2ipv4(selEnd);
+        var s = (n1 !== null && n2 !== null && n1 > n2) ? selEnd : selStart;
+        var en = (n1 !== null && n2 !== null && n1 > n2) ? selStart : selEnd;
+        highlightRange(s, en);
+        if (panel) {
+          panel.querySelector('#nd-r-start').value = s;
+          panel.querySelector('#nd-r-end').value = en;
+          panel.querySelector('#nd-r-info').textContent = s + ' \u2192 ' + en + ' (' + countRange(s, en) + ' IPs)';
+        }
+      });
+    }
+
+    document.addEventListener('mouseup', function (e) {
+      if (!active || !dragging) { return; }
+      dragging = false;
+      if (selStart && selEnd && panel) {
+        var n1 = ip2ipv4(selStart), n2 = ip2ipv4(selEnd);
+        var s = (n1 !== null && n2 !== null && n1 > n2) ? selEnd : selStart;
+        var en = (n1 !== null && n2 !== null && n1 > n2) ? selStart : selEnd;
+        panel.querySelector('#nd-r-start').value = s;
+        panel.querySelector('#nd-r-end').value = en;
+        panel.querySelector('#nd-r-info').textContent = s + ' \u2192 ' + en + ' (' + countRange(s, en) + ' IPs)';
+        highlightRange(s, en);
+      }
+    });
+
+    btn.addEventListener('click', function () {
+      if (active) { closeRange(); return; }
+      active = true;
+      if (grid) { grid.classList.add('nd-range-mode'); }
+      buildPanel(
+        btn.getAttribute('data-nd-range-first') || '',
+        btn.getAttribute('data-nd-range-last') || ''
+      );
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
     initDhcpEnable();
@@ -594,6 +843,7 @@
     initFkSearch();
     initCreateBlocks();
     initRights();
+    initRange();
   });
 
   window.ND = { api: api, status: status, collect: collect };
