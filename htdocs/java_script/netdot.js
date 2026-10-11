@@ -564,6 +564,24 @@
         });
       });
     }
+    var secDels = document.querySelectorAll('.nd-sec-del');
+    for (var s = 0; s < secDels.length; s++) {
+      secDels[s].addEventListener('click', function (e) {
+        e.preventDefault();
+        var url = this.getAttribute('data-nd-api');
+        var btn = this;
+        btn.disabled = true;
+        api('DELETE', url).then(function (res) {
+          if (res.ok) {
+            status(true, 'Removed.');
+            setTimeout(function () { location.reload(); }, 700);
+          } else {
+            status(false, errMsg(res), 8000);
+            btn.disabled = false;
+          }
+        });
+      });
+    }
   }
 
   document.addEventListener('DOMContentLoaded', function () {

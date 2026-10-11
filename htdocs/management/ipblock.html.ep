@@ -285,7 +285,12 @@
         % if (@$sites) {
             <table class="datatable" style="width:100%"><tbody>
             % for my $s (@$sites) {
-                <tr><td><%== $s %></td></tr>
+                <tr>
+                    <td><%== $s->{html} %></td>
+% if ($can_edit) {
+                    <td style="width:60px"><button type="button" class="btn btn-sm nd-sec-del" data-nd-api="<%= $c->web_prefix %>/api/sitesubnet/<%= $s->{id} %>">Remove</button></td>
+% }
+                </tr>
             % }
             </tbody></table>
         % } else {
@@ -320,7 +325,12 @@
         % if (@$fzones) {
             <table class="datatable" style="width:100%"><tbody>
             % for my $z (@$fzones) {
-                <tr><td><%== $z %></td></tr>
+                <tr>
+                    <td><%== $z->{html} %></td>
+% if ($can_edit && $z->{direct}) {
+                    <td style="width:60px"><button type="button" class="btn btn-sm nd-sec-del" data-nd-api="<%= $c->web_prefix %>/api/subnetzone/<%= $z->{id} %>">Remove</button></td>
+% }
+                </tr>
             % }
             </tbody></table>
         % } else {
@@ -386,7 +396,11 @@
         <div class="containerbody" style="padding:0.6em">
         % if (@$dhcp) {
             <table class="datatable" style="width:100%">
-                <thead><tr><th>Type</th><th>Name</th><th>Ethernet</th><th>DUID</th><th>Active?</th></tr></thead>
+                <thead><tr><th>Type</th><th>Name</th><th>Ethernet</th><th>DUID</th><th>Active?</th>
+% if ($can_edit) {
+<th></th>
+% }
+                </tr></thead>
                 <tbody>
                 % for my $r (@$dhcp) {
                     <tr>
@@ -395,6 +409,9 @@
                         <td><%== $r->{ethernet_html} %></td>
                         <td><%= $r->{duid} %></td>
                         <td><%= $r->{active} ? 'Yes' : 'No' %></td>
+% if ($can_edit) {
+                        <td><button type="button" class="btn btn-sm nd-sec-del" data-nd-api="<%= $c->web_prefix %>/api/dhcpscope/<%= $r->{id} %>">Remove</button></td>
+% }
                     </tr>
                 % }
                 </tbody>
@@ -438,10 +455,20 @@
         <div class="containerbody" style="padding:0.6em">
         % if (@$attributes) {
             <table class="datatable" style="width:100%">
-                <thead><tr><th>Name</th><th>Value</th></tr></thead>
+                <thead><tr><th>Name</th><th>Value</th>
+% if ($can_edit) {
+<th></th>
+% }
+                </tr></thead>
                 <tbody>
                 % for my $r (@$attributes) {
-                    <tr><td><%= $r->{name} %></td><td><%= $r->{value} %></td></tr>
+                    <tr>
+                        <td><%= $r->{name} %></td>
+                        <td><%= $r->{value} %></td>
+% if ($can_edit) {
+                        <td><button type="button" class="btn btn-sm nd-sec-del" data-nd-api="<%= $c->web_prefix %>/api/ipblockattr/<%= $r->{id} %>">Remove</button></td>
+% }
+                    </tr>
                 % }
                 </tbody>
             </table>

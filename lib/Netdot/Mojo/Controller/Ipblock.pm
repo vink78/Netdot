@@ -1025,7 +1025,7 @@ sub _block_sites {
     return () if $@;
     my @out;
     for my $ss (@rel) {
-        push @out, _fk_link( eval { $ss->site } );   # Site -> /management/site/<id>
+        push @out, { html => _fk_link( eval { $ss->site } ), id => $ss->id };
     }
     return @out;
 }
@@ -1044,12 +1044,17 @@ sub _block_zones {
     my %direct;
     my @sz; eval { @sz = $o->zones };
     for my $z (@sz) { $direct{ $z->zone->id } = 1 if $z->zone; }
-    my @fwd_html;
+    my @fwd_data;
     for my $z (@fwd) {
         my $link = _fk_link( $z );
-        push @fwd_html, $direct{ $z->id }
+        my $html = $direct{ $z->id }
             ? $link
             : "<i>$link</i> <span style=\"color:#888;font-size:0.85em\">(inherited)</span>";
+        my $szid;
+        if ( $direct{ $z->id } ) {
+            for my $s (@sz) { $szid = $s->id if $s->zone && $s->zone->id == $z->id; }
+        }
+        push @fwd_data, { html => $html, id => $szid, direct => !!$direct{ $z->id } };
     }
 
     my %all_zones;
@@ -1078,7 +1083,7 @@ sub _block_zones {
     }
 
     return (
-        \@fwd_html,
+        \@fwd_data,
         \@rev_html,
     );
 }
@@ -1130,7 +1135,7 @@ sub _ip_attributes {
     return @out if $@;
     for my $a (@rel) {
         my $nm = eval { $a->name->name } // eval { $a->name->get_label } // '';
-        push @out, { name => $nm, value => eval { $a->value } // '' };
+        push @out, { id => $a->id, name => $nm, value => eval { $a->value } // '' };
     }
     return @out;
 }
@@ -1148,6 +1153,7 @@ sub _ip_dhcp_scopes {
             # type is a FK to DhcpScopeType (enum value, not linked);
             # the scope name links to its DhcpScope detail page;
             # physaddr is a FK to PhysAddr, shown via its config-formatted MAC.
+            id            => $s->id,
             type          => eval { $s->type->name } // '',
             name_html     => _fk_link( $s ),
             ethernet_html => _fk_link( $pa, text => $mac ),
