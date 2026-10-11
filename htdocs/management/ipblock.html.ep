@@ -5,6 +5,7 @@
 % my $blocks     = $c->stash->{blocks}     // [];
 % my $breadcrumb = $c->stash->{breadcrumb} // [];
 % my $devs       = $c->stash->{devs};   # hashref: address_numeric => device_id (address view)
+% my $dns_name   = $c->stash->{dns_name} // {};  # hashref: ipblock_id => "fqdn1, fqdn2" (address list)
 % my $view       = $c->stash->{view}       // 'Children';
 % my $tabs       = $c->stash->{tabs};      # arrayref of [key, label] (block detail only)
 % my $viewformat = $c->stash->{viewformat} // 'list';
@@ -226,9 +227,7 @@
         <tr>
         % if ($is_addr) {
             <td><a href="<%= $c->web_prefix %>/management/ipblock/<%= $o->id %>"><%= $o->address %></a></td>
-            % my @names = eval { $o->a_records } // ();
-            % my $name  = join( ', ', map { eval { $_->rr->get_label } // '' } @names );
-            <td><%= $name %></td>
+            <td><%== $dns_name->{ $o->id } // '' %></td>
             % my $did = $devs ? ( $devs->{ $o->address_numeric } // undef ) : undef;
             <td>
             % if ( my $dev = $did ? Device->retrieve( $did ) : undef ) {

@@ -342,6 +342,29 @@ sub show ($c) {
         push @crumbs, map { { label => $_->get_label, id => $_->id } } ( reverse @ancs );
         my $devs   = $viewtype eq 'address' ? ( eval { Device->get_ips_from_all() } || {} ) : undef;
 
+        # DNS names for the address LIST view ("Name" column). ONE query to rraddr
+        # (like legacy subnet.mhtml) maps each child address -> all its A-record
+        # names, each linked to its RR object, joined by ", ". (The template used
+        # to call $o->a_records per row: N+1, and `eval { ... } // ()` tripped
+        # Class::DBI's scalar-context iterator so the names came out empty.)
+        my %dns_name;   # id => html: <a href="/management/rr/<rid>">fqdn</a>, ...
+        if ( $viewtype eq 'address' ) {
+            my $rows = Netdot::Model->db_Main()->selectall_arrayref(
+                q{ SELECT i.id, rr.id AS rid, CONCAT( rr.name, '.', z.name ) AS name
+                   FROM   rraddr ra
+                   JOIN   rr      ON ra.rr = rr.id
+                   JOIN   zone    z ON rr.zone = z.id
+                   JOIN   ipblock i ON ra.ipblock = i.id
+                   WHERE  i.parent = ? },
+                { Slice => {} }, $o->id );
+            my %links;
+            push @{ $links{ $_->{id} } },
+                '<a href="' . Netdot::Mojo::Registry::set_uri( '/management/rr/' . $_->{rid} ) . '">'
+                . _esc( $_->{name} ) . '</a>'
+                for @$rows;
+            $dns_name{ $_ } = join( ', ', @{ $links{$_} } ) for keys %links;
+        }
+
         # Per-tab section data (gathered lazily, only for the active view).
         # fzones/rzones are arrayrefs (forward / reverse zones, kept separate).
         my ( @sites, $fzones, $rzones, @dhcp, @attributes, @audit, $comments );
@@ -394,6 +417,7 @@ sub show ($c) {
             api_path   => $api_path,
             breadcrumb => \@crumbs,
             devs       => $devs,
+            dns_name   => \%dns_name,
             sites      => \@sites,
             fzones     => $fzones,
             rzones     => $rzones,
