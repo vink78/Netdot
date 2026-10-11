@@ -70,6 +70,9 @@
   </nav>
   % }
   <div id="content">
+    % if (my $m = $c->flash('nd_msg')) {
+    <div class="nd-flash nd-flash-<%= $c->flash('nd_msg_type') // 'ok' %>"><%== $m %></div>
+    % }
     <%= content %>
   </div>
   <!--

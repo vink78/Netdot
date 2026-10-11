@@ -903,5 +903,15 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
      (relationship-aware `_list_add_like`, `%q%` contains); `/search` results table header
      dedup (was 3 headers / 2 columns → now 2 = 2); `/help/database` bool defaults rendered
      `true`/`false` (`Meta/SQLT.pm` dereferences the scalar-ref default, was `SCALAR(0x…)`).
-   - Deferred: Device **Topology (graph)** tab; HTML write/edit pages (the **API** now
-     covers authorized writes).
+    - Done: **Ipblock Access Rights tab (2026-10-11)**: `?view=Rights` on the block detail page
+      (visible to Admin/Operator via `access_section` guard, editable by Admin only). Lists all
+      (subject, access) pairs: `AccessRight->search(object_class='Ipblock', object_id=…)` →
+      `->user_rights` / `->group_rights`. Adding rights POSTs JSON `{object_class, object_id,
+      subject_type, subject_id, rights:[…]}` to `/api/accessright`; the model's `insert` overload
+      (`AccessRight.pm`) finds-or-creates each AccessRight row then inserts the join row
+      (userright/groupright) via their own `insert` overloads (dedup + `none` semantics). Removing
+      a right does `DELETE /api/userright/<id>` or `/api/groupright/<id>` (the join row only —
+      the shared AccessRight row stays). JS: `initRights()` in `netdot.js` handles the add form
+      (`.nd-rights-add`) and delete buttons (`.nd-rights-del`).
+    - Deferred: Device **Topology (graph)** tab; HTML write/edit pages (the **API** now
+      covers authorized writes).

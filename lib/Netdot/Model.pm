@@ -420,10 +420,14 @@ sub insert {
 	# Try to make it less frightening for the user
 	# This object seems to include a stack trace
 	# in the message itself. We try to remove it
-	# in several ways.
+	# in several ways. Not every exception type (e.g. Mojo::Exception,
+	# Class::DBI::Exception) exposes show_trace/error, so fall back to
+	# ->message and finally stringify.
 	if ( ref($e) =~ /Exception/ ){
-	    $e->show_trace(0);
-	    $error = $e->error;
+	    eval { $e->show_trace(0) };
+	    $error = ( eval { $e->error } )
+	         // ( eval { $e->message } )
+	         // "$e";
 	    $error =~ s/Stack:.*//sg;
 	}else{
 	    $error = $e;

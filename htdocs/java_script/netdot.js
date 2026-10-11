@@ -97,7 +97,9 @@
     for (var i = 0; i < forms.length; i++) {
       // The DHCP "enable" form nests option_routers into `attributes` — handled by
       // initDhcpEnable (the flat collect() can't build a nested object).
-      if (forms[i].classList.contains('nd-dhcp-enable')) { continue; }
+      // The rights form builds a custom payload (subject split + rights array) —
+      // handled by initRights.
+      if (forms[i].classList.contains('nd-dhcp-enable') || forms[i].classList.contains('nd-rights-add')) { continue; }
       forms[i].addEventListener('submit', function (e) {
         e.preventDefault();
         var form   = e.target;
@@ -503,6 +505,67 @@
     }
   }
 
+  // Access Rights tab: "Add rights" form (nd-rights-add) POSTs to /api/accessright
+  // with {object_class, object_id, subject_type, subject_id, rights:[...]}.
+  // "Remove" buttons (nd-rights-del) DELETE /api/userright/<id> or /api/groupright/<id>.
+  function initRights() {
+    var form = document.querySelector('form.nd-rights-add');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var url = form.getAttribute('data-nd-api');
+        var objClass = form.getAttribute('data-nd-object-class');
+        var objId = parseInt(form.getAttribute('data-nd-object-id'), 10);
+        var sel = form.querySelector('select[name=subject]');
+        var val = sel ? sel.value : '';
+        if (!val) { status(false, 'Select a subject.', 4000); return; }
+        var parts = val.split(':');
+        var subjectType = parts[0];
+        var subjectId = parseInt(parts[1], 10);
+        var rights = [];
+        var cbs = form.querySelectorAll('input[name=access]:checked');
+        for (var i = 0; i < cbs.length; i++) { rights.push(cbs[i].value); }
+        if (!rights.length) { status(false, 'Select at least one right.', 4000); return; }
+        var body = {
+          object_class: objClass,
+          object_id: objId,
+          subject_type: subjectType,
+          subject_id: subjectId,
+          rights: rights
+        };
+        var btn = form.querySelector('button[type=submit]');
+        if (btn) { btn.disabled = true; }
+        api('POST', url, body).then(function (res) {
+          if (res.ok) {
+            status(true, 'Access rights updated.');
+            setTimeout(function () { location.reload(); }, 700);
+          } else {
+            status(false, errMsg(res), 8000);
+            if (btn) { btn.disabled = false; }
+          }
+        });
+      });
+    }
+    var dels = document.querySelectorAll('.nd-rights-del');
+    for (var d = 0; d < dels.length; d++) {
+      dels[d].addEventListener('click', function (e) {
+        e.preventDefault();
+        var url = this.getAttribute('data-nd-api');
+        var btn = this;
+        btn.disabled = true;
+        api('DELETE', url).then(function (res) {
+          if (res.ok) {
+            status(true, 'Access right removed.');
+            setTimeout(function () { location.reload(); }, 700);
+          } else {
+            status(false, errMsg(res), 8000);
+            btn.disabled = false;
+          }
+        });
+      });
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
     initDhcpEnable();
@@ -512,6 +575,7 @@
     initAddForm();
     initFkSearch();
     initCreateBlocks();
+    initRights();
   });
 
   window.ND = { api: api, status: status, collect: collect };

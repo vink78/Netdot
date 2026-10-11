@@ -270,15 +270,19 @@ sub show ($c) {
         my $prefix = $o->prefix;
         my $v4     = ( $o->version == 4 );
 
-        # Section tabs (view=Children|Sites|Zones|DHCP|Attributes|Comments|Audit|All),
+        # Section tabs (view=Children|Sites|Zones|DHCP|Attributes|Comments|Audit|Rights|All),
         # orthogonal to the children view_format (list|block|tree). Default Children.
-        # Access Rights is deferred. DHCP tab only for Subnets (like ip.html).
+        # Access Rights (visible to Admin/Operator, writable by Admin) grants/revokes
+        # rights on this block for users and groups. DHCP tab only for Subnets (ip.html).
         my $view = $c->param('view') // '';
-        $view = 'Children' unless $view =~ /^(Children|Sites|Zones|DHCP|Attributes|Comments|Audit|All)$/;
+        $view = 'Children' unless $view =~ /^(Children|Sites|Zones|DHCP|Attributes|Comments|Audit|Rights|All)$/;
         my @tabs = ( [ 'Children', 'Children' ], [ 'Sites', 'Sites' ], [ 'Zones', 'Zones' ] );
         push @tabs, [ 'DHCP', 'DHCP' ] if $status eq 'Subnet';
         push @tabs, [ 'Attributes', 'Attributes' ], [ 'Comments', 'Comments' ],
-                     [ 'Audit', 'Audit' ], [ 'All', 'All' ];
+                     [ 'Audit', 'Audit' ];
+        push @tabs, [ 'Rights', 'Access Rights' ]
+            if $c->perm( 'access_section', 'ip.html:edit_rights' );
+        push @tabs, [ 'All', 'All' ];
         my $show = sub { my $s = shift; $view eq $s || $view eq 'All' ? 1 : 0 };
 
         # Children display (list/block/tree via view_format), shown on Children & All.
@@ -423,6 +427,28 @@ sub show ($c) {
             }
         }
 
+        # Access Rights (view=Rights): rights granted on this exact block. A right is
+        # an AccessRight (object_class='Ipblock', object_id, access) linked to a Person
+        # (userright) or a ContactList (groupright). The section is visible to Admin/
+        # Operator; only Admin may grant/revoke. The subject lists (for the "Add rights"
+        # form) are loaded only when Admin and the Rights section is shown. A right on a
+        # block applies to its whole subtree at read time (ancestor inheritance).
+        my ( $can_rights, $can_rights_edit, $rights, $right_users, $right_groups );
+        $can_rights = $c->perm( 'access_section', 'ip.html:edit_rights' );
+        if ( $can_rights && $show->('Rights') ) {
+            my @r; eval { @r = _block_rights( $o ) }; @r = () if $@;
+            $rights = \@r;
+            $can_rights_edit = ( $c->user_type eq 'Admin' );
+            if ( $can_rights_edit ) {
+                my @ps;  eval { @ps  = Person->retrieve_all }; @ps = () if $@;
+                my @cls; eval { @cls = ContactList->retrieve_all }; @cls = () if $@;
+                $right_users = [ map { [ $_->id, _obj_label( $_ ) ] }
+                                 sort { _obj_label( $a ) cmp _obj_label( $b ) } @ps ];
+                $right_groups = [ map { [ $_->id, _obj_label( $_ ) ] }
+                                  sort { _obj_label( $a ) cmp _obj_label( $b ) } @cls ];
+            }
+        }
+
         my @block_attrs = _block_attributes( $o );
 
         # Page-level delete (Mason ip.html:442-481): shown when the user may delete
@@ -475,13 +501,18 @@ sub show ($c) {
             site_list    => $site_list,      # [[id,name]...] for the "Add site" form
             fzone_options => $fzone_options, # [[id,name]...] forward zones for "Add forward zone"
             rzone_names  => $rzone_names,    # [name]... arpa names for "Add reverse zone"
+            can_rights     => $can_rights,   # may view/manage access rights (Admin/Operator)
+            can_rights_edit => $can_rights_edit, # may grant/revoke (Admin only)
+            rights       => $rights,        # arrayref of {type,name,subject_html,access,...}
+            right_users  => $right_users,   # [[id,label]...] for the "Add rights" form
+            right_groups => $right_groups,  # [[id,label]...] for the "Add rights" form
             comments   => $comments,
             audit      => \@audit,
         );
         return;
-}
+    }
 
-# Address Space search (port of address_tasks.html "search"). Three criteria:
+    # Address Space search (port of address_tasks.html "search"). Three criteria:
 #   - IP[/prefix]: exact lookup; if not found, offer the closest covering block.
 #   - IP regex:    regular-expression match on the address (Ipblock->search_like).
 #   - Keywords:    text match across description, info, related sites/entities.
@@ -936,6 +967,55 @@ sub _fk_link {
     my ( $text, $href ) = @{ Netdot::Mojo::Registry::link_for( $obj ) };
     $text = $opt{text} if defined $opt{text};
     return $href ? "<a href=\"$href\">$text</a>" : $text;
+}
+
+# Access rights granted on a block (port of list_rights.mhtml / ip.html Rights).
+# Each row is one (subject, access): an AccessRight (object_class='Ipblock', object_id,
+# access) linked to a Person (userright) or a ContactList (groupright). `del_subject`
+# is "type:<id>" for the per-row "Remove" button; `subject_html` links to the subject.
+sub _block_rights {
+    my ( $o ) = @_;
+    my %anames = ( view => 'View', edit => 'Edit', delete => 'Delete',
+                   choose_ip => 'Choose IP', none => 'None' );
+    my @arights;
+    eval { @arights = AccessRight->search( object_class => 'Ipblock', object_id => $o->id ) };
+    @arights = () if $@;
+    my @rows;
+    for my $ar (@arights) {
+        my $access = $ar->access;
+        my @sub;
+        my @ur = eval { $ar->user_rights  }; @ur = () if $@;
+        my @gr = eval { $ar->group_rights }; @gr = () if $@;
+        for my $r (@ur) {
+            my $s = eval { $r->person };
+            push @sub, { type => 'user',  subj => $s, right_id => $r->id, right_table => 'userright' } if $s;
+        }
+        for my $r (@gr) {
+            my $s = eval { $r->contactlist };
+            push @sub, { type => 'group', subj => $s, right_id => $r->id, right_table => 'groupright' } if $s;
+        }
+        for my $e (@sub) {
+            my $label = eval { $e->{subj}->get_label } // '';
+            my $table = $e->{type} eq 'user' ? 'person' : 'contactlist';
+            my $href  = Netdot::Mojo::Registry::set_uri( "/management/$table" ) . '/' . $e->{subj}->id;
+            push @rows, {
+                type         => $e->{type},
+                name         => _esc( $label ),
+                subject_html => '<a href="' . $href . '">' . _esc( $label ) . '</a>',
+                access       => $access,
+                access_name  => $anames{ $access } // $access,
+                del_subject  => $e->{type} . ':' . $e->{subj}->id,
+                right_id     => $e->{right_id},
+                right_table  => $e->{right_table},
+            };
+        }
+    }
+    @rows = sort {
+        $a->{type} cmp $b->{type}
+            || $a->{name} cmp $b->{name}
+            || $a->{access} cmp $b->{access}
+    } @rows;
+    return @rows;
 }
 
 # Sites associated with a block (SiteSubnet join -> Site).

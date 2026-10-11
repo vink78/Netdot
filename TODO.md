@@ -453,8 +453,13 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
     > (Zones → `POST /api/zone`, select des noms `.arpa` du bloc via `get_dot_arpa_names`),
     > **activation DHCP** (DHCP, subnets sans scope → `POST /api/dhcpscope` type=subnet sous un
     > scope global ; `option routers` replacé dans `attributes` par `initDhcpEnable()`) et
-    > **attribut** (Attributes → `POST /api/ipblockattr`) — tous via `collect()`/`initForms`.
-    > Les zones forward **héritées** d'un ancêtre s'affichent en *italique* + « (inherited) »
+     > **attribut** (Attributes → `POST /api/ipblockattr`) — tous via `collect()`/`initForms`.
+     > **Access Rights** (`?view=Rights`, Admin/Operator lecture, Admin écriture) : table
+     > (Type/Subject/Right) + boutons Remove (`DELETE /api/userright|groupright/<id>`) ;
+     > formulaire d'ajout (`POST /api/accessright`, JSON `{object_class, object_id,
+     > subject_type, subject_id, rights:[…]}`) → overload `AccessRight->insert` (find-or-create
+     > l'accessright + insert de la ligne join userright/groupright, dedup). JS `initRights()`.
+     > Les zones forward **héritées** d'un ancêtre s'affichent en *italique* + « (inherited) »
     > (seules les `SubnetZone` directes sont « configurées »). **Suppression adresse** : la vue
     > individuelle a son bouton Delete (pattern du bloc, `nd_children=0` → pas de case children)
     > et ses sections de données vides (A/PTR/Services/Attr/DHCP) sont masquées ; la boîte

@@ -1284,5 +1284,8 @@ input[type=button]:hover {
 }
 .nd-busy-msg { font-weight: 600; }
 @keyframes nd-busy-rot { to { transform: rotate(360deg); } }
+.nd-flash { margin: 0.5em 0; padding: 0.6em 0.8em; border-radius: 4px; font-size: 0.9em; }
+.nd-flash-ok  { background: #e9f7ef; color: #1f7a3d; border: 1px solid #bfe6cf; }
+.nd-flash-err { background: #fdecea; color: #8a1f11; border: 1px solid #f5c6c0; }
 
 
