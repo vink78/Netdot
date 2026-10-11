@@ -95,6 +95,9 @@
   function initForms() {
     var forms = document.querySelectorAll('form[data-nd-api]');
     for (var i = 0; i < forms.length; i++) {
+      // The DHCP "enable" form nests option_routers into `attributes` — handled by
+      // initDhcpEnable (the flat collect() can't build a nested object).
+      if (forms[i].classList.contains('nd-dhcp-enable')) { continue; }
       forms[i].addEventListener('submit', function (e) {
         e.preventDefault();
         var form   = e.target;
@@ -123,6 +126,31 @@
         });
       });
     }
+  }
+
+  // DHCP "enable" form: create a type=subnet scope under a global scope. The flat
+  // `option_routers` field is moved into the nested `attributes` object before
+  // POSTing (the model stores it as a dhcpattr on the new scope).
+  function initDhcpEnable() {
+    var form = document.querySelector('form.nd-dhcp-enable');
+    if (!form) { return; }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var body = collect(form);
+      if (body.option_routers) { body.attributes = { 'option routers': body.option_routers }; }
+      delete body.option_routers;
+      var btns = form.querySelectorAll('button[type=submit]');
+      for (var b = 0; b < btns.length; b++) { btns[b].disabled = true; }
+      api('POST', form.getAttribute('data-nd-api'), body).then(function (res) {
+        if (res.ok) {
+          status(true, 'DHCP enabled');
+          setTimeout(function () { location.reload(); }, 700);
+        } else {
+          status(false, errMsg(res), 8000);
+          for (var b = 0; b < btns.length; b++) { btns[b].disabled = false; }
+        }
+      });
+    });
   }
 
   // FK picker: search box (large tables) -> API ?kw= -> fill the <select>.
@@ -477,6 +505,7 @@
 
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
+    initDhcpEnable();
     initToggle();
     initRecToggles();
     initRecDeletes();

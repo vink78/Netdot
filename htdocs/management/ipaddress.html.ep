@@ -232,7 +232,7 @@
                         % } elsif ( $f->{kind} eq 'select' ) {
                         <select name="<%= $f->{name} %>" data-nd-int>
                             % unless ( $f->{value} ) {
-                            <option value=""></option>
+                            <option value="">--SELECT--</option>
                             % }
                             % for my $opt ( @{ $f->{options} } ) {
                             <option value="<%= $opt->[0] %>"<%== ( $f->{value} && $opt->[0] == $f->{value} ) ? ' selected' : '' %>><%= $opt->[1] %></option>

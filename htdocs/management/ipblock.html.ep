@@ -30,6 +30,12 @@
 % my $attributes = $c->stash->{attributes} // [];
 % my $comments   = $c->stash->{comments};
 % my $audit      = $c->stash->{audit}    // [];
+% my $attr_names   = $c->stash->{attr_names};    # [[id,name]...] for "Add attribute"
+% my $dhcp_globals = $c->stash->{dhcp_globals};  # [[id,name]...] global scopes for "Enable DHCP"
+% my $dhcp_router  = $c->stash->{dhcp_router} // '';  # pre-fill "option routers"
+% my $site_list    = $c->stash->{site_list};     # [[id,name]...] for "Add site"
+% my $fzone_options = $c->stash->{fzone_options}; # [[id,name]...] for "Add forward zone"
+% my $rzone_names  = $c->stash->{rzone_names};   # [name]... for "Add reverse zone"
 %# Children (list/grid/tree) show on the roots page (no current) or on Children/All.
 % my $show_children = $current ? ( $view eq 'Children' || $view eq 'All' ) : 1;
 % my $rootversion = $c->stash->{rootversion} // 'all';
@@ -280,6 +286,25 @@
         % } else {
             <p style="color:#888">None.</p>
         % }
+        % if ( $can_edit && ref $site_list && @$site_list ) {
+        %# Add site (POST /api/sitesubnet {site, subnet}): flat fields -> initForms.
+        <form data-nd-api="<%= $c->web_prefix %>/api/sitesubnet" data-nd-method="POST" style="margin-top:0.6em">
+        <input type="hidden" name="subnet" value="<%= $current->id %>" data-nd-int>
+        <table class="datatable detail" style="width:100%">
+            <tbody>
+            <tr><th>Site</th><td>
+                <select name="site" data-nd-int required>
+                    <option value="">--SELECT--</option>
+                    % for my $s (@$site_list) {
+                    <option value="<%= $s->[0] %>"><%= $s->[1] %></option>
+                    % }
+                </select>
+            </td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:0.4em"><button type="submit" class="btn">Add</button></p>
+        </form>
+        % }
         </div>
     </div>
 % }
@@ -296,6 +321,25 @@
         % } else {
             <p style="color:#888">None.</p>
         % }
+        % if ( $can_edit && ref $fzone_options && @$fzone_options ) {
+        %# Link an existing forward zone (POST /api/subnetzone {subnet, zone}).
+        <form data-nd-api="<%= $c->web_prefix %>/api/subnetzone" data-nd-method="POST" style="margin-top:0.6em">
+        <input type="hidden" name="subnet" value="<%= $current->id %>" data-nd-int>
+        <table class="datatable detail" style="width:100%">
+            <tbody>
+            <tr><th>Zone</th><td>
+                <select name="zone" data-nd-int required>
+                    <option value="">--SELECT--</option>
+                    % for my $z (@$fzone_options) {
+                    <option value="<%= $z->[0] %>"><%= $z->[1] %></option>
+                    % }
+                </select>
+            </td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:0.4em"><button type="submit" class="btn">Add</button></p>
+        </form>
+        % }
         </div>
     </div>
     <div class="container">
@@ -309,6 +353,24 @@
             </tbody></table>
         % } else {
             <p style="color:#888">None.</p>
+        % }
+        % if ( $can_edit && ref $rzone_names && @$rzone_names ) {
+        %# Create a reverse (arpa) zone (POST /api/zone {name}).
+        <form data-nd-api="<%= $c->web_prefix %>/api/zone" data-nd-method="POST" style="margin-top:0.6em">
+        <table class="datatable detail" style="width:100%">
+            <tbody>
+            <tr><th>New zone name</th><td>
+                <select name="name" required>
+                    <option value="">--SELECT--</option>
+                    % for my $n (@$rzone_names) {
+                    <option value="<%= $n %>"><%= $n %></option>
+                    % }
+                </select>
+            </td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:0.4em"><button type="submit" class="btn">Create</button></p>
+        </form>
         % }
         </div>
     </div>
@@ -332,6 +394,33 @@
                 % }
                 </tbody>
             </table>
+        % } elsif ( $can_edit && ref $dhcp_globals && @$dhcp_globals ) {
+        %# Enable DHCP (legacy ip.html ENABLE_DHCP): create a type=subnet scope under
+        %# a global scope. option_routers goes into the scope's attributes (nested),
+        %# handled by initDhcpEnable (not the flat collect).
+        <form class="nd-dhcp-enable" data-nd-api="<%= $c->web_prefix %>/api/dhcpscope" data-nd-method="POST">
+        <input type="hidden" name="type" value="subnet">
+        <input type="hidden" name="ipblock" value="<%= $current->id %>" data-nd-int>
+        <table class="datatable detail" style="width:100%">
+            <tbody>
+            <tr><th>Global scope</th><td>
+                <select name="container" data-nd-int required>
+                    <option value="">--SELECT--</option>
+                    % for my $g (@$dhcp_globals) {
+                    <option value="<%= $g->[0] %>"><%= $g->[1] %></option>
+                    % }
+                </select>
+            </td></tr>
+            <tr><th>Option routers</th><td>
+                <input type="text" name="option_routers" value="<%= $dhcp_router %>">
+            </td></tr>
+            <tr><th>Active?</th><td>
+                <input type="checkbox" name="active" checked>
+            </td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:0.4em"><button type="submit" class="btn">Enable DHCP</button></p>
+        </form>
         % } else {
             <p style="color:#888">None.</p>
         % }
@@ -353,6 +442,27 @@
             </table>
         % } else {
             <p style="color:#888">None.</p>
+        % }
+        % if ( $can_edit && ref $attr_names && @$attr_names ) {
+        %# Add attribute (POST /api/ipblockattr, name = IpblockAttrName id): flat
+        %# fields, so the generic initForms/collect handles it (no nested attributes).
+        <form data-nd-api="<%= $c->web_prefix %>/api/ipblockattr" data-nd-method="POST" style="margin-top:0.6em">
+        <input type="hidden" name="ipblock" value="<%= $current->id %>" data-nd-int>
+        <table class="datatable detail" style="width:100%">
+            <tbody>
+            <tr><th>Attribute</th><td>
+                <select name="name" data-nd-int required>
+                    <option value="">--SELECT--</option>
+                    % for my $a (@$attr_names) {
+                    <option value="<%= $a->[0] %>"><%= $a->[1] %></option>
+                    % }
+                </select>
+            </td></tr>
+            <tr><th>Value</th><td><input type="text" name="value"></td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:0.4em"><button type="submit" class="btn">Add</button></p>
+        </form>
         % }
         </div>
     </div>

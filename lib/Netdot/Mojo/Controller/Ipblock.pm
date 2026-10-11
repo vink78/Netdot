@@ -377,6 +377,52 @@ sub show ($c) {
         $comments   = eval { $o->info } // '' if $show->('Comments');
         @audit      = _ip_audit_records( $o ) if $show->('Audit');
 
+        # Write helpers for the section tabs (only when the user may edit):
+        #  - Attributes: ipblock attribute-name options for the "Add attribute" form.
+        #  - DHCP: the global DhcpScope options (this block's version) for the
+        #    "Enable DHCP" form. Enabling DHCP on a Subnet = creating a type=subnet
+        #    scope under a global scope (legacy ip.html ENABLE_DHCP / enable_dhcp);
+        #    there is NO dhcp flag on ipblock. Only offered when the subnet has no
+        #    scope yet and a global scope of the matching version exists.
+        #  - Sites: the Site list for the "Add site" form (POST /api/sitesubnet).
+        #  - Zones: forward-zone options (active non-arpa, not already linked) for
+        #    "Add forward zone" (POST /api/subnetzone), and the block's arpa names
+        #    not yet existing as a zone for "Add reverse zone" (POST /api/zone).
+        my ( $attr_names, $dhcp_globals, $dhcp_router, $site_list, $fzone_options, $rzone_names );
+        if ( $can_edit ) {
+            if ( $show->('Attributes') ) {
+                my @ans; eval { @ans = IpblockAttrName->retrieve_all }; @ans = () if $@;
+                $attr_names = [ map { [ $_->id, $_->name ] } sort { $a->name cmp $b->name } @ans ];
+            }
+            if ( $show->('DHCP') && $status eq 'Subnet' && !@dhcp ) {
+                my @gs; eval { @gs = DhcpScope->search( type => 'global', version => $o->version ) };
+                @gs = () if $@;
+                $dhcp_globals = [ map { [ $_->id, $_->name ] } sort { $a->name cmp $b->name } @gs ];
+                my $n = NetAddr::IP->new( $o->address, $o->prefix );
+                $dhcp_router = ( $o->version == 4 && $n ) ? $n->first->addr : '';
+            }
+            if ( $show->('Sites') ) {
+                my @ss; eval { @ss = Site->retrieve_all }; @ss = () if $@;
+                $site_list = [ map { [ $_->id, $_->name ] } sort { $a->name cmp $b->name } @ss ];
+            }
+            if ( $show->('Zones') ) {
+                my @zs; eval { @zs = Zone->retrieve_all }; @zs = () if $@;
+                # Forward options: active, non-arpa, not already linked to this block.
+                my %linked;
+                my @sz; eval { @sz = $o->zones };
+                for my $sz (@sz) { $linked{ $sz->zone->id } = 1 if $sz->zone; }
+                $fzone_options = [
+                    map  { [ $_->id, $_->get_label ] }
+                    grep { $_->active && !$_->is_dot_arpa && !$linked{ $_->id } }
+                    sort { $a->get_label cmp $b->get_label } @zs,
+                ];
+                # Reverse options: this block's arpa names not yet an existing zone.
+                my %exist; %exist = map { $_->name => 1 } @zs;
+                my @arpa; eval { @arpa = $o->get_dot_arpa_names }; @arpa = () if $@;
+                $rzone_names = [ grep { !exists $exist{$_} } sort @arpa ];
+            }
+        }
+
         my @block_attrs = _block_attributes( $o );
 
         # Page-level delete (Mason ip.html:442-481): shown when the user may delete
@@ -423,6 +469,12 @@ sub show ($c) {
             rzones     => $rzones,
             dhcp       => \@dhcp,
             attributes => \@attributes,
+            attr_names   => $attr_names,     # [[id,name]...] for the "Add attribute" form
+            dhcp_globals => $dhcp_globals,   # [[id,name]...] global scopes for "Enable DHCP"
+            dhcp_router  => $dhcp_router,    # pre-fill for the DHCP "option routers"
+            site_list    => $site_list,      # [[id,name]...] for the "Add site" form
+            fzone_options => $fzone_options, # [[id,name]...] forward zones for "Add forward zone"
+            rzone_names  => $rzone_names,    # [name]... arpa names for "Add reverse zone"
             comments   => $comments,
             audit      => \@audit,
         );
@@ -906,22 +958,48 @@ sub _block_sites {
 sub _block_zones {
     my ($o) = @_;
     my @fwd = eval { $o->forward_zone };
+    # forward_zone() = the block's own forward zones (SubnetZone) PLUS the
+    # ancestors' (dns_zones() walks up). Tag each as direct or inherited so the
+    # UI can show the distinction: inherited names render italic + "(inherited)".
+    my %direct;
+    my @sz; eval { @sz = $o->zones };
+    for my $z (@sz) { $direct{ $z->zone->id } = 1 if $z->zone; }
+    my @fwd_html;
+    for my $z (@fwd) {
+        my $link = _fk_link( $z );
+        push @fwd_html, $direct{ $z->id }
+            ? $link
+            : "<i>$link</i> <span style=\"color:#888;font-size:0.85em\">(inherited)</span>";
+    }
 
     my %all_zones;
     my $it = eval { Zone->retrieve_all };
     if ( $it && $it->isa( 'Class::DBI::Iterator' ) ) {
         while ( my $z = $it->next ) { $all_zones{ $z->name } = $z; }
     }
+    # Reverse: the block's OWN arpa names (get_dot_arpa_names) that exist as zones are
+    # "configured". The effective reverse zone (reverse_zone(), the closest existing arpa
+    # zone walking up) may be an ancestor's -- if it is not the block's own arpa name it
+    # is "inherited" (e.g. a /16 under a /8 that owns 10.in-addr.arpa).
     my %reverse_zones;
-    my @names = eval { $o->get_dot_arpa_names };
+    my @names; eval { @names = $o->get_dot_arpa_names }; @names = () if $@;
+    my %own_names; %own_names = map { $_ => 1 } @names;
     for my $n (@names) {
         $reverse_zones{ $n } = $all_zones{ $n } if exists $all_zones{ $n };
     }
-    my @rev = values %reverse_zones;
+    my @rev_html;
+    for my $z (values %reverse_zones) {
+        push @rev_html, _fk_link( $z );   # configured (the block's own arpa zone)
+    }
+    my $rz = eval { $o->reverse_zone };
+    if ( $rz && $rz->id && !$own_names{ $rz->name } ) {
+        my $link = _fk_link( $rz );
+        push @rev_html, "<i>$link</i> <span style=\"color:#888;font-size:0.85em\">(inherited)</span>";
+    }
 
     return (
-        [ map { _fk_link( $_ ) } @fwd ],
-        [ map { _fk_link( $_ ) } @rev ],
+        \@fwd_html,
+        \@rev_html,
     );
 }
 

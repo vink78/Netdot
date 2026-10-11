@@ -346,8 +346,11 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
    roots list when parentless) + `nd_children` (direct-children count, so the UI shows the
    choice only when there are children — like legacy Mason `ip.html`). The JS appends
    `?recursive=1` only when checked; the API threads it to `Ipblock->delete(recursive=>1)`.
-    The model already handled the non-recursive case via `_tree_delete` (children re-attach
-    to the block's parent / become roots).
+     The model already handled the non-recursive case via `_tree_delete` (children re-attach
+     to the block's parent / become roots). (2026-10-11) The individual-address view
+     (`ipaddress.html.ep`) renders the same Delete button (`nd_children=0` → no children
+     choice; `del_goto` → the parent's page) and **hides its empty data sections** (DNS
+     A/PTR, Services, Custom Attributes, DHCP Host are rendered only when they have rows).
     **Creation** (2026-10-10): two entry points, both posting to `POST /api/ipblock`
     (`{address, status, parent}` → `Ipblock->insert`; a duplicate `address`+`prefix` is a
     DB unique violation → 400, shown as a status box — no pre-check in the UI):
@@ -384,7 +387,32 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
      there is no reverse zone. The selects/hidden id fields carry `data-nd-int`; `netdot.js
      collect()` coerces a purely-numeric value to an integer so FK ids go out numeric
      (names/addresses stay strings). This replaced an earlier per-section "Add" modal approach.
-   - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
+     Its hidden id fields are rendered **outside** the `<table>` (inside `<tr><td>` they showed
+     up as empty rows).
+    **List view — DNS "Name" column** (2026-10-11): `view_format=list` shows each IP's A records
+     (FQDNs, comma-separated, **each name a link to its RR object**), filled by ONE query
+     `LEFT JOIN rraddr JOIN rr JOIN zone` (like legacy `subnet.mhtml`) — not the per-row
+     `$o->a_records` (was N+1, and `eval { ... } // ()` tripped Class::DBI's scalar-context
+     **iterator** trap so the column came out empty). See the wantarray pitfall below.
+    **Block section-tab write forms** (2026-10-11, same `collect()`/`initForms` pattern, gated on
+     `can('edit')`): **Sites** → `POST /api/sitesubnet`; **Zones** → `POST /api/subnetzone`
+     (link an existing forward zone, active non-arpa not already linked) and `POST /api/zone`
+     (create a reverse/`.arpa` zone from `get_dot_arpa_names` candidates); **DHCP** (Subnets with
+     no scope yet) → `POST /api/dhcpscope` type=subnet under a chosen global scope — `initDhcpEnable()`
+     nests the flat `option_routers` field into the `attributes` object (the model stores it as a
+     `dhcpattr`; there is no dhcp flag on ipblock); **Attributes** → `POST /api/ipblockattr`.
+      Zones **inherited** from an ancestor render *italic* + "(inherited)" (only a direct
+      `SubnetZone` link / a zone matching the block's own arpa name counts as "configured");
+      for the reverse column the effective `reverse_zone()` is shown when the block has no own
+      arpa zone, tagged "(inherited)" when it is an ancestor's (e.g. a /16 under a /8 owning
+      `10.in-addr.arpa`). All the add-form `<select>`s open with a `--SELECT--` placeholder option.
+    **Class::DBI wantarray pitfall** (recurring): a Class::DBI relation method returns a LIST in
+     list context but a single **Iterator** in scalar context. `eval { $obj->rel } // ()` forces
+     scalar context → you get one Iterator, not the objects (the `//` degrades wantarray). Always
+     `my @r; eval { @r = $obj->rel }; @r = () if $@;` (assign **inside** the eval), or
+     `my @r = eval { $obj->rel };` (no `// ()`). This bit the list "Name" column and
+     `get_dot_arpa_names` this session.
+    - `lib/Netdot/Mojo/Controller/Rr.pm` — host detail (show + `_rr_attributes`,
    `_rr_sections`, `_rel_record`, `_search_all`, `_name_link`, `_obj_link`) + search.
    Now also renders the shared edit form (name, zone, active, auto_update, expiration,
    info → JSON API PATCH); the system timestamps `created`/`modified` are excluded (not

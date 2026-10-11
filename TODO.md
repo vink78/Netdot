@@ -447,12 +447,28 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
    > enfants sont re-rattachés au grand-père via `_tree_delete` ; overlay « Deleting… »
    > pendant l'écriture lente. Fix API : les options de delete sont comparées via
    > `short_class` — avant, `Netdot::Model::*` ne matchait jamais, donc `recursive`/`delete_ips`
-   > étaient silencieusement ignorées). **Reste à
- > porter** : (1) **Ipblock REBLOCK** (changement d'identité address/prefix/version — recréation de
- > la hiérarchie), (2) **édition de relations has_many** générique (ajout/retrait d'enfants, ex.
- > interfaces d'un device, contacts d'un contactlist) — lecture seule aujourd'hui, (3) **créations
- > complexes** multi-étapes (device site/os, ipblock hiérarchie). Hors CRUD (opérationnel) :
- > re-poll `updatedevice`, allocation IP interactive `choose_ip`.
+    > étaient silencieusement ignorées). (2026-10-11) **Vue bloc (subnet/container) — onglets en
+    > écriture** : **site** (Sites → `POST /api/sitesubnet`), **zone forward** (Zones →
+    > `POST /api/subnetzone`, select des zones forward existantes non liées) et **zone inverse**
+    > (Zones → `POST /api/zone`, select des noms `.arpa` du bloc via `get_dot_arpa_names`),
+    > **activation DHCP** (DHCP, subnets sans scope → `POST /api/dhcpscope` type=subnet sous un
+    > scope global ; `option routers` replacé dans `attributes` par `initDhcpEnable()`) et
+    > **attribut** (Attributes → `POST /api/ipblockattr`) — tous via `collect()`/`initForms`.
+    > Les zones forward **héritées** d'un ancêtre s'affichent en *italique* + « (inherited) »
+    > (seules les `SubnetZone` directes sont « configurées »). **Suppression adresse** : la vue
+    > individuelle a son bouton Delete (pattern du bloc, `nd_children=0` → pas de case children)
+    > et ses sections de données vides (A/PTR/Services/Attr/DHCP) sont masquées ; la boîte
+    > « Add a record » rend ses champs cachés en dehors du `<table>` (plus de ligne vide).
+    > **Liste (`view_format=list`)** : colonne « Name » = tous les A records de l'IP (FQDN,
+    > séparés par virgule), **chaque nom = lien vers l'objet RR**, rempli par UNE requête
+    > `LEFT JOIN rraddr` (plus de N+1) — le vieux `eval { $o->a_records } // ()` retournait un
+    > Iterator (piège wantarray Class::DBI) → colonnes vides. Les selects ont un 1er item
+    > `--SELECT--`. **Reste à porter** : (1) **Ipblock REBLOCK** (changement d'identité
+    > address/prefix/version — recréation de la hiérarchie), (2) **édition de relations has_many**
+    > générique pour les AUTRES types (ex. interfaces d'un device, contacts d'un contactlist) —
+    > lecture seule aujourd'hui (les relations du **bloc** sont désormais ajoutables, cf. ci-
+    > dessus), (3) **créations complexes** multi-étapes (device site/os, ipblock hiérarchie).
+    > Hors CRUD (opérationnel) : re-poll `updatedevice`, allocation IP interactive `choose_ip`.
 
 ## Déprécié / non migré — ⛔
 
