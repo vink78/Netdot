@@ -510,7 +510,7 @@ sub _create_alias {
     return $rec;
 }
 
-# POST /api/rr/:id/alias  {name, ttl} — create a new alias pointing at the RR.
+ # POST /api/rr/:id/alias  {name, ttl} — create a new alias pointing at the RR.
 sub alias {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -533,6 +533,44 @@ sub alias {
         my $rec  = _create_alias( $o, $name, $ttl, $p );
         return $c->render( json => Netdot::Mojo::Api::get( $rec, $p, undef, depth => 0 ),
                            status => 200 );
+    });
+}
+
+# POST /api/ipblock/:id/range  {start, end, status, owner?, used_by?, description?}
+# Create a range of /32 or /128 IP blocks under the parent subnet.
+sub range {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        my $id   = $c->param('id');
+        my $args = _args($c);
+        _err( 400, 'Missing id' ) unless defined $id && $id =~ /^\d+$/;
+        my $o = Netdot::Model::Ipblock->retrieve($id);
+        _err( 404, "Ipblock/$id not found" ) unless $o;
+        unless ( Netdot::Mojo::Permissions->can( $p, 'edit', $o ) ) {
+            _err( 403, 'User not allowed to edit this object' );
+        }
+        my $start = _trim( $args->{start} // '' );
+        my $end   = _trim( $args->{end}   // '' );
+        my $status = _trim( $args->{status} // '' );
+        _err( 400, 'Missing start, end and/or status' ) unless $start && $end && $status;
+        my %params = ( start => $start, end => $end, status => $status );
+        $params{owner}       = $args->{owner}       if $args->{owner} && $args->{owner} ne '';
+        $params{used_by}     = $args->{used_by}     if $args->{used_by} && $args->{used_by} ne '';
+        $params{description} = $args->{description} if $args->{description} && $args->{description} ne '';
+        $params{gen_dns}     = $args->{gen_dns}     if $args->{gen_dns};
+        $params{name_prefix} = $args->{name_prefix} if $args->{name_prefix} && $args->{name_prefix} ne '';
+        $params{name_suffix} = $args->{name_suffix} if $args->{name_suffix} && $args->{name_suffix} ne '';
+        $params{fzone}       = $args->{fzone}       if $args->{fzone} && $args->{fzone} ne '';
+        my $newips = eval { $o->add_range(%params) };
+        _err( 400, "Range creation failed: $@" ) if $@;
+        return $c->render( json => {
+            created => scalar(@$newips),
+            start   => $start,
+            end     => $end,
+            status  => $status,
+        }, status => 201 );
     });
 }
 

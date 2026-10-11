@@ -275,6 +275,8 @@ sub startup ($self) {
     $r->any('/api/:table/:id')->to('api#generic');
     # Create a new alias (CNAME) pointing at an RR: new RR + rrcname.
     $r->post('/api/:table/:id/alias')->to('api#alias');
+    # Create a range of /32 or /128 IP blocks under a parent subnet.
+    $r->post('/api/ipblock/:id/range')->to('api#range');
 
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');

@@ -392,11 +392,16 @@ sub show ($c) {
         #  - Zones: forward-zone options (active non-arpa, not already linked) for
         #    "Add forward zone" (POST /api/subnetzone), and the block's arpa names
         #    not yet existing as a zone for "Add reverse zone" (POST /api/zone).
-        my ( $attr_names, $dhcp_globals, $dhcp_router, $site_list, $fzone_options, $rzone_names );
+        my ( $attr_names, $dhcp_globals, $dhcp_router, $site_list, $fzone_options, $rzone_names, $stash_entities, $stash_fzones, $stash_fzone_default, $stash_range_first, $stash_range_last );
         if ( $can_edit ) {
             if ( $show->('Attributes') ) {
                 my @ans; eval { @ans = IpblockAttrName->retrieve_all }; @ans = () if $@;
-                $attr_names = [ map { [ $_->id, $_->name ] } sort { $a->name cmp $b->name } @ans ];
+                my %have;
+                my @ex; eval { @ex = $o->attributes };
+                for my $a (@ex) { $have{ $a->name->id } = 1 if $a->name; }
+                $attr_names = [ map { [ $_->id, $_->name ] }
+                                 grep { !$have{ $_->id } }
+                                 sort { $a->name cmp $b->name } @ans ];
             }
             if ( $show->('DHCP') && $status eq 'Subnet' && !@dhcp ) {
                 my @gs; eval { @gs = DhcpScope->search( type => 'global', version => $o->version ) };
@@ -424,6 +429,26 @@ sub show ($c) {
                 my %exist; %exist = map { $_->name => 1 } @zs;
                 my @arpa; eval { @arpa = $o->get_dot_arpa_names }; @arpa = () if $@;
                 $rzone_names = [ grep { !exists $exist{$_} } sort @arpa ];
+            }
+            # Range form (Children view, Subnets): entity list for Owner/Used By
+            # selects, and forward zone list for the "Auto-generate DNS" fzone select.
+            if ( $show->('Children') && $status eq 'Subnet' ) {
+                my @ents; eval { @ents = Entity->retrieve_all }; @ents = () if $@;
+                $stash_entities = [ map { [ $_->id, $_->name ] } sort { $a->name cmp $b->name } @ents ];
+                my @zs2; eval { @zs2 = Zone->retrieve_all }; @zs2 = () if $@;
+                $stash_fzones = [
+                    map  { [ $_->id, $_->get_label ] }
+                    grep { $_->active && !$_->is_dot_arpa }
+                    sort { $a->get_label cmp $b->get_label } @zs2,
+                ];
+                my $fz = eval { $o->forward_zone };
+                $stash_fzone_default = $fz ? $fz->id : undef;
+                # Default range boundaries: first and last usable IP of the subnet.
+                my $n = NetAddr::IP->new( $o->address, 0 + $o->prefix );
+                if ( $n ) {
+                    $stash_range_first = $n->first->addr;
+                    $stash_range_last  = $n->last->addr;
+                }
             }
         }
 
@@ -501,6 +526,11 @@ sub show ($c) {
             site_list    => $site_list,      # [[id,name]...] for the "Add site" form
             fzone_options => $fzone_options, # [[id,name]...] forward zones for "Add forward zone"
             rzone_names  => $rzone_names,    # [name]... arpa names for "Add reverse zone"
+            entities     => $stash_entities, # [[id,name]...] for the range form Owner/Used By
+            range_fzones => $stash_fzones,   # [[id,name]...] forward zones for the range form
+            fzone_default => $stash_fzone_default, # pre-select the block's forward zone
+            range_first  => $stash_range_first, # default start IP (first usable)
+            range_last   => $stash_range_last,  # default end IP (last usable)
             can_rights     => $can_rights,   # may view/manage access rights (Admin/Operator)
             can_rights_edit => $can_rights_edit, # may grant/revoke (Admin only)
             rights       => $rights,        # arrayref of {type,name,subject_html,access,...}
