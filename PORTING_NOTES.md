@@ -929,12 +929,25 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
         API: `POST /api/ipblock/:id/range` → `$o->add_range(start,end,status,…)`
         (model creates /32 or /128 blocks). Grid cells carry `data-nd-ip` for JS.
         JS: `initRange()` in `netdot.js`.
-      - **Batch Edit** (Children, list mode): "Batch Edit" button → JS adds checkboxes
-        to each row (`.nd-batch-chk` with `data-nd-id`) + "Check All" header. Draggable
-        panel with: status (filtered by parent type: Subnet→Dynamic/Reserved/Static,
-        Container→all), owner, used_by, description, delete checkbox. "Apply" sends one
-        API call per checked row (`POST /api/ipblock/:id` or `DELETE`). JS: `initBatch()`.
-        Data passed via `window.ND_BATCH_DATA` (statuses + entities as JSON).
+      - **Batch Edit + Edit** (Children, list mode): two buttons, both backed by ONE
+        request, `POST /api/ipblock/batch` (`Api#batch`):
+        `{updates:[{id, status?, owner?, used_by?, description?}], deletes:[id…]}`
+        → `{updated, deleted, errors{per id}}`, 200 if at least one op applied. The
+        route is registered BEFORE `/api/:table/:id` (else "batch" is captured as
+        `$id`). Per-id existence + permission checks; deletes run first; only the
+        whitelisted fields are written. "Batch" → row checkboxes (`.nd-batch-chk`) +
+        draggable panel (status filtered by parent type: Subnet→Dynamic/Reserved/
+        Static, Container→all; owner, used_by, description; delete checkbox).
+        "Edit" → inline editable cells in the table: status select ("-- No change --"
+        = keep), owner/used_by selects ("—" = clear), description input, per-row
+        delete checkbox + "check all" header. JS sends ONLY dirty fields (compared
+        against `data-nd-stid`/`data-nd-own`/`data-nd-ub`/`data-nd-desc`), so the
+        audit trail records only real changes (`Netdot::Model` after_update trigger
+        logs only columns whose value changed). JS: `initBatch()` +
+        `initEditChildren()`. Data via `window.ND_BATCH_DATA` (statuses + entities).
+      - **Fix `Registry::link_html`**: `my ($t,$h) = link_for($v)` did not dereference
+        the returned arrayref → `$h` was always undef → every FK link (owner/used_by
+        in the children list, etc.) rendered empty. Fixed to `@{ link_for($v) }`.
     - Deferred: Device **Topology (graph)** tab; Ipblock **REBUILD_TREE** (admin);
       **ADD_BLOCKS** (bulk create); HTML write/edit pages (the **API** now covers
       authorized writes).

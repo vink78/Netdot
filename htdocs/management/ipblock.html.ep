@@ -211,7 +211,8 @@
     <span style="margin-left:0.6em; font-size:0.85em; color:#666">Click Range to select a range of IPs on the grid (click or drag), then choose options and create.</span>
   % }
   % if ($can_edit && $viewformat eq 'list' && @$blocks > 0) {
-    <button type="button" class="btn btn-sm" id="nd-batch-btn" style="margin-left:0.6em">Batch Edit</button>
+    <button type="button" class="btn btn-sm" id="nd-edit-children-btn" style="margin-left:0.6em">Edit</button>
+    <button type="button" class="btn btn-sm" id="nd-batch-btn" style="margin-left:0.3em">Batch</button>
   % }
   </div>
 % }
@@ -275,15 +276,16 @@
                 <a href="<%= $c->web_prefix %>/management/device/<%= $dev->id %>"><%= $dev->fqdn %></a>
             % }
             </td>
-            <td><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
-            <td><%== Netdot::Mojo::Registry::link_html( eval { $o->owner } ) %></td>
-            <td><%== Netdot::Mojo::Registry::link_html( eval { $o->used_by } ) %></td>
-            <td><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
+            <td data-nd-st="<%= Netdot::Mojo::Registry::format_value( $o->status ) %>" data-nd-stid="<%= eval { $o->status->id } // '' %>"><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
+            <td data-nd-own="<%= eval { (eval { $o->owner })->id } // '' %>"><%== Netdot::Mojo::Registry::link_html( eval { $o->owner } ) %></td>
+            <td data-nd-ub="<%= eval { (eval { $o->used_by })->id } // '' %>"><%== Netdot::Mojo::Registry::link_html( eval { $o->used_by } ) %></td>
+            <td data-nd-desc="<%= $o->description // '' %>"><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
             <td><%= Netdot::Mojo::Registry::format_value( $o->last_seen ) %></td>
         % } else {
             <td><a href="<%= $c->web_prefix %>/management/ipblock/<%= $o->id %>"><%= $o->get_label %></a></td>
-            % my $st = eval { $o->status->get_label } // '';
-            <td><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
+            % my $st   = eval { $o->status->get_label } // '';
+            % my $stid = eval { $o->status->id } // '';
+            <td data-nd-st="<%= $st %>" data-nd-stid="<%= $stid %>"><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
             % if ($util) {
             <td>
             % if ( $st eq 'Subnet' && $o->num_addr ) {
@@ -293,9 +295,9 @@
             % }
             </td>
             % }
-            <td><%== Netdot::Mojo::Registry::link_html( eval { $o->owner } ) %></td>
-            <td><%== Netdot::Mojo::Registry::link_html( eval { $o->used_by } ) %></td>
-            <td><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
+            <td data-nd-own="<%= eval { (eval { $o->owner })->id } // '' %>"><%== Netdot::Mojo::Registry::link_html( eval { $o->owner } ) %></td>
+            <td data-nd-ub="<%= eval { (eval { $o->used_by })->id } // '' %>"><%== Netdot::Mojo::Registry::link_html( eval { $o->used_by } ) %></td>
+            <td data-nd-desc="<%= $o->description // '' %>"><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
         % }
         </tr>
     % }

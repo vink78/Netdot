@@ -271,6 +271,10 @@ sub startup ($self) {
     $r->any('/api/host')->to('api#host');
     $r->any('/api/host_like')->to('api#host_like');
     $r->post('/api/updatedev')->to('api#updatedev');
+    # Batch edit of a block's children (the list "Edit" mode): updates +
+    # deletes of several children in a single request (api#batch). Must come
+    # before /api/:table/:id or "batch" would be captured as $id.
+    $r->post('/api/ipblock/batch')->to('api#batch');
     $r->any('/api/:table')->to('api#generic');
     $r->any('/api/:table/:id')->to('api#generic');
     # Create a new alias (CNAME) pointing at an RR: new RR + rrcname.

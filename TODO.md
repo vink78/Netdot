@@ -468,10 +468,23 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      > description, gen_dns, prefix/suffix pré-remplis depuis config `IP_RANGE_DNS_DEFAULT_*`,
      > fzone pré-sélectionnée = zone du bloc/héritée/`DEFAULT_DNSDOMAIN`). API
      > `POST /api/ipblock/:id/range` → `$o->add_range(...)`. JS `initRange()`.
-     > **Batch Edit** (Children, mode liste) : bouton « Batch Edit » → checkboxes sur les
-     > lignes + panneau (status filtré par type parent : Subnet=Dynamic/Reserved/Static,
-     > Container=tous, owner, used_by, description, delete). Apply → une requête API par
-     > ligne cochée (`POST/DELETE /api/ipblock/:id`). JS `initBatch()`.
+     > **Batch Edit + Edit** (Children, mode liste) : deux boutons. « Batch » → checkboxes
+     > sur les lignes + panneau (status filtré par type parent : Subnet=Dynamic/Reserved/Static,
+     > Container=tous, owner, used_by, description, delete). « Edit » → cellules éditables
+     > inline dans le tableau (select status « -- No change -- » + selects owner/used_by
+     > « — »=vider + input description + checkbox delete par ligne, « check all » en
+     > en-tête). Les deux envoient UNE seule requête : `POST /api/ipblock/batch`
+     > `{updates:[{id, status?, owner?, used_by?, description?}], deletes:[id…]}`
+     > (`Api#batch`, route enregistrée AVANT `/api/:table/:id` sinon « batch » est capturé
+     > comme `$id`) → vérif existence+permissions par id, deletes d'abord, réponse
+     > `{updated, deleted, errors{par id}}`, 200 si au moins une op appliquée.
+     > **Seuls les champs sales sont envoyés** (JS compare aux `data-nd-*` originaux,
+     > `data-nd-stid` = id du status courant) → l'audit trail ne loggue que les vrais
+     > changements (le trigger `after_update` de `Netdot::Model` ne retient que les
+     > colonnes dont la valeur a changé ; `fields='modified'` est ignoré).
+     > JS `initBatch()` + `initEditChildren()`. (2026-10-12) **Fix `Registry::link_html`** :
+     > `my ($t,$h) = link_for($v)` ne déréférençait pas l'arrayref → `$h` toujours undef →
+     > tous les liens FK (owner/used_by/…) rendus vides ; corrigé en `@{ link_for($v) }`.
      > Les zones forward **héritées** d'un ancêtre s'affichent en *italique* + « (inherited) »
      > (seules les `SubnetZone` directes sont « configurées »). **Suppression adresse** : la vue
      > individuelle a son bouton Delete (pattern du bloc, `nd_children=0` → pas de case children)

@@ -937,34 +937,40 @@
         if (!del && !st && !own && !ub && !desc) { status(false, 'Nothing to apply.', 3000); return; }
         var cb = document.getElementById('nd-b-apply');
         cb.disabled = true;
-        var pending = chks.length;
-        var errors = 0;
-        function done(ok) {
-          pending--;
-          if (!ok) { errors++; }
-          if (pending === 0) {
-            if (errors) { status(false, errors + ' error(s).', 6000); cb.disabled = false; }
-            else {
-              status(true, del ? chks.length + ' deleted.' : chks.length + ' updated.');
-              closeBatch();
-              setTimeout(function () { location.reload(); }, 700);
-            }
-          }
-        }
+        // One batch request for all checked rows (same endpoint as "Edit").
+        var fields = {};
+        if (st) { fields.status = st; }
+        if (own) { fields.owner = parseInt(own, 10); }
+        if (ub) { fields.used_by = parseInt(ub, 10); }
+        if (desc) { fields.description = desc; }
+        var updates = [], deletes = [];
         for (var i = 0; i < chks.length; i++) {
           var id = chks[i].getAttribute('data-nd-id');
-          var url = '/api/ipblock/' + id;
-          if (del) {
-            api('DELETE', window.location.pathname.replace(/management.*/, '') + url).then(function (res) { done(res.ok); });
-          } else {
-            var body = {};
-            if (st) { body.status = st; }
-            if (own) { body.owner = parseInt(own, 10); }
-            if (ub) { body.used_by = parseInt(ub, 10); }
-            if (desc) { body.description = desc; }
-            api('POST', window.location.pathname.replace(/management.*/, '') + url, body).then(function (res) { done(res.ok); });
+          if (del) { deletes.push(id); }
+          else {
+            var u = { id: id };
+            for (var k in fields) { u[k] = fields[k]; }
+            updates.push(u);
           }
         }
+        var prefix = location.pathname.split('/management')[0];
+        api('POST', prefix + '/api/ipblock/batch', { updates: updates, deletes: deletes }).then(function (res) {
+          cb.disabled = false;
+          if (!res.ok) { status(false, errMsg(res), 6000); return; }
+          var data = res.data || {};
+          var nDone = ((data.updated && data.updated.length) || 0) + ((data.deleted && data.deleted.length) || 0);
+          var errs = data.errors || {};
+          var nErr = Object.keys(errs).length;
+          var msg = nDone + ' row(s) ' + (del ? 'deleted' : 'updated');
+          if (nErr) {
+            msg += ', ' + nErr + ' error(s): ' + Object.keys(errs).map(function (k) { return k + ': ' + errs[k]; }).join('; ');
+          }
+          status(nErr ? nDone > 0 : true, msg, nErr ? 8000 : undefined);
+          if (!nErr) {
+            closeBatch();
+            setTimeout(function () { location.reload(); }, 700);
+          }
+        });
       });
     }
 
@@ -982,6 +988,166 @@
     });
   }
 
+  // Individual edit: "Edit" button on the Children list → inline editable cells
+  // (status select, owner/used_by select, description text) + delete checkbox.
+  // On Save, only dirty cells are POSTed. On Cancel, page reloads.
+  function initEditChildren() {
+    var btn = document.getElementById('nd-edit-children-btn');
+    if (!btn) { return; }
+    var data = window.ND_BATCH_DATA || {};
+    var statuses = data.statuses || [];
+    var entities = data.entities || [];
+    var table = btn.closest('.tabcard-body') ? btn.closest('.tabcard-body').querySelector('table.datatable') : null;
+    if (!table) { table = document.querySelector('.tabcard-body table.datatable'); }
+    if (!table) { return; }
+
+    var active = false;
+    var saveBtn = null, cancelBtn = null, checkHeader = null;
+
+    function makeSelect(options, currentVal, emptyText) {
+      var sel = document.createElement('select');
+      sel.style.cssText = 'width:100%;font-size:0.85em;padding:2px';
+      var opt0 = document.createElement('option');
+      opt0.value = '';
+      opt0.textContent = emptyText || '—';   // "—" clears Owner/Used by; status uses "no change"
+      sel.appendChild(opt0);
+      for (var i = 0; i < options.length; i++) {
+        var opt = document.createElement('option');
+        opt.value = options[i][0];
+        opt.textContent = options[i][1];
+        if (String(options[i][0]) === String(currentVal) || options[i][1] === currentVal) { opt.selected = true; }
+        sel.appendChild(opt);
+      }
+      return sel;
+    }
+
+    function makeTextInput(currentVal) {
+      var inp = document.createElement('input');
+      inp.type = 'text';
+      inp.value = currentVal || '';
+      inp.style.cssText = 'width:100%;font-size:0.85em;padding:2px';
+      return inp;
+    }
+
+    function enterEditMode() {
+      active = true;
+      // Add delete checkbox column.
+      checkHeader = document.createElement('th');
+      checkHeader.style.width = '30px';
+      checkHeader.innerHTML = '<input type="checkbox" id="nd-ed-all" title="Check all">';
+      table.querySelector('thead tr').prepend(checkHeader);
+      document.getElementById('nd-ed-all').addEventListener('change', function () {
+        var chks = table.querySelectorAll('.nd-ed-del');
+        for (var i = 0; i < chks.length; i++) { chks[i].checked = this.checked; }
+      });
+      // Transform cells.
+      var rows = table.querySelectorAll('tbody tr[data-nd-id]');
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        // Delete checkbox.
+        var tdDel = document.createElement('td');
+        tdDel.innerHTML = '<input type="checkbox" class="nd-ed-del">';
+        row.prepend(tdDel);
+        // Find and transform editable cells.
+        var tds = row.querySelectorAll('td[data-nd-st], td[data-nd-own], td[data-nd-ub], td[data-nd-desc]');
+        for (var j = 0; j < tds.length; j++) {
+          var td = tds[j];
+          var orig = '';
+          if (td.hasAttribute('data-nd-st')) {
+            orig = td.getAttribute('data-nd-stid');   // current status id; "" if none
+            td.innerHTML = '';
+            td.appendChild(makeSelect(statuses, orig, '-- No change --'));
+          } else if (td.hasAttribute('data-nd-own')) {
+            orig = td.getAttribute('data-nd-own');
+            td.innerHTML = '';
+            td.appendChild(makeSelect(entities, orig));
+          } else if (td.hasAttribute('data-nd-ub')) {
+            orig = td.getAttribute('data-nd-ub');
+            td.innerHTML = '';
+            td.appendChild(makeSelect(entities, orig));
+          } else if (td.hasAttribute('data-nd-desc')) {
+            orig = td.getAttribute('data-nd-desc');
+            td.innerHTML = '';
+            td.appendChild(makeTextInput(orig));
+          }
+        }
+      }
+      // Save/Cancel buttons.
+      var bar = document.createElement('div');
+      bar.style.cssText = 'margin:0.5em 0;display:flex;gap:0.5em;align-items:center';
+      bar.innerHTML = '<button type="button" class="btn" style="padding:4px 12px">Save</button>' +
+                      '<button type="button" class="btn" style="padding:4px 12px">Cancel</button>' +
+                      '<span style="color:#666;font-size:0.85em">Check = delete. "—" clears Owner/Used by; unchanged cells are not saved.</span>';
+      table.parentElement.insertBefore(bar, table.nextSibling);
+      saveBtn = bar.querySelector('button:first-child');
+      cancelBtn = bar.querySelector('button:nth-child(2)');
+      saveBtn.addEventListener('click', doSave);
+      cancelBtn.addEventListener('click', function () { location.reload(); });
+      btn.textContent = 'Done';
+    }
+
+    // Single request for the whole save (POST /api/ipblock/batch): the server
+    // applies the updates + deletes and reports a per-id outcome, so there is
+    // one consistent result to display and one reload.
+    function doSave() {
+      var rows = table.querySelectorAll('tbody tr[data-nd-id]');
+      var updates = [], deletes = [];
+      for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var id = row.getAttribute('data-nd-id');
+        var delChk = row.querySelector('.nd-ed-del');
+        if (delChk && delChk.checked) { deletes.push(id); continue; }
+        var body = {};
+        // Collect DIRTY fields only: the batch endpoint writes exactly what is
+        // sent, so the audit trail records only real changes.
+        var tds = row.querySelectorAll('td[data-nd-st], td[data-nd-own], td[data-nd-ub], td[data-nd-desc]');
+        for (var j = 0; j < tds.length; j++) {
+          var td = tds[j];
+          var el = td.querySelector('select, input');
+          if (!el) { continue; }
+          if (td.hasAttribute('data-nd-st')) {
+            var stOrig = td.getAttribute('data-nd-stid');
+            if (el.value && el.value !== stOrig) { body.status = el.value; }   // "" = no change
+          } else if (td.hasAttribute('data-nd-own')) {
+            var ownOrig = td.getAttribute('data-nd-own');
+            if (el.value && el.value !== ownOrig) { body.owner = parseInt(el.value, 10); }
+            else if (!el.value && ownOrig) { body.owner = null; }
+          } else if (td.hasAttribute('data-nd-ub')) {
+            var ubOrig = td.getAttribute('data-nd-ub');
+            if (el.value && el.value !== ubOrig) { body.used_by = parseInt(el.value, 10); }
+            else if (!el.value && ubOrig) { body.used_by = null; }
+          } else if (td.hasAttribute('data-nd-desc')) {
+            var descOrig = td.getAttribute('data-nd-desc') || '';
+            if (el.value !== descOrig) { body.description = el.value; }
+          }
+        }
+        if (Object.keys(body).length) { body.id = id; updates.push(body); }
+      }
+      if (!updates.length && !deletes.length) { status(false, 'No changes to save.', 3000); return; }
+      var prefix = location.pathname.split('/management')[0];
+      saveBtn.disabled = true;
+      api('POST', prefix + '/api/ipblock/batch', { updates: updates, deletes: deletes }).then(function (res) {
+        saveBtn.disabled = false;
+        if (!res.ok) { status(false, errMsg(res), 6000); return; }
+        var data = res.data || {};
+        var nDone = ((data.updated && data.updated.length) || 0) + ((data.deleted && data.deleted.length) || 0);
+        var errs = data.errors || {};
+        var nErr = Object.keys(errs).length;
+        var msg = nDone + ' row(s) saved';
+        if (nErr) {
+          msg += ', ' + nErr + ' error(s): ' + Object.keys(errs).map(function (k) { return k + ': ' + errs[k]; }).join('; ');
+        }
+        status(nErr ? nDone > 0 : true, msg, nErr ? 8000 : undefined);
+        if (!nErr) { setTimeout(function () { location.reload(); }, 700); }
+      });
+    }
+
+    btn.addEventListener('click', function () {
+      if (active) { location.reload(); return; }
+      enterEditMode();
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
     initDhcpEnable();
@@ -994,6 +1160,7 @@
     initRights();
     initRange();
     initBatch();
+    initEditChildren();
   });
 
   window.ND = { api: api, status: status, collect: collect };

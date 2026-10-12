@@ -574,6 +574,97 @@ sub range {
     });
 }
 
+# POST /api/ipblock/batch
+# Batch edit of a block's children (the Children list "Edit" mode): several
+# field updates and several deletes applied in ONE request, so the client
+# acts on a single consistent outcome (one status box, one reload) instead of
+# firing N parallel per-row calls that can half-apply.
+#   Body:  { "updates": [ { "id": 123, "status"?, "owner"?, "used_by"?,
+#                            "description"? }, ... ],
+#            "deletes": [ 456, 789 ] }
+#   ->    { "updated": [123], "deleted": [456, 789],
+#           "errors":  { "789": "not allowed" } }     # per-id, when any
+# Only the fields a caller actually sends are written (the client sends only
+# the dirty cells), so each audit-trail row reflects a real user change:
+# CDBI's after_update trigger records only columns whose value changed.
+sub batch {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        my $args    = _args($c);
+        my $updates = $args->{updates} // [];
+        my $deletes = $args->{deletes} // [];
+        _err( 400, 'Bad request: "updates" (array of {id, fields...}) and/or "deletes" (array of ids) expected' )
+            unless ref $updates eq 'ARRAY' || ref $deletes eq 'ARRAY';
+        if ( defined $updates && ref $updates ne 'ARRAY' ) {
+            _err( 400, '"updates" must be an array' );
+        }
+        elsif (
+            grep { ref $_ ne 'HASH' || !defined $_->{id} || $_->{id} !~ /^\d+$/ } @$updates
+          )
+        {
+            _err( 400, '"updates" entries must be objects with a numeric "id"' );
+        }
+        if ( defined $deletes && ref $deletes ne 'ARRAY' ) {
+            _err( 400, '"deletes" must be an array' );
+        }
+        elsif ( grep { !defined || !/^\d+$/ } @$deletes ) {
+            _err( 400, '"deletes" entries must be numeric ids' );
+        }
+
+        # The only fields the edit UI can change on a child (same set as the
+        # model's recursive update, plus status).
+        my @fields = qw(status owner used_by description);
+
+        # Resolve + permission-check every target up front (same checks as
+        # _post / _delete); a missing or denied id is reported per id and the
+        # remaining operations still proceed, mirroring _batch_delete.
+        my ( @uobjs, %dobjs, %errs );
+        for my $u ( @$updates ) {
+            my $id  = $u->{id};
+            my $obj = Netdot::Model::Ipblock->retrieve($id);
+            $errs{$id} = "Ipblock/$id not found" unless $obj;
+            next unless $obj;
+            $errs{$id} = 'User not allowed to edit this object'
+                unless Netdot::Mojo::Permissions->can( $p, 'edit', $obj );
+            next if $errs{$id};
+            my %a;
+            $a{$_} = $u->{$_} for grep { exists $u->{$_} } @fields;
+            $errs{$id} = 'No editable field sent' unless keys %a;
+            next if $errs{$id};
+            push @uobjs, [ $obj, \%a ];
+        }
+        for my $did ( @$deletes ) {
+            next if exists $dobjs{$did};
+            my $obj = Netdot::Model::Ipblock->retrieve($did);
+            $errs{$did} = "Ipblock/$did not found" unless $obj;
+            next unless $obj;
+            $errs{$did} = 'User not allowed to delete this object'
+                unless Netdot::Mojo::Permissions->can( $p, 'delete', $obj );
+            next if $errs{$did};
+            $dobjs{$did} = $obj;
+        }
+
+        # Deletes first: an id present in both lists gets a clean "not found"
+        # on its update instead of an ambiguous double operation.
+        my ( @deleted, @updated );
+        for my $did ( sort keys %dobjs ) {
+            push @deleted, $did if eval { $dobjs{$did}->delete };
+            $errs{$did} = "delete failed: $@" if $@;
+        }
+        for my $pair ( @uobjs ) {
+            my ( $obj, $a ) = @$pair;
+            push @updated, $obj->id if eval { $obj->update($a) };
+            $errs{ $obj->id } = "update failed: $@" if $@;
+        }
+
+        my %res = ( updated => \@updated, deleted => \@deleted );
+        $res{errors} = \%errs if keys %errs;
+        return $c->render( json => \%res, status => ( @updated || @deleted ) ? 200 : 400 );
+    });
+}
+
 sub _trim {
     my ($s) = @_;
     $s = '' unless defined $s;
