@@ -83,26 +83,64 @@ sub search ($c) {
         return $c->redirect_to( Netdot::Mojo::Registry::set_uri( "/management/$type/" . $obj->id ) );
     }
 
-    my ( @headers, @rows );
-    if ( @list && ref( $list[0] ) =~ /PhysAddr/ ) {
+    # Paginate (DEFAULT_PERPAGE, like the list view). The single-match redirect
+    # above already handles the 1-result case; offset is clamped into range.
+    my $total  = scalar @list;
+    my $per    = eval { Netdot::Model->config->get('DEFAULT_PERPAGE') } || 50;
+    my $offset = $c->param('offset') // 0;
+    $offset = 0 unless $offset =~ /^\d+$/;
+    $offset = 0 if $offset >= $total;
+    my $last   = $offset + $per; $last = $total if $last > $total;
+    my @page   = $total ? @list[ $offset .. $last - 1 ] : ();
+
+    # The result set is homogeneous per query: a MAC -> PhysAddr, an IP ->
+    # Ipblock, otherwise RR names. Track the type so the results can offer
+    # batch delete (each result type has its own /api/<type> endpoint).
+    my ( @headers, @rows, $rclass, $rkey );
+    if ( @page && ref( $page[0] ) =~ /PhysAddr/ ) {
+        ( $rclass, $rkey ) = ( 'PhysAddr', 'physaddr' );
         @headers = ( 'MAC Address' );
-        @rows = map { { href => Netdot::Mojo::Registry::set_uri( "/management/physaddr/" . $_->id ), label => $_->address // '', cells => [] } } @list;
+        @rows = map { { id => $_->id, href => Netdot::Mojo::Registry::set_uri( "/management/physaddr/" . $_->id ), label => $_->address // '', cells => [] } } @page;
     }
-    elsif ( @list && ref( $list[0] ) =~ /Ipblock/ ) {
+    elsif ( @page && ref( $page[0] ) =~ /Ipblock/ ) {
+        ( $rclass, $rkey ) = ( 'Ipblock', 'ipblock' );
         @headers = map { Netdot::Mojo::Registry::column_tag( 'Ipblock', $_ ) }
                    qw(address prefix status);
         @rows = map {
-            { href => Netdot::Mojo::Registry::set_uri( "/management/ipblock/" . $_->id ), label => $_->address // '',
+            { id => $_->id, href => Netdot::Mojo::Registry::set_uri( "/management/ipblock/" . $_->id ), label => $_->address // '',
               cells => [ $_->prefix // '', Netdot::Mojo::Registry::format_value( $_->status ) ] }
-        } @list;
+        } @page;
     }
     else {
+        ( $rclass, $rkey ) = ( 'RR', 'rr' );
         @headers = ( 'Name', 'Zone' );
         @rows = map {
-            { href => Netdot::Mojo::Registry::set_uri( "/management/rr/" . $_->id ), label => _rr_label( $_ ),
+            # First column = rr.name (the relative name); the zone is its own column,
+            # so the label must NOT be the full FQDN (get_label would repeat it).
+            { id => $_->id, href => Netdot::Mojo::Registry::set_uri( "/management/rr/" . $_->id ), label => $_->name // '',
               cells => [ Netdot::Mojo::Registry::format_value( $_->zone ) ] }
-        } @list;
+        } @page;
     }
+
+    # Batch delete on the results (only when the user may delete this type).
+    my $del;
+    if ( $rclass && @rows
+         && Netdot::Mojo::Permissions->has_action( $rclass, $c->current_person, 'delete' ) ) {
+        $del = { type => $rkey, api => $c->web_prefix . '/api/' . $rkey };
+    }
+
+    # Bulk edit on the results (only when the user may edit this type): the shared
+    # field specs + each row's current values (netdot.js initBulkEdit, driven by
+    # POST /api/<type>/batch). Same API pattern as the batch delete above.
+    my $bulk;
+    if ( $rclass && @rows
+          && Netdot::Mojo::Permissions->has_action( $rclass, $c->current_person, 'edit' ) ) {
+        my $data = Netdot::Mojo::Detail::bulk_edit_data( $rclass, \@page );
+        $bulk = { type => $rkey, api => $c->web_prefix . '/api/' . $rkey . '/batch', %$data };
+    }
+
+    my $start      = @rows ? $offset + 1 : 0;
+    my $last_item  = $offset + scalar(@rows);
 
     $c->render(
         template   => 'management/search_results',
@@ -112,6 +150,13 @@ sub search ($c) {
         headers    => \@headers,
         rows       => \@rows,
         search_url => $c->url_for( 'rr_search' ),
+        del        => $del,
+        bulk       => $bulk,
+        total      => $total,
+        per        => $per,
+        offset     => $offset,
+        start      => $start,
+        last_item  => $last_item,
     );
 }
 

@@ -79,6 +79,8 @@
 </div>
 
 % my $can_delete = $c->stash('can_delete');
+% my $bulk       = $c->stash('bulk');    # { type, api, fields, rows } for bulk edit
+% my $can_check  = $can_delete || $bulk; # checkboxes when either batch op is allowed
 % if (@$rows) {
     <table class="datatable sortable">
       <thead>
@@ -86,8 +88,8 @@
            % for my $col (@$cols) {
            <th><%= $coltags->{$col} // $col %></th>
            % }
-% if ($can_delete) {
-          <th></th>
+% if ($can_check) {
+          <th style="text-align:center; width:2em"><input type="checkbox" class="nd-batch-select-all" title="Select all shown"></th>
 % }
         </tr>
       </thead>
@@ -101,20 +103,34 @@
            % for my $col ( @{$cols}[1..$#$cols] ) {
            <td><%= b( $row->{$col} // '' ) %></td>
            % }
-% if ($can_delete) {
+% if ($can_check) {
           <td style="text-align:center"><input type="checkbox" class="nd-batch-check" name="<%= $type %>__<%= $row->{id} %>"></td>
 % }
         </tr>
         % }
       </tbody>
     </table>
-% if ($can_delete) {
-    % # Batch delete goes through the JSON API in ONE call (DELETE /api/<type>?id=1,2,3);
-    % # see netdot.js initBatchDelete. The server-side browse#delete route is gone.
+% if ($can_check) {
+    % # Batch delete + bulk edit go through the JSON API in ONE call each
+    % # (DELETE /api/<type>?id=1,2,3 / POST /api/<type>/batch); see netdot.js
+    % # initBatchDelete / initBulkEdit. The server-side browse#delete route is gone.
     <p>
+      % if ($can_delete) {
       <button type="button" class="btn nd-batch-delete" data-nd-api="<%= $c->web_prefix %>/api/<%= $type %>" style="margin-top:0.5em">Delete</button>
+      % }
+      % if ($bulk) {
+      <button type="button" class="btn nd-bulk-edit" data-nd-api="<%= $bulk->{api} %>" style="margin-top:0.5em">Bulk edit</button>
+      % }
       <span class="nd-batch-count" style="margin-left:0.6em; font-size:0.9em"></span>
     </p>
+% }
+% if ($bulk) {
+% use JSON;
+% my $bjs = JSON->new->canonical->encode( $bulk );
+% $bjs =~ s{<}{\\u003c}g;   # keep a value from breaking out of the <script> tag
+<script>
+  window.ND_BULK_DATA = <%== $bjs %>;
+</script>
 % }
 
   % if ($total > $per) {

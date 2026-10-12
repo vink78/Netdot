@@ -422,7 +422,11 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
    netdot.meta** ("all" view, in meta order) — a column added to the meta becomes editable
    automatically; kind from the meta type (integer→number, varchar>255→textarea), FKs
    hidden unless `show_fk`, `readonly`/`hidden`/`selects`/`links`/`link_on` options handle
-   the per-view cases.
+   the per-view cases. **Search results** (`search`, `search_results.html.ep`): paginated
+   at `DEFAULT_PERPAGE` (50/page, `?offset=`; a single match still redirects to the detail
+   page); the first column is `rr.name` (the relative name), NOT `get_label` (the full
+   FQDN) — the zone has its own column. The results table also offers the row checkboxes +
+   Delete button + select-all (see the batch-delete note below).
   - `lib/Netdot/Mojo/Controller/Show.pm` — generic detail (most types): attrs
     (all view) + **has_many tables** (from `meta_data->get_links_from`, like
     Mason `view.html`): one table per non-empty relation, brief columns (label
@@ -566,6 +570,15 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
             counter, reload after). **The old server-side route
             `POST /management/<type>/delete` (`browse#delete`) is removed** — no more
             server-side writes; everything goes through the JSON API.
+            **Batch delete on the dedicated search results too** (2026-10-12): the
+            `rr`/`ipblock`/`physaddr` searches render `search_results.html.ep`, which now
+            offers the same row checkboxes + Delete button + a **select-all** header
+            checkbox. Each search is homogeneous (one type per query: name→RR, IP→
+            Ipblock, MAC→PhysAddr), so a single `data-nd-api` base (`/api/<type>`) works;
+            the controllers stash `del => { type, api }` (gated on `has_action delete`)
+            and add `id` to each row. **Fix**: `initBatchDelete()` was defined but never
+            called in the `DOMContentLoaded` handler, so the Delete button was dead — it
+            is now registered.
             **Delete UX — modal + busy overlay** (2026-10-09): all delete confirms use a
             `netdot.js` **`ndConfirm`** `<div>` modal (NOT a native `confirm()`, which
             triggers the browser's anti-dialog "don't ask again" permission prompt). A single

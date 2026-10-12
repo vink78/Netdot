@@ -186,6 +186,16 @@ sub list ($c) {
     # May the current user delete objects of this type? (controls the delete form)
     my $can_delete = Netdot::Mojo::Permissions->has_action( $class, $person, 'delete' );
 
+    # Bulk edit (netdot.js initBulkEdit): the shared field specs + each row's
+    # current values, driven by POST /api/<table>/batch. Shown when the user may
+    # edit objects of this type. (ipblock's list returns earlier with its own
+    # children-edit UI, so this covers the generic list types, incl. rr/physaddr.)
+    my $bulk;
+    if ( @objs && Netdot::Mojo::Permissions->has_action( $class, $person, 'edit' ) ) {
+        my $data = Netdot::Mojo::Detail::bulk_edit_data( $class, \@objs );
+        $bulk = { type => $type, api => $c->web_prefix . '/api/' . $type . '/batch', %$data };
+    }
+
     # Per-column meta tags (headers) and foreign-key targets (for cell links).
     # ($first / $sort_col are computed above, before the queries.)
     my %coltag  = map { $_ => Netdot::Mojo::Registry::column_tag( $class, $_ ) } @$cols;
@@ -296,6 +306,7 @@ sub list ($c) {
         start     => $start,
         last_item => $last_item,
         can_delete => $can_delete,
+        bulk      => $bulk,
         %extra,
     );
 }

@@ -1275,6 +1275,66 @@ input[type=button]:hover {
 .nd-modal .nd-modal-create { background: #e6f4ea; color: #1e7e34; border-color: #bfe3c8; }
 .nd-modal .nd-modal-create:hover { background: #1e7e34; color: #ffffff; border-color: #1e7e34; }
 
+/* ---------- Bulk edit (netdot.js initBulkEdit) ----------
+   A compact field-picker popup + a FULL-PAGE editable table (it can hold ~20
+   columns, far too wide for a 760px modal). Reuses the .nd-modal-ov / .nd-modal
+   overlay + card; .nd-full stretches the card to the whole viewport. */
+.nd-modal.nd-bulk {
+    width: 640px;
+    max-width: calc(100vw - 32px);
+    max-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+}
+/* Full-page variant (the editable table): fills the viewport, scrolls both axes. */
+.nd-modal-ov.nd-full-ov { align-items: stretch; justify-content: stretch; }
+.nd-modal.nd-full {
+    width: 100vw; max-width: 100vw;
+    height: 100vh; max-height: 100vh;
+    border-radius: 0;
+    padding: 14px 18px;
+    box-sizing: border-box;
+}
+.nd-full .nd-bulk-body { flex: 1 1 auto; }
+.nd-bulk-body {
+    overflow: auto;
+    margin: 0.4em 0 0.2em;
+    padding: 0.5em 0.6em;
+    border: 1px solid #e2e2e2;
+    border-radius: 6px;
+}
+/* min-width on the table + cells: a wide table (many chosen fields) grows past
+   the viewport and the body scrolls horizontally instead of squashing columns. */
+.nd-bulk-table { border-collapse: collapse; min-width: 100%; }
+.nd-bulk-table th, .nd-bulk-table td { min-width: 150px; }
+.nd-bulk-table td:first-child, .nd-bulk-table th:first-child {
+    min-width: 220px; position: sticky; left: 0; background: #ffffff; z-index: 1;
+}
+.nd-bulk-table th:first-child { background: #f5f5f5; z-index: 2; }
+.nd-bulk-table th, .nd-bulk-table td {
+    border: 1px solid #dddddd;
+    padding: 4px 7px;
+    font-size: 0.88em;
+    vertical-align: middle;
+    text-align: left;
+}
+.nd-bulk-table th { background: #f5f5f5; font-weight: 600; white-space: nowrap; }
+.nd-bulk-table input[type=text],
+.nd-bulk-table input[type=date],
+.nd-bulk-table select,
+.nd-bulk-table textarea {
+    font-size: 0.85em;
+    padding: 2px 5px;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    background: #ffffff;
+}
+.nd-bulk-fields { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.nd-bulk-fields label { font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.nd-bulk-apply th, .nd-bulk-apply td { background: #fffbe6; }
+
 /* ---------- Busy overlay (netdot.js: slow writes, e.g. recursive delete) ---------- */
 .nd-busy {
     position: fixed;

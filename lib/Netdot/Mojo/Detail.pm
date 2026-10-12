@@ -104,6 +104,80 @@ sub build_edit_fields {
     return \@fields;
 }
 
+# Editable field specs for a class (class-level, no per-object values): the
+# same columns build_edit_fields offers, i.e. the class's "all"-view columns
+# minus id / sensitive / system timestamps. Each entry: {name, tag, kind} plus,
+# for a small FK target, the {id,label} options (a large target -> undef, so the
+# client renders a keyword search instead of a dropdown). This is the single
+# source of truth for what the bulk-edit UI offers AND what POST /api/<table>/
+# batch accepts (Api.pm batch_edit derives its allowed-field set from here).
+sub editable_field_specs {
+    my ($class) = @_;
+    my @fields;
+    my $maxselect = eval { Netdot->config->get('DEFAULT_SELECTMAX') } || 100;
+    for my $cd ( @{ Netdot::Mojo::Registry::display_columns( $class ) } ) {
+        my ( $col, $tag ) = @$cd;
+        next if Netdot::Mojo::Registry::is_sensitive( $col );
+
+        my $target = Netdot::Mojo::Registry::column_link_key( $class, $col );    # FK registry key or undef
+        if ($target) {
+            my $tspec  = Netdot::Mojo::Registry::spec( $target );
+            my $tclass = $tspec ? $tspec->{class} : undef;
+            next unless $tclass;
+            my %spec = ( name => $col, tag => $tag, kind => 'fk', target => $target );
+            $spec{options} = _fk_options( $tclass, $maxselect ) if _fk_options( $tclass, $maxselect );
+            push @fields, \%spec;
+            next;
+        }
+
+        my $type = Netdot::Mojo::Registry::column_type( $class, $col );
+        next if defined $type && $type eq 'timestamp';
+        my $kind =
+            ( $type eq 'bool' )    ? 'checkbox'
+          : ( $type eq 'integer' ) ? 'number'
+          : ( $type eq 'text' )    ? 'textarea'
+          : ( $type eq 'date' )    ? 'date'
+          :                          'text';
+        push @fields, { name => $col, tag => $tag, kind => $kind };
+    }
+    return \@fields;
+}
+
+# Bulk-edit data for a list / search page (port of the legacy edit-multiple.html
+# field picker + editable table, but driven by the JSON API instead of server
+# sessions): the shared field specs (editable_field_specs) plus each row's
+# current value for those fields. The client (netdot.js initBulkEdit) uses this
+# to offer a "choose which fields" popup and to pre-fill the editable table; the
+# chosen values go back through POST /api/<table>/batch (one request, one result).
+# FK values are the target id (the <select> value); bools are 0/1; the rest raw.
+sub bulk_edit_data {
+    my ( $class, $objs ) = @_;
+    my $fields = editable_field_specs( $class );
+    my %rows;
+    for my $o (@$objs) {
+        my $id = eval { $o->id };
+        next unless defined $id;
+        my %vals;
+        for my $f (@$fields) {
+            my $col = $f->{name};
+            my $val = eval { $o->$col };
+            $val = '' unless defined $val;
+            if ( $f->{kind} eq 'fk' ) {
+                # The relationship stringifies to its id (CDBI); a null FK -> 0.
+                my $fid = eval { int( $val // 0 ) };
+                $fid = 0 unless defined $fid && $fid > 0;
+                $val = $fid;
+            }
+            elsif ( $f->{kind} eq 'checkbox' ) {
+                $val = $val ? 1 : 0;
+            }
+            $vals{$col} = $val;
+        }
+        $rows{$id} = \%vals;
+    }
+    return { fields => $fields, rows => \%rows };
+}
+
 # Label for an FK option: the object's get_label (falls back to "#id").
 sub _fk_label {
     my ($o) = @_;

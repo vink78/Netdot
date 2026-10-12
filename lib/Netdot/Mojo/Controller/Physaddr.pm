@@ -152,9 +152,15 @@ sub search {
     my $limit = 200;
     my @rows;
     for my $o ( @results[ 0 .. ( @results > $limit ? $limit - 1 : $#results ) ] ) {
-        push @rows, { label => $o->format_address // $o->address,
+        push @rows, { id    => $o->id,
+                      label => $o->format_address // $o->address,
                       href  => Netdot::Mojo::Registry::set_uri( '/management/physaddr/' . $o->id ),
                       cells => [ $o->first_seen // '', $o->last_seen // '' ] };
+    }
+    # Batch delete on the results (PhysAddr type) when the user may delete.
+    my $del;
+    if ( @rows && Netdot::Mojo::Permissions->has_action( 'PhysAddr', $c->current_person, 'delete' ) ) {
+        $del = { type => 'physaddr', api => $c->web_prefix . '/api/physaddr' };
     }
     $c->render(
         template   => 'management/search_results',
@@ -164,6 +170,7 @@ sub search {
         headers    => [ 'MAC Address', 'First Seen', 'Last Seen' ],
         rows       => \@rows,
         search_url => $search_url,
+        del        => $del,
     );
 }
 

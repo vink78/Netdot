@@ -275,6 +275,10 @@ sub startup ($self) {
     # deletes of several children in a single request (api#batch). Must come
     # before /api/:table/:id or "batch" would be captured as $id.
     $r->post('/api/ipblock/batch')->to('api#batch');
+    # Generic bulk edit of a list / search selection (api#batch_edit). Registered
+    # after the literal ipblock batch (so it wins for ipblock) but before the
+    # /api/:table/:id placeholder (else "batch" would be captured as $id).
+    $r->post('/api/:table/batch')->to('api#batch_edit');
     $r->any('/api/:table')->to('api#generic');
     $r->any('/api/:table/:id')->to('api#generic');
     # Create a new alias (CNAME) pointing at an RR: new RR + rrcname.

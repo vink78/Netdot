@@ -6,6 +6,7 @@ use Netdot;
 use Netdot::Model;
 use Netdot::Exporter;
 use Netdot::Mojo::Api;
+use Netdot::Mojo::Detail;
 use Netdot::Mojo::Permissions;
 use Netdot::Mojo::OpenAPI;
 use Mojo::Util qw(url_escape);
@@ -662,6 +663,73 @@ sub batch {
         my %res = ( updated => \@updated, deleted => \@deleted );
         $res{errors} = \%errs if keys %errs;
         return $c->render( json => \%res, status => ( @updated || @deleted ) ? 200 : 400 );
+    });
+}
+
+# POST /api/:table/batch
+# Generic bulk edit of a list / search selection (port of the legacy
+# edit-multiple.html, driven by the JSON API): the client picks which fields to
+# change and posts, per selected object, the values to write.
+#   Body:  { "updates": [ { "id": 123, "info": "x", "active": 1 },
+#                           { "id": 456, "info": "y" }, ... ] }
+#   ->    { "updated": [123,456], "errors": { "789": "not allowed" } }
+# Each id is resolved + permission-checked on its own (a denied id is reported
+# per id, the rest proceed), mirroring _batch_delete and the ipblock batch. Only
+# the fields the client actually sends are written, and only if they are a real
+# editable column of the table (the same set the edit form offers, via
+# Detail::editable_field_specs) — so the audit trail reflects a real user change
+# (CDBI's after_update trigger records only columns whose value changed).
+sub batch_edit {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+
+        my %tables = _model_tables();
+        my $class  = $tables{ lc( $c->param('table') ) };
+        unless ($class) {
+            return $c->render( json => { error => 'Unknown table: ' . $c->param('table') }, status => 400 );
+        }
+
+        my $args    = _args($c);
+        my $updates = $args->{updates} // [];
+        _err( 400, 'Bad request: "updates" (array of {id, fields...}) expected' )
+            unless ref $updates eq 'ARRAY';
+        if ( grep { ref $_ ne 'HASH' || !defined $_->{id} || $_->{id} !~ /^\d+$/ } @$updates ) {
+            _err( 400, '"updates" entries must be objects with a numeric "id"' );
+        }
+
+        # The editable columns of the target table (single source of truth, shared
+        # with the UI field picker); any other field is dropped, so a client can
+        # never write to a non-editable / internal column (id, timestamps, ...).
+        my %editable = map { $_->{name} => 1 } @{ Netdot::Mojo::Detail::editable_field_specs( $class ) };
+
+        my ( @uobjs, %errs );
+        for my $u ( @$updates ) {
+            my $id  = $u->{id};
+            my $obj = $class->retrieve($id);
+            $errs{$id} = "$class/$id not found" unless $obj;
+            next unless $obj;
+            $errs{$id} = 'User not allowed to edit this object'
+                unless Netdot::Mojo::Permissions->can( $p, 'edit', $obj );
+            next if $errs{$id};
+            my %a;
+            $a{$_} = $u->{$_} for grep { exists $u->{$_} && $editable{$_} } keys %$u;
+            $errs{$id} = 'No editable field sent' unless keys %a;
+            next if $errs{$id};
+            push @uobjs, [ $obj, \%a ];
+        }
+
+        my @updated;
+        for my $pair ( @uobjs ) {
+            my ( $obj, $a ) = @$pair;
+            push @updated, $obj->id if eval { $obj->update($a) };
+            $errs{ $obj->id } = "update failed: $@" if $@;
+        }
+
+        my %res = ( updated => \@updated );
+        $res{errors} = \%errs if keys %errs;
+        return $c->render( json => \%res, status => @updated ? 200 : 400 );
     });
 }
 

@@ -5,6 +5,15 @@
 % my $rows       = $c->stash('rows')       // [];
 % my $covering   = $c->stash('covering');
 % my $search_url = $c->stash('search_url');
+% my $del        = $c->stash('del');    # { type, api } when the user may delete these results
+% my $bulk       = $c->stash('bulk');   # { type, api, fields, rows } for bulk edit
+% my $can_check  = $del || $bulk;       # row checkboxes when either batch op is allowed
+% my $total      = $c->stash('total');  # total matches (set when paginating)
+% my $per        = $c->stash('per');
+% my $offset     = $c->stash('offset') // 0;
+% my $start      = $c->stash('start');
+% my $last_item  = $c->stash('last_item');
+% my $matchcount = ( defined $total ) ? $total : scalar(@$rows);
 <h1><%= $title %></h1>
 
 % if ($error) {
@@ -14,13 +23,16 @@
 </div>
 % } elsif (@$rows) {
 <div class="container">
-  <div class="containerhead">Query <em><%= $search %></em> returned: <%= scalar(@$rows) %> matches</div>
+  <div class="containerhead">Query <em><%= $search %></em> returned: <%= $matchcount %> matches</div>
   <div class="containerbody">
     <table class="datatable sortable">
       <thead>
         <tr>
         % for my $i (0 .. $#$headers) {
           <th><%= $headers->[$i] %></th>
+        % }
+        % if ($can_check) {
+        <th style="text-align:center; width:2em"><input type="checkbox" class="nd-batch-select-all" title="Select all shown"></th>
         % }
         </tr>
       </thead>
@@ -31,10 +43,47 @@
           % for my $v (@{ $r->{cells} }) {
             <td><%= $v // '' %></td>
           % }
+          % if ($can_check) {
+          <td style="text-align:center"><input type="checkbox" class="nd-batch-check" name="<%= ($bulk ? $bulk->{type} : $del->{type}) %>__<%= $r->{id} %>"></td>
+          % }
         </tr>
       % }
       </tbody>
     </table>
+    % if ($can_check) {
+    <p>
+      % if ($del) {
+      <button type="button" class="btn nd-batch-delete" data-nd-api="<%= $del->{api} %>">Delete</button>
+      % }
+      % if ($bulk) {
+      <button type="button" class="btn nd-bulk-edit" data-nd-api="<%= $bulk->{api} %>">Bulk edit</button>
+      % }
+      <span class="nd-batch-count" style="margin-left:0.6em; font-size:0.9em"></span>
+    </p>
+    % }
+    % if ($bulk) {
+    % use JSON;
+    % my $bjs = JSON->new->canonical->encode( $bulk );
+    % $bjs =~ s{<}{\\u003c}g;   # keep a value from breaking out of the <script> tag
+    <script>
+      window.ND_BULK_DATA = <%== $bjs %>;
+    </script>
+    % }
+    % if ( defined $total && defined $per && $total > $per ) {
+    % # Preserve the current query (search / zone) across pagination.
+    % my %pq = %{ $c->req->params->to_hash }; delete $pq{offset};
+    % my $ppath = $c->req->url->path;
+    % my $qstr  = sub { my %h = ( %pq, offset => $_[0] );
+    %              return '?' . join( '&', map { $_ . '=' . Mojo::Util::url_escape( $h{$_} // '' ) } sort keys %h ); };
+    <p style="margin-top:0.6em">Results: [<%= $start %>-<%= $last_item %>] of <%= $total %>
+      % if ($offset > 0) {
+      <a href="<%= $ppath %><%= $qstr->( $offset - $per ) %>">[&laquo;]</a>
+      % }
+      % if ($last_item < $total) {
+      <a href="<%= $ppath %><%= $qstr->( $offset + $per ) %>">[&raquo;]</a>
+      % }
+    </p>
+    % }
   </div>
 </div>
 % } else {

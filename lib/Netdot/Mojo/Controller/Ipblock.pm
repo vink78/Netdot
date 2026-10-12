@@ -635,12 +635,19 @@ sub search ($c) {
     my @headers = map { Netdot::Mojo::Registry::column_tag( 'Ipblock', $_ ) }
                   qw(address prefix status used_by);
     my @rows = map {
-        { href  => Netdot::Mojo::Registry::set_uri( "/management/ipblock/" . $_->id ),
+        { id    => $_->id,
+          href  => Netdot::Mojo::Registry::set_uri( "/management/ipblock/" . $_->id ),
           label => $_->cidr // '',
           cells => [ $_->prefix // '',
                      Netdot::Mojo::Registry::format_value( $_->status ),
                      Netdot::Mojo::Registry::format_value( $_->used_by ) ] }
     } @list;
+
+    # Batch delete on the results (Ipblock type) when the user may delete.
+    my $del;
+    if ( @rows && Netdot::Mojo::Permissions->has_action( 'Ipblock', $c->current_person, 'delete' ) ) {
+        $del = { type => 'ipblock', api => $c->web_prefix . '/api/ipblock' };
+    }
 
     $c->render(
         template   => 'management/search_results',
@@ -651,6 +658,7 @@ sub search ($c) {
         rows       => \@rows,
         covering   => $covering ? { id => $covering->id, label => $covering->cidr } : undef,
         search_url => $c->url_for( 'ipblock_search' ),
+        del        => $del,
     );
 }
 
