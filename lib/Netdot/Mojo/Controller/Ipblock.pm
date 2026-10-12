@@ -21,17 +21,28 @@ sub show ($c) {
     return $c->reply->not_found unless $o;
     return if $c->deny_unless( 'view', $o );    # per-object access (User: none by default)
 
-    # In-place edit form: scalar + FK "soft" fields only. Identity fields
-    # (address / prefix / version / parent) are EXCLUDED — editing them in place
-    # would break the block hierarchy (a network/prefix change needs a REBLOCK, a
-    # distinct not-yet-migrated operation; see TODO).
+    # In-place edit form. Only `version` and `parent` are EXCLUDED: the parent
+    # is re-computed by the model when the address space changes, and the IP
+    # version follows the address. `address` and `prefix` ARE editable —
+    # changing them is a reblock, which the model handles end-to-end
+    # (Ipblock->update normalizes the dotted address to its integer form,
+    # revalidates and rebuilds the tree via _update_tree). The change goes
+    # through the API (POST /api/ipblock/:id with address/prefix).
     my $can_edit = $c->perm( 'edit', $o );
     my $fields   = [];
     my $api_path = '';
     if ($can_edit) {
-        my %identity = ( address => 1, prefix => 1, version => 1, parent => 1 );
+        my %identity = ( version => 1, parent => 1 );
         my @f = grep { !$identity{ $_->{name} } }
                 @{ Netdot::Mojo::Detail::build_edit_fields( $o, 'Ipblock' ) };
+        # `address` is stored as an integer: the form edits it in dotted form
+        # (text input) and the model's update() converts it back (reblock).
+        for my $e (@f) {
+            if ( $e->{name} eq 'address' ) {
+                $e->{kind}  = 'text';
+                $e->{value} = eval { Ipblock->int2ip( $o->address, $o->version ) } // '';
+            }
+        }
         # Restrict the `status` field to the values valid for this block type
         # (Model::Ipblock::_validate): an address -> Static / Dynamic / Discovered /
         # Reserved (Dynamic only under a Subnet parent that has DHCP); a Subnet or

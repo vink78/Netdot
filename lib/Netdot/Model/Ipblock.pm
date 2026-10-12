@@ -1613,11 +1613,22 @@ sub update {
     $argv->{status} ||= $self->status;
     $argv->{prefix} = $self->prefix unless defined $argv->{prefix};
 
-    if ( defined $argv->{address} && defined $argv->{prefix} ){
-	my $ip = $class->_prevalidate($argv->{address}, $argv->{prefix});
+    if ( defined $argv->{address} ){
+	my $addr_in = $argv->{address};
+	my $ip      = $class->_prevalidate($addr_in, $argv->{prefix});
+	# The IP version is an identity field: it follows the address and cannot
+	# change in place (a v4<->v6 change is a delete + recreate, not a reblock).
+	$self->throw_user("Cannot change IP version of block ".$self->get_label)
+	    if ( $ip->version != $self->version );
+	# Normalize to the canonical integer/masklen/version (as insert does), so
+	# a dotted address passed by the API is stored correctly; the reblock
+	# (full tree rebuild below) is triggered by the numeric comparison.
+	$argv->{address} = $ip->addr;
+	$argv->{prefix}  = $ip->masklen;
+	$argv->{version} = $ip->version;
 	if ( my $tmp = $class->search(address => $ip->addr,
 				      prefix  => $ip->masklen)->first ){
-	    $self->throw_user("Block ".$argv->{address}."/".$argv->{prefix}." already exists in db")
+	    $self->throw_user("Block $addr_in/$argv->{prefix} already exists in db")
 		if ( $tmp->id != $self->id );
 	}
     }
@@ -3303,7 +3314,15 @@ sub _update_tree{
     $logger->debug('Ipblock::_update_tree: Updating tree for '. $self->get_label);
 
     if ( $self->is_address ){
-        # Search the tree.  
+        # The block moved (address/prefix changed): the saved tree still holds
+        # the old entry, so rebuild it (same as the non-address path below).
+        if ( $argv{changed} ){
+            $logger->debug("Ipblock::_update_tree: ". $self->get_label .
+                   " changed address and/or prefix. Rebuilding.");
+            $class->build_tree($version);
+            return 1;
+        }
+        # Search the tree.
         my $n = $class->_tree_find(
 	    address => $self->address,
 	    prefix  => $self->prefix,

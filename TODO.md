@@ -494,13 +494,19 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      > séparés par virgule), **chaque nom = lien vers l'objet RR**, rempli par UNE requête
      > `LEFT JOIN rraddr` (plus de N+1) — le vieux `eval { $o->a_records } // ()` retournait un
      > Iterator (piège wantarray Class::DBI) → colonnes vides. Les selects ont un 1er item
-     > `--SELECT--`. **Reste à porter** : (1) **Ipblock REBLOCK** (changement d'identité
-     > address/prefix/version — recréation de la hiérarchie), (2) **édition de relations has_many**
+     > `--SELECT--`. **Reste à porter** : (1) **édition de relations has_many**
      > générique pour les AUTRES types (ex. interfaces d'un device, contacts d'un contactlist) —
      > lecture seule aujourd'hui (les relations du **bloc** sont désormais ajoutables, cf. ci-
-     > dessus), (3) **créations complexes** multi-étapes (device site/os, ipblock hiérarchie),
-     > (4) **REBUILD_TREE** (admin, `Ipblock->build_tree`), (5) **ADD_BLOCKS** (bulk create).
-     > Hors CRUD (opérationnel) : re-poll `updatedevice`, allocation IP interactive `choose_ip`.
+     > dessus), (2) **créations complexes** multi-étapes (device site/os, ipblock hiérarchie),
+     > (3) allocation IP interactive `choose_ip`. **Fermé / non applicable** (2026-10-12) :
+     > **REBLOCK** (changement d'identité address/prefix) = **porté par la lib** et
+     > **exposé dans le formulaire d'édition** (champs `address` pointillés + `prefix`,
+     > uniquement `parent`/`version` exclus) — `Ipblock->update` normalise l'adresse et
+     > recrée la hiérarchie (`_update_tree` rebuild complet, migration PTR, ré-reservation)
+     > → passe par l'API `POST /api/ipblock/:id` ;
+     > **REBUILD_TREE** (`Ipblock->build_tree`) = usage **debug** uniquement, non traité ;
+     > **ADD_BLOCKS** (bulk create) = inutile, un bloc à la fois suffit (la découverte d'un
+     > routeur crée les blocs). Hors CRUD (opérationnel) : re-poll `updatedevice`.
 
 ## Déprécié / non migré — ⛔
 
@@ -591,9 +597,13 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
        (`Device.pm`) et **Ipblock** (`Ipblock.pm`, vue détail subnet + adresse) ont leur
        formulaire (partial partagé ; Closet/Device portent un layout curaté mais `room`
        (FK, 114 > max) passe en recherche `?kw=` ; Device = vue Basics seule, 59 champs,
-       champs FK calc. uniquement sur Basics). ⚠️ **Ipblock : identité exclue** — les champs
-       `address`/`prefix`/`version`/`parent` sont EXCLUS du formulaire (les éditer in-situ
-       casserait la hiérarchie) ; seuls les champs « soft » (status, owner, used_by, rir,
+       champs FK calc. uniquement sur Basics). ⚠️ **Ipblock : identité** — seuls les champs
+       `version` et `parent` sont exclus du `<form>` (le parent est recalculé par la lib,
+       la version découle de l'adresse) ; les champs `address` (pointillés, input text) et
+       `prefix` SONT éditables : le changement d'identité (REBLOCK) est **porté par la lib**
+       (`Ipblock->update` normalise l'adresse en entier et recrée la hiérarchie via
+       `_update_tree`) et passe par l'API `POST /api/ipblock/:id`. Les autres champs
+       « soft » du formulaire (status, owner, used_by, rir,
        asn, description, monitored, first/last seen, interface, vlan, use_network_broadcast,
         info) sont éditables. ⚠️ **`status` filtré par type de bloc** (règles
         `Model::Ipblock::_validate`) : adresse (/32//128) → Static / Dynamic (si le subnet
@@ -601,10 +611,16 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
         Reserved. « Available » = indication de libération/suppression, pas une option
         manuelle (conservée si c'est la valeur courante, pour ne pas vider le `<select>`).
         L'API `PATCH` re-vérifie via le `update` du modèle (status invalide → 400).
-        **TODO REBLOCK** : changer network/prefix (champs identité)
-       n'est PAS un simple edit de champ — c'est une opération de **reblock** (recréer la
-       hiérarchie, migrer sous-blocs/attributs/relations), traitée dans l'UI legacy Mason
-        (flux create/edit Ipblock, complexe) et non exposée ici → à implémenter séparément.
+       **REBLOCK** (changement network/prefix) : **porté par la lib et exposé dans le
+       formulaire** (2026-10-12) — `address` (pointillés) et `prefix` sont éditables ;
+       `Ipblock->update` normalise l'adresse (entier/masklen, comme `insert`), rejette un
+       changement de version v4<->v6 et un bloc existant (collision), puis recrée la
+       hiérarchie (`_update_tree(changed=>1)` = rebuild complet, migration des PTR,
+       ré-reservation si passage en Subnet) ; un /32 déplacé déclenche aussi un rebuild
+       complet (sinon l'entrée ancienne resterait dans l'arbre sauvegardé). Le formulaire
+       n'envoie que `address`/`prefix` (+ les autres champs, inchangés → pas d'audit).
+       **REBUILD_TREE** = debug uniquement (non traité). **ADD_BLOCKS** = non requis
+       (création unitaire + découverte).
          **RR** (`Rr.pm`) a aussi son formulaire (name, zone, active, auto_update,
          expiration, info) ; les timestamps système `created`/`modified` sont exclus
          (non éditables). Tous les modèles dédiés (zone, contactlist, closet, device,

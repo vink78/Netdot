@@ -333,8 +333,10 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   `_block_attributes`, grid, sites/zones/dhcp/attrs/arp/audit) + search. Now also
   renders the shared edit form (both the subnet view `ipblock.html.ep` and the
   individual-address view `ipaddress.html.ep`): scalar + FK "soft" fields → JSON API
-  PATCH; the identity fields (`address`/`prefix`/`version`/`parent`) are filtered out —
-  a network/prefix change needs a **reblock** (legacy Mason flow, see REBLOCK TODO). The
+  PATCH; only `version`/`parent` are excluded — `address` (dotted-quad text input) and
+  `prefix` are editable: a network/prefix change is a **reblock**, handled end-to-end
+  by the model (`Ipblock->update` normalizes the dotted address and rebuilds the tree).
+  The
   `status` field is also restricted to the values valid for the block type
   (`Model::Ipblock::_validate`): an address → Static/Dynamic(only under a DHCP-enabled
   Subnet parent)/Discovered/Reserved; a subnet/container → Subnet/Container/Reserved
@@ -474,11 +476,14 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
        `id="nd-readonly"` on its attrs table + the partial include. Writes go through the
        JSON API only (no server-side form handler). **Zone**, **Contactlist**, **Closet**,
        **Device**, **Ipblock** and **RR** (dedicated controllers) now have their edit form
-       too; every dedicated detail model reuses the same partial. ⚠️ **Ipblock**: the identity
-       fields (`address`/`prefix`/`version`/`parent`) are EXCLUDED from the form (editing
-        them in place breaks the block hierarchy); only "soft" fields are editable. A
-        network/prefix change needs a **reblock** operation (handled in the legacy Mason
-        create/edit UI) — see the REBLOCK TODO. ⚠️ **RR associated records (RR\*) inline
+       too; every dedicated detail model reuses the same partial. ⚠️ **Ipblock**: only the
+       `version` and `parent` fields are EXCLUDED from the form (the parent is recomputed
+       by the model; the version follows the address). `address` (dotted-quad text input)
+       and `prefix` are editable — a network/prefix change is a **reblock**, handled
+       end-to-end by the model (`Ipblock->update` normalizes the dotted address to its
+       integer form, rejects a v4<->v6 version change and collisions, then rebuilds the
+       tree via `_update_tree`; a moved /32 also triggers a full rebuild so the saved
+       tree loses the stale entry). ⚠️ **RR associated records (RR\*) inline
         edit** (`Rr.pm` + `rr.html.ep` + `netdot.js` `initRecToggles`): each related record
         (A/AAAA, TXT, MX, NS, CNAME, PTR, NAPTR, DS, LOC, SRV, HINFO) gets its own inline
         form (per-record Edit button → `PATCH /api/<type>/<id>`, runs the model `update()`).
@@ -948,6 +953,7 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       - **Fix `Registry::link_html`**: `my ($t,$h) = link_for($v)` did not dereference
         the returned arrayref → `$h` was always undef → every FK link (owner/used_by
         in the children list, etc.) rendered empty. Fixed to `@{ link_for($v) }`.
-    - Deferred: Device **Topology (graph)** tab; Ipblock **REBUILD_TREE** (admin);
-      **ADD_BLOCKS** (bulk create); HTML write/edit pages (the **API** now covers
-      authorized writes).
+    - Deferred: Device **Topology (graph)** tab; HTML write/edit pages (the **API** now
+      covers authorized writes). Not ported by design: Ipblock **REBUILD_TREE** (debug
+      only) and **ADD_BLOCKS** (bulk create — one block at a time suffices; router
+      discovery creates the blocks).
