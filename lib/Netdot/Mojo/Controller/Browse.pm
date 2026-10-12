@@ -153,7 +153,7 @@ sub list ($c) {
         $total = scalar @objs;
         if ( Netdot::Mojo::Permissions->user_type( $person ) eq 'User' ) {
             my $access = Netdot::Mojo::Permissions->allowed_objects( $class, $person );
-            @objs = grep { Netdot::Mojo::Permissions->can( $class, $person, 'view', $_, $access ) } @objs;
+            @objs = grep { Netdot::Mojo::Permissions->can( $person, 'view', $_, $access ) } @objs;
             $total = scalar @objs;
         }
         my $end = $offset + $per;
@@ -186,14 +186,18 @@ sub list ($c) {
     # May the current user delete objects of this type? (controls the delete form)
     my $can_delete = Netdot::Mojo::Permissions->has_action( $class, $person, 'delete' );
 
-    # Bulk edit (netdot.js initBulkEdit): the shared field specs + each row's
-    # current values, driven by POST /api/<table>/batch. Shown when the user may
-    # edit objects of this type. (ipblock's list returns earlier with its own
-    # children-edit UI, so this covers the generic list types, incl. rr/physaddr.)
+    # Bulk edit (port of the legacy edit-multiple.html): when the user may edit
+    # objects of this type, the "Bulk edit" button opens a field-picker popup
+    # (netdot.js initBulkEdit, window.ND_BULK) and then navigates to the
+    # dedicated page /management/bulk_edit?table=&object_id=&fields= — a
+    # full-width editable table that saves through POST /api/<table>/batch.
+    # Only the field names/tags are stashed (the page re-reads the values).
+    # (ipblock's list returns earlier with its own children-edit UI, so this
+    # covers the generic list types, incl. rr/physaddr.)
     my $bulk;
     if ( @objs && Netdot::Mojo::Permissions->has_action( $class, $person, 'edit' ) ) {
-        my $data = Netdot::Mojo::Detail::bulk_edit_data( $class, \@objs );
-        $bulk = { type => $type, api => $c->web_prefix . '/api/' . $type . '/batch', %$data };
+        my @specs = @{ Netdot::Mojo::Detail::editable_field_specs( $class ) };
+        $bulk = { type => $type, fields => [ map { { name => $_->{name}, tag => $_->{tag} } } @specs ] };
     }
 
     # Per-column meta tags (headers) and foreign-key targets (for cell links).
@@ -306,8 +310,81 @@ sub list ($c) {
         start     => $start,
         last_item => $last_item,
         can_delete => $can_delete,
-        bulk      => $bulk,
+        bulk       => $bulk,
         %extra,
+    );
+}
+
+# Dedicated bulk-edit page (port of the legacy edit-multiple.html): the
+# full-width editable table for the selected objects. Params: table (type) +
+# object_id (comma-separated ids) + fields (comma-separated; the field picker
+# itself is a popup on the list / search page, netdot.js initBulkEdit). The GET
+# only renders — saving is client-side (netdot.js initBulkEditPage) via
+# POST /api/<table>/batch, which re-checks per-object edit rights on every id.
+sub bulk_edit ($c) {
+    my $type = $c->param( 'table' ) // '';
+    my $spec = Netdot::Mojo::Registry::spec( $type )
+        or return $c->reply->not_found;
+    my $class  = $spec->{class};
+    my $person = $c->current_person;
+
+    # The selected objects (object_id=3,10,12): keep the resolvable, viewable
+    # ones; edit rights are enforced per id by the batch API at save time.
+    my @ids  = grep { /^\d+$/ } split /,/, ( $c->param( 'object_id' ) // '' );
+    my @objs;
+    for my $id (@ids) {
+        my $o = eval { $class->retrieve($id) };
+        next unless $o;
+        next unless Netdot::Mojo::Permissions->can( $person, 'view', $o );
+        push @objs, $o;
+    }
+    return $c->reply->not_found unless @objs;
+
+    # Chosen fields: the picker (a popup on the list / search page) submits them
+    # comma-separated; validate against the editable set (the same set the batch
+    # API accepts — single source of truth, editable_field_specs). A direct GET
+    # without any valid field bounces back to the list.
+    my $fields  = Netdot::Mojo::Detail::editable_field_specs( $class );
+    my %fbyname = map { $_->{name} => $_ } @$fields;
+    my @sel     = grep { m/^\S+$/ } split /,/, join( ',', $c->req->param( 'fields' ) );
+    my @selfields = map { $fbyname{$_} } grep { $fbyname{$_} } @sel;
+    return $c->redirect_to( Netdot::Mojo::Registry::set_uri( '/management/' . $type ) ) unless @selfields;
+
+    # Current value of each chosen field for each object (+ the current FK label
+    # for a large target, whose <select> is pre-filled with it).
+    my ( %vals, %fklabel );
+    for my $o (@objs) {
+        my %row;
+        for my $f (@selfields) {
+            my $col = $f->{name};
+            my $val = Netdot::Mojo::Detail::bulk_edit_value( $f, $o );
+            $row{$col} = $val;
+            if ( $f->{kind} eq 'fk' && !$f->{options} && $val && !$fklabel{$col}{$val} ) {
+                my $fo = eval { $o->$col };
+                my $l  = $fo ? eval { $fo->get_label } : undef;
+                $fklabel{$col}{$val} = ( defined $l && length $l ) ? $l : $val;
+            }
+        }
+        $vals{ $o->id } = \%row;
+    }
+
+    my @objects = map {
+        my $l = eval { $_->get_label };
+        { id => $_->id, label => ( defined $l && length $l ) ? $l : '#' . $_->id }
+    } @objs;
+
+    $c->render(
+        template  => 'management/bulk_edit',
+        layout    => 'default',
+        title     => 'Bulk edit',
+        type      => $type,
+        label     => $spec->{label},
+        objects   => \@objects,
+        sel       => \@selfields,
+        vals      => \%vals,
+        fk_labels => \%fklabel,
+        back      => Netdot::Mojo::Registry::set_uri( '/management/' . $type ),
+        api       => $c->web_prefix . '/api/' . $type . '/batch',
     );
 }
 

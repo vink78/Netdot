@@ -124,8 +124,9 @@ sub editable_field_specs {
             my $tspec  = Netdot::Mojo::Registry::spec( $target );
             my $tclass = $tspec ? $tspec->{class} : undef;
             next unless $tclass;
-            my %spec = ( name => $col, tag => $tag, kind => 'fk', target => $target );
-            $spec{options} = _fk_options( $tclass, $maxselect ) if _fk_options( $tclass, $maxselect );
+            my $options = _fk_options( $tclass, $maxselect );
+            my %spec    = ( name => $col, tag => $tag, kind => 'fk', target => $target, max => $maxselect );
+            $spec{options} = $options if $options;
             push @fields, \%spec;
             next;
         }
@@ -143,39 +144,71 @@ sub editable_field_specs {
     return \@fields;
 }
 
-# Bulk-edit data for a list / search page (port of the legacy edit-multiple.html
-# field picker + editable table, but driven by the JSON API instead of server
-# sessions): the shared field specs (editable_field_specs) plus each row's
-# current value for those fields. The client (netdot.js initBulkEdit) uses this
-# to offer a "choose which fields" popup and to pre-fill the editable table; the
-# chosen values go back through POST /api/<table>/batch (one request, one result).
-# FK values are the target id (the <select> value); bools are 0/1; the rest raw.
-sub bulk_edit_data {
-    my ( $class, $objs ) = @_;
-    my $fields = editable_field_specs( $class );
-    my %rows;
-    for my $o (@$objs) {
-        my $id = eval { $o->id };
-        next unless defined $id;
-        my %vals;
-        for my $f (@$fields) {
-            my $col = $f->{name};
-            my $val = eval { $o->$col };
-            $val = '' unless defined $val;
-            if ( $f->{kind} eq 'fk' ) {
-                # The relationship stringifies to its id (CDBI); a null FK -> 0.
-                my $fid = eval { int( $val // 0 ) };
-                $fid = 0 unless defined $fid && $fid > 0;
-                $val = $fid;
-            }
-            elsif ( $f->{kind} eq 'checkbox' ) {
-                $val = $val ? 1 : 0;
-            }
-            $vals{$col} = $val;
-        }
-        $rows{$id} = \%vals;
+# Current value of one editable field on an object, normalized for the
+# bulk-edit table and the batch API: FK -> the target id (0 when unset — the
+# relationship stringifies to its id under CDBI), bool -> 0/1, the rest raw.
+sub bulk_edit_value {
+    my ( $f, $o ) = @_;
+    my $col = $f->{name};
+    my $val = eval { $o->$col };
+    $val = '' unless defined $val;
+    if ( $f->{kind} eq 'fk' ) {
+        # The relationship stringifies to its target id (CDBI); unset -> 0.
+        my $fid = eval { int( $val ) };
+        $fid = 0 unless defined $fid && $fid > 0;
+        return $fid;
     }
-    return { fields => $fields, rows => \%rows };
+    $val = '' if $f->{kind} eq 'date' && $val =~ /^0000-00-00/;    # zero-date sentinel = empty
+    return $f->{kind} eq 'checkbox' ? ( $val ? 1 : 0 ) : $val;
+}
+
+# HTML for one editable cell of the dedicated bulk-edit table (the port of the
+# legacy edit-multiple.html stage 2, rendered server-side): the field's input
+# pre-filled with the object's current value ($val), tagged with $attr so the
+# client can tell row cells (data-nd-f) from the "apply to all" row's cells
+# (data-nd-apply). FKs render like the detail edit form (_edit_form.html.ep):
+# a <select> of all options for a small target, or a keyword search box +
+# <select> for a large one (.nd-fk-search, wired by initFkSearch) —
+# $cur_label is the label of the current FK value, pre-filling that select.
+sub bulk_edit_cell_html {
+    my ( $f, $val, $cur_label, $attr ) = @_;
+    $attr = 'data-nd-f' unless $attr;
+    $val  = ( defined $val ) ? $val : '';
+    my ( $n, $e ) = ( $f->{name}, sub { Netdot::Mojo::Registry::esc( $_[0] // '' ) } );
+    if ( $f->{kind} eq 'checkbox' ) {
+        return '<input type="checkbox" ' . $attr . '="' . $n . '"' . ( $val ? ' checked' : '' ) . '>';
+    }
+    if ( $f->{kind} eq 'fk' ) {
+        my $cur = eval { int( $val ) };
+        $cur = 0 unless defined $cur && $cur > 0;
+        if ( $f->{options} ) {
+            my $h = '<select class="nd-fk-select" ' . $attr . '="' . $n . '">'
+                  . '<option value="">' . "\x{2014}" . '</option>';
+            for my $op ( @{ $f->{options} } ) {
+                $h .= '<option value="' . $op->{id} . '"' . ( $cur && $cur == $op->{id} ? ' selected' : '' )
+                    . '>' . $e->( $op->{label} ) . '</option>';
+            }
+            return $h . '</select>';
+        }
+        my $h = '<span class="nd-fk-search">'
+              . '<input type="text" class="nd-fk-kw" placeholder="Search' . "\x{2026}" . '" data-nd-target="' . $f->{target}
+              . '" data-nd-max="' . ( $f->{max} // 100 ) . '">'
+              . '<button type="button" class="btn nd-fk-go">List</button>'
+              . '<select class="nd-fk-select" ' . $attr . '="' . $n . '">'
+              . '<option value="">' . "\x{2014}" . '</option>';
+        $h .= '<option value="' . $cur . '" selected>' . $e->( $cur_label // $cur ) . '</option>' if $cur;
+        return $h . '</select></span>';
+    }
+    if ( $f->{kind} eq 'textarea' ) {
+        return '<textarea ' . $attr . '="' . $n . '" rows="2">' . $e->( $val ) . '</textarea>';
+    }
+    if ( $f->{kind} eq 'number' ) {
+        return '<input type="text" data-nd-int ' . $attr . '="' . $n . '" value="' . $e->( $val ) . '">';
+    }
+    if ( $f->{kind} eq 'date' ) {
+        return '<input type="date" ' . $attr . '="' . $n . '" value="' . $e->( $val ) . '">';
+    }
+    return '<input type="text" ' . $attr . '="' . $n . '" value="' . $e->( $val ) . '">';
 }
 
 # Label for an FK option: the object's get_label (falls back to "#id").

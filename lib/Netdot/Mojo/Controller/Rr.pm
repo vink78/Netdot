@@ -129,14 +129,16 @@ sub search ($c) {
         $del = { type => $rkey, api => $c->web_prefix . '/api/' . $rkey };
     }
 
-    # Bulk edit on the results (only when the user may edit this type): the shared
-    # field specs + each row's current values (netdot.js initBulkEdit, driven by
-    # POST /api/<type>/batch). Same API pattern as the batch delete above.
+    # Bulk edit on the results (only when the user may edit this result type):
+    # the "Bulk edit" button opens a field-picker popup (netdot.js initBulkEdit,
+    # window.ND_BULK) then navigates to the dedicated page
+    # /management/bulk_edit?table=&object_id=&fields= (saving goes through
+    # POST /api/<type>/batch). Only the field names/tags are stashed.
     my $bulk;
     if ( $rclass && @rows
           && Netdot::Mojo::Permissions->has_action( $rclass, $c->current_person, 'edit' ) ) {
-        my $data = Netdot::Mojo::Detail::bulk_edit_data( $rclass, \@page );
-        $bulk = { type => $rkey, api => $c->web_prefix . '/api/' . $rkey . '/batch', %$data };
+        my @specs = @{ Netdot::Mojo::Detail::editable_field_specs( $rclass ) };
+        $bulk = { type => $rkey, fields => [ map { { name => $_->{name}, tag => $_->{tag} } } @specs ] };
     }
 
     my $start      = @rows ? $offset + 1 : 0;

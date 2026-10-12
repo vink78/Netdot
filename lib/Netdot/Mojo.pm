@@ -229,6 +229,10 @@ sub startup ($self) {
         my $ctrl = $show_ctrl{$t} // 'show';
         $r->get("/management/$t/:id")->to("${ctrl}#show", type => $t)->name("${t}_show");
     }
+    # Dedicated bulk-edit page (port of the legacy edit-multiple.html): field
+    # picker + full-page editable table. Params: table + object_id (+ fields).
+    # GET only — saving goes through POST /api/<table>/batch (netdot.js).
+    $r->get('/management/bulk_edit')->to('browse#bulk_edit')->name('bulk_edit');
     # Interface sub-views: FDB / ARP entries at a given timestamp (ports of
     # i_fdb.html / i_arp.html).
     # Picture binaries (read-only): serve the bindata BLOB inline so a picture's

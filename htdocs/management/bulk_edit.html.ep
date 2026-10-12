@@ -1,0 +1,83 @@
+% # Dedicated bulk-edit page (port of the legacy edit-multiple.html): the
+% # full-width editable table for the selected objects (GET with table +
+% # object_id + fields — the field picker is a popup on the list / search page,
+% # netdot.js initBulkEdit). One row per object, each chosen field pre-filled
+% # with the current value; FKs render as <select>s (keyword search for large
+% # targets, like the detail edit form); the "apply to all" row holds a value
+% # that wins for every row when its checkbox is checked.
+% # Saving is client-side (netdot.js initBulkEditPage): ONE POST to
+% # /api/<table>/batch, which re-checks edit rights per id.
+% my $type    = $c->stash('type');
+% my $label   = $c->stash('label');
+% my $objects = $c->stash('objects');
+% my $sel     = $c->stash('sel');
+% my $vals    = $c->stash('vals');
+% my $fklabel = $c->stash('fk_labels');
+% my $back    = $c->stash('back');
+% my $api     = $c->stash('api');
+<h1>Bulk edit <%= $label %></h1>
+<p style="margin-top:0"><a href="<%= $back %>">[back]</a></p>
+
+<form method="post" class="nd-bulk-form" data-nd-api-base="<%= $c->web_prefix %>/api">
+  <div class="container">
+    <div class="containerhead">Bulk edit <%= $label %>: <%= scalar @$objects %> object(s), <%= scalar @$sel %> field(s)</div>
+    <div class="containerbody" style="padding:0.6em">
+  <div class="nd-bulk-body">
+    <table class="nd-bulk-table datatable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          % for my $f (@$sel) {
+          <th><%= $f->{tag} %></th>
+          % }
+        </tr>
+      </thead>
+      <tbody>
+        % # "Apply to all" row: a blank value per chosen field. Checking a
+        % # field's box makes that value win for every row at save time (the
+        % # legacy applytoall_<field> semantics).
+        <tr class="nd-bulk-apply">
+          <th>Apply to all</th>
+          % for my $f (@$sel) {
+          <td>
+            <%== Netdot::Mojo::Detail::bulk_edit_cell_html( $f, undef, undef, 'data-nd-apply' ) %>
+            <input type="checkbox" class="nd-apply-chk" data-nd-applycol="<%= $f->{name} %>" title="Apply this value to every row (on save)" style="width:auto;margin-left:4px">
+          </td>
+          % }
+        </tr>
+        % # One row per selected object, pre-filled with the current value.
+        % for my $o (@$objects) {
+        <tr data-nd-id="<%= $o->{id} %>">
+          <td style="font-weight:600;white-space:nowrap"><a href="<%= url_for( $type . '_show', id => $o->{id} ) %>"><%= $o->{label} %></a></td>
+          % for my $f (@$sel) {
+          % my $val = $vals->{ $o->{id} }->{ $f->{name} };
+          % my $cur = ( $f->{kind} eq 'fk' && !$f->{options} ) ? $fklabel->{ $f->{name} }->{ $val } : undef;
+          <td><%== Netdot::Mojo::Detail::bulk_edit_cell_html( $f, $val, $cur ) %></td>
+          % }
+        </tr>
+        % }
+      </tbody>
+    </table>
+  </div>
+  <p style="margin:0.8em 0 0">
+    <button type="submit" class="btn nd-bulk-save">Save changes</button>
+    <a class="btn" href="<%= $back %>">Cancel</a>
+  </p>
+    </div>
+  </div>
+</form>
+% # Client data for initBulkEditPage: the batch endpoint, the back URL, the
+% # chosen fields (name + kind, for the value extraction) and the id -> label
+% # map (shown in the per-id error report).
+% use JSON;
+% my $nd  = {
+%     api    => $api,
+%     back   => $back,
+%     fields => [ map { { name => $_->{name}, kind => $_->{kind} } } @$sel ],
+%     labels => { map { $_->{id} => $_->{label} } @$objects },
+% };
+% my $bjs = JSON->new->canonical->encode( $nd );
+% $bjs =~ s{<}{\\u003c}g;   # keep a label from breaking out of the <script> tag
+<script>
+  window.ND_BULK = <%== $bjs %>;
+</script>

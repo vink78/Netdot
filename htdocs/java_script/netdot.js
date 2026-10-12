@@ -397,21 +397,18 @@
     }
   }
 
-  // Bulk edit (port of the legacy edit-multiple.html). On a list / search page
-  // with row checkboxes, "Bulk edit" opens a field-picker popup (choose which
-  // editable fields), then an editable table: one row per selected object, the
-  // chosen fields pre-filled with the current value, plus a per-field "apply to
-  // all" row. Save posts ONE request to POST /api/<table>/batch (window.
-  // ND_BULK_DATA, stashed by the controller); the server applies per-id and
-  // reports a per-id outcome, so there is one consistent result to display.
+  // Bulk edit — list / search pages (port of the legacy edit-multiple.html):
+  // "Bulk edit" opens a field-picker POPUP (window.ND_BULK.fields, stashed by
+  // the controller), then navigates to the dedicated bulk-edit page
+  // (window.ND_BULK.url + ?table=&object_id=&fields=), which renders the
+  // full-width editable table. Saving happens there via POST
+  // /api/<table>/batch (initBulkEditPage).
   function initBulkEdit() {
-    var data = window.ND_BULK_DATA || null;
-    if (!data || !data.fields || !data.fields.length) { return; }
+    var data = window.ND_BULK || null;
+    if (!data || !data.url || !(data.fields && data.fields.length)) { return; }
     var btns   = document.querySelectorAll('button.nd-bulk-edit');
     if (!btns.length) { return; }
     var checks = document.querySelectorAll('.nd-batch-check');
-    var fields = data.fields;
-    var rows   = data.rows || {};
 
     function checkedIds() {
       var ids = [];
@@ -424,283 +421,136 @@
       }
       return ids;
     }
-    // id -> the object's displayed label (the first cell of its table row).
-    function idToLabel() {
-      var map = {};
-      for (var i = 0; i < checks.length; i++) {
-        var parts = (checks[i].name || '').split('__');
-        var id    = parts[parts.length - 1];
-        if (!/^\d+$/.test(id)) { continue; }
-        var tr  = checks[i].closest ? checks[i].closest('tr') : null;
-        var lbl = '';
-        if (tr) {
-          var a = tr.querySelector('td a');
-          lbl = a ? a.textContent : (tr.querySelector('td') ? tr.querySelector('td').textContent : '');
-        }
-        map[id] = (lbl && lbl.replace(/\s+/g, ' ').trim()) || (rows[id] && rows[id].name) || id;
-      }
-      return map;
-    }
-    function fieldSpec(name) {
-      for (var i = 0; i < fields.length; i++) { if (fields[i].name === name) { return fields[i]; } }
-      return null;
-    }
-    // Build an editable input for a field spec, pre-filled with the current value.
-    function makeInput(spec, cur) {
-      cur = (cur === undefined || cur === null) ? '' : cur;
-      if (spec.kind === 'checkbox') {
-        var c = document.createElement('input');
-        c.type = 'checkbox';
-        c.checked = (cur === true || cur === 1 || cur === '1');
-        return c;
-      }
-      if (spec.kind === 'fk') {
-        if (!spec.options) {   // large target: no dropdown, edit by id
-          var t = document.createElement('input');
-          t.type = 'text'; t.value = cur;
-          return t;
-        }
-        var sel = document.createElement('select');
-        var o0 = document.createElement('option');
-        o0.value = ''; o0.textContent = '\u2014';   // em dash = clear
-        sel.appendChild(o0);
-        var opts = spec.options;
-        for (var i = 0; i < opts.length; i++) {
-          var o = document.createElement('option');
-          o.value = opts[i].id; o.textContent = opts[i].label;
-          sel.appendChild(o);
-        }
-        sel.value = (cur === '' || cur === 0) ? '' : String(cur);
-        if (sel.value === '') {   // current FK not in the (small) option list -> id box
-          var t2 = document.createElement('input');
-          t2.type = 'text'; t2.value = cur;
-          return t2;
-        }
-        return sel;
-      }
-      if (spec.kind === 'textarea') {
-        var ta = document.createElement('textarea');
-        ta.value = cur; ta.rows = 2;
-        return ta;
-      }
-      var inp = document.createElement('input');
-      if (spec.kind === 'number') { inp.type = 'text'; inp.setAttribute('data-nd-int', '1'); }
-      else if (spec.kind === 'date') { inp.type = 'date'; }
-      else { inp.type = 'text'; }
-      inp.value = cur;
-      return inp;
-    }
-    // Extract a value from an editable input, mirroring collect(): checkbox ->
-    // bool, FK (select or id box) -> id or null, number -> int, else string.
-    function cellValue(spec, el) {
-      if (spec.kind === 'checkbox') { return el.checked; }
-      if (spec.kind === 'fk') { return el.value === '' ? null : el.value; }
-      if (spec.kind === 'number') { return /^\d+$/.test(el.value) ? parseInt(el.value, 10) : el.value; }
-      return el.value;
-    }
-    // Set a cell input to a value (used by the "apply to all" row).
-    function setCell(el, spec, v) {
-      if (!el) { return; }
-      if (spec.kind === 'checkbox') { el.checked = (v === true || v === 1); }
-      else { el.value = (v === null || v === undefined) ? '' : v; }
-    }
 
-    // Modal wrapper (reuses the .nd-modal-ov / .nd-modal overlay + card).
-    // full=true stretches the card to the whole viewport (the wide edit table);
-    // the field picker uses the compact default.
-    function openModal(title, full) {
+    // Field-picker popup (reuses the .nd-modal-ov / .nd-modal overlay): one
+    // checkbox per editable field; "Continue" goes to the dedicated page with
+    // the chosen fields.
+    function openPicker(ids) {
       var ov = document.createElement('div');
-      ov.className = 'nd-modal-ov' + (full ? ' nd-full-ov' : '');
+      ov.className = 'nd-modal-ov';
       var card = document.createElement('div');
-      card.className = 'nd-modal nd-bulk' + (full ? ' nd-full' : '');
+      card.className = 'nd-modal';
       var h = document.createElement('div');
       h.className = 'nd-modal-msg';
-      h.textContent = title;
       h.style.cssText = 'font-weight:600;font-size:1.05em;margin-bottom:0.4em';
+      h.textContent = 'Bulk edit \u2014 choose fields to change (' + ids.length + ' object(s))';
       card.appendChild(h);
-      ov.appendChild(card);
-      document.body.appendChild(ov);
-      function close() { if (ov.parentNode) { ov.parentNode.removeChild(ov); } }
-      ov.addEventListener('click', function (e) { if (e.target === ov) { close(); } });
-      return { ov: ov, card: card, close: close };
-    }
-    function buttonRow(container, okLabel, onOk, onCancel) {
-      var row = document.createElement('div');
-      row.className = 'nd-modal-row';
-      var ok = document.createElement('button');
-      ok.type = 'button'; ok.className = 'btn nd-modal-create'; ok.textContent = okLabel;
-      var cancel = document.createElement('button');
-      cancel.type = 'button'; cancel.className = 'btn'; cancel.textContent = 'Cancel';
-      ok.addEventListener('click', onOk);
-      cancel.addEventListener('click', onCancel);
-      row.appendChild(ok); row.appendChild(cancel);
-      container.appendChild(row);
-      return { ok: ok, cancel: cancel };
-    }
-
-    // ---- Stage 1: field picker (which fields to edit) ----
-    function fieldPicker(ids, labels, done) {
-      var m = openModal('Bulk edit \u2014 choose fields to change');
-      var body = document.createElement('div');
-      body.className = 'nd-bulk-body';
       var wrap = document.createElement('div');
       wrap.className = 'nd-bulk-fields';
-      for (var i = 0; i < fields.length; i++) {
-        var f = fields[i];
+      for (var i = 0; i < data.fields.length; i++) {
+        var f   = data.fields[i];
         var lbl = document.createElement('label');
-        var cb = document.createElement('input');
+        var cb  = document.createElement('input');
         cb.type = 'checkbox'; cb.value = f.name;
         lbl.appendChild(cb);
         lbl.appendChild(document.createTextNode(' ' + f.tag));
         wrap.appendChild(lbl);
       }
-      body.appendChild(wrap);
-      m.card.appendChild(body);
-      var note = document.createElement('div');
-      note.style.cssText = 'color:#666;font-size:0.85em;margin:0.5em 0 0.2em';
-      note.textContent = ids.length + ' object(s) selected.';
-      m.card.appendChild(note);
-      var buttons = buttonRow(m.card, 'Continue', function () {
+      card.appendChild(wrap);
+      var row = document.createElement('div');
+      row.className = 'nd-modal-row';
+      var ok = document.createElement('button');
+      ok.type = 'button'; ok.className = 'btn nd-modal-create'; ok.textContent = 'Continue';
+      var cancel = document.createElement('button');
+      cancel.type = 'button'; cancel.className = 'btn'; cancel.textContent = 'Cancel';
+      function close() { if (ov.parentNode) { ov.parentNode.removeChild(ov); } }
+      ok.addEventListener('click', function () {
         var chosen = [];
-        var cbs = body.querySelectorAll('input[type=checkbox]');
+        var cbs = wrap.querySelectorAll('input[type=checkbox]');
         for (var k = 0; k < cbs.length; k++) { if (cbs[k].checked) { chosen.push(cbs[k].value); } }
         if (!chosen.length) { status(false, 'Choose at least one field to edit.', 4000); return; }
-        m.close();
-        editTable(ids, labels, chosen, done);
-      }, function () { m.close(); });
-      buttons.ok.focus();
-    }
-
-    // ---- Stage 2: editable table (chosen fields, pre-filled, + apply-to-all) ----
-    function editTable(ids, labels, chosen, done) {
-      var m = openModal('Bulk edit \u2014 ' + ids.length + ' object(s)', true);
-      var body = document.createElement('div');
-      body.className = 'nd-bulk-body';
-      var table = document.createElement('table');
-      table.className = 'nd-bulk-table';
-
-      // Header row (Name + each chosen field).
-      var htr = document.createElement('tr');
-      var th0 = document.createElement('th'); th0.textContent = 'Name';
-      htr.appendChild(th0);
-      var specs = [];
-      for (var i = 0; i < chosen.length; i++) {
-        var spec = fieldSpec(chosen[i]);
-        if (!spec) { continue; }
-        specs.push(spec);
-        var th = document.createElement('th'); th.textContent = spec.tag;
-        htr.appendChild(th);
-      }
-      table.appendChild(htr);
-
-      // "Apply to all" row: per field, a value box + a checkbox that copies it
-      // into every row for that field (one value for the whole selection).
-      var atr = document.createElement('tr');
-      atr.className = 'nd-bulk-apply';
-      var ath0 = document.createElement('th'); ath0.textContent = 'Apply to all';
-      atr.appendChild(ath0);
-      var applyCtrls = [];
-      for (var a = 0; a < specs.length; a++) {
-        var s = specs[a];
-        var td = document.createElement('td');
-        var av = makeInput(s, '');
-        var acb = document.createElement('input');
-        acb.type = 'checkbox';
-        acb.style.cssText = 'width:auto;margin-left:4px';
-        acb.title = 'Apply this value to all rows';
-        td.appendChild(av); td.appendChild(acb);
-        atr.appendChild(td);
-        applyCtrls.push({ spec: s, value: av, check: acb });
-      }
-      table.appendChild(atr);
-
-      // One row per selected object, pre-filled with the current value.
-      var rowCtrls = [];   // { id, cells: {field: inputEl} }
-      for (var r = 0; r < ids.length; r++) {
-        var id = ids[r];
-        var tr = document.createElement('tr');
-        var nameTd = document.createElement('td');
-        nameTd.textContent = labels[id] || id;
-        nameTd.style.cssText = 'font-weight:600;white-space:nowrap';
-        tr.appendChild(nameTd);
-        var cells = {};
-        for (var b = 0; b < specs.length; b++) {
-          var sp = specs[b];
-          var td2 = document.createElement('td');
-          var cur = rows[id] ? rows[id][sp.name] : '';
-          var el = makeInput(sp, cur);
-          cells[sp.name] = el;
-          td2.appendChild(el);
-          tr.appendChild(td2);
-        }
-        table.appendChild(tr);
-        rowCtrls.push({ id: id, cells: cells });
-      }
-      body.appendChild(table);
-      m.card.appendChild(body);
-
-      // Wire "apply to all": copy the apply value into every row for that field.
-      for (var p = 0; p < applyCtrls.length; p++) {
-        (function (ac) {
-          function apply() {
-            if (!ac.check.checked) { return; }
-            var v = cellValue(ac.spec, ac.value);
-            for (var q = 0; q < rowCtrls.length; q++) {
-              setCell(rowCtrls[q].cells[ac.spec.name], ac.spec, v);
-            }
-          }
-          ac.check.addEventListener('change', apply);
-          ac.value.addEventListener('change', apply);
-        })(applyCtrls[p]);
-      }
-
-      var buttons = buttonRow(m.card, 'Save changes', function () {
-        var updates = [];
-        for (var u = 0; u < rowCtrls.length; u++) {
-          var rc = rowCtrls[u];
-          var entry = { id: rc.id };
-          for (var w = 0; w < specs.length; w++) {
-            entry[specs[w].name] = cellValue(specs[w], rc.cells[specs[w].name]);
-          }
-          updates.push(entry);
-        }
-        if (!updates.length) { status(false, 'Nothing to save.', 4000); return; }
-        buttons.ok.disabled = true;
-        spinner(true, 'Saving ' + updates.length + ' object(s)\u2026');
-        api('POST', data.api, { updates: updates }).then(function (res) {
-          spinner(false);
-          if (res.ok) {
-            var d = res.data || {};
-            var nDone = (d.updated && d.updated.length) || 0;
-            var errs = d.errors || {};
-            var nErr = Object.keys(errs).length;
-            var msg = 'Updated ' + nDone + ' object(s)';
-            if (nErr) {
-              msg += ', ' + nErr + ' error(s): ' +
-                Object.keys(errs).map(function (k) { return k + ': ' + errs[k]; }).join('; ');
-            }
-            status(nErr ? (nDone > 0) : true, msg, nErr ? 8000 : undefined);
-            if (!nErr) { m.close(); done(true); }
-            else { buttons.ok.disabled = false; }
-          } else {
-            buttons.ok.disabled = false;
-            status(false, errMsg(res), 8000);
-          }
-        });
-      }, function () { m.close(); });
-      buttons.ok.focus();
+        location.href = data.url + '?table=' + data.type +
+          '&object_id=' + ids.join(',') + '&fields=' + chosen.join(',');
+      });
+      cancel.addEventListener('click', close);
+      row.appendChild(ok); row.appendChild(cancel);
+      card.appendChild(row);
+      ov.appendChild(card);
+      document.body.appendChild(ov);
+      ov.addEventListener('click', function (e) { if (e.target === ov) { close(); } });
+      ok.focus();
     }
 
     for (var j = 0; j < btns.length; j++) {
       btns[j].addEventListener('click', function () {
         var ids = checkedIds();
         if (!ids.length) { status(false, 'Select at least one row to edit.', 4000); return; }
-        fieldPicker(ids, idToLabel(), function (ok) {
-          if (ok) { setTimeout(function () { location.reload(); }, 700); }
-        });
+        openPicker(ids);
       });
     }
   }
+
+
+  // Bulk edit — dedicated page (/management/bulk_edit): wire the Save button
+  // (the form's submit). Save reads every chosen field for every row — a
+  // checked "apply to all" box makes that field's apply-row value win for ALL
+  // rows, the legacy applytoall_<field> semantics — and posts ONE request to
+  // the batch API (window.ND_BULK, stashed by the controller). FK cells are
+  // <select>s (value = target id, '' clears; large targets are filled by
+  // initFkSearch), checkboxes are bools, data-nd-int boxes are ints, the rest
+  // strings. The server applies per id and reports per-id errors (shown with
+  // the object's label).
+  function initBulkEditPage() {
+    var form = document.querySelector('form.nd-bulk-form');
+    if (!form) { return; }
+    var nd = window.ND_BULK || {};
+    if (!nd.api || !(nd.fields && nd.fields.length)) { return; }
+    var rows = form.querySelectorAll('tr[data-nd-id]');
+    if (!rows.length) { return; }
+    var save = form.querySelector('.nd-bulk-save');
+    if (!save) { return; }
+
+    // Extract a value from an editable cell, mirroring collect(): checkbox ->
+    // bool, FK (select) -> id or null, data-nd-int with a numeric value -> int,
+    // else string.
+    function cellValue(kind, el) {
+      if (!el) { return null; }
+      if (kind === 'checkbox') { return el.checked; }
+      if (kind === 'fk') { return el.value === '' ? null : el.value; }
+      if (kind === 'number') { return /^\d+$/.test(el.value) ? parseInt(el.value, 10) : el.value; }
+      return el.value;
+    }
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var updates = [];
+      for (var i = 0; i < rows.length; i++) {
+        var row   = rows[i];
+        var entry = { id: row.getAttribute('data-nd-id') };
+        for (var k = 0; k < nd.fields.length; k++) {
+          var f   = nd.fields[k];
+          var chk = form.querySelector('.nd-apply-chk[data-nd-applycol="' + f.name + '"]');
+          var el  = (chk && chk.checked)
+            ? form.querySelector('tr.nd-bulk-apply [data-nd-apply="' + f.name + '"]')
+            : row.querySelector('[data-nd-f="' + f.name + '"]');
+          entry[f.name] = cellValue(f.kind, el);
+        }
+        updates.push(entry);
+      }
+      save.disabled = true;
+      spinner(true, 'Saving ' + updates.length + ' object(s)…');
+      api('POST', nd.api, { updates: updates }).then(function (res) {
+        spinner(false);
+        save.disabled = false;
+        if (!res.ok) { status(false, errMsg(res), 8000); return; }
+        var d    = res.data || {};
+        var errs = d.errors || {};
+        var nErr = Object.keys(errs).length;
+        var msg  = 'Updated ' + ((d.updated && d.updated.length) || 0) + ' object(s)';
+        if (nErr) {
+          msg += ', ' + nErr + ' error(s): ' +
+            Object.keys(errs).map(function (k) {
+              return (nd.labels && nd.labels[k] ? nd.labels[k] : k) + ': ' + errs[k];
+            }).join('; ');
+        }
+        status(nErr ? ((d.updated && d.updated.length) > 0) : true, msg, nErr ? 10000 : undefined);
+        if (!nErr) {
+          setTimeout(function () { location.href = nd.back || '/'; }, 800);
+        }
+      });
+    });
+  }
+
 
   // "Add a record" section: a type <select> reveals the matching pre-rendered
   // form (submitted via POST by initForms). Cancel resets the select.
@@ -1480,6 +1330,7 @@
     initEditChildren();
     initBatchDelete();
     initBulkEdit();
+    initBulkEditPage();
   });
 
   window.ND = { api: api, status: status, collect: collect };

@@ -6,7 +6,7 @@
 % my $covering   = $c->stash('covering');
 % my $search_url = $c->stash('search_url');
 % my $del        = $c->stash('del');    # { type, api } when the user may delete these results
-% my $bulk       = $c->stash('bulk');   # { type, api, fields, rows } for bulk edit
+% my $bulk       = $c->stash('bulk');   # { type, fields } when bulk edit is allowed
 % my $can_check  = $del || $bulk;       # row checkboxes when either batch op is allowed
 % my $total      = $c->stash('total');  # total matches (set when paginating)
 % my $per        = $c->stash('per');
@@ -56,17 +56,22 @@
       <button type="button" class="btn nd-batch-delete" data-nd-api="<%= $del->{api} %>">Delete</button>
       % }
       % if ($bulk) {
-      <button type="button" class="btn nd-bulk-edit" data-nd-api="<%= $bulk->{api} %>">Bulk edit</button>
+      % # Bulk edit: field-picker popup, then the dedicated page
+      % # /management/bulk_edit (netdot.js initBulkEdit); the page saves via
+      % # POST /api/<type>/batch.
+      <button type="button" class="btn nd-bulk-edit">Bulk edit</button>
       % }
       <span class="nd-batch-count" style="margin-left:0.6em; font-size:0.9em"></span>
     </p>
     % }
     % if ($bulk) {
+    % # Picker popup data (initBulkEdit): the type, the dedicated page URL and
+    % # the editable fields (name + tag). The values are read on the page itself.
     % use JSON;
-    % my $bjs = JSON->new->canonical->encode( $bulk );
-    % $bjs =~ s{<}{\\u003c}g;   # keep a value from breaking out of the <script> tag
+    % my $bjs = JSON->new->canonical->encode( { type => $bulk->{type}, url => url_for('bulk_edit')->to_string, fields => $bulk->{fields} } );
+    % $bjs =~ s{<}{\\u003c}g;   # keep a tag from breaking out of the <script> tag
     <script>
-      window.ND_BULK_DATA = <%== $bjs %>;
+      window.ND_BULK = <%== $bjs %>;
     </script>
     % }
     % if ( defined $total && defined $per && $total > $per ) {

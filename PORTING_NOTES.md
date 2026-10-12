@@ -588,6 +588,33 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
             slow, recursive) `DELETE` is in flight a full-screen **`spinner`** "Deleting…"
             overlay blocks interaction; on success the `ND.status` box + reload/goto. CSS in
             `style.css` (`.nd-modal*`, `.nd-busy*`).
+            **Bulk edit** (2026-10-12, port of `generic/edit-multiple.html`): on every
+            generic list page (`browse#list`) and on the dedicated search results
+            (`rr`/`physaddr`/`ipblock` searches, `search_results.html.ep`), a "Bulk edit"
+            button (gated on `has_action edit`, next to the row-checkbox Delete button)
+            opens a **field-picker POPUP** (`netdot.js` `initBulkEdit`; the stashed
+            `window.ND_BULK = {type, url, fields:[{name,tag}]}` comes from the
+            controllers, which only stash the field names — the values are read on the
+            page) and then navigates to the **dedicated full-page**
+            `GET /management/bulk_edit?table=<type>&object_id=1,2,3&fields=a,b`
+            (`browse#bulk_edit`, route in `Mojo.pm`). The page renders the editable
+            table server-side inside a `.container` box: one row per object (Name column
+            = label + link to the detail page), one column per chosen field, each cell
+            pre-filled with the current value and built by
+            `Detail::bulk_edit_cell_html` — **FKs are `<select>`s** (small target: all
+            options from `editable_field_specs`; large target: the `.nd-fk-search`
+            keyword-search pattern of the detail edit form, the `<select>` pre-filled
+            with the current label), plus checkbox / text / number (`data-nd-int`) /
+            date / textarea. An **"Apply to all"** row (legacy `applytoall_<field>`
+            semantics) holds a per-field value that wins for every row when its box is
+            checked. Save = form submit intercepted by `netdot.js`
+            `initBulkEditPage` → ONE `POST /api/<table>/batch` (`{updates:[{id, ...}]}`):
+            the API re-checks `can('edit')` **per id** and writes only the sent fields —
+            single source of truth `Detail::editable_field_specs` (picker fields = API
+            accepted fields) — so the audit logs only the columns that actually changed.
+            Per-id errors are reported with the object's label; success redirects back to
+            the list. CSS: `.nd-bulk-*` in `style.css` (sticky Name column, min-width
+            cells for ~20-column tables).
    - `lib/Netdot/Mojo/Controller/Zone.pm` — Zone detail (port of
     `management/zone.html`): record count (per type), apex record (A/NS/MX with
     links), generic has_many (subnets/records/aliases), recent changes (HostAudit).

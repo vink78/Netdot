@@ -79,8 +79,8 @@
 </div>
 
 % my $can_delete = $c->stash('can_delete');
-% my $bulk       = $c->stash('bulk');    # { type, api, fields, rows } for bulk edit
-% my $can_check  = $can_delete || $bulk; # checkboxes when either batch op is allowed
+% my $bulk       = $c->stash('bulk');    # { type, fields } when bulk edit is allowed
+% my $can_check  = $can_delete || $bulk; # row checkboxes when either batch op is allowed
 % if (@$rows) {
     <table class="datatable sortable">
       <thead>
@@ -111,25 +111,29 @@
       </tbody>
     </table>
 % if ($can_check) {
-    % # Batch delete + bulk edit go through the JSON API in ONE call each
-    % # (DELETE /api/<type>?id=1,2,3 / POST /api/<type>/batch); see netdot.js
-    % # initBatchDelete / initBulkEdit. The server-side browse#delete route is gone.
+    % # Batch delete + bulk edit: delete goes straight to DELETE
+    % # /api/<type>?id=1,2,3 (initBatchDelete); bulk edit opens a field-picker
+    % # popup then navigates to the dedicated page /management/bulk_edit
+    % # (initBulkEdit), which saves via POST /api/<type>/batch. The
+    % # server-side browse#delete route is gone.
     <p>
       % if ($can_delete) {
       <button type="button" class="btn nd-batch-delete" data-nd-api="<%= $c->web_prefix %>/api/<%= $type %>" style="margin-top:0.5em">Delete</button>
       % }
       % if ($bulk) {
-      <button type="button" class="btn nd-bulk-edit" data-nd-api="<%= $bulk->{api} %>" style="margin-top:0.5em">Bulk edit</button>
+      <button type="button" class="btn nd-bulk-edit" style="margin-top:0.5em">Bulk edit</button>
       % }
       <span class="nd-batch-count" style="margin-left:0.6em; font-size:0.9em"></span>
     </p>
 % }
 % if ($bulk) {
+% # Picker popup data (initBulkEdit): the type, the dedicated page URL and the
+% # editable fields (name + tag). The values are read on the page itself.
 % use JSON;
-% my $bjs = JSON->new->canonical->encode( $bulk );
-% $bjs =~ s{<}{\\u003c}g;   # keep a value from breaking out of the <script> tag
+% my $bjs = JSON->new->canonical->encode( { type => $bulk->{type}, url => url_for('bulk_edit')->to_string, fields => $bulk->{fields} } );
+% $bjs =~ s{<}{\\u003c}g;   # keep a tag from breaking out of the <script> tag
 <script>
-  window.ND_BULK_DATA = <%== $bjs %>;
+  window.ND_BULK = <%== $bjs %>;
 </script>
 % }
 
