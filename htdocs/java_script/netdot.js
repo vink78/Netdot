@@ -833,6 +833,155 @@
     });
   }
 
+  // Batch edit: "Batch Edit" button on the Children list → checkboxes on rows +
+  // a panel with Status/Used By/Description/Delete. "Apply" submits via API.
+  function initBatch() {
+    var btn = document.getElementById('nd-batch-btn');
+    if (!btn) { return; }
+    var data = window.ND_BATCH_DATA || {};
+    var statuses = data.statuses || [];
+    var entities = data.entities || [];
+    var table = btn.closest('.tabcard-body') ? btn.closest('.tabcard-body').querySelector('table.datatable') : null;
+    if (!table) { table = document.querySelector('.tabcard-body table.datatable'); }
+    if (!table) { return; }
+
+    var active = false;
+    var panel = null;
+    var checkHeader = null;
+
+    function addCheckboxes() {
+      if (checkHeader) { return; }
+      checkHeader = document.createElement('th');
+      checkHeader.style.width = '30px';
+      checkHeader.innerHTML = '<input type="checkbox" id="nd-batch-all">';
+      table.querySelector('thead tr').prepend(checkHeader);
+      var rows = table.querySelectorAll('tbody tr[data-nd-id]');
+      for (var i = 0; i < rows.length; i++) {
+        var td = document.createElement('td');
+        td.innerHTML = '<input type="checkbox" class="nd-batch-chk" data-nd-id="' + rows[i].getAttribute('data-nd-id') + '">';
+        rows[i].prepend(td);
+      }
+      document.getElementById('nd-batch-all').addEventListener('change', function () {
+        var chks = table.querySelectorAll('.nd-batch-chk');
+        for (var i = 0; i < chks.length; i++) { chks[i].checked = this.checked; }
+      });
+    }
+
+    function removeCheckboxes() {
+      if (checkHeader) { checkHeader.remove(); checkHeader = null; }
+      var tds = table.querySelectorAll('tbody td:first-child input.nd-batch-chk');
+      for (var i = 0; i < tds.length; i++) { tds[i].parentElement.remove(); }
+    }
+
+    function buildPanel() {
+      if (panel) { panel.remove(); }
+      panel = document.createElement('div');
+      panel.className = 'nd-range-panel';
+      var statusOpts = '<option value="">-- No change --</option>';
+      for (var i = 0; i < statuses.length; i++) {
+        statusOpts += '<option value="' + statuses[i][1] + '">' + statuses[i][1] + '</option>';
+      }
+      var entityOpts = '<option value="">-- No change --</option>';
+      for (var i = 0; i < entities.length; i++) {
+        entityOpts += '<option value="' + entities[i][0] + '">' + entities[i][1] + '</option>';
+      }
+      panel.innerHTML =
+        '<h4 class="nd-range-drag">Batch Edit <span class="nd-range-close" id="nd-b-close">&times;</span></h4>' +
+        '<label>Status</label><select id="nd-b-status">' + statusOpts + '</select>' +
+        '<label>Owner</label><select id="nd-b-owner">' + entityOpts + '</select>' +
+        '<label>Used By</label><select id="nd-b-usedby">' + entityOpts + '</select>' +
+        '<label>Description</label><input id="nd-b-desc" type="text">' +
+        '<label><input id="nd-b-del" type="checkbox" style="width:auto"> Delete selected</label>' +
+        '<p class="nd-range-info" id="nd-b-info">0 selected</p>' +
+        '<div class="nd-range-actions">' +
+        '<button type="button" class="btn" id="nd-b-apply">Apply</button>' +
+        '<button type="button" class="btn" id="nd-b-cancel">Cancel</button>' +
+        '</div>';
+      document.body.appendChild(panel);
+      // Draggable.
+      var dragEl = panel.querySelector('.nd-range-drag');
+      var dragStart = null;
+      dragEl.addEventListener('mousedown', function (e) {
+        if (e.target.id === 'nd-b-close') { return; }
+        e.preventDefault();
+        var rect = panel.getBoundingClientRect();
+        dragStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        panel.style.transform = 'none';
+        panel.style.left = rect.left + 'px';
+        panel.style.top = rect.top + 'px';
+        function onMove(ev) { panel.style.left = (ev.clientX - dragStart.x) + 'px'; panel.style.top = (ev.clientY - dragStart.y) + 'px'; }
+        function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+      document.getElementById('nd-b-close').addEventListener('click', closeBatch);
+      document.getElementById('nd-b-cancel').addEventListener('click', closeBatch);
+      // Update selected count.
+      var chks = table.querySelectorAll('.nd-batch-chk');
+      function updateCount() {
+        var n = 0;
+        for (var i = 0; i < chks.length; i++) { if (chks[i].checked) { n++; } }
+        var info = document.getElementById('nd-b-info');
+        if (info) { info.textContent = n + ' selected'; }
+      }
+      for (var i = 0; i < chks.length; i++) { chks[i].addEventListener('change', updateCount); }
+
+      document.getElementById('nd-b-apply').addEventListener('click', function () {
+        var st = document.getElementById('nd-b-status').value;
+        var own = document.getElementById('nd-b-owner').value;
+        var ub = document.getElementById('nd-b-usedby').value;
+        var desc = document.getElementById('nd-b-desc').value;
+        var del = document.getElementById('nd-b-del').checked;
+        var chks = table.querySelectorAll('.nd-batch-chk:checked');
+        if (!chks.length) { status(false, 'Check at least one row.', 3000); return; }
+        if (!del && !st && !own && !ub && !desc) { status(false, 'Nothing to apply.', 3000); return; }
+        var cb = document.getElementById('nd-b-apply');
+        cb.disabled = true;
+        var pending = chks.length;
+        var errors = 0;
+        function done(ok) {
+          pending--;
+          if (!ok) { errors++; }
+          if (pending === 0) {
+            if (errors) { status(false, errors + ' error(s).', 6000); cb.disabled = false; }
+            else {
+              status(true, del ? chks.length + ' deleted.' : chks.length + ' updated.');
+              closeBatch();
+              setTimeout(function () { location.reload(); }, 700);
+            }
+          }
+        }
+        for (var i = 0; i < chks.length; i++) {
+          var id = chks[i].getAttribute('data-nd-id');
+          var url = '/api/ipblock/' + id;
+          if (del) {
+            api('DELETE', window.location.pathname.replace(/management.*/, '') + url).then(function (res) { done(res.ok); });
+          } else {
+            var body = {};
+            if (st) { body.status = st; }
+            if (own) { body.owner = parseInt(own, 10); }
+            if (ub) { body.used_by = parseInt(ub, 10); }
+            if (desc) { body.description = desc; }
+            api('POST', window.location.pathname.replace(/management.*/, '') + url, body).then(function (res) { done(res.ok); });
+          }
+        }
+      });
+    }
+
+    function closeBatch() {
+      active = false;
+      removeCheckboxes();
+      if (panel) { panel.remove(); panel = null; }
+    }
+
+    btn.addEventListener('click', function () {
+      if (active) { closeBatch(); return; }
+      active = true;
+      addCheckboxes();
+      buildPanel();
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
     initDhcpEnable();
@@ -844,6 +993,7 @@
     initCreateBlocks();
     initRights();
     initRange();
+    initBatch();
   });
 
   window.ND = { api: api, status: status, collect: collect };

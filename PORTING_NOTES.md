@@ -912,6 +912,29 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       (userright/groupright) via their own `insert` overloads (dedup + `none` semantics). Removing
       a right does `DELETE /api/userright/<id>` or `/api/groupright/<id>` (the join row only —
       the shared AccessRight row stays). JS: `initRights()` in `netdot.js` handles the add form
-      (`.nd-rights-add`) and delete buttons (`.nd-rights-del`).
-    - Deferred: Device **Topology (graph)** tab; HTML write/edit pages (the **API** now
-      covers authorized writes).
+       (`.nd-rights-add`) and delete buttons (`.nd-rights-del`).
+    - Done: **Ipblock section deletes + range + batch edit (2026-10-12)**:
+      - **Section deletes**: Sites (`/api/sitesubnet`), Forward Zones (`/api/subnetzone`,
+        direct only), DHCP (`/api/dhcpscope`), Attributes (`/api/ipblockattr`) each have a
+        per-row "Remove" button (`.nd-sec-del`, JS handler in `initRights`). The "Add attribute"
+        select excludes names already present on the block.
+      - **Add IP Range** (Subnets, Children view): "Range" button in the view toggle bar.
+        Click → grid enters range mode (crosshair, mousedown/mouseup = start/end, blue
+        highlight via `.ipaddr-range-selected`, auto-swap if start>end numerically). A
+        draggable centered panel (`.nd-range-panel`) shows: start/end (editable, pre-filled
+        with first/last usable IP via `NetAddr::IP->first/last`), status, owner, used_by,
+        description, gen_dns checkbox, DNS prefix/suffix (defaults from config
+        `IP_RANGE_DNS_DEFAULT_PREFIX/SUFFIX`), forward zone (pre-selected = block's
+        `forward_zone()` which walks up ancestors, fallback `DEFAULT_DNSDOMAIN`).
+        API: `POST /api/ipblock/:id/range` → `$o->add_range(start,end,status,…)`
+        (model creates /32 or /128 blocks). Grid cells carry `data-nd-ip` for JS.
+        JS: `initRange()` in `netdot.js`.
+      - **Batch Edit** (Children, list mode): "Batch Edit" button → JS adds checkboxes
+        to each row (`.nd-batch-chk` with `data-nd-id`) + "Check All" header. Draggable
+        panel with: status (filtered by parent type: Subnet→Dynamic/Reserved/Static,
+        Container→all), owner, used_by, description, delete checkbox. "Apply" sends one
+        API call per checked row (`POST /api/ipblock/:id` or `DELETE`). JS: `initBatch()`.
+        Data passed via `window.ND_BATCH_DATA` (statuses + entities as JSON).
+    - Deferred: Device **Topology (graph)** tab; Ipblock **REBUILD_TREE** (admin);
+      **ADD_BLOCKS** (bulk create); HTML write/edit pages (the **API** now covers
+      authorized writes).

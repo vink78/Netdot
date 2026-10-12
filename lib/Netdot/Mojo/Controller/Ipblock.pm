@@ -392,7 +392,7 @@ sub show ($c) {
         #  - Zones: forward-zone options (active non-arpa, not already linked) for
         #    "Add forward zone" (POST /api/subnetzone), and the block's arpa names
         #    not yet existing as a zone for "Add reverse zone" (POST /api/zone).
-        my ( $attr_names, $dhcp_globals, $dhcp_router, $site_list, $fzone_options, $rzone_names, $stash_entities, $stash_fzones, $stash_fzone_default, $stash_range_first, $stash_range_last, $stash_range_dns_prefix, $stash_range_dns_suffix );
+        my ( $attr_names, $dhcp_globals, $dhcp_router, $site_list, $fzone_options, $rzone_names, $stash_entities, $stash_fzones, $stash_fzone_default, $stash_range_first, $stash_range_last, $stash_range_dns_prefix, $stash_range_dns_suffix, $stash_statuses );
         if ( $can_edit ) {
             if ( $show->('Attributes') ) {
                 my @ans; eval { @ans = IpblockAttrName->retrieve_all }; @ans = () if $@;
@@ -432,9 +432,19 @@ sub show ($c) {
             }
             # Range form (Children view, Subnets): entity list for Owner/Used By
             # selects, and forward zone list for the "Auto-generate DNS" fzone select.
-            if ( $show->('Children') && $status eq 'Subnet' ) {
+            if ( $show->('Children') ) {
                 my @ents; eval { @ents = Entity->retrieve_all }; @ents = () if $@;
                 $stash_entities = [ map { [ $_->id, $_->name ] } sort { $a->name cmp $b->name } @ents ];
+                my @sts; eval { @sts = IpblockStatus->retrieve_all }; @sts = () if $@;
+                # Subnet children are addresses: only Static/Dynamic/Reserved make sense.
+                # Container children are blocks: all statuses are valid.
+                my %allowed;
+                %allowed = ( Static => 1, Dynamic => 1, Reserved => 1 ) if $status eq 'Subnet';
+                $stash_statuses = [ map { [ $_->id, $_->name ] }
+                                     grep { !%allowed || $allowed{$_->name} }
+                                     sort { $a->name cmp $b->name } @sts ];
+            }
+            if ( $show->('Children') && $status eq 'Subnet' ) {
                 my @zs2; eval { @zs2 = Zone->retrieve_all }; @zs2 = () if $@;
                 $stash_fzones = [
                     map  { [ $_->id, $_->get_label ] }
@@ -539,6 +549,7 @@ sub show ($c) {
             range_last   => $stash_range_last,  # default end IP (last usable)
             range_dns_prefix => $stash_range_dns_prefix,
             range_dns_suffix => $stash_range_dns_suffix,
+            statuses     => $stash_statuses, # [[id,name]...] for batch edit
             can_rights     => $can_rights,   # may view/manage access rights (Admin/Operator)
             can_rights_edit => $can_rights_edit, # may grant/revoke (Admin only)
             rights       => $rights,        # arrayref of {type,name,subject_html,access,...}

@@ -50,6 +50,7 @@
 % my $range_last   = $c->stash->{range_last}   // '';   # default end IP
 % my $range_dns_prefix = $c->stash->{range_dns_prefix} // '';
 % my $range_dns_suffix = $c->stash->{range_dns_suffix} // '';
+% my $statuses     = $c->stash->{statuses}     // [];  # [[id,name]...] for batch edit
 %# Children (list/grid/tree) show on the roots page (no current) or on Children/All.
 % my $show_children = $current ? ( $view eq 'Children' || $view eq 'All' ) : 1;
 % my $rootversion = $c->stash->{rootversion} // 'all';
@@ -58,7 +59,7 @@
 %# Utilization column: always on a block's Children view; on the roots list it is
 %# toggled by show_util (the "Show Utilization" checkbox).
 % my $util = $is_addr ? 0 : ( $current ? 1 : $show_util );
-% my @hdrs = $is_addr ? ( 'Address', 'Name', 'Device', 'Status', 'Used by', 'Description', 'Last Seen' ) : ( 'Address/Prefix', 'Status', ( $util ? ('Utilization') : () ), 'Owner', 'Used by', 'Description' );
+% my @hdrs = $is_addr ? ( 'Address', 'Name', 'Device', 'Status', 'Owner', 'Used by', 'Description', 'Last Seen' ) : ( 'Address/Prefix', 'Status', ( $util ? ('Utilization') : () ), 'Owner', 'Used by', 'Description' );
 %# Breadcrumb: Roots > a > b > (current, bold). Only when viewing a block.
 % if ($current) {
     <div class="breadcrumb" style="margin:0 0 1em 0; font-size:0.95em">
@@ -209,7 +210,18 @@
             style="margin-left:0.6em">Range</button>
     <span style="margin-left:0.6em; font-size:0.85em; color:#666">Click Range to select a range of IPs on the grid (click or drag), then choose options and create.</span>
   % }
+  % if ($can_edit && $viewformat eq 'list' && @$blocks > 0) {
+    <button type="button" class="btn btn-sm" id="nd-batch-btn" style="margin-left:0.6em">Batch Edit</button>
+  % }
   </div>
+% }
+% if ($can_edit && $current && $viewformat eq 'list' && @$blocks > 0) {
+  <script>
+    window.ND_BATCH_DATA = {
+      statuses: <%== $json->encode($statuses // []) %>,
+      entities: <%== $json->encode($entities // []) %>
+    };
+  </script>
 % }
 %# Children: address grid (subnet), container grid, tree graph, or the table.
 % if ($grid) {
@@ -253,7 +265,7 @@
     </thead>
     <tbody>
     % for my $o (@$blocks) {
-        <tr>
+        <tr data-nd-id="<%= $o->id %>">
         % if ($is_addr) {
             <td><a href="<%= $c->web_prefix %>/management/ipblock/<%= $o->id %>"><%= $o->address %></a></td>
             <td><%== $dns_name->{ $o->id } // '' %></td>
@@ -264,7 +276,8 @@
             % }
             </td>
             <td><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
-            <td><%= Netdot::Mojo::Registry::format_value( $o->used_by ) %></td>
+            <td><%== Netdot::Mojo::Registry::link_html( eval { $o->owner } ) %></td>
+            <td><%== Netdot::Mojo::Registry::link_html( eval { $o->used_by } ) %></td>
             <td><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
             <td><%= Netdot::Mojo::Registry::format_value( $o->last_seen ) %></td>
         % } else {

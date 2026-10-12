@@ -324,7 +324,7 @@ sub attr_display {
 # string when there is no route. Safe for raw (<%== %>) output in templates.
 sub link_html {
     my ($v) = @_;
-    my ( $t, $h ) = link_for( $v );
+    my ($t, $h) = @{ link_for( $v ) };
     return '' unless $h;
     return '<a href="' . $h . '">' . _hesc( $t ) . '</a>';
 }

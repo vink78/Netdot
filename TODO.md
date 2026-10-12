@@ -459,21 +459,35 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      > formulaire d'ajout (`POST /api/accessright`, JSON `{object_class, object_id,
      > subject_type, subject_id, rights:[…]}`) → overload `AccessRight->insert` (find-or-create
      > l'accessright + insert de la ligne join userright/groupright, dedup). JS `initRights()`.
+     > **Suppression sections** (Sites/Zones/DHCP/Attributes) : boutons Remove par ligne
+     > (`DELETE /api/sitesubnet|subnetzone|dhcpscope|ipblockattr/<id>`), JS `initRights()`
+     > gère `.nd-sec-del`. Le select « Add attribute » ne propose que les noms pas encore
+     > utilisés sur le bloc. **Add IP Range** (Subnets, vue Children) : bouton « Range » dans
+     > la barre de toggle → mode sélection grid (clic/drag, surbrillance bleue, auto-swap
+     > si start>end) + panneau draggable centré (start/end éditables, status, owner, used_by,
+     > description, gen_dns, prefix/suffix pré-remplis depuis config `IP_RANGE_DNS_DEFAULT_*`,
+     > fzone pré-sélectionnée = zone du bloc/héritée/`DEFAULT_DNSDOMAIN`). API
+     > `POST /api/ipblock/:id/range` → `$o->add_range(...)`. JS `initRange()`.
+     > **Batch Edit** (Children, mode liste) : bouton « Batch Edit » → checkboxes sur les
+     > lignes + panneau (status filtré par type parent : Subnet=Dynamic/Reserved/Static,
+     > Container=tous, owner, used_by, description, delete). Apply → une requête API par
+     > ligne cochée (`POST/DELETE /api/ipblock/:id`). JS `initBatch()`.
      > Les zones forward **héritées** d'un ancêtre s'affichent en *italique* + « (inherited) »
-    > (seules les `SubnetZone` directes sont « configurées »). **Suppression adresse** : la vue
-    > individuelle a son bouton Delete (pattern du bloc, `nd_children=0` → pas de case children)
-    > et ses sections de données vides (A/PTR/Services/Attr/DHCP) sont masquées ; la boîte
-    > « Add a record » rend ses champs cachés en dehors du `<table>` (plus de ligne vide).
-    > **Liste (`view_format=list`)** : colonne « Name » = tous les A records de l'IP (FQDN,
-    > séparés par virgule), **chaque nom = lien vers l'objet RR**, rempli par UNE requête
-    > `LEFT JOIN rraddr` (plus de N+1) — le vieux `eval { $o->a_records } // ()` retournait un
-    > Iterator (piège wantarray Class::DBI) → colonnes vides. Les selects ont un 1er item
-    > `--SELECT--`. **Reste à porter** : (1) **Ipblock REBLOCK** (changement d'identité
-    > address/prefix/version — recréation de la hiérarchie), (2) **édition de relations has_many**
-    > générique pour les AUTRES types (ex. interfaces d'un device, contacts d'un contactlist) —
-    > lecture seule aujourd'hui (les relations du **bloc** sont désormais ajoutables, cf. ci-
-    > dessus), (3) **créations complexes** multi-étapes (device site/os, ipblock hiérarchie).
-    > Hors CRUD (opérationnel) : re-poll `updatedevice`, allocation IP interactive `choose_ip`.
+     > (seules les `SubnetZone` directes sont « configurées »). **Suppression adresse** : la vue
+     > individuelle a son bouton Delete (pattern du bloc, `nd_children=0` → pas de case children)
+     > et ses sections de données vides (A/PTR/Services/Attr/DHCP) sont masquées ; la boîte
+     > « Add a record » rend ses champs cachés en dehors du `<table>` (plus de ligne vide).
+     > **Liste (`view_format=list`)** : colonne « Name » = tous les A records de l'IP (FQDN,
+     > séparés par virgule), **chaque nom = lien vers l'objet RR**, rempli par UNE requête
+     > `LEFT JOIN rraddr` (plus de N+1) — le vieux `eval { $o->a_records } // ()` retournait un
+     > Iterator (piège wantarray Class::DBI) → colonnes vides. Les selects ont un 1er item
+     > `--SELECT--`. **Reste à porter** : (1) **Ipblock REBLOCK** (changement d'identité
+     > address/prefix/version — recréation de la hiérarchie), (2) **édition de relations has_many**
+     > générique pour les AUTRES types (ex. interfaces d'un device, contacts d'un contactlist) —
+     > lecture seule aujourd'hui (les relations du **bloc** sont désormais ajoutables, cf. ci-
+     > dessus), (3) **créations complexes** multi-étapes (device site/os, ipblock hiérarchie),
+     > (4) **REBUILD_TREE** (admin, `Ipblock->build_tree`), (5) **ADD_BLOCKS** (bulk create).
+     > Hors CRUD (opérationnel) : re-poll `updatedevice`, allocation IP interactive `choose_ip`.
 
 ## Déprécié / non migré — ⛔
 
