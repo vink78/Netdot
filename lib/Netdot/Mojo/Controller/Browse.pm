@@ -303,8 +303,14 @@ sub list ($c) {
     # Admin-only, as in Mason.
     if ( $type eq 'device' && Netdot::Mojo::Permissions->user_type( $person ) eq 'Admin' ) {
         $extra{new_device_manual} = {
-            api  => $c->web_prefix . '/api/device/manual_add',
-            goto => Netdot::Mojo::Registry::set_uri( '/management/device/' ),
+            api      => $c->web_prefix . '/api/device/manual_add',
+            goto     => Netdot::Mojo::Registry::set_uri( '/management/device/' ),
+            # "Discover Device" box (legacy device_tasks.html view=new):
+            # posts to the wizard step 1 (review + guesses, then
+            # Device->discover). Community select from the config.
+            discover => Netdot::Mojo::Registry::set_uri( '/management/device/discover' ),
+            comms    => [ @{ Netdot::Model->config->get('DEFAULT_SNMPCOMMUNITIES') || ['public'] } ],
+            defver   => Netdot::Model->config->get('DEFAULT_SNMPVERSION') || 2,
         };
     }
 

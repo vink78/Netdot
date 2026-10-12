@@ -519,13 +519,28 @@ sub manual_add {
     # We will try to get both the IP and the name
     my ($ip, $name) = Netdot->dns->resolve_any($argv{host});
     $name ||= $ip;
+    # A device with this name already exists: clear error instead of a
+    # duplicate-key crash on the ipblock insert below. (The name is the RR's,
+    # and device.name is its integer id, so the lookup goes through the RR.)
+    if ( my $rr = RR->search(name=>$name)->first ){
+	my $ex = Device->search(name=>$rr)->first;
+	if ($ex){
+	    $class->throw_fatal("Model::Device::manual_add: Device " .
+				($ex->fqdn || $name) . " already exists");
+	}
+    }
     my $dev = Device->insert({name=>$name, monitored=>1, snmp_managed=>0, 
 			      canautoupdate=>0, auto_dns=>0});
     my $ints = $dev->add_interfaces(1);
     my $int = $ints->[0];
     if ( $ip ){
 	my $prefix = Ipblock->matches_v4($ip) ? 32 : 128;
-	my $ipb = Ipblock->find_or_create({address=>$ip, prefix=>$prefix});
+	# The address column is numeric: a dotted string in search() is
+	# coerced by MySQL to its leading digits and never matches, so
+	# find_or_create would re-insert and hit the duplicate key. Convert
+	# to the numeric address first (same as Ipblock->insert does).
+	my $ipnum = NetAddr::IP->new($ip, $prefix)->addr;
+	my $ipb = Ipblock->find_or_create({address=>$ipnum, prefix=>$prefix});
 	$ipb->update({status=>"Static", interface=>$int, monitored=>1});
 	$dev->update({snmp_target=>$ipb});
 	# Try to set the interface neighbor

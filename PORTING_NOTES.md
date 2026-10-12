@@ -1010,9 +1010,12 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       only) and **ADD_BLOCKS** (bulk create — one block at a time suffices; router
       discovery creates the blocks).
    - Done: **Device creation (2026-10-12)** — the two Mason creation modes, admin-only:
-     - **Manual add** (`device_tasks.html` « Add Device manually »): a second form in the
-       list page's « New Device » box (`Browse::list` stashes `new_device_manual` when
-       type=device and the user is Admin) → `POST /api/device/manual_add` `{host}` →
+     - **Manual add** (`device_tasks.html` « Add Device manually »): the device list
+       page shows **two distinct boxes** like Mason's `device_tasks.html?view=new` —
+       « Discover Device » (name/IP + SNMP version + community → POSTs the wizard)
+       and « Add Device manually » (name/IP only; `Browse::list` stashes
+       `new_device_manual` when type=device and the user is Admin) →
+       `POST /api/device/manual_add` `{host}` →
        `Device->manual_add($host)` (DNS resolve, insert monitored/`snmp_managed=0`,
        `add_interfaces(1)`, /32-/128 block + Static status, `snmp_target`, ARP neighbor).
        Route registered **before** `/api/:table` (else captured as table/id). UI:
@@ -1035,3 +1038,16 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
        model log captured with a `Log::Log4perl::Appender::String` appender on the
        `Netdot::Model::{Device,DNS,Ipblock}` loggers (the Mason trick), filtered to
        lines mentioning the host, + link to the device.
+     - Fixes (2026-10-13): `Device->manual_add` now converts a dotted-string IP to
+       numeric before `Ipblock->find_or_create` (MySQL string→number coercion on a
+       bigint address column matched nothing → `Duplicate entry` on the /32) and
+       throws a clear « already exists » error when the RR name is taken. The
+       Used-by guess reads `ips->{$ip}{subnet}` (« addr/len », what `get_snmp_info`
+       actually stores from the device's ipNetToMedia table; `->{mask}` — what Mason
+       read — is never set by the current `get_snmp_info`, so the Mason guess was
+       silently dead). API/wizard error handling extracts `->message` from Netdot
+       exceptions (a `throw_fatal` stringifies with its full stack trace).
+     - SNMP MIBs: `get_snmp_info` passes the configured `SNMP_MIBS_PATH` /
+       `SNMP_MIB_DIRS` dirs to SNMP::Info (`MibDirs`, → `SNMP::addMibDirs`); on this
+       box that is `/var/lib/netdisco-mibs` (Site.conf). No `MIBDIRS`
+       env var needed — the system `/usr/share/snmp/mibs` being empty is fine.

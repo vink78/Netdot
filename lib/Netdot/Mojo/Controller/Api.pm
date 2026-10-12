@@ -1208,7 +1208,13 @@ sub manual_add {
         $host =~ s/\s//g;
         _err( 400, 'Missing required parameter: host' ) unless length $host;
         my $dev = eval { Device->manual_add( host => $host ) };
-        _err( 400, "manual_add failed: $@" ) if $@ || !$dev;
+        if ( $@ || ! $dev ) {
+            my $err = $@;
+            # Netdot exceptions stringify with their full stack trace; keep
+            # only the message in the API response.
+            $err = $err->message if ref $err && $err->can('message');
+            _err( 400, "manual_add failed: $err" );
+        }
         $c->render( json => { id => $dev->id }, status => 200 );
     });
 }

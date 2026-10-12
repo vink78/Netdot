@@ -52,10 +52,39 @@
                                 nd_create => 1, nd_method => 'POST',
                                 nd_redirect => $new_obj->{goto}, nd_label => 'Create' ) %>
       % if ($ndm) {
-      % # "Add Device manually" (port of the legacy device_tasks.html): one
-      % # input (name or IP) -> POST /api/device/manual_add ->
-      % # Device->manual_add (DNS + monitored device + interface + /32 block +
-      % # snmp_target), then redirect to the new device's page.
+      % # Two distinct boxes, as in the legacy device_tasks.html (view=new):
+      % # "Discover Device" (name/IP + SNMP version + community -> the wizard
+      % # step 1, then review + guesses, then Device->discover) and
+      % # "Add Device manually" (name/IP only -> POST /api/device/manual_add
+      % # -> Device->manual_add: DNS + monitored device + interface + /32
+      % # block + snmp_target), both admin-only.
+      <hr style="margin:0.9em 0">
+      <p style="margin:0.2em 0; font-weight:600">Discover Device</p>
+      <form method="post" action="<%= $ndm->{discover} %>">
+        <input type="hidden" name="action" value="discover">
+        <p style="margin:0.3em 0">
+          <label>Name/IP:</label>
+          <input type="text" name="host" class="longtxt" required>
+        </p>
+        <p style="margin:0.3em 0">
+          <label>SNMP Version:</label>
+          <select name="version">
+            % for my $v ( 1, 2, 3 ) {
+            <option value="<%= $v %>" <%= $ndm->{defver} == $v ? 'selected' : '' %>><%= $v %></option>
+            % }
+          </select>
+          <label style="margin-left:1em">Community:</label>
+          <select name="comstr">
+            % for my $cm ( @{ $ndm->{comms} } ) {
+            <option value="<%= $cm %>"><%= $cm %></option>
+            % }
+            <option value="Other">Other</option>
+          </select>
+          <input type="text" name="other_comstr" class="txt" size="14" placeholder="<Other community>">
+        </p>
+        <p style="margin:0.3em 0"><input type="submit" value="Discover" class="btn"></p>
+      </form>
+      <p style="margin:0.2em 0; font-size:0.85em">Imports the device's interfaces, IPs and subnets (SNMP). SNMP v3 credentials and re-poll of an existing device: <a href="<%= $ndm->{discover} %>">discovery page</a>.</p>
       <hr style="margin:0.9em 0">
       <p style="margin:0.2em 0; font-weight:600">Add Device manually</p>
       <form data-nd-api="<%= $ndm->{api} %>" data-nd-method="POST" data-nd-redirect="<%= $ndm->{goto} %>">
@@ -65,7 +94,7 @@
           <input type="submit" value="Add" class="btn">
         </p>
       </form>
-      <p style="margin:0.3em 0 0; font-size:0.85em">Resolves the host and creates a monitored device with an interface, its /32 (or /128) address block and its SNMP target — ready for SNMP polling. Or <a href="<%= $c->url_for('device_discover')->to_string %>">discover a device via SNMP</a> (import interfaces, IPs and subnets).</p>
+      <p style="margin:0.3em 0 0; font-size:0.85em">Resolves the host and creates a monitored device with an interface, its /32 (or /128) address block and its SNMP target — ready for SNMP polling.</p>
       % }
     </div>
   </div>

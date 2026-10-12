@@ -218,6 +218,13 @@ sub _disc_step1 {
             my $ips = $ifaces->{$int}{ips} || {};
             for my $ip ( sort keys %$ips ) {
                 my $mask = $ips->{$ip}{mask};
+                # get_snmp_info stores the reported prefix as {subnet}
+                # ("address/len", from the device's ipNetToMedia table);
+                # {mask} is kept as a fallback (Mason referenced it, but
+                # current get_snmp_info never sets it).
+                if ( ! defined $mask && ( $ips->{$ip}{subnet} // '' ) =~ m{ /\d+ $ }x ) {
+                    $mask = ( $ips->{$ip}{subnet} =~ m{ ^ [^/]+ / (\d+) $ }x )[0];
+                }
                 next unless defined $mask;
                 my $subnetaddr = eval { Ipblock->get_subnet_addr( address => $ip, prefix => $mask ) };
                 my $subnet = eval { $subnetaddr ? Ipblock->search( address => $subnetaddr )->first : undef };
@@ -327,6 +334,9 @@ sub _disc_update {
     my $error;
     if ( $@ || !$dev ) {
         $error = $@ || 'Discovery failed (no device returned)';
+        # Netdot exceptions stringify with their full stack trace; keep
+        # only the message on the result page.
+        $error = $error->message if ref $error && $error->can('message');
     }
     return _disc_result( $c, {
         host   => $host,
