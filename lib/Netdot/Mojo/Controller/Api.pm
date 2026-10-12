@@ -1190,6 +1190,29 @@ sub updatedev {
     });
 }
 
+# Add a device manually (port of the legacy device_tasks.html "Add Device
+# manually"): one input (name or IP) -> Device->manual_add(host=>...). The lib
+# resolves the host via DNS, creates the device (monitored=1, snmp_managed=0)
+# with an interface, its /32 (or /128) block (Static, monitored) and the
+# snmp_target, plus an ARP-based neighbor if one is known. Admin-only, as in
+# Mason (access_admin_section).
+sub manual_add {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        _err( 403, 'Adding devices manually is reserved for administrators' )
+            unless Netdot::Mojo::Permissions->user_type( $p ) eq 'Admin';
+        my %A    = %{ _args($c) };
+        my $host = $A{host} // '';
+        $host =~ s/\s//g;
+        _err( 400, 'Missing required parameter: host' ) unless length $host;
+        my $dev = eval { Device->manual_add( host => $host ) };
+        _err( 400, "manual_add failed: $@" ) if $@ || !$dev;
+        $c->render( json => { id => $dev->id }, status => 200 );
+    });
+}
+
 # ---------------------------------------------------------------------------
 # OpenAPI spec + Swagger UI
 # ---------------------------------------------------------------------------

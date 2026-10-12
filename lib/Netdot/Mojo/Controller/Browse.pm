@@ -296,6 +296,18 @@ sub list ($c) {
         }
     }
 
+    # Device only: "Add Device manually" (port of the legacy device_tasks.html)
+    # — a second form inside the New Device box: one input (name or IP) calling
+    # Device->manual_add via POST /api/device/manual_add (DNS resolution +
+    # monitored device + interface + /32 (or /128) block + snmp_target).
+    # Admin-only, as in Mason.
+    if ( $type eq 'device' && Netdot::Mojo::Permissions->user_type( $person ) eq 'Admin' ) {
+        $extra{new_device_manual} = {
+            api  => $c->web_prefix . '/api/device/manual_add',
+            goto => Netdot::Mojo::Registry::set_uri( '/management/device/' ),
+        };
+    }
+
     $c->render(
         template  => 'management/list',
         layout    => 'default',

@@ -4,7 +4,10 @@ use Mojo::Base 'Mojolicious::Controller';
 use Netdot::Model;
 use Netdot::Mojo::Registry;
 use Netdot::Mojo::Detail;
+use Netdot::Mojo::Permissions;
 use Netdot::Model::Device;
+use Netdot::Util::Log;
+use Log::Log4perl;
 
 # Read-only Device detail page. Two views for now:
 #   Basics     - device attributes (netdot.meta "all" view) + custom attributes
@@ -41,6 +44,9 @@ sub show {
     # default-off choice to also remove the device's IPs / DNS A/AAAA records
     # (delete_ips), which cascades to the name RR once it has no sub_records.
     my $can_delete = $c->perm( 'delete', $o );
+    # SNMP re-poll (wizard step 1, pre-filled with this device): admin only,
+    # as in Mason (access_admin_section).
+    my $can_discover = Netdot::Mojo::Permissions->user_type( $c->current_person ) eq 'Admin';
     my %stash = (
         id       => $id,
         view     => $view,
@@ -52,6 +58,7 @@ sub show {
         can_delete => $can_delete,
         del_path   => $can_delete ? $c->web_prefix . '/api/device/' . $id : '',
         del_goto   => $can_delete ? Netdot::Mojo::Registry::set_uri( '/management/device' ) : '',
+        can_discover => $can_discover,
     );
 
     if ($view eq 'Basics') {
@@ -69,6 +76,279 @@ sub show {
     }
 
     $c->render( template => 'management/device', layout => 'default', %stash );
+}
+
+# ---------------------------------------------------------------------------
+# SNMP discovery wizard (port of the legacy device_tasks.html "Discover
+# Device" + updatedevice.html) — ADMIN ONLY (Mason: access_admin_section).
+#
+# One route, three renders:
+#   GET                 step-1 form: host + SNMP credentials, or a re-poll of
+#                       an existing device (?device=<id>, its stored
+#                       credentials are used).
+#   POST action=discover  step 1: Device->get_snmp_info(...). On success the
+#                       review form is rendered (step 2) with the guessed
+#                       Owner / Used by / Site / Contacts; on failure the
+#                       step-1 form is re-rendered with the error.
+#   POST action=update    step 2: the same query is re-run (the SNMP info
+#                       hash is too large for a signed-cookie session, so the
+#                       flow is stateless) and Device->discover() is called
+#                       with the reviewed values. The model log output is
+#                       captured (Log4perl String appender, as in Mason) and
+#                       shown on the result page.
+
+sub discover {
+    my $c = shift;
+    my $p = $c->current_person;
+    unless ( $p && Netdot::Mojo::Permissions->user_type( $p ) eq 'Admin' ) {
+        return $c->render( template => 'error_403', layout => 'default',
+                           title => 'Access denied', status => 403 );
+    }
+    my $action = $c->param( 'action' ) // '';
+    return _disc_update( $c ) if $action eq 'update';
+    return _disc_step1( $c )  if $action eq 'discover';
+    return _disc_form( $c );
+}
+
+# Run the SNMP query described by the form (shared by step 1 and step 2):
+# returns ( $info, $host, $device_id, $error ). For a ?device=<id> re-poll the
+# device's stored credentials are used; otherwise the form's host + version +
+# community (v1/v2) or security args (v3) are passed to get_snmp_info.
+sub _disc_snmp_query {
+    my ( $c, $echo ) = @_;
+    my $device = $c->param( 'device' ) // '';
+    my $host   = $c->param( 'host' )   // '';
+    $host =~ s/\s//g;
+
+    my $info;
+    if ( $device =~ /^\d+$/ ) {
+        my $o = eval { Device->retrieve($device) };
+        return ( undef, $device, $device, 'Could not retrieve device #' . $device )
+            unless $o && !$@;
+        $host = $o->fqdn;
+        $info = eval { $o->get_snmp_info() };
+        $info = undef if $@;
+    }
+    elsif ( length $host ) {
+        my %q = ( host => $host, version => $c->param( 'version' ) );
+        if ( ( $q{version} || 2 ) == 3 ) {
+            for my $k ( qw(sec_name sec_level auth_proto auth_pass priv_proto priv_pass) ) {
+                $q{$k} = $c->param($k) if defined $c->param($k) && length $c->param($k);
+            }
+        } else {
+            my $comm = $c->param( 'comstr' ) // '';
+            if ( $comm eq 'Other' ) {
+                $q{communities} = [ $c->param( 'other_comstr' ) ]
+                    if length( $c->param( 'other_comstr' ) // '' );
+            }
+            elsif ( length $comm ) {
+                $q{communities} = [ $comm ];
+            }
+        }
+        $info = eval { Device->get_snmp_info( %q ) };
+        $info = undef if $@;
+    }
+    return ( undef, $host, $device, 'SNMP session failed (host unreachable or bad credentials)' )
+        unless $info;
+    return ( $info, $host, $device, undef );
+}
+
+# Step-1 form (GET, or step-1 error). $err is optional; the submitted values
+# are echoed so a failed query can be retried without retyping.
+sub _disc_form {
+    my ( $c, $err ) = @_;
+    my $cfg = Netdot->config;
+    my %echo = map { $_ => $c->param($_) }
+        qw(host version comstr other_comstr sec_name sec_level auth_proto auth_pass priv_proto priv_pass);
+    my $raw_device = $c->param( 'device' ) // '';
+    $echo{device} = $raw_device;
+    my $device = $raw_device =~ /^\d+$/ ? $raw_device : '';
+    my $repoll;
+    if ( $device ) {
+        my $o = eval { Device->retrieve($device) };
+        $repoll = ( $o && !$@ ) ? $o->fqdn : undef;
+        $err ||= 'Could not retrieve device #' . $device unless $repoll;
+        $device = $repoll ? $device : '';
+    }
+    $c->render(
+        template => 'management/device_discover',
+        layout    => 'default',
+        title     => 'Device discovery',
+        mode      => 'form',
+        error     => $err // '',
+        echo      => \%echo,
+        device    => $device,
+        repoll    => $repoll // '',
+        defver    => $cfg->get('DEFAULT_SNMPVERSION') || 2,
+        comms     => [ @{ $cfg->get('DEFAULT_SNMPCOMMUNITIES') || ['public'] } ],
+        v3def     => {
+            sec_name   => $cfg->get('DEFAULT_SNMP_SECNAME')   // '',
+            sec_level  => $cfg->get('DEFAULT_SNMP_SECLEVEL')  // 'authPriv',
+            auth_proto => $cfg->get('DEFAULT_SNMP_AUTHPROTO') // 'SHA',
+            auth_pass  => $cfg->get('DEFAULT_SNMP_AUTHPASS')  // '',
+            priv_proto => $cfg->get('DEFAULT_SNMP_PRIVPROTO') // 'AES',
+            priv_pass  => $cfg->get('DEFAULT_SNMP_PRIVPASS')  // '',
+        },
+    );
+}
+
+# Step 1: run the query, then render the review form (or the step-1 form on
+# error). For a brand-new device the Owner / Used by / Site are guessed as in
+# Mason: used_by from the first IP's subnet, site from that entity (or the
+# SNMP location), owner from the DEFAULT_DEV_OWNER config; the default
+# contactlist from DEFAULT_CONTACTLIST.
+sub _disc_step1 {
+    my ($c) = @_;
+    my ( $info, $host, $device, $err ) = _disc_snmp_query($c);
+    return _disc_form( $c, $err ) if $err || !$info;
+
+    my $is_existing = $device ne '';
+    my ( $g_owner, $g_used, $g_site );
+    unless ( $is_existing ) {
+        # existing device with this name? (Mason: search name=>$host)
+        my $ex = eval { Device->search( name => $host )->first };
+        $is_existing = 1 if $ex && !$@;
+    }
+    unless ( $is_existing ) {
+        # Guesses (new device): used_by from the first IP found on any
+        # interface (Mason's LOOP), then site from that entity or the SNMP
+        # location.
+        my $ifaces = $info->{interface} || {};
+        GUESS: for my $int ( sort keys %$ifaces ) {
+            my $ips = $ifaces->{$int}{ips} || {};
+            for my $ip ( sort keys %$ips ) {
+                my $mask = $ips->{$ip}{mask};
+                next unless defined $mask;
+                my $subnetaddr = eval { Ipblock->get_subnet_addr( address => $ip, prefix => $mask ) };
+                my $subnet = eval { $subnetaddr ? Ipblock->search( address => $subnetaddr )->first : undef };
+                if ( $subnet && $subnet->used_by ) {
+                    $g_used = $subnet->used_by;
+                    my $it = eval { $g_used->sites };
+                    if ( ref $it eq 'ARRAY' && @$it ) {
+                        $g_site = $it->[0]->site;
+                    }
+                    last GUESS;
+                }
+            }
+        }
+        unless ( $g_site ) {
+            my $loc = $info->{syslocation};
+            if ( $loc && length $loc ) {
+                my $s = eval { Site->search_like( name => "%$loc%" )->first };
+                $g_site = $s if $s && !$@;
+            }
+        }
+        my $conf_owner = Netdot->config->get('DEFAULT_DEV_OWNER');
+        $g_owner = eval { Entity->search( name => $conf_owner )->first };
+        $g_owner = undef if $@ || !$g_owner;
+    }
+
+    my $def_cl_id;
+    my $conf_cl = Netdot->config->get('DEFAULT_CONTACTLIST');
+    my $def_cl  = eval { ContactList->search( name => $conf_cl )->first };
+    $def_cl_id = $def_cl->id if $def_cl && !$@;
+
+    # Review-form option lists (Mason: retrieve_all, sorted by name).
+    my @entities = eval { Entity->retrieve_all };      @entities = () if $@;
+    my @sites    = eval { Site->retrieve_all };        @sites    = () if $@;
+    my @cls      = eval { ContactList->retrieve_all }; @cls      = () if $@;
+
+    $c->render(
+        template => 'management/device_discover',
+        layout    => 'default',
+        title     => 'Device discovery',
+        mode      => 'review',
+        host      => $host,
+        device    => $device,
+        # echoed hidden inputs: step 2 re-runs the same query
+        query     => { map { $_ => $c->param($_) } qw(version comstr other_comstr sec_name sec_level auth_proto auth_pass priv_proto priv_pass) },
+        sysdescription => $info->{sysdescription} // '',
+        ipforwarding   => $info->{ipforwarding} ? 1 : 0,
+        is_existing    => $is_existing ? 1 : 0,
+        def_addsubnets   => Netdot->config->get('ADDSUBNETS') ? 1 : 0,
+        def_subsinherit  => Netdot->config->get('SUBNET_INHERIT_DEV_INFO') ? 1 : 0,
+        entities     => [ sort { $a->name cmp $b->name } @entities ],
+        sites        => [ sort { $a->name cmp $b->name } @sites ],
+        contactlists => [ sort { $a->name cmp $b->name } @cls ],
+        sel_owner    => $g_owner ? $g_owner->id : '',
+        sel_used     => $g_used  ? $g_used->id   : '',
+        sel_site     => $g_site  ? $g_site->id   : '',
+        sel_cl       => $def_cl_id // '',
+    );
+}
+
+# Step 2: re-run the SNMP query (stateless), then Device->discover with the
+# reviewed values; capture the model logs for display.
+sub _disc_update {
+    my ($c) = @_;
+    my ( $info, $host, $device, $err ) = _disc_snmp_query($c);
+    return _disc_result( $c, { host => $host, error => $err // 'SNMP session failed' } )
+        if $err || !$info;
+
+    my $o = eval { Device->retrieve($device) } if $device =~ /^\d+$/;
+    $o = undef if $@;
+
+    my %argv = ( name => $host, info => $info );
+    if ($o) {
+        # Re-poll of an existing device (Mason: info + do_info + fqdn).
+        $argv{name}    = $o->fqdn;
+        $argv{do_info} = 1;
+        $argv{pretend} = 1 if $c->param( 'pretend' );
+    }
+    else {
+        $argv{owner}   = $c->param( 'owner' ) if length( $c->param( 'owner' ) // '' );
+        $argv{used_by} = $c->param( 'used_by' ) if length( $c->param( 'used_by' ) // '' );
+        $argv{site}    = $c->param( 'site' ) if length( $c->param( 'site' ) // '' );
+        my @cls = grep { /^\d+$/ } split /,/, ( $c->param( 'contacts' ) // '' );
+        $argv{contacts}   = \@cls if @cls;
+        $argv{add_subnets}  = 1 if $c->param( 'add_subnets' );
+        $argv{subs_inherit} = 1 if $c->param( 'subs_inherit' );
+    }
+
+    # Capture the model log output (Mason: String appender on the
+    # Device / DNS / Ipblock loggers, shown on the result page).
+    my $appender_name = 'nd_device_discover';
+    if ( my $old = Log::Log4perl::appender_by_name($appender_name) ) {
+        Log::Log4perl->eradicate_appender($appender_name);
+    }
+    my $logstr = Netdot::Util::Log->new_appender( 'String', name => $appender_name );
+    for my $ln ( 'Netdot::Model::Device', 'Netdot::Model::DNS', 'Netdot::Model::Ipblock' ) {
+        Log::Log4perl->get_logger($ln)->add_appender($logstr);
+    }
+
+    my $dev = eval { Device->discover( %argv ) };
+    Log::Log4perl->eradicate_appender($appender_name);
+
+    my @loglines;
+    if ( $logstr && $dev && !$@ ) {
+        # Mason filters the log to lines mentioning the device.
+        @loglines = grep { index( $_, $host ) >= 0 } split /\n/, $logstr->string;
+    }
+    my $error;
+    if ( $@ || !$dev ) {
+        $error = $@ || 'Discovery failed (no device returned)';
+    }
+    return _disc_result( $c, {
+        host   => $host,
+        dev_id => $dev ? $dev->id : undef,
+        log    => \@loglines,
+        error  => $error,
+    } );
+}
+
+# Result page: the (filtered) discovery log + a link to the device page.
+sub _disc_result {
+    my ( $c, $d ) = @_;
+    $c->render(
+        template => 'management/device_discover',
+        layout    => 'default',
+        title     => 'Device discovery',
+        mode      => 'result',
+        host      => $d->{host} // '',
+        dev_id    => $d->{dev_id},
+        log       => $d->{log} // [],
+        error     => $d->{error} // '',
+    );
 }
 
 # Basics view: grouped, multi-column sections (General 2, Location 2,

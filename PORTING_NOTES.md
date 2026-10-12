@@ -173,6 +173,18 @@ at the first `@{ }` / `->first` → `[eval ...] is not an ARRAY reference`.
 - **Cache**: Mojolicious caches templates **compiled in memory** in the
   process → after editing a `.ep`, **restart the daemon** (and hard-refresh the
   browser), otherwise the old version is served.
+ - **`<% … %>` is a STATEMENT block, `<%= … %>` is the output block**: a bare
+   expression in `<% … %>` without a trailing `;` is concatenated with the next
+   template chunk (the compiled text placeholder) → `Scalar found where operator
+   expected … near "…" $_O`. Every printed expression must use `<%= … %>`; the
+   same typo with a missing `%` (e.g. `'' ?>>` instead of `'' %>`) gives
+   `syntax error … near "?>>"`.
+ - **Hash constructors flatten list derefs**: `key => @{ $arrayref }` inside a
+   hash / `render()` argument list puts the **flattened list** into the hash → the
+   value becomes a plain scalar (last/only element), NOT an arrayref. Wrap it:
+   `key => [ @{ $arrayref } ]`. (`@{ eval { list } // [] }` does not work either
+   — `eval BLOCK` in the scalar context of `@{ … }` returns one value, not a
+   listref.)
 - **Code** comments are in **English** (international project).
 
 ### 2b. Mojolicious helper gotchas
@@ -997,3 +1009,29 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
       covers authorized writes). Not ported by design: Ipblock **REBUILD_TREE** (debug
       only) and **ADD_BLOCKS** (bulk create — one block at a time suffices; router
       discovery creates the blocks).
+   - Done: **Device creation (2026-10-12)** — the two Mason creation modes, admin-only:
+     - **Manual add** (`device_tasks.html` « Add Device manually »): a second form in the
+       list page's « New Device » box (`Browse::list` stashes `new_device_manual` when
+       type=device and the user is Admin) → `POST /api/device/manual_add` `{host}` →
+       `Device->manual_add($host)` (DNS resolve, insert monitored/`snmp_managed=0`,
+       `add_interfaces(1)`, /32-/128 block + Static status, `snmp_target`, ARP neighbor).
+       Route registered **before** `/api/:table` (else captured as table/id). UI:
+       `initForms` + `data-nd-redirect` → device detail.
+     - **SNMP discovery wizard** (`updatedevice.html` 2 steps): `GET|POST
+       /management/device/discover` (route **before** the per-type `/management/$t/:id`
+       loop), `Controller/Device.pm#discover` + `management/device_discover.html.ep`
+       (3 modes: form / review / result). Step 1 runs `Device->get_snmp_info` (form host
+       + v1/v2 community from `DEFAULT_SNMPCOMMUNITIES`/Other, or v3 sec fields; or
+       `?device=<id>` re-poll with the device's stored credentials — « SNMP update »
+       button on the device detail, admin-only). Review: sysdescription + guessed Owner
+       (`DEFAULT_DEV_OWNER`), Used by (first IP's subnet `used_by`), Site (entity sites,
+       fallback `Site->search_like(name=>"%$syslocation%")`), Contacts
+       (`DEFAULT_CONTACTLIST`), `add_subnets`/`subs_inherit` when `ipforwarding`
+       (defaults from `ADDSUBNETS`/`SUBNET_INHERIT_DEV_INFO`); existing device → only
+       the `pretend` dry-run checkbox. **Stateless**: the SNMP info hash is too large
+       for the signed-cookie session → step 2 re-runs the same query (hidden echoed
+       args) and calls `Device->discover` (new device: reviewed owner/used_by/site/
+       contacts arrayref; existing: `name=>fqdn, info, do_info, pretend`). Result: the
+       model log captured with a `Log::Log4perl::Appender::String` appender on the
+       `Netdot::Model::{Device,DNS,Ipblock}` loggers (the Mason trick), filtered to
+       lines mentioning the host, + link to the device.

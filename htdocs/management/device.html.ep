@@ -7,6 +7,7 @@
 <% my $can_delete = $c->stash('can_delete'); %>
 <% my $del_path   = $c->stash('del_path') // ''; %>
 <% my $del_goto   = $c->stash('del_goto') // ''; %>
+<% my $can_discover = $c->stash('can_discover'); %>
 
 <h1><%= $title %></h1>
 <p>
@@ -16,6 +17,10 @@
   <a href="<%= $base %>">[refresh]</a>
   % if ( $can_delete ) {
   <button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" data-nd-device="1" style="margin-left:1.2em">Delete</button>
+  % }
+  % if ( $can_discover ) {
+  % # SNMP re-poll wizard, step 1 pre-filled with this device (admin only).
+  <a class="btn" href="<%= $c->url_for('device_discover')->to_string . '?device=' . $id %>" style="margin-left:1.2em">SNMP update</a>
   % }
 </p>
 

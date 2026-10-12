@@ -42,6 +42,7 @@
 % if ($new_obj) {
 % # Generic create box (right of the search): "New <type>". Uses the class's
 % # brief-view fields (key fields only); the model's insert() fills the rest.
+% my $ndm = $c->stash('new_device_manual');
   <div class="container">
     <div class="containerhead">New <%= $new_obj->{label} %></div>
     <div class="containerbody" style="padding:0.6em">
@@ -50,6 +51,22 @@
                                 api_path => $new_obj->{api},
                                 nd_create => 1, nd_method => 'POST',
                                 nd_redirect => $new_obj->{goto}, nd_label => 'Create' ) %>
+      % if ($ndm) {
+      % # "Add Device manually" (port of the legacy device_tasks.html): one
+      % # input (name or IP) -> POST /api/device/manual_add ->
+      % # Device->manual_add (DNS + monitored device + interface + /32 block +
+      % # snmp_target), then redirect to the new device's page.
+      <hr style="margin:0.9em 0">
+      <p style="margin:0.2em 0; font-weight:600">Add Device manually</p>
+      <form data-nd-api="<%= $ndm->{api} %>" data-nd-method="POST" data-nd-redirect="<%= $ndm->{goto} %>">
+        <p style="margin:0.3em 0">
+          <label>Name or IP:</label>
+          <input type="text" name="host" class="longtxt" required>
+          <input type="submit" value="Add" class="btn">
+        </p>
+      </form>
+      <p style="margin:0.3em 0 0; font-size:0.85em">Resolves the host and creates a monitored device with an interface, its /32 (or /128) address block and its SNMP target — ready for SNMP polling. Or <a href="<%= $c->url_for('device_discover')->to_string %>">discover a device via SNMP</a> (import interfaces, IPs and subnets).</p>
+      % }
     </div>
   </div>
 % }

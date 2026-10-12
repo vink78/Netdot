@@ -424,8 +424,16 @@ les mêmes composants.
 
 Objectif = vues lecture seule. Pages de création/édition/suppression **non portées** :
 `device_tasks`, `asset_tasks`, `dhcp_tasks`, `host_tasks`, `vlan_tasks`, `zone_tasks`,
-`address_tasks`, `addneighbor`, `addservice`, `choose_ip`, `updatedevice`, `template_edit`,
+`address_tasks`, `addneighbor`, `addservice`, `choose_ip`, `template_edit`,
 `ip-rec`.
+  > **État création device (2026-10-12)** : **`updatedevice` + création manuelle**
+  > (`device_tasks` « Add Device manually ») **portés** — wizard SNMP 2 étapes
+  > (`/management/device/discover`, admin only : form → review avec Owner/Used by/
+  > Site/Contacts guessés → `Device->discover` + log capturé ; re-poll existant via
+  > `?device=<id>` depuis la page détail, bouton « SNMP update ») + ajout manuel dans
+  > la boîte « New Device » (`POST /api/device/manual_add` → `Device->manual_add`).
+  > Le wizard est **stateless** : l'étape 2 relance `get_snmp_info` avec les mêmes
+  > arguments cachés (hash SNMP trop gros pour la session cookie signée).
 
  > **État écriture (2026-10-09)** : l'écriture se fait **via l'API JSON** (plus de pages HTML
  > d'écriture legacy). Porté **in-situ** dans l'UI : **édition** (détail générique + dédié
@@ -497,7 +505,9 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      > `--SELECT--`. **Reste à porter** : (1) **édition de relations has_many**
      > générique pour les AUTRES types (ex. interfaces d'un device, contacts d'un contactlist) —
      > lecture seule aujourd'hui (les relations du **bloc** sont désormais ajoutables, cf. ci-
-     > dessus), (2) **créations complexes** multi-étapes (device site/os, ipblock hiérarchie),
+     > dessus), (2) **créations complexes** multi-étapes — la partie **device** est
+     > **portée** (2026-10-12 : ajout manuel + wizard SNMP 2 étapes, cf. « État création
+     > device » ci-dessus) ; reste la **hiérarchie ipblock** si un jour,
      > (3) allocation IP interactive `choose_ip`. **Fermé / non applicable** (2026-10-12) :
      > **REBLOCK** (changement d'identité address/prefix) = **porté par la lib** et
      > **exposé dans le formulaire d'édition** (champs `address` pointillés + `prefix`,
@@ -506,7 +516,9 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      > → passe par l'API `POST /api/ipblock/:id` ;
      > **REBUILD_TREE** (`Ipblock->build_tree`) = usage **debug** uniquement, non traité ;
      > **ADD_BLOCKS** (bulk create) = inutile, un bloc à la fois suffit (la découverte d'un
-     > routeur crée les blocs). Hors CRUD (opérationnel) : re-poll `updatedevice`.
+     > routeur crée les blocs). **Re-poll `updatedevice` = porté (2026-10-12)** : wizard
+     > `/management/device/discover` (bouton « SNMP update » sur la page détail device,
+     > `?device=<id>`), état 2026-10-12 ci-dessus.
 
 ## Déprécié / non migré — ⛔
 

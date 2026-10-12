@@ -215,6 +215,13 @@ sub startup ($self) {
     # Types with a dedicated LANDING page (not the generic list): vlan shows the
     # VLAN Groups + Ungrouped VLANs view (port of the original vlan.html).
     my %list_ctrl = ( vlan => 'vlan' );
+    # Device SNMP discovery wizard (port of the legacy updatedevice.html):
+    # step 1 = SNMP query (host + credentials, or re-poll of an existing
+    # device), step 2 = review (Owner / Used by / Site / Contacts) then
+    # Device->discover(). Declared BEFORE the per-type /management/$t/:id
+    # route so "discover" is not captured as a device id. Admin-only (the
+    # action re-checks).
+    $r->any('/management/device/discover')->to('device#discover')->name('device_discover');
     for my $t ( Netdot::Mojo::Registry::types() ) {
         my $lc = $list_ctrl{$t} // 'browse';
         $r->get("/management/$t")->to("${lc}#list", type => $t)->name("${t}_list");
@@ -283,6 +290,12 @@ sub startup ($self) {
     # after the literal ipblock batch (so it wins for ipblock) but before the
     # /api/:table/:id placeholder (else "batch" would be captured as $id).
     $r->post('/api/:table/batch')->to('api#batch_edit');
+    # Manual device add (port of the legacy device_tasks.html "Add Device
+    # manually"): {host: name-or-IP} -> Device->manual_add (DNS resolution +
+    # monitored device + interface + /32 block + snmp_target). Declared before
+    # /api/:table/:id so "manual_add" is not captured as a device id.
+    # Admin-only (checked in the action).
+    $r->post('/api/device/manual_add')->to('api#manual_add');
     $r->any('/api/:table')->to('api#generic');
     $r->any('/api/:table/:id')->to('api#generic');
     # Create a new alias (CNAME) pointing at an RR: new RR + rrcname.
