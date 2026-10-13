@@ -98,8 +98,10 @@
       // The DHCP "enable" form nests option_routers into `attributes` — handled by
       // initDhcpEnable (the flat collect() can't build a nested object).
       // The rights form builds a custom payload (subject split + rights array) —
-      // handled by initRights.
-      if (forms[i].classList.contains('nd-dhcp-enable') || forms[i].classList.contains('nd-rights-add')) { continue; }
+      // handled by initRights. The discovery/re-poll forms (nd-disc-run) render
+      // the captured log client-side — handled by initDiscRun (a generic handler
+      // on the same form would fire a duplicate POST).
+      if (forms[i].classList.contains('nd-dhcp-enable') || forms[i].classList.contains('nd-rights-add') || forms[i].classList.contains('nd-disc-run')) { continue; }
       forms[i].addEventListener('submit', function (e) {
         e.preventDefault();
         var form   = e.target;
@@ -1315,8 +1317,62 @@
     });
   }
 
+  // SNMP discovery / re-poll confirm forms (class nd-disc-run): the mutation
+  // goes through the JSON API (all DB writes go through the API); on success
+  // the captured model log + a "Go to device" link are rendered client-side
+  // in the sibling .nd-disc-result box. A dry run keeps the form visible so
+  // it can be re-run (with or without pretend).
+  function initDiscRun() {
+    var forms = document.querySelectorAll('form.nd-disc-run');
+    for (var i = 0; i < forms.length; i++) {
+      forms[i].addEventListener('submit', function (e) {
+        e.preventDefault();
+        var form = e.target;
+        var body = collect(form);
+        // multi-selects (e.g. Contacts) -> array of the selected values
+        var mults = form.querySelectorAll('select[name][multiple]');
+        for (var m = 0; m < mults.length; m++) {
+          body[mults[m].name] = Array.prototype.map.call(mults[m].selectedOptions,
+            function (o) { return o.value; });
+        }
+        var btns = form.querySelectorAll('input[type=submit], button[type=submit]');
+        for (var b = 0; b < btns.length; b++) { btns[b].disabled = true; }
+        api('POST', form.getAttribute('data-nd-api'), body).then(function (res) {
+          if (res.ok) {
+            var id   = res.data && res.data.id;
+            var log  = (res.data && res.data.log) || [];
+            var pretend = false;
+            var pc = form.querySelector('input[name=pretend]');
+            if (pc && pc.checked) { pretend = true; }
+            var box = form.parentElement.querySelector('.nd-disc-result');
+            if (box) {
+              var h = '';
+              if (log.length) {
+                h += '<pre style="background:#f7faf7; border:1px solid #e2e2e2;' +
+                     ' border-radius:6px; padding:0.8em; overflow:auto; font-size:0.85em">' +
+                     escapeHtml(log.join('\n')) + '</pre>';
+              }
+              if (id && form.hasAttribute('data-nd-dev-url')) {
+                h += '<p style="margin:0.8em 0 0"><a class="btn" href="' +
+                     form.getAttribute('data-nd-dev-url') + id + '">Go to device</a></p>';
+              }
+              box.innerHTML = h;
+              box.style.display = 'block';
+            }
+            if (!pretend) { form.style.display = 'none'; }
+            status(true, 'Done');
+          } else {
+            status(false, errMsg(res), 8000);
+            for (var b = 0; b < btns.length; b++) { btns[b].disabled = false; }
+          }
+        });
+      });
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
+    initDiscRun();
     initDhcpEnable();
     initToggle();
     initRecToggles();

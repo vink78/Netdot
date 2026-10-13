@@ -1091,11 +1091,54 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
           per-device update route below).
         - **Re-poll route (2026-10-13)**: `GET /management/device/<id>/update`
           (`device#update`, admin-only, declared before the per-type
-          `/management/$t/:id` route) re-polls an existing device with its
-          stored credentials and renders the wizard result page — the device
-          detail « SNMP update » button now points there instead of the
-          wizard's `?device=<id>` (which still works via `action=update`).
-          On the result page the « Go to device » link is the device id when
-          the poll succeeded, or — on a failed re-poll — the current URI
-          without the `/update` suffix, prefixed via
-          `Netdot::Mojo::Registry::set_uri()`.
+          `/management/$t/:id` route); the device detail « SNMP update »
+          button points there instead of the wizard’s `?device=<id>` (whose
+          GET now redirects to it). Superseded 2026-10-13 (see below): the
+          page is display-only and the mutation is the API’s
+          `POST /api/device/<id>/update`.
+        - **All DB writes via the API (2026-10-13)** — architecture rule:
+          `/management` is display / validation / info-request only; every
+          mutation goes through the JSON API. Applied to the device
+          discovery flow:
+          - The wizard is display/validation only. The review confirm calls
+            the API from the browser (`netdot.js initDiscRun`, forms with
+            class `nd-disc-run`): new device → `POST /api/device
+            {discover:true, name, snmp_version, community (resolved from
+            comstr/other_comstr), v3 sec_* echoed as-is, owner/used_by/
+            site/contacts, add_subnets/subs_inherit}`; existing device →
+            `POST /api/device/<id>/update` (stored credentials, optional
+            `pretend`). Multi-selects: `collect()` is single-value for
+            `<select>`; `initDiscRun` maps `selectedOptions` to an array for
+            `[multiple]` fields (Contacts).
+          - `POST /api/device` (discover) and `POST /api/device/:id/update`
+            now capture the model log (the Mason `Log::Log4perl` String
+            appender trick on the `Netdot::Model::{Device,DNS,Ipblock}`
+            loggers, filtered to lines mentioning the host —
+            `Api.pm::_discover_captured`) and return it as a `log` array in
+            the 201/200 JSON. The UI renders it client-side in the
+            `.nd-disc-result` box next to the form (plus the « Go to device
+            » link from the form’s `data-nd-dev-url` attribute + response
+            `id`); a dry run keeps the form visible (re-runnable).
+          - `GET /management/device/discover` is no longer a standalone
+            page: bare GET → 302 to the device list (the « Discover Device
+            » box is the entry point: POST `action=discover`, read-only
+            `get_snmp_info` + review render); `?device=<id>` → 302 to
+            `/management/device/<id>/update`.
+          - `GET /management/device/<id>/update` no longer mutates: it is
+            the display-only re-poll page (stored credentials, dry-run
+            choice) whose button calls `POST /api/device/<id>/update`.
+          - Removed from the /management layer: the `action=update` branch,
+            `_disc_update` / `_disc_result`, the template `mode=result`
+            (client-rendered now) and the dead repoll mini-form branch.
+          - Fix (2026-10-13): the `nd-disc-run` forms also matched the generic
+            `initForms` selector `form[data-nd-api]`, so submitting the review
+            / re-poll form fired **two** API POSTs — the first created the
+            device (201), the second hit the 409 « device already exists ».
+            `initForms` now skips `nd-disc-run` forms (same pattern as
+            `nd-dhcp-enable` / `nd-rights-add`).
+          - The review form now sends **only API field names**: v1/v2 → the
+            resolved `community` (the raw `comstr` / `other_comstr` /
+            `version` query args are no longer echoed); v3 → only the
+            non-empty `sec_*` / `auth_*` / `priv_*` fields (same names as
+            the API; empty ones are omitted so the API's `DEFAULT_SNMP_*`
+            config fallback applies).

@@ -10,6 +10,8 @@ use Netdot::Mojo::Detail;
 use Netdot::Mojo::Permissions;
 use Netdot::Mojo::OpenAPI;
 use Mojo::Util qw(url_escape);
+use Log::Log4perl;
+use Netdot::Util::Log;
 
 # JSON API (port of the legacy /rest handlers + Netdot::REST), served under
 # /api. Auth = the Netdot web session (same as the HTML views). Serializes to
@@ -1190,6 +1192,31 @@ sub _host_delete {
 # The static /api/device route wins over the generic /api/:table, so the
 # generic device insert is unreachable by design: device creation only goes
 # through these two modes.
+# Run Device->discover inside a transaction and capture the model log lines
+# (Mason showed them on the wizard result page; the UI now renders them
+# client-side from the API response, since all DB writes go through the API).
+# Returns ( $dev, \@loglines, $err ).
+sub _discover_captured {
+    my (%argv) = @_;
+    my $appender_name = 'nd_device_discover_api';
+    if ( my $old = Log::Log4perl::appender_by_name($appender_name) ) {
+        Log::Log4perl->eradicate_appender($appender_name);
+    }
+    my $logstr = Netdot::Util::Log->new_appender( 'String', name => $appender_name );
+    for my $ln ( 'Netdot::Model::Device', 'Netdot::Model::DNS', 'Netdot::Model::Ipblock' ) {
+        Log::Log4perl->get_logger($ln)->add_appender($logstr);
+    }
+    my $dev = eval { Netdot::Model->do_transaction( sub { Device->discover( %argv ) } ) };
+    my $err = $@;
+    Log::Log4perl->eradicate_appender($appender_name);
+    my @loglines;
+    if ( $logstr && $dev && ! $err ) {
+        # Filter the log to lines mentioning the device (as in Mason).
+        @loglines = grep { index( $_, $argv{name} ) >= 0 } split /\n/, $logstr->string;
+    }
+    return ( $dev, \@loglines, $err );
+}
+
 sub create_device {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -1263,15 +1290,15 @@ sub create_device {
             $argv{add_subnets}  = 1 if _is_true( $A{add_subnets} );
             $argv{subs_inherit} = 1 if _is_true( $A{subs_inherit} );
 
-            my $dev = eval { Netdot::Model->do_transaction( sub { Device->discover( %argv ) } ) };
-            if ( $@ || ! $dev ) {
-                my $err = $@;
+            my ( $dev, $loglines, $err ) = _discover_captured( %argv );
+            if ( $err || ! $dev ) {
                 # Netdot exceptions stringify with their full stack trace;
                 # keep only the message in the API response.
                 $err = $err->message if ref $err && $err->can('message');
-                _err( 400, "device discovery failed: $err" );
+                _err( 400, "device discovery failed: " . ( $err // 'no device returned' ) );
             }
-            return $c->render( json => Netdot::Mojo::Api::get( $dev, $p, undef, depth => 0 ), status => 201 );
+            return $c->render( json => { %{ Netdot::Mojo::Api::get( $dev, $p, undef, depth => 0 ) }, log => $loglines },
+                               status => 201 );
         }
 
         # ---- Manual add ----
@@ -1316,13 +1343,13 @@ sub update_device {
         my %argv = ( name => $dev->fqdn, info => $info, do_info => 1 );
         $argv{pretend} = 1 if _is_true( $A{pretend} );
 
-        my $upd = eval { Netdot::Model->do_transaction( sub { Device->discover( %argv ) } ) };
-        if ( $@ || ! $upd ) {
-            my $err = $@;
+        my ( $upd, $loglines, $err ) = _discover_captured( %argv );
+        if ( $err || ! $upd ) {
             $err = $err->message if ref $err && $err->can('message');
-            _err( 400, "SNMP update failed: $err" );
+            _err( 400, "SNMP update failed: " . ( $err // 'no device returned' ) );
         }
-        return $c->render( json => Netdot::Mojo::Api::get( $upd, $p, undef, depth => 0 ), status => 200 );
+        return $c->render( json => { %{ Netdot::Mojo::Api::get( $upd, $p, undef, depth => 0 ) }, log => $loglines },
+                           status => 200 );
     });
 }
 

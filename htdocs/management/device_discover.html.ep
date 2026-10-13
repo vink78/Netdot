@@ -1,13 +1,16 @@
 % # Device SNMP discovery wizard (port of the legacy device_tasks.html "Discover
 % # Device" + updatedevice.html) — admin only (Mason: access_admin_section).
+% # Display / validation only: all DB writes go through the API (POST
+% # /api/device {discover: true, ...} or /api/device/<id>/update); the confirm
+% # forms (class nd-disc-run) call the API via netdot.js (initDiscRun) and
+% # render the captured model log + link to the device page client-side.
 % # Three renders of this template:
-% #   mode=form    step 1: host + SNMP credentials (or re-poll ?device=<id>,
-% #                which uses the device's stored credentials)
+% #   mode=form    step 1: host + SNMP credentials — re-rendered with the
+% #                error when the SNMP query fails (fields echoed)
 % #   mode=review  step 2: review the SNMP info — Owner / Used by / Site /
 % #                Contacts (+ add_subnets / subs_inherit for routers;
 % #                pretend dry-run for existing devices)
-% #   mode=result  the captured discovery log (String appender, as in Mason)
-% #                + link to the device page.
+% #   mode=repoll  the direct re-poll page (/management/device/<id>/update)
 % my $mode   = $c->stash('mode');
 % my $error  = $c->stash('error') // '';
 % my $action = $c->url_for('device_discover')->to_string;
@@ -18,25 +21,13 @@
 % my $curver  = $echo->{version} // $c->stash('defver');
 % my $curcomm = $echo->{comstr} // ( @{ $c->stash('comms') }[0] );
 <h1>Device discovery</h1>
-% if ($c->stash('repoll')) {
-<p style="margin-top:0"><a href="<%= $c->url_for('device_list') %>">[back]</a></p>
-% } else {
-<p style="margin-top:0"><a href="<%= $c->url_for('device_list') %>">[back]</a> — SNMP query a device and import its interfaces, IPs and subnets (or re-poll an existing one).</p>
-% }
+<p style="margin-top:0"><a href="<%= $c->url_for('device_list') %>">[back]</a> — SNMP query a device and import its interfaces, IPs and subnets.</p>
 <div class="container">
-  <div class="containerhead"><%= $c->stash('repoll') ? 'Re-poll ' . $c->stash('repoll') : 'Discover Device' %></div>
+  <div class="containerhead">Discover Device</div>
   <div class="containerbody" style="padding:0.6em">
     % if ($error) {
     <p style="color:#cc0000"><%= $error %></p>
     % }
-    % if ($c->stash('repoll')) {
-    % # Re-poll: the device's stored credentials are used — no form fields.
-    <form method="post" action="<%= $action %>">
-      <input type="hidden" name="action" value="discover">
-      <input type="hidden" name="device" value="<%= $c->stash('device') %>">
-      <p><input type="submit" value="Discover" class="btn"></p>
-    </form>
-    % } else {
     <form method="post" action="<%= $action %>">
       <input type="hidden" name="action" value="discover">
       <p>
@@ -117,7 +108,6 @@
         show();
       })();
     </script>
-    % }
   </div>
 </div>
 
@@ -132,16 +122,33 @@
     % if ($error) {
     <p style="color:#cc0000"><%= $error %></p>
     % }
-    <form method="post" action="<%= $action %>">
-      <input type="hidden" name="action" value="update">
-      <input type="hidden" name="host" value="<%= $host %>">
-      % my $dev = $c->stash('device');
-      % if (defined $dev && length $dev) {
-      <input type="hidden" name="device" value="<%= $dev %>">
+    % # Confirm -> the API (all DB writes go through the API): a new device is
+    % # created via POST /api/device {discover: true, name, ...}; an existing
+    % # one is re-polled via POST /api/device/<id>/update (stored credentials).
+    % # The query args are echoed so the API re-runs the same SNMP query.
+    % my $isexisting = $c->stash('is_existing');
+    % my $exid = $c->stash('ex_id') // $c->stash('device') // '';
+    % my $ver  = $q->{version} // 2;
+    % my $comm = ( ( $q->{comstr} // '' ) eq 'Other' ) ? ( $q->{other_comstr} // '' ) : ( $q->{comstr} // '' );
+    % my $apiurl = $isexisting ? ( $c->web_prefix . '/api/device/' . $exid . '/update' ) : ( $c->web_prefix . '/api/device' );
+    <form class="nd-disc-run" data-nd-api="<%= $apiurl %>" data-nd-method="POST"
+          data-nd-dev-url="<%= $c->web_prefix %>/management/device/">
+      % unless ( $isexisting ) {
+      <input type="hidden" name="discover" value="true">
+      <input type="hidden" name="name" value="<%= $host %>">
+      <input type="hidden" name="snmp_version" value="<%= $ver %>">
+      <% if ( $ver != 3 && length $comm ) { %>
+      <input type="hidden" name="community" value="<%= $comm %>">
+      <% } %>
       % }
-      % # echoed query args: step 2 re-runs the same SNMP query
-      % for my $k ( sort keys %$q ) {
-      <input type="hidden" name="<%= $k %>" value="<%= defined $q->{$k} ? $q->{$k} : '' %>">
+      % # v3 credentials are re-sent to the API with the same field names
+      % # (empty values are omitted — the API falls back to DEFAULT_SNMP_*
+      % # config). v1/v2 send only the resolved `community`.
+      % if ( $ver == 3 ) {
+      %   for my $k ( qw(sec_name sec_level auth_proto auth_pass priv_proto priv_pass) ) {
+      %     next unless defined $q->{$k} && length $q->{$k};
+      <input type="hidden" name="<%= $k %>" value="<%= $q->{$k} %>">
+      %   }
       % }
       <table class="datatable">
         <tr>
@@ -211,44 +218,38 @@
         % }
       </table>
       <p style="margin:0.8em 0 0">
-        <input type="submit" value="Update" class="btn">
+        <input type="submit" value="<%= $isexisting ? 'Update' : 'Discover' %>" class="btn">
         <a class="btn" href="<%= $c->url_for('device_list') %>">Cancel</a>
       </p>
     </form>
+    <div class="nd-disc-result" style="display:none"></div>
   </div>
 </div>
 
 % } else {
-% # mode=result
-% my $host  = $c->stash('host');
-% my $devid = $c->stash('dev_id');
-% my $log   = $c->stash('log') || [];
-% # Link back to the device page: on success the updated device's id is
-% # known; on a failed re-poll (/management/device/<id>/update) it is the
-% # current URI without the /update suffix (set_uri re-applies the base
-% # prefix).
-% my $devlink;
-% if ( $devid ) {
-%   $devlink = $c->url_for( 'device_show', id => $devid )->to_string;
-% } elsif ( my ($id) = $c->req->url->path() =~ m{/management/device/(\d+)/update$} ) {
-%   $devlink = Netdot::Mojo::Registry::set_uri( "/management/device/$id" );
-% }
-<h1>Device discovery</h1>
+% # mode=repoll — direct re-poll page (/management/device/<id>/update):
+% # display only; the actual re-poll is POST /api/device/<id>/update (all DB
+% # writes go through the API). netdot.js (initDiscRun) renders the result
+% # (captured model log + link to the device page) from the API response.
+% my $dev  = $c->stash('dev');
+% my $id   = $dev->id;
+% my $fqdn = $dev->fqdn // $id;
+<h1>SNMP update: <strong><%= $fqdn %></strong></h1>
+<p style="margin-top:0"><a href="<%= $c->url_for('device_show', id => $id) %>">[back]</a></p>
 <div class="container">
-  <div class="containerhead">Discovery result: <strong><%= $host %></strong></div>
+  <div class="containerhead">Re-poll <strong><%= $fqdn %></strong> (stored SNMP credentials)</div>
   <div class="containerbody" style="padding:0.6em">
-    % if ($error) {
-    <p style="color:#cc0000"><%= $error %></p>
-    % }
-    % if ( @$log ) {
-    <pre style="background:#f7faf7; border:1px solid #e2e2e2; border-radius:6px; padding:0.8em; overflow:auto; font-size:0.85em"><%= join( "\n", @$log ) %></pre>
-    % }
-    <p style="margin:0.8em 0 0">
-      % if ( $devlink ) {
-      <a class="btn" href="<%= $devlink %>">Go to device</a>
-      % }
-      <a class="btn" href="<%= $c->url_for('device_discover') %>">New discovery</a>
-    </p>
+    <form class="nd-disc-run" data-nd-api="<%= $c->web_prefix . '/api/device/' . $id . '/update' %>" data-nd-method="POST"
+          data-nd-dev-url="<%= $c->web_prefix %>/management/device/">
+      <p>
+        <label>Dry Run?:</label>
+        <input type="checkbox" name="pretend" value="1"> (show operations and roll back DB changes)
+      </p>
+      <p style="margin:0.8em 0 0">
+        <input type="submit" value="Update" class="btn">
+      </p>
+    </form>
+    <div class="nd-disc-result" style="display:none"></div>
   </div>
 </div>
 % }

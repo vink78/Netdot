@@ -216,15 +216,19 @@ sub startup ($self) {
     # VLAN Groups + Ungrouped VLANs view (port of the original vlan.html).
     my %list_ctrl = ( vlan => 'vlan' );
     # Device SNMP discovery wizard (port of the legacy updatedevice.html):
-    # step 1 = SNMP query (host + credentials, or re-poll of an existing
-    # device), step 2 = review (Owner / Used by / Site / Contacts) then
-    # Device->discover(). Declared BEFORE the per-type /management/$t/:id
-    # route so "discover" is not captured as a device id. Admin-only (the
-    # action re-checks).
+    # display/validation only — step 1 = SNMP query (host + credentials,
+    # read-only), step 2 = review (Owner / Used by / Site / Contacts); the
+    # confirm calls the API from the browser (POST /api/device or
+    # /api/device/<id>/update — all DB writes go through the API). Entry
+    # point is the device list's « Discover Device » box; a bare GET
+    # redirects to the list, ?device=<id> to the re-poll URL. Declared
+    # BEFORE the per-type /management/$t/:id route so "discover" is not
+    # captured as a device id. Admin-only (the action re-checks).
     $r->any('/management/device/discover')->to('device#discover')->name('device_discover');
-    # SNMP re-poll of an existing device at a stable per-device URL (stored
-    # credentials, admin-only) — no need to go through the discovery form
-    # again. Declared BEFORE the per-type /management/$t/:id route.
+    # SNMP re-poll page for an existing device at a stable per-device URL:
+    # display only (stored credentials, dry-run choice) — the actual re-poll
+    # is POST /api/device/<id>/update. Declared BEFORE the per-type
+    # /management/$t/:id route.
     $r->get('/management/device/:id/update')->to('device#update')->name('device_update');
     for my $t ( Netdot::Mojo::Registry::types() ) {
         my $lc = $list_ctrl{$t} // 'browse';

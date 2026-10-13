@@ -82,20 +82,29 @@ sub show {
 # SNMP discovery wizard (port of the legacy device_tasks.html "Discover
 # Device" + updatedevice.html) — ADMIN ONLY (Mason: access_admin_section).
 #
-# One route, three renders:
-#   GET                 step-1 form: host + SNMP credentials, or a re-poll of
-#                       an existing device (?device=<id>, its stored
-#                       credentials are used).
-#   POST action=discover  step 1: Device->get_snmp_info(...). On success the
-#                       review form is rendered (step 2) with the guessed
-#                       Owner / Used by / Site / Contacts; on failure the
-#                       step-1 form is re-rendered with the error.
-#   POST action=update    step 2: the same query is re-run (the SNMP info
-#                       hash is too large for a signed-cookie session, so the
-#                       flow is stateless) and Device->discover() is called
-#                       with the reviewed values. The model log output is
-#                       captured (Log4perl String appender, as in Mason) and
-#                       shown on the result page.
+# Display / validation only: all DB writes go through the API
+# (POST /api/device {discover: true, ...} or /api/device/<id>/update).
+#
+# Two routes:
+#   /management/device/discover
+#       GET (no host)      -> redirect: a bare GET goes to the device list
+#                            (the « Discover Device » box is the entry point);
+#                            ?device=<id> goes to the direct re-poll URL.
+#       POST action=discover
+#                            step 1: Device->get_snmp_info(...) (read-only).
+#                            On success the review form (step 2) is rendered
+#                            with the guessed Owner / Used by / Site /
+#                            Contacts; on failure the step-1 form is
+#                            re-rendered with the error. Confirming the review
+#                            calls the API from the browser (netdot.js
+#                            initDiscRun) and renders the captured log.
+#   /management/device/<id>/update
+#       GET                 re-poll page: stored credentials, dry-run choice;
+#                            the actual re-poll is POST /api/device/<id>/update.
+#
+# The confirm step is stateless: the SNMP info hash is too large for a
+# signed-cookie session, so the review form re-sends the original query
+# arguments and the API re-runs the query.
 
 sub discover {
     my $c = shift;
@@ -104,16 +113,15 @@ sub discover {
         return $c->render( template => 'error_403', layout => 'default',
                            title => 'Access denied', status => 403 );
     }
-    my $action = $c->param( 'action' ) // '';
-    return _disc_update( $c ) if $action eq 'update';
-    return _disc_step1( $c )  if $action eq 'discover';
+    return _disc_step1( $c ) if ( $c->param( 'action' ) // '' ) eq 'discover';
     return _disc_form( $c );
 }
 
-# SNMP re-poll of an existing device at a stable per-device URL:
-# /management/device/<id>/update (admin-only). The device's stored
-# credentials are used — no need to go through the discovery form again.
-# Renders the same result page as the wizard's re-poll.
+# SNMP re-poll page for an existing device (admin-only, display only):
+# the actual re-poll is performed by the UI via POST /api/device/<id>/update
+# (all DB writes go through the API). The page shows the stored-credentials
+# re-poll with the dry-run choice; netdot.js renders the result (captured
+# model log + link to the device page) from the API response.
 sub update {
     my ($c) = @_;
     my $p = $c->current_person;
@@ -126,9 +134,13 @@ sub update {
     return $c->render( template => 'error_404', layout => 'default',
                        title => 'Not found', status => 404 )
         if $@ || ! $o;
-    # _disc_snmp_query / _disc_update read the device id from the request.
-    $c->req->params->param( 'device' => $o->id );
-    return _disc_update( $c );
+    $c->render(
+        template => 'management/device_discover',
+        layout    => 'default',
+        title     => 'SNMP update: ' . ( $o->fqdn // $o->id ),
+        mode      => 'repoll',
+        dev       => $o,
+    );
 }
 
 # Run the SNMP query described by the form (shared by step 1 and step 2):
@@ -182,15 +194,23 @@ sub _disc_form {
     my %echo = map { $_ => $c->param($_) }
         qw(host version comstr other_comstr sec_name sec_level auth_proto auth_pass priv_proto priv_pass);
     my $raw_device = $c->param( 'device' ) // '';
-    $echo{device} = $raw_device;
-    my $device = $raw_device =~ /^\d+$/ ? $raw_device : '';
-    my $repoll;
-    if ( $device ) {
-        my $o = eval { Device->retrieve($device) };
-        $repoll = ( $o && !$@ ) ? $o->fqdn : undef;
-        $err ||= 'Could not retrieve device #' . $device unless $repoll;
-        $device = $repoll ? $device : '';
+
+    # There is no standalone discovery form page: the device list's
+    # « Discover Device » box is the entry point (it POSTs here with a host).
+    # A bare GET redirects to the list; a ?device=<id> re-poll redirects to
+    # the direct re-poll URL. (A failed POST still has a host: the form is
+    # re-rendered below with the error and the echoed fields.)
+    unless ( length( $echo{host} // '' ) ) {
+        if ( $raw_device =~ /^\d+$/ ) {
+            my $o = eval { Device->retrieve( $raw_device ) };
+            if ( $o && !$@ ) {
+                return $c->redirect_to(
+                    Netdot::Mojo::Registry::set_uri( "/management/device/$raw_device/update" ) );
+            }
+        }
+        return $c->redirect_to( Netdot::Mojo::Registry::set_uri( '/management/device' ) );
     }
+    $echo{device} = $raw_device;
     $c->render(
         template => 'management/device_discover',
         layout    => 'default',
@@ -198,8 +218,6 @@ sub _disc_form {
         mode      => 'form',
         error     => $err // '',
         echo      => \%echo,
-        device    => $device,
-        repoll    => $repoll // '',
         defver    => $cfg->get('DEFAULT_SNMPVERSION') || 2,
         comms     => [ @{ $cfg->get('DEFAULT_SNMPCOMMUNITIES') || ['public'] } ],
         v3def     => {
@@ -224,11 +242,15 @@ sub _disc_step1 {
     return _disc_form( $c, $err ) if $err || !$info;
 
     my $is_existing = $device ne '';
+    my $ex_id = $device;
     my ( $g_owner, $g_used, $g_site );
     unless ( $is_existing ) {
         # existing device with this name? (Mason: search name=>$host)
         my $ex = eval { Device->search( name => $host )->first };
-        $is_existing = 1 if $ex && !$@;
+        if ( $ex && !$@ ) {
+            $is_existing = 1;
+            $ex_id = $ex->id;
+        }
     }
     unless ( $is_existing ) {
         # Guesses (new device): used_by from the first IP found on any
@@ -288,7 +310,10 @@ sub _disc_step1 {
         mode      => 'review',
         host      => $host,
         device    => $device,
-        # echoed hidden inputs: step 2 re-runs the same query
+        ex_id     => $ex_id,
+        # echoed query args: the review form re-sends them to the API (the
+        # confirm re-runs the same SNMP query there — the info hash is too
+        # large for a signed-cookie session, so the flow is stateless)
         query     => { map { $_ => $c->param($_) } qw(version comstr other_comstr sec_name sec_level auth_proto auth_pass priv_proto priv_pass) },
         sysdescription => $info->{sysdescription} // '',
         ipforwarding   => $info->{ipforwarding} ? 1 : 0,
@@ -302,83 +327,6 @@ sub _disc_step1 {
         sel_used     => $g_used  ? $g_used->id   : '',
         sel_site     => $g_site  ? $g_site->id   : '',
         sel_cl       => $def_cl_id // '',
-    );
-}
-
-# Step 2: re-run the SNMP query (stateless), then Device->discover with the
-# reviewed values; capture the model logs for display.
-sub _disc_update {
-    my ($c) = @_;
-    my ( $info, $host, $device, $err ) = _disc_snmp_query($c);
-    return _disc_result( $c, { host => $host, error => $err // 'SNMP session failed' } )
-        if $err || !$info;
-
-    my $o = eval { Device->retrieve($device) } if $device =~ /^\d+$/;
-    $o = undef if $@;
-
-    my %argv = ( name => $host, info => $info );
-    if ($o) {
-        # Re-poll of an existing device (Mason: info + do_info + fqdn).
-        $argv{name}    = $o->fqdn;
-        $argv{do_info} = 1;
-        $argv{pretend} = 1 if $c->param( 'pretend' );
-    }
-    else {
-        $argv{owner}   = $c->param( 'owner' ) if length( $c->param( 'owner' ) // '' );
-        $argv{used_by} = $c->param( 'used_by' ) if length( $c->param( 'used_by' ) // '' );
-        $argv{site}    = $c->param( 'site' ) if length( $c->param( 'site' ) // '' );
-        my @cls = grep { /^\d+$/ } split /,/, ( $c->param( 'contacts' ) // '' );
-        $argv{contacts}   = \@cls if @cls;
-        $argv{add_subnets}  = 1 if $c->param( 'add_subnets' );
-        $argv{subs_inherit} = 1 if $c->param( 'subs_inherit' );
-    }
-
-    # Capture the model log output (Mason: String appender on the
-    # Device / DNS / Ipblock loggers, shown on the result page).
-    my $appender_name = 'nd_device_discover';
-    if ( my $old = Log::Log4perl::appender_by_name($appender_name) ) {
-        Log::Log4perl->eradicate_appender($appender_name);
-    }
-    my $logstr = Netdot::Util::Log->new_appender( 'String', name => $appender_name );
-    for my $ln ( 'Netdot::Model::Device', 'Netdot::Model::DNS', 'Netdot::Model::Ipblock' ) {
-        Log::Log4perl->get_logger($ln)->add_appender($logstr);
-    }
-
-    my $dev = eval { Device->discover( %argv ) };
-    Log::Log4perl->eradicate_appender($appender_name);
-
-    my @loglines;
-    if ( $logstr && $dev && !$@ ) {
-        # Mason filters the log to lines mentioning the device.
-        @loglines = grep { index( $_, $host ) >= 0 } split /\n/, $logstr->string;
-    }
-    my $error;
-    if ( $@ || !$dev ) {
-        $error = $@ || 'Discovery failed (no device returned)';
-        # Netdot exceptions stringify with their full stack trace; keep
-        # only the message on the result page.
-        $error = $error->message if ref $error && $error->can('message');
-    }
-    return _disc_result( $c, {
-        host   => $host,
-        dev_id => $dev ? $dev->id : undef,
-        log    => \@loglines,
-        error  => $error,
-    } );
-}
-
-# Result page: the (filtered) discovery log + a link to the device page.
-sub _disc_result {
-    my ( $c, $d ) = @_;
-    $c->render(
-        template => 'management/device_discover',
-        layout    => 'default',
-        title     => 'Device discovery',
-        mode      => 'result',
-        host      => $d->{host} // '',
-        dev_id    => $d->{dev_id},
-        log       => $d->{log} // [],
-        error     => $d->{error} // '',
     );
 }
 
