@@ -223,6 +223,16 @@
 % my $host  = $c->stash('host');
 % my $devid = $c->stash('dev_id');
 % my $log   = $c->stash('log') || [];
+% # Link back to the device page: on success the updated device's id is
+% # known; on a failed re-poll (/management/device/<id>/update) it is the
+% # current URI without the /update suffix (set_uri re-applies the base
+% # prefix).
+% my $devlink;
+% if ( $devid ) {
+%   $devlink = $c->url_for( 'device_show', id => $devid )->to_string;
+% } elsif ( my ($id) = $c->req->url->path() =~ m{/management/device/(\d+)/update$} ) {
+%   $devlink = Netdot::Mojo::Registry::set_uri( "/management/device/$id" );
+% }
 <h1>Device discovery</h1>
 <div class="container">
   <div class="containerhead">Discovery result: <strong><%= $host %></strong></div>
@@ -234,8 +244,8 @@
     <pre style="background:#f7faf7; border:1px solid #e2e2e2; border-radius:6px; padding:0.8em; overflow:auto; font-size:0.85em"><%= join( "\n", @$log ) %></pre>
     % }
     <p style="margin:0.8em 0 0">
-      % if ($devid) {
-      <a class="btn" href="<%= $c->url_for('device_show', id => $devid) %>">Go to device</a>
+      % if ( $devlink ) {
+      <a class="btn" href="<%= $devlink %>">Go to device</a>
       % }
       <a class="btn" href="<%= $c->url_for('device_discover') %>">New discovery</a>
     </p>

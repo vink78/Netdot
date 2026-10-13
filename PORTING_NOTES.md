@@ -1081,3 +1081,21 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
           `create_device` applies the same `DEFAULT_SNMP_*` fallback for
           missing v3 fields, so `{discover:true, name, snmp_version:3}` works
           with the configured default credentials.
+        - **Fixes (2026-10-13)**: the initial show/hide of the v3/v2 divs is
+          emitted with a `<% %>` code block, not `<%= %>` — the escaped
+          `style=&quot;display:none&quot;` attribute is not applied, which left
+          the v3 fields visible on load. `other_comstr` is now hidden until
+          « Other » is selected (Mason behaviour: `otherOption()` /
+          `backSelectOpt()` from `toggle.js`, hidden `<` back button). The
+          re-poll hint line in the box was dropped (useless — see the
+          per-device update route below).
+        - **Re-poll route (2026-10-13)**: `GET /management/device/<id>/update`
+          (`device#update`, admin-only, declared before the per-type
+          `/management/$t/:id` route) re-polls an existing device with its
+          stored credentials and renders the wizard result page — the device
+          detail « SNMP update » button now points there instead of the
+          wizard's `?device=<id>` (which still works via `action=update`).
+          On the result page the « Go to device » link is the device id when
+          the poll succeeded, or — on a failed re-poll — the current URI
+          without the `/update` suffix, prefixed via
+          `Netdot::Mojo::Registry::set_uri()`.

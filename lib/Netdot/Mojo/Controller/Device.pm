@@ -110,6 +110,27 @@ sub discover {
     return _disc_form( $c );
 }
 
+# SNMP re-poll of an existing device at a stable per-device URL:
+# /management/device/<id>/update (admin-only). The device's stored
+# credentials are used — no need to go through the discovery form again.
+# Renders the same result page as the wizard's re-poll.
+sub update {
+    my ($c) = @_;
+    my $p = $c->current_person;
+    unless ( $p && Netdot::Mojo::Permissions->user_type( $p ) eq 'Admin' ) {
+        return $c->render( template => 'error_403', layout => 'default',
+                           title => 'Access denied', status => 403 );
+    }
+    my $id = $c->stash('id');
+    my $o  = eval { Device->retrieve( $id ) };
+    return $c->render( template => 'error_404', layout => 'default',
+                       title => 'Not found', status => 404 )
+        if $@ || ! $o;
+    # _disc_snmp_query / _disc_update read the device id from the request.
+    $c->req->params->param( 'device' => $o->id );
+    return _disc_update( $c );
+}
+
 # Run the SNMP query described by the form (shared by step 1 and step 2):
 # returns ( $info, $host, $device_id, $error ). For a ?device=<id> re-poll the
 # device's stored credentials are used; otherwise the form's host + version +

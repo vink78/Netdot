@@ -222,6 +222,10 @@ sub startup ($self) {
     # route so "discover" is not captured as a device id. Admin-only (the
     # action re-checks).
     $r->any('/management/device/discover')->to('device#discover')->name('device_discover');
+    # SNMP re-poll of an existing device at a stable per-device URL (stored
+    # credentials, admin-only) — no need to go through the discovery form
+    # again. Declared BEFORE the per-type /management/$t/:id route.
+    $r->get('/management/device/:id/update')->to('device#update')->name('device_update');
     for my $t ( Netdot::Mojo::Registry::types() ) {
         my $lc = $list_ctrl{$t} // 'browse';
         $r->get("/management/$t")->to("${lc}#list", type => $t)->name("${t}_list");

@@ -82,7 +82,10 @@
         </p>
         % # v3 security args (shown only when version=3, as in Mason); the
         % # fields are pre-filled from the DEFAULT_SNMP_* config values.
-        <div id="nd-snmp-v3" <%= $ndm->{defver} == 3 ? '' : 'style="display:none"' %>>
+        % # (Code block, not <%= %>: the style value must NOT be HTML-escaped,
+        % # otherwise the attribute becomes style=&quot;display:none&quot; and
+        % # the div stays visible.)
+        <div id="nd-snmp-v3"<% if ( $ndm->{defver} != 3 ) { %> style="display:none"<% } %>>
           <p style="margin:0.3em 0">
             <label>Sec Name:</label>
             <input type="text" name="sec_name" class="txt" size="16" value="<%= $ndm->{v3}{sec_name} %>">
@@ -118,21 +121,22 @@
         </div>
         % # v1/v2 community (hidden in v3 mode, still posted — the wizard
         % # ignores it when version=3, as in Mason).
-        <div id="nd-snmp-v2" <%= $ndm->{defver} == 3 ? 'style="display:none"' : '' %>>
+        <div id="nd-snmp-v2"<% if ( $ndm->{defver} == 3 ) { %> style="display:none"<% } %>>
           <p style="margin:0.3em 0">
             <label>Community:</label>
-            <select name="comstr">
+            <select name="comstr" id="comstr" onChange="otherOption('comstr','back','other_comstr');">
               % for my $cm ( @{ $ndm->{comms} } ) {
               <option value="<%= $cm %>"><%= $cm %></option>
               % }
               <option value="Other">Other</option>
             </select>
-            <input type="text" name="other_comstr" class="txt" size="14" placeholder="<Other community>">
+            <input type="button" style="visibility:hidden" name="back" id="back" value="<" onClick="backSelectOpt('comstr','back','other_comstr');">
+            <input type="text" style="visibility:hidden" name="other_comstr" id="other_comstr" value="Other" size="14" onFocus="if( this.value == 'Other' ){this.value = '';} return true;">
           </p>
         </div>
         <p style="margin:0.3em 0"><input type="submit" value="Discover" class="btn"></p>
       </form>
-      <p style="margin:0.2em 0; font-size:0.85em">Imports the device's interfaces, IPs and subnets (SNMP). Re-poll of an existing device: <a href="<%= $ndm->{discover} %>">discovery page</a>.</p>
+      <p style="margin:0.2em 0; font-size:0.85em">Imports the device's interfaces, IPs and subnets (SNMP).</p>
       <hr style="margin:0.9em 0">
       <p style="margin:0.2em 0; font-weight:600">Add Device manually</p>
       <form data-nd-api="<%= $ndm->{api} %>" data-nd-method="POST" data-nd-redirect="<%= $ndm->{goto} %>">

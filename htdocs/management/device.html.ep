@@ -19,8 +19,8 @@
   <button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" data-nd-device="1" style="margin-left:1.2em">Delete</button>
   % }
   % if ( $can_discover ) {
-  % # SNMP re-poll wizard, step 1 pre-filled with this device (admin only).
-  <a class="btn" href="<%= $c->url_for('device_discover')->to_string . '?device=' . $id %>" style="margin-left:1.2em">SNMP update</a>
+  % # SNMP re-poll of this device (stored credentials, admin only).
+  <a class="btn" href="<%= $c->url_for( 'device_update', id => $id )->to_string %>" style="margin-left:1.2em">SNMP update</a>
   % }
 </p>
 
