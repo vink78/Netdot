@@ -1208,10 +1208,22 @@ sub create_device {
             $ver = ( $ver == 1 || $ver == 3 ) ? $ver : 2;
             my %q = ( host => $name, version => $ver );
             if ( $ver == 3 ) {
-                for my $k ( qw(sec_name sec_level auth_proto auth_pass priv_proto priv_pass) ) {
-                    $q{$k} = $A{$k} if defined $A{$k} && length $A{$k};
+                # Explicit credentials win; anything missing falls back to the
+                # DEFAULT_SNMP_* config values (the same defaults the discovery
+                # form pre-fills).
+                my %def = (
+                    sec_name   => Netdot::Model->config->get('DEFAULT_SNMP_SECNAME'),
+                    sec_level  => Netdot::Model->config->get('DEFAULT_SNMP_SECLEVEL'),
+                    auth_proto => Netdot::Model->config->get('DEFAULT_SNMP_AUTHPROTO'),
+                    auth_pass  => Netdot::Model->config->get('DEFAULT_SNMP_AUTHPASS'),
+                    priv_proto => Netdot::Model->config->get('DEFAULT_SNMP_PRIVPROTO'),
+                    priv_pass  => Netdot::Model->config->get('DEFAULT_SNMP_PRIVPASS'),
+                );
+                for my $k ( keys %def ) {
+                    my $v = $A{$k};
+                    $v = $def{$k} unless defined $v && length $v;
+                    $q{$k} = $v if defined $v && length $v;
                 }
-                _err( 400, 'SNMP v3 discovery requires sec_name' ) unless defined $q{sec_name};
             }
             else {
                 my $comm = $A{community} // '';

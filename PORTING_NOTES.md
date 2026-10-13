@@ -1068,3 +1068,16 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
         - `Api.pm`: `_is_true` helper, `create_device`, `update_device`; routes
           declared before the generic `/api/:table` loop. Frontend « Add Device
           manually » box POSTs `/api/device` with hidden `discover=false`.
+        - **List page UI (2026-10-13)**: the device list shows **only** the two
+          dedicated boxes (no generic « New Device » insert form — `Browse.pm`
+          skips `new_obj` for `device`; the container renders on
+          `$new_obj || $ndm`). The « Discover Device » box has a version
+          selector (1/2/3) and, as in Mason's `device_tasks.html`, the v3
+          security fields (sec_name/sec_level/auth_proto/auth_pass/
+          priv_proto/priv_pass) are shown **only when version=3** via the
+          existing `showSnmpV3Args()` JS (`toggle.js`), pre-filled from the
+          `DEFAULT_SNMP_*` config values; the v1/v2 community row is hidden in
+          v3 mode (still posted, ignored by the wizard, as in Mason).
+          `create_device` applies the same `DEFAULT_SNMP_*` fallback for
+          missing v3 fields, so `{discover:true, name, snmp_version:3}` works
+          with the configured default credentials.

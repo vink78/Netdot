@@ -279,12 +279,15 @@ sub list ($c) {
     }
 
     # "New <type>" create box for the generic list page (every type except rr,
-    # which has its own name+zone box): shown when the user may create an object
-    # of this type (class-level 'edit' — has_action already returns 1 for
-    # Admins; the API re-enforces it at write time via _can_create). The form
-    # POSTs to /api/<table> and the model's insert() validates the required
-    # fields (a missing one -> 400 with the model's own message).
-    if ( $type ne 'rr' && Netdot::Mojo::Permissions->has_action( $class, $person, 'edit' ) ) {
+    # which has its own name+zone box, and device, which has its own two boxes
+    # — Discover / Add manually — instead of the generic insert): shown when
+    # the user may create an object of this type (class-level 'edit' —
+    # has_action already returns 1 for Admins; the API re-enforces it at write
+    # time via _can_create). The form POSTs to /api/<table> and the model's
+    # insert() validates the required fields (a missing one -> 400 with the
+    # model's own message).
+    if ( $type ne 'rr' && $type ne 'device'
+         && Netdot::Mojo::Permissions->has_action( $class, $person, 'edit' ) ) {
         my @cfields = @{ Netdot::Mojo::Detail::build_create_fields( $class ) };
         if (@cfields) {
             $extra{new_obj} = {
@@ -313,6 +316,17 @@ sub list ($c) {
             discover => Netdot::Mojo::Registry::set_uri( '/management/device/discover' ),
             comms    => [ @{ Netdot::Model->config->get('DEFAULT_SNMPCOMMUNITIES') || ['public'] } ],
             defver   => Netdot::Model->config->get('DEFAULT_SNMPVERSION') || 2,
+            # v3 credentials, pre-filled from the config (Mason:
+            # device_tasks.html prefilled the same DEFAULT_SNMP_* values and
+            # showed the v3 fields only when version=3 was selected).
+            v3       => {
+                sec_name   => Netdot::Model->config->get('DEFAULT_SNMP_SECNAME')   // 'netdot',
+                sec_level  => Netdot::Model->config->get('DEFAULT_SNMP_SECLEVEL')  // 'authPriv',
+                auth_proto => Netdot::Model->config->get('DEFAULT_SNMP_AUTHPROTO') // 'SHA',
+                auth_pass  => Netdot::Model->config->get('DEFAULT_SNMP_AUTHPASS')  // '',
+                priv_proto => Netdot::Model->config->get('DEFAULT_SNMP_PRIVPROTO') // 'AES',
+                priv_pass  => Netdot::Model->config->get('DEFAULT_SNMP_PRIVPASS')  // '',
+            },
         };
     }
 

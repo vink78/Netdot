@@ -39,25 +39,30 @@
     </div>
   </div>
 % }
-% if ($new_obj) {
-% # Generic create box (right of the search): "New <type>". Uses the class's
-% # brief-view fields (key fields only); the model's insert() fills the rest.
 % my $ndm = $c->stash('new_device_manual');
+% if ( $new_obj || $ndm ) {
+% # Create box (right of the search). Generic types: "New <type>" — the
+% # class's brief-view fields (key fields only), the model's insert() fills
+% # the rest. For device there is NO generic create form: only the two
+% # dedicated boxes (Discover / Add manually) — creation goes through
+% # POST /api/device, the generic insert is intentionally unreachable.
   <div class="container">
-    <div class="containerhead">New <%= $new_obj->{label} %></div>
+    <div class="containerhead">New <%= $new_obj ? $new_obj->{label} : 'Device' %></div>
     <div class="containerbody" style="padding:0.6em">
+      % if ($new_obj) {
       <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
                                 can_edit => 1, fields => $new_obj->{fields},
                                 api_path => $new_obj->{api},
                                 nd_create => 1, nd_method => 'POST',
                                 nd_redirect => $new_obj->{goto}, nd_label => 'Create' ) %>
+      % }
       % if ($ndm) {
       % # Two distinct boxes, as in the legacy device_tasks.html (view=new):
-      % # "Discover Device" (name/IP + SNMP version + community -> the wizard
-      % # step 1, then review + guesses, then Device->discover) and
-      % # "Add Device manually" (name/IP only -> POST /api/device
-      % # {discover: false, host} -> Device->manual_add: DNS + monitored
-      % # device + interface + /32 block + snmp_target), both admin-only.
+      % # "Discover Device" (name/IP + SNMP version; v3 fields shown when
+      % # version=3 -> the wizard step 1, then review + guesses, then
+      % # Device->discover) and "Add Device manually" (name/IP only ->
+      % # POST /api/device {discover: false, host} -> Device->manual_add),
+      % # both admin-only.
       <hr style="margin:0.9em 0">
       <p style="margin:0.2em 0; font-weight:600">Discover Device</p>
       <form method="post" action="<%= $ndm->{discover} %>">
@@ -68,23 +73,66 @@
         </p>
         <p style="margin:0.3em 0">
           <label>SNMP Version:</label>
-          <select name="version">
+          <select name="version" id="nd-snmp-version"
+                  onChange="showSnmpV3Args('nd-snmp-version','nd-snmp-v3','nd-snmp-v2')">
             % for my $v ( 1, 2, 3 ) {
             <option value="<%= $v %>" <%= $ndm->{defver} == $v ? 'selected' : '' %>><%= $v %></option>
             % }
           </select>
-          <label style="margin-left:1em">Community:</label>
-          <select name="comstr">
-            % for my $cm ( @{ $ndm->{comms} } ) {
-            <option value="<%= $cm %>"><%= $cm %></option>
-            % }
-            <option value="Other">Other</option>
-          </select>
-          <input type="text" name="other_comstr" class="txt" size="14" placeholder="<Other community>">
         </p>
+        % # v3 security args (shown only when version=3, as in Mason); the
+        % # fields are pre-filled from the DEFAULT_SNMP_* config values.
+        <div id="nd-snmp-v3" <%= $ndm->{defver} == 3 ? '' : 'style="display:none"' %>>
+          <p style="margin:0.3em 0">
+            <label>Sec Name:</label>
+            <input type="text" name="sec_name" class="txt" size="16" value="<%= $ndm->{v3}{sec_name} %>">
+          </p>
+          <p style="margin:0.3em 0">
+            <label>Sec Level:</label>
+            <select name="sec_level">
+              % for my $sl ( 'noAuthNoPriv', 'authNoPriv', 'authPriv' ) {
+              <option value="<%= $sl %>" <%= $ndm->{v3}{sec_level} eq $sl ? 'selected' : '' %>><%= $sl %></option>
+              % }
+            </select>
+            <label style="margin-left:1em">Auth Proto:</label>
+            <select name="auth_proto">
+              % for my $ap ( 'MD5', 'SHA' ) {
+              <option value="<%= $ap %>" <%= $ndm->{v3}{auth_proto} eq $ap ? 'selected' : '' %>><%= $ap %></option>
+              % }
+            </select>
+          </p>
+          <p style="margin:0.3em 0">
+            <label>Auth Pass:</label>
+            <input type="password" name="auth_pass" class="txt" size="16" value="<%= $ndm->{v3}{auth_pass} %>">
+            <label style="margin-left:1em">Priv Proto:</label>
+            <select name="priv_proto">
+              % for my $pp ( 'DES', 'AES' ) {
+              <option value="<%= $pp %>" <%= $ndm->{v3}{priv_proto} eq $pp ? 'selected' : '' %>><%= $pp %></option>
+              % }
+            </select>
+          </p>
+          <p style="margin:0.3em 0">
+            <label>Priv Pass:</label>
+            <input type="password" name="priv_pass" class="txt" size="16" value="<%= $ndm->{v3}{priv_pass} %>">
+          </p>
+        </div>
+        % # v1/v2 community (hidden in v3 mode, still posted — the wizard
+        % # ignores it when version=3, as in Mason).
+        <div id="nd-snmp-v2" <%= $ndm->{defver} == 3 ? 'style="display:none"' : '' %>>
+          <p style="margin:0.3em 0">
+            <label>Community:</label>
+            <select name="comstr">
+              % for my $cm ( @{ $ndm->{comms} } ) {
+              <option value="<%= $cm %>"><%= $cm %></option>
+              % }
+              <option value="Other">Other</option>
+            </select>
+            <input type="text" name="other_comstr" class="txt" size="14" placeholder="<Other community>">
+          </p>
+        </div>
         <p style="margin:0.3em 0"><input type="submit" value="Discover" class="btn"></p>
       </form>
-      <p style="margin:0.2em 0; font-size:0.85em">Imports the device's interfaces, IPs and subnets (SNMP). SNMP v3 credentials and re-poll of an existing device: <a href="<%= $ndm->{discover} %>">discovery page</a>.</p>
+      <p style="margin:0.2em 0; font-size:0.85em">Imports the device's interfaces, IPs and subnets (SNMP). Re-poll of an existing device: <a href="<%= $ndm->{discover} %>">discovery page</a>.</p>
       <hr style="margin:0.9em 0">
       <p style="margin:0.2em 0; font-weight:600">Add Device manually</p>
       <form data-nd-api="<%= $ndm->{api} %>" data-nd-method="POST" data-nd-redirect="<%= $ndm->{goto} %>">
