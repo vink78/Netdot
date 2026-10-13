@@ -1038,10 +1038,12 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
        model log captured with a `Log::Log4perl::Appender::String` appender on the
        `Netdot::Model::{Device,DNS,Ipblock}` loggers (the Mason trick), filtered to
        lines mentioning the host, + link to the device.
-     - Fixes (2026-10-13): `Device->manual_add` now converts a dotted-string IP to
-       numeric before `Ipblock->find_or_create` (MySQL string→number coercion on a
-       bigint address column matched nothing → `Duplicate entry` on the /32) and
-       throws a clear « already exists » error when the RR name is taken. The
+     - Fixes (2026-10-13): `Device->manual_add` throws a clear « already exists »
+       error when the RR name is taken. (An earlier revision here tried to convert
+       the IP to numeric before `find_or_create` via `NetAddr::IP->addr` — a
+       no-op, `->addr` returns the dotted/hex string; the real fix is the
+       `Ipblock->search` hashref normalization below. `manual_add` passes the
+       resolved dotted/hex string again.) The
        Used-by guess reads `ips->{$ip}{subnet}` (« addr/len », what `get_snmp_info`
        actually stores from the device's ipNetToMedia table; `->{mask}` — what Mason
        read — is never set by the current `get_snmp_info`, so the Mason guess was
@@ -1142,3 +1144,27 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
             non-empty `sec_*` / `auth_*` / `priv_*` fields (same names as
             the API; empty ones are omitted so the API's `DEFAULT_SNMP_*`
             config fallback applies).
+         - **Fix (2026-10-13): `Ipblock->search` hashref path ignored the
+           address normalization** — the root cause of the `manual_add`
+           `Duplicate entry '…-32' for key 'ipblock1'` failure. `ipblock.address`
+           is a numeric column (decimal integers, v4 AND v6); the `search`
+           override normalizes a dotted/hex/CIDR `address` (via `ip2int`) **only
+           in the list-args path** (`search(address=>…)`) — a single hashref
+           (`search({address=>…})`, what Class::DBI's `find_or_create` uses)
+           is popped into `$opts` by the `@args % 2` options trick and skips the
+           conversion, so MySQL coerced `'10.50.24.12'` → `10` (leading digits
+           on a decimal column), the search matched nothing, and
+           `find_or_create` re-inserted the (already converted) address →
+           duplicate key. Fix: a `_normalize_search_address` helper (CIDR →
+           int+prefix; dotted/hex → `ip2int` for v4 and v6; invalid →
+           `throw_user`; already-numeric unchanged) is now applied to **both**
+           the list-args and the hashref path, so `find_or_create` finds the
+           existing block (verified: `find_or_create({address=>'10.50.24.12',
+           prefix=>32})` and `({address=>'2001:620::', prefix=>48})` both
+           reuse the existing row; `manual_add` on an existing block reuses it
+           and sets Static/interface/monitored). Note: Perl `return (A, B)` in
+           scalar context yields the last element — the helper's call sites use
+           list context. (Also observed while testing: a 37+ digit integer
+           literal in Perl becomes a double and stringifies to scientific
+           notation, failing the `^-?\d+$` check — all real callers pass
+           strings, so no production impact.)

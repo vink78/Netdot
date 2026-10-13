@@ -120,6 +120,27 @@ sub int2ip {
 
 =cut
 
+# Normalize an Ipblock 'address' (search) value to the integer stored in the
+# numeric address column, for IPv4 AND IPv6. Accepts a dotted/hex address, a
+# CIDR "addr/prefix" (the prefix is also returned), or an already-numeric
+# value (returned unchanged). Mirrors the conversion insert() applies so that
+# search() finds exactly what insert() stores. Returns ($address, $prefix).
+sub _normalize_search_address {
+    my ($class, $address, $prefix) = @_;
+    return ($address, $prefix) unless defined $address;
+    return ($address, $prefix) if $address =~ /^-?\d+$/;   # already numeric
+    if ( $address =~ /.+\/\d+$/ ){
+        my ($a, $p) = split /\//, $address;                # CIDR
+        return ($class->ip2int($a), $p);
+    }
+    if ( $address =~ /\D/ ){                               # dotted / hex
+        $class->throw_user(sprintf("Address %s does not match valid IP v4/v6 formats", $address))
+            unless $class->matches_ip($address);
+        return ($class->ip2int($address), $prefix);
+    }
+    return ($address, $prefix);
+}
+
 sub search {
     my ($class, @args) = @_;
     $class->isa_class_method('search');
@@ -130,25 +151,26 @@ sub search {
     my $opts = @args % 2 ? pop @args : {}; 
     my %args = @args;
    
+    # find_or_create() and Class::DBI callers pass the search fields as a
+    # single hashref, which the "@args % 2 ? pop" above lands in $opts (not
+    # %args). Normalize its address there too, or a dotted/hex address is
+    # coerced by MySQL and the search misses (find_or_create then re-inserts
+    # -> duplicate key).
+    if ( ref($opts) eq 'HASH' && defined $opts->{address} && !defined $args{address} ){
+        ($opts->{address}, $opts->{prefix}) =
+            $class->_normalize_search_address( $opts->{address}, $opts->{prefix} );
+        $opts->{status} = $class->_get_status_id($opts->{status})
+            if defined $opts->{status};
+    }
+
     if ( defined $args{status} ){
 	my $statusid = $class->_get_status_id($args{status});
 	$args{status} = $statusid;
     }
     if ( defined $args{address} ){
-	if ( $args{address} =~ /.+\/\d+$/ ){
-	    # Address is in CIDR format
-	    my ($address, $prefix) = split /\//, $args{address};
-	    $args{address} = $class->ip2int($address);
-	    $args{prefix}  = $prefix;
-	}elsif ( $args{address} =~ /\D/ ){
-	    # Address contains non-digits
-	    if ( $class->matches_ip($args{address}) ){
-		# Ony convert to integer if address matches valid IP formats
-		$args{address} = $class->ip2int($args{address});
-	    }else{
-		$class->throw_user(sprintf("Address %s does not match valid IP v4/v6 formats", $args{address}));
-	    }
-	}
+	($args{address}, my $cidr_prefix) =
+	    $class->_normalize_search_address( $args{address}, $args{prefix} );
+	$args{prefix} = $cidr_prefix if defined $cidr_prefix;
 	if ( $class->config->get('DB_TYPE') eq 'mysql' ){
 	    # Deal with mysql bug 
 	    # http://bugs.mysql.com/bug.php?id=60213
