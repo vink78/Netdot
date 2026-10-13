@@ -321,6 +321,44 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   `(2**(32-prefix)) * (2**(rowsize-22))` px. 1 row = 1 /rowsize block.
 - v6 not supported (message). Links `/management/ipblock/<id>`.
 
+### 5. Class::DBI object index (`%Live_Objects`) → stale reads after API writes
+ - Class::DBI 3.x caches one object per primary key: `construct` → `_init`
+   does `return $Live_Objects{$key} || _fresh_init(...)`, i.e. a still-live
+   object for that id is returned and the **freshly fetched DB row is
+   discarded**.
+ - Symptom in a long-running single process (this daemon): after
+   `PATCH /api/...`, the `/management` page shows the old value until a
+   restart, while `GET /api/...` and the DB show the new one. It only
+   manifests when the object stays referenced across requests (observed:
+   only for interfaces that HAVE a neighbor — the neighbor link keeps the
+   object graph alive). mod_perl never showed it: worker recycling +
+   per-request teardown collect the objects, so the weak index entries die.
+ - Fix (in `Netdot::Model` BEGIN): `$Class::DBI::Weaken_Is_Available = 0;`
+   — objects are then never registered in the index and every read builds
+   a fresh object from the fresh row. Safe here: Netdot relies on ids
+   (no `same_object`/object-identity usage anywhere).
+ - Note: `perl -c lib/Netdot/Model.pm` fails (pre-existing, unrelated) —
+   Model.pm must be compiled through its normal load path; verify with the
+   daemon instead.
+ - **Retention hunt (2026-10-13) — conclusion**: a liveness probe (weakref
+   captured per rendered interface/device object, checked at request end and
+   again +2s via an IOLoop timer) proves there is **no cross-request object
+   retention** in the Mojolicious port: objects are freed once the request
+   state goes away. Consequences:
+   - The stale read was purely the object index (the fix above); no extra
+     holder (session, template cache, log, `$_`, timers) was found.
+   - Flag OFF is production-safe on memory: nothing accumulates per request.
+     It is strictly lighter than flag ON, where the index keeps one weakref
+     per object ever created per worker process.
+   - The first "retention" signals were a **probe artifact**: copying a
+     weakref (`$h{k} = $weakref`) produces a **strong** reference — the hash
+     then kept every captured object alive. To store a live weakref, assign
+     the object first and weaken the slot in place:
+     `$h{k} = $obj; weaken( $h{k} );`.
+   - Fixed two bare `for ( @ifs )` loops in `Model/Device.pm`
+     (`ints_by_number`, the `get_ips` loop) → `for my`: the package `$_`
+     transiently held the last looped object.
+
 ## Mason → Mojolicious reference
 - Generic view of a record: `htdocs/generic/view.html?table=X&id=Y`.
 - Port a type: take the Mason page (`htdocs/management/*.mhtml`) and its

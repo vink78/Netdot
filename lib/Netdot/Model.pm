@@ -37,6 +37,16 @@ my %EXCLUDE_AUDIT_COL = (
     );
 
 BEGIN {
+    # Disable the Class::DBI object identity index (%Live_Objects). When
+    # enabled, every search/retrieve returns the still-live object for a given
+    # primary key and discards the freshly fetched DB rows. In a long-running
+    # single-process server an object kept referenced across requests (e.g. an
+    # interface with a neighbor link) then keeps serving its stale in-memory
+    # column values until the process restarts. mod_perl never showed it
+    # because worker recycling + per-request teardown collect those objects.
+    # Netdot never relies on object identity (ids everywhere, no same_object).
+    $Class::DBI::Weaken_Is_Available = 0;
+
     my $db_type  = __PACKAGE__->config->get('DB_TYPE');
     my $database = __PACKAGE__->config->get('DB_DATABASE');
     my $host     = __PACKAGE__->config->get('DB_HOST');

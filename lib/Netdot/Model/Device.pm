@@ -3220,10 +3220,10 @@ sub ints_by_number {
     my @ifs = $self->interfaces();
 
     my ($nondigit, $letters);
-    for ( @ifs ) { 
-	if ($_->number =~ /\D/){ 
+    for my $if ( @ifs ) { 
+	if ($if->number =~ /\D/){ 
 	    $nondigit = 1;  
-	    if ($_->number =~ /[A-Za-z]/){ 
+	    if ($if->number =~ /[A-Za-z]/){ 
 		$letters = 1;  
 	    }
 	}
@@ -6068,10 +6068,10 @@ sub _update_interfaces {
     # Get old IPs (if any)
     my %old_ips;
     if ( my $devips = $self->get_ips ){
-	foreach ( @$devips ){
+	foreach my $devip ( @$devips ){
 	    # Use decimal address in the index to avoid ambiguities with notation
-	    my $numip = $_->address_numeric;
-	    $old_ips{$numip} = $_;
+	    my $numip = $devip->address_numeric;
+	    $old_ips{$numip} = $devip;
 	}
     }
         
