@@ -1051,3 +1051,20 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
        `SNMP_MIB_DIRS` dirs to SNMP::Info (`MibDirs`, → `SNMP::addMibDirs`); on this
        box that is `/var/lib/netdisco-mibs` (Site.conf). No `MIBDIRS`
        env var needed — the system `/usr/share/snmp/mibs` being empty is fine.
+      - **Unified device API (2026-10-13)** — device create + SNMP update as REST;
+        the generic `POST /api/device` insert is intentionally unreachable (the
+        static routes win over `/api/:table`):
+        - `POST /api/device` (admin-only): `{discover:false, host}` →
+          `Device->manual_add`; `{discover:true, name, snmp_version, community |
+          v3 sec_name/sec_level/auth_*/priv_*}` → `get_snmp_info` +
+          `Device->discover` (optional owner/used_by/site/contacts/add_subnets/
+          subs_inherit). Existing name → 409 pointing at the update endpoint.
+          Returns 201 + full device JSON. Replaces `POST /api/device/manual_add`.
+        - `POST /api/device/:id/update` (admin-only): SNMP update (re-poll) of an
+          existing device with its **stored** credentials
+          (`get_snmp_info()` + `Device->discover(name=>fqdn, info, do_info=>1,
+          [pretend])`); optional `pretend` dry-run. Replaces the legacy
+          `POST /api/updatedev` (removed) and the wizard's `?device=<id>` re-poll.
+        - `Api.pm`: `_is_true` helper, `create_device`, `update_device`; routes
+          declared before the generic `/api/:table` loop. Frontend « Add Device
+          manually » box POSTs `/api/device` with hidden `discover=false`.

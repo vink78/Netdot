@@ -27,7 +27,9 @@ use Mojo::Util qw(url_escape);
 #   GET    /api/ipattr?addr=       inherited IP attributes
 #   GET/POST/DELETE /api/host      DNS/DHCP host manipulation
 #   GET/POST/DELETE /api/host_like same as host, fuzzy name search
-#   POST   /api/updatedev          device discovery
+#   POST   /api/device             create a device (discover: true = SNMP
+#                                  discovery, false/absent = manual add)
+#   POST   /api/device/:id/update  SNMP update (re-poll) of an existing device
 
 # ---------------------------------------------------------------------------
 # helpers
@@ -78,6 +80,14 @@ sub _args {
     my $body = eval { $c->req->json };
     %a = ( %a, %$body ) if ref $body eq 'HASH';
     return \%a;
+}
+
+# Truthy test for client-supplied flags: JSON boolean true or "1"/"true"/
+# "yes"/"on" (the form hidden inputs send the strings "false"/"0").
+sub _is_true {
+    my ($v) = @_;
+    return 0 unless defined $v;
+    return $v =~ /^(?:1|true|yes|on)$/i ? 1 : 0;
 }
 
 # Search args: drop control keys, undef and empty-string values.
@@ -161,7 +171,7 @@ sub root {
     $index{$_} = $url->("/api/$_") for sort keys %tables;
 
     # Purpose-built endpoints (same flat name -> url style).
-    for my $ep (qw(devinfo host_contacts host host_like ipattr updatedev)) {
+    for my $ep (qw(devinfo host_contacts host host_like ipattr)) {
         $index{$ep} = $url->("/api/$ep");
     }
     $index{docs}           = $url->('/api/docs');
@@ -1170,40 +1180,89 @@ sub _host_delete {
 }
 
 # ---------------------------------------------------------------------------
-# updatedev
-# ---------------------------------------------------------------------------
-
-sub updatedev {
+# create_device — unified device creation (the two legacy
+# device_tasks.html?view=new modes, admin-only, as in Mason):
+#   {discover: false, host} -> Device->manual_add (DNS + monitored device +
+#                              interface + /32 block + snmp_target)
+#   {discover: true, name, snmp_version, community | v3 fields}
+#                          -> SNMP discovery: Device->get_snmp_info with the
+#                              supplied credentials, then Device->discover.
+# The static /api/device route wins over the generic /api/:table, so the
+# generic device insert is unreachable by design: device creation only goes
+# through these two modes.
+sub create_device {
     my ($c) = @_;
     my $p = _person($c) or return;
     return _run( $c, sub {
         _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
-        my %A = %{ _args($c) };
-        my $name = $A{name};
-        _err( 400, 'Missing name' ) unless defined $name && $name ne '';
-        my $info = ref $A{info} eq 'HASH' ? $A{info} : $A{info};
-        my $obj  = eval {
-            Netdot::Model->do_transaction( sub { Device->discover( name => $name, info => $info ) } );
-        };
-        _err( 400, "Bad request: $@" ) if $@;
-        $c->render( json => Netdot::Mojo::Api::get( $obj, $p, undef, depth => 0 ), status => 200 );
-    });
-}
-
-# Add a device manually (port of the legacy device_tasks.html "Add Device
-# manually"): one input (name or IP) -> Device->manual_add(host=>...). The lib
-# resolves the host via DNS, creates the device (monitored=1, snmp_managed=0)
-# with an interface, its /32 (or /128) block (Static, monitored) and the
-# snmp_target, plus an ARP-based neighbor if one is known. Admin-only, as in
-# Mason (access_admin_section).
-sub manual_add {
-    my ($c) = @_;
-    my $p = _person($c) or return;
-    return _run( $c, sub {
-        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
-        _err( 403, 'Adding devices manually is reserved for administrators' )
+        _err( 403, 'Creating devices is reserved for administrators' )
             unless Netdot::Mojo::Permissions->user_type( $p ) eq 'Admin';
-        my %A    = %{ _args($c) };
+        my %A = %{ _args($c) };
+
+        if ( _is_true( $A{discover} ) ) {
+            # ---- SNMP discovery ----
+            my $name = $A{name} // '';
+            $name =~ s/\s//g;
+            _err( 400, 'Missing required parameter: name' ) unless length $name;
+            my $ver = int( $A{snmp_version} // 2 );
+            $ver = ( $ver == 1 || $ver == 3 ) ? $ver : 2;
+            my %q = ( host => $name, version => $ver );
+            if ( $ver == 3 ) {
+                for my $k ( qw(sec_name sec_level auth_proto auth_pass priv_proto priv_pass) ) {
+                    $q{$k} = $A{$k} if defined $A{$k} && length $A{$k};
+                }
+                _err( 400, 'SNMP v3 discovery requires sec_name' ) unless defined $q{sec_name};
+            }
+            else {
+                my $comm = $A{community} // '';
+                $q{communities} = [ $comm ] if length $comm;   # else: config defaults
+            }
+
+            # Already in the DB: refresh it via the update endpoint instead.
+            # (The name is the RR's; device.name is its integer id.)
+            my $rr = eval { RR->search( name => $name )->first };
+            $rr = undef if $@;
+            if ( $rr ) {
+                my $ex = eval { Device->search( name => $rr )->first };
+                $ex = undef if $@;
+                if ($ex) {
+                    _err( 409, sprintf( 'Device %s already exists (id %d): use POST /api/device/%d/update to refresh its SNMP data',
+                                        $ex->fqdn || $name, $ex->id, $ex->id ) );
+                }
+            }
+
+            my $info = eval { Device->get_snmp_info( %q ) };
+            _err( 400, 'SNMP session failed (host unreachable or bad credentials)' )
+                if $@ || ! $info;
+
+            # Optional review fields (as in the discovery wizard).
+            my %argv = ( name => $name, info => $info );
+            $argv{owner}   = $A{owner}   if defined $A{owner}   && length $A{owner};
+            $argv{used_by} = $A{used_by} if defined $A{used_by} && length $A{used_by};
+            $argv{site}    = $A{site}    if defined $A{site}    && length $A{site};
+            my @cls;
+            if ( ref $A{contacts} eq 'ARRAY' ) {
+                @cls = grep { /^\d+$/ } @{ $A{contacts} };
+            }
+            elsif ( defined $A{contacts} && length $A{contacts} ) {
+                @cls = grep { /^\d+$/ } split /,/, $A{contacts};
+            }
+            $argv{contacts}   = \@cls if @cls;
+            $argv{add_subnets}  = 1 if _is_true( $A{add_subnets} );
+            $argv{subs_inherit} = 1 if _is_true( $A{subs_inherit} );
+
+            my $dev = eval { Netdot::Model->do_transaction( sub { Device->discover( %argv ) } ) };
+            if ( $@ || ! $dev ) {
+                my $err = $@;
+                # Netdot exceptions stringify with their full stack trace;
+                # keep only the message in the API response.
+                $err = $err->message if ref $err && $err->can('message');
+                _err( 400, "device discovery failed: $err" );
+            }
+            return $c->render( json => Netdot::Mojo::Api::get( $dev, $p, undef, depth => 0 ), status => 201 );
+        }
+
+        # ---- Manual add ----
         my $host = $A{host} // '';
         $host =~ s/\s//g;
         _err( 400, 'Missing required parameter: host' ) unless length $host;
@@ -1215,7 +1274,43 @@ sub manual_add {
             $err = $err->message if ref $err && $err->can('message');
             _err( 400, "manual_add failed: $err" );
         }
-        $c->render( json => { id => $dev->id }, status => 200 );
+        return $c->render( json => Netdot::Mojo::Api::get( $dev, $p, undef, depth => 0 ), status => 201 );
+    });
+}
+
+# ---------------------------------------------------------------------------
+# update_device — SNMP update (re-poll) of an existing device with its stored
+# credentials (Mason: updatedevice.html?device=<id>, the "snmp-update" link).
+# Admin-only. Optional `pretend`: dry run (the model rolls back at the end of
+# the info update, but some nested fast_updates commit independently —
+# see PORTING_NOTES).
+sub update_device {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        _err( 403, 'Updating a device via SNMP is reserved for administrators' )
+            unless Netdot::Mojo::Permissions->user_type( $p ) eq 'Admin';
+        my $id = $c->stash('id');
+        _err( 400, 'Missing device id' ) unless defined $id && $id =~ /^\d+$/;
+        my $dev = eval { Device->retrieve($id) };
+        _err( 404, "Device $id not found" ) if $@ || ! $dev;
+
+        my %A    = %{ _args($c) };
+        my $info = eval { $dev->get_snmp_info() };
+        _err( 400, 'SNMP session failed (device not SNMP-managed or bad stored credentials)' )
+            if $@ || ! $info;
+
+        my %argv = ( name => $dev->fqdn, info => $info, do_info => 1 );
+        $argv{pretend} = 1 if _is_true( $A{pretend} );
+
+        my $upd = eval { Netdot::Model->do_transaction( sub { Device->discover( %argv ) } ) };
+        if ( $@ || ! $upd ) {
+            my $err = $@;
+            $err = $err->message if ref $err && $err->can('message');
+            _err( 400, "SNMP update failed: $err" );
+        }
+        return $c->render( json => Netdot::Mojo::Api::get( $upd, $p, undef, depth => 0 ), status => 200 );
     });
 }
 

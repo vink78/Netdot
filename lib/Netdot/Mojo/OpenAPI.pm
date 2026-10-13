@@ -482,26 +482,61 @@ sub _add_specific_endpoints {
         };
     }
 
-    $paths->{'/updatedev'} = {
-        post => {
-            tags        => [qw(specific)],
-            summary     => 'Discover / update a device from serialized device info',
-            operationId => 'updatedev',
-            requestBody => {
-                required => 1,
-                content  => {
-                    'application/json' => {
-                        schema => {
-                            type        => 'object',
-                            properties => {
-                                name => { type => 'string', description => 'Device name.' },
-                                info => { type => 'object', description => 'Serialized device information.' },
-                            },
+    # Unified device creation (the static POST /device route wins over the
+    # generic /{table} insert, so this replaces the generic device create).
+    $paths->{'/device'}{post} = {
+        tags        => [qw(specific)],
+        summary     => 'Create a device: SNMP discovery (discover=true) or manual add (discover=false/absent).',
+        operationId => 'create_device',
+        requestBody => {
+            required => 1,
+            content  => {
+                'application/json' => {
+                    schema => {
+                        type        => 'object',
+                        properties => {
+                            discover     => { type => 'boolean', description => 'true: SNMP discovery; false/absent: manual add.' },
+                            host         => { type => 'string', description => 'Manual add: device name or IP (resolved via DNS).' },
+                            name         => { type => 'string', description => 'Discovery: device name or IP.' },
+                            snmp_version => { type => 'integer', description => 'Discovery: SNMP version, 1/2/3 (default 2).' },
+                            community    => { type => 'string', description => 'Discovery v1/v2: SNMP community (config default when absent).' },
+                            sec_name     => { type => 'string', description => 'Discovery v3: security name (required).' },
+                            sec_level    => { type => 'string', description => 'Discovery v3: security level (noAuthNoPriv, authNoPriv, authPriv).' },
+                            auth_proto   => { type => 'string', description => 'Discovery v3: authentication protocol (MD5/SHA).' },
+                            auth_pass    => { type => 'string', description => 'Discovery v3: authentication passphrase.' },
+                            priv_proto   => { type => 'string', description => 'Discovery v3: privacy protocol (DES/AES).' },
+                            priv_pass    => { type => 'string', description => 'Discovery v3: privacy passphrase.' },
+                            owner        => { type => 'integer', description => 'Discovery: owner entity id.' },
+                            used_by      => { type => 'integer', description => 'Discovery: used-by entity id.' },
+                            site         => { type => 'integer', description => 'Discovery: site entity id.' },
+                            contacts     => { type => 'array', items => { type => 'integer' }, description => 'Discovery: contact list ids.' },
                         },
                     },
                 },
             },
-            responses   => { '200' => _ok('Discovered device.', 'Device'), '400' => _err(400), '401' => _err(401) },
+        },
+        responses   => { '201' => _ok('Device created.', 'Device'), '400' => _err(400), '401' => _err(401), '403' => _err(403), '409' => _err(409) },
+    };
+
+    # SNMP update (re-poll) of an existing device with its stored credentials.
+    $paths->{'/device/{id}/update'} = {
+        post => {
+            tags        => [qw(specific)],
+            summary     => 'SNMP update (re-poll) of an existing device with its stored credentials.',
+            operationId => 'update_device',
+            parameters  => [ _id_param() ],
+            requestBody => {
+                required => 0,
+                content  => {
+                    'application/json' => {
+                        schema => {
+                            type        => 'object',
+                            properties => { pretend => { type => 'boolean', description => 'Dry run: apply the info import, then roll back.' } },
+                        },
+                    },
+                },
+            },
+            responses   => { '200' => _ok('Device updated.', 'Device'), '400' => _err(400), '401' => _err(401), '403' => _err(403), '404' => _err(404) },
         },
     };
 }

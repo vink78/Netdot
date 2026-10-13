@@ -303,7 +303,9 @@ sub list ($c) {
     # Admin-only, as in Mason.
     if ( $type eq 'device' && Netdot::Mojo::Permissions->user_type( $person ) eq 'Admin' ) {
         $extra{new_device_manual} = {
-            api      => $c->web_prefix . '/api/device/manual_add',
+            # Unified device-create endpoint (POST /api/device): this box
+            # sends {discover: false, host} -> Device->manual_add.
+            api      => $c->web_prefix . '/api/device',
             goto     => Netdot::Mojo::Registry::set_uri( '/management/device/' ),
             # "Discover Device" box (legacy device_tasks.html view=new):
             # posts to the wizard step 1 (review + guesses, then

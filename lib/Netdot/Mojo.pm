@@ -281,7 +281,6 @@ sub startup ($self) {
     $r->get('/api/ipattr')->to('api#ipattr');
     $r->any('/api/host')->to('api#host');
     $r->any('/api/host_like')->to('api#host_like');
-    $r->post('/api/updatedev')->to('api#updatedev');
     # Batch edit of a block's children (the list "Edit" mode): updates +
     # deletes of several children in a single request (api#batch). Must come
     # before /api/:table/:id or "batch" would be captured as $id.
@@ -290,12 +289,17 @@ sub startup ($self) {
     # after the literal ipblock batch (so it wins for ipblock) but before the
     # /api/:table/:id placeholder (else "batch" would be captured as $id).
     $r->post('/api/:table/batch')->to('api#batch_edit');
-    # Manual device add (port of the legacy device_tasks.html "Add Device
-    # manually"): {host: name-or-IP} -> Device->manual_add (DNS resolution +
-    # monitored device + interface + /32 block + snmp_target). Declared before
-    # /api/:table/:id so "manual_add" is not captured as a device id.
-    # Admin-only (checked in the action).
-    $r->post('/api/device/manual_add')->to('api#manual_add');
+    # Unified device creation (port of the legacy device_tasks.html
+    # "view=new", two modes, admin-only): {discover: false, host} ->
+    # Device->manual_add; {discover: true, name, snmp_version, ...} -> SNMP
+    # discovery (get_snmp_info + Device->discover). The static /api/device
+    # wins over the generic /api/:table, so the generic device insert is
+    # intentionally unreachable: creation only goes through these modes.
+    # Declared before /api/:table/:id (see the other specific endpoints).
+    $r->post('/api/device')->to('api#create_device');
+    # SNMP update (re-poll) of an existing device with its stored credentials
+    # (Mason: updatedevice.html?device=<id> / "snmp-update").
+    $r->post('/api/device/:id/update')->to('api#update_device');
     $r->any('/api/:table')->to('api#generic');
     $r->any('/api/:table/:id')->to('api#generic');
     # Create a new alias (CNAME) pointing at an RR: new RR + rrcname.

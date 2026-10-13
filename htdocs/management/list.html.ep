@@ -55,9 +55,9 @@
       % # Two distinct boxes, as in the legacy device_tasks.html (view=new):
       % # "Discover Device" (name/IP + SNMP version + community -> the wizard
       % # step 1, then review + guesses, then Device->discover) and
-      % # "Add Device manually" (name/IP only -> POST /api/device/manual_add
-      % # -> Device->manual_add: DNS + monitored device + interface + /32
-      % # block + snmp_target), both admin-only.
+      % # "Add Device manually" (name/IP only -> POST /api/device
+      % # {discover: false, host} -> Device->manual_add: DNS + monitored
+      % # device + interface + /32 block + snmp_target), both admin-only.
       <hr style="margin:0.9em 0">
       <p style="margin:0.2em 0; font-weight:600">Discover Device</p>
       <form method="post" action="<%= $ndm->{discover} %>">
@@ -88,6 +88,7 @@
       <hr style="margin:0.9em 0">
       <p style="margin:0.2em 0; font-weight:600">Add Device manually</p>
       <form data-nd-api="<%= $ndm->{api} %>" data-nd-method="POST" data-nd-redirect="<%= $ndm->{goto} %>">
+        <input type="hidden" name="discover" value="false">
         <p style="margin:0.3em 0">
           <label>Name or IP:</label>
           <input type="text" name="host" class="longtxt" required>

@@ -9202,16 +9202,66 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Device'
+              properties:
+                auth_pass:
+                  description: 'Discovery v3: authentication passphrase.'
+                  type: string
+                auth_proto:
+                  description: 'Discovery v3: authentication protocol (MD5/SHA).'
+                  type: string
+                community:
+                  description: 'Discovery v1/v2: SNMP community (config default when
+                    absent).'
+                  type: string
+                contacts:
+                  description: 'Discovery: contact list ids.'
+                  items:
+                    type: integer
+                  type: array
+                discover:
+                  description: 'true: SNMP discovery; false/absent: manual add.'
+                  type: boolean
+                host:
+                  description: 'Manual add: device name or IP (resolved via DNS).'
+                  type: string
+                name:
+                  description: 'Discovery: device name or IP.'
+                  type: string
+                owner:
+                  description: 'Discovery: owner entity id.'
+                  type: integer
+                priv_pass:
+                  description: 'Discovery v3: privacy passphrase.'
+                  type: string
+                priv_proto:
+                  description: 'Discovery v3: privacy protocol (DES/AES).'
+                  type: string
+                sec_level:
+                  description: 'Discovery v3: security level (noAuthNoPriv, authNoPriv,
+                    authPriv).'
+                  type: string
+                sec_name:
+                  description: 'Discovery v3: security name (required).'
+                  type: string
+                site:
+                  description: 'Discovery: site entity id.'
+                  type: integer
+                snmp_version:
+                  description: 'Discovery: SNMP version, 1/2/3 (default 2).'
+                  type: integer
+                used_by:
+                  description: 'Discovery: used-by entity id.'
+                  type: integer
+              type: object
         required: 1
       responses:
-        '200':
+        '201':
           '200':
             content:
               application/json:
                 schema:
                   $ref: '#/components/schemas/Device'
-            description: Created object.
+            description: Device created.
         '400':
           '400':
             content:
@@ -9233,7 +9283,16 @@ paths:
                 schema:
                   type: object
             description: Not allowed
-      summary: Create a Device (body = field values; FK fields as their id)
+        '409':
+          '409':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Error
+      summary: 'Create a device: SNMP discovery (discover=true) or manual add (discover=false/absent).'
+      tags:
+      - specific
   /device/meta_data:
     get:
       operationId: meta_device
@@ -9386,6 +9445,65 @@ paths:
                   type: object
             description: Not found
       summary: Update a Device (body = fields to change; FK fields as their id)
+  /device/{id}/update:
+    post:
+      operationId: update_device
+      parameters:
+      - description: Object id (integer).
+        in: path
+        name: id
+        required: 1
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                pretend:
+                  description: 'Dry run: apply the info import, then roll back.'
+                  type: boolean
+              type: object
+        required: 0
+      responses:
+        '200':
+          '200':
+            content:
+              application/json:
+                schema:
+                  $ref: '#/components/schemas/Device'
+            description: Device updated.
+        '400':
+          '400':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Bad request
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+        '403':
+          '403':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not allowed
+        '404':
+          '404':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not found
+      summary: SNMP update (re-poll) of an existing device with its stored credentials.
+      tags:
+      - specific
   /deviceattr:
     get:
       operationId: list_deviceattr
@@ -26166,47 +26284,6 @@ paths:
                   type: object
             description: Not found
       summary: Update a SubnetZone (body = fields to change; FK fields as their id)
-  /updatedev:
-    post:
-      operationId: updatedev
-      requestBody:
-        content:
-          application/json:
-            schema:
-              properties:
-                info:
-                  description: Serialized device information.
-                  type: object
-                name:
-                  description: Device name.
-                  type: string
-              type: object
-        required: 1
-      responses:
-        '200':
-          '200':
-            content:
-              application/json:
-                schema:
-                  $ref: '#/components/schemas/Device'
-            description: Discovered device.
-        '400':
-          '400':
-            content:
-              application/json:
-                schema:
-                  type: object
-            description: Bad request
-        '401':
-          '401':
-            content:
-              application/json:
-                schema:
-                  type: object
-            description: Authentication required
-      summary: Discover / update a device from serialized device info
-      tags:
-      - specific
   /userright:
     get:
       operationId: list_userright
