@@ -1168,3 +1168,35 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
            literal in Perl becomes a double and stringifies to scientific
            notation, failing the `^-?\d+$` check — all real callers pass
            strings, so no production impact.)
+         - **Interfaces tab edit/delete (2026-10-13)** — port of Mason's
+           `interfaces.mhtml` `?editints=1`, display/validation only: the
+           `[edit]` link (can-edit) adds `&editints=1`; the table switches to
+           Mason's edit layout ([del] checkbox + Number / Name / Jack / Descr.
+           inputs, Speed/VLAN/Status/Connected hidden; Jack/Descr. columns
+           always shown in edit mode, as in Mason) and the mutations go
+           through the JSON API (architecture rule):
+           - `Controller/Device.pm#_interfaces`: `editints` param; each row
+             carries `id` + `edit` values (number/name/description/jack id +
+             label); the Jack cell is a plain `<select>` fed by the device
+             room's closet jacks (`room->closets` → `horizontalcables`,
+             sorted by label) when that list is ≤ `DEFAULT_SELECTMAX`
+             (Mason's `select_lookup` defaults), else the keyword-search
+             picker (`nd-fk-search`, target `horizontalcable`).
+           - `device.html.ep`: the edit table sits in a
+             `form.nd-if-edit` (`data-nd-api-base`, no `data-nd-api` — it must
+             NOT be picked up by `initForms`); per-row inputs carry
+             `data-nd-f` + `data-nd-orig` (the rendered value). Save/Cancel
+             row; Cancel goes back to the plain view.
+           - `netdot.js initIntEdit`: on Save (or Enter — form submit is
+             intercepted), only DIRTY fields per row are collected (current
+             value ≠ `data-nd-orig`; number compared as int, selects '' =
+             null); each dirty row → `PATCH /api/interface/<id>` (generic
+             router, per-object edit right on the parent Device), checked
+             rows → ONE `DELETE /api/interface?id=1,2,3` (batch delete,
+             per-id permission + {deleted, skipped} report). Per-id error
+             report; full success → reload.
+           - Not ported yet (Mason's Options box): « Manually Add N
+             interfaces » (`Device->add_interfaces`) and « SNMP Updates
+             Overwrite Descriptions » (`set_overwrite_if_descr`) — both need
+             dedicated API endpoints (model actions, not plain column
+             writes).

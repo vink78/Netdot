@@ -1370,9 +1370,103 @@
     }
   }
 
+  // Interfaces tab edit mode (port of Mason's ?editints=1): inline inputs
+  // (number / name / description / jack) + delete checkboxes on the same table.
+  // Save PATCHes only the DIRTY rows (PATCH /api/interface/<id> — a row's
+  // value differs from its data-nd-orig) and deletes the checked rows in ONE
+  // batch call (DELETE /api/interface?id=1,2,3), then reloads. All writes go
+  // through the JSON API; the page itself is display-only.
+  function initIntEdit() {
+    var forms = document.querySelectorAll('form.nd-if-edit');
+    for (var i = 0; i < forms.length; i++) {
+      (function (form) {
+        var save = form.querySelector('.nd-if-save');
+        var base = form.getAttribute('data-nd-api-base');
+        if (!save || !base) { return; }
+
+        // Current value of an editable cell: select -> id or null, number ->
+        // int when purely numeric, else the string as-is.
+        function cellVal(f, el) {
+          if (f === 'number' && /^\d+$/.test(el.value)) { return parseInt(el.value, 10); }
+          if (el.tagName === 'SELECT') { return el.value === '' ? null : el.value; }
+          return el.value;
+        }
+
+        function doSave() {
+          var rows = form.querySelectorAll('tr[data-nd-if]');
+          var updates = [], deletes = [];
+          for (var r = 0; r < rows.length; r++) {
+            var row = rows[r];
+            var id  = row.getAttribute('data-nd-if');
+            var del = row.querySelector('.nd-if-del');
+            if (del && del.checked) { deletes.push(id); continue; }
+            var body = {};
+            var els = row.querySelectorAll('[data-nd-f]');
+            for (var j = 0; j < els.length; j++) {
+              var el   = els[j];
+              var f    = el.getAttribute('data-nd-f');
+              var orig = el.getAttribute('data-nd-orig') || '';
+              // selects: '' (no value) means null, like cellVal() produces.
+              if (el.tagName === 'SELECT') { orig = orig || null; }
+              if (f === 'number' && /^\d+$/.test(orig)) { orig = parseInt(orig, 10); }
+              var val = cellVal(f, el);
+              if (val !== orig) { body[f] = val; }
+            }
+            if (Object.keys(body).length) { body.id = id; updates.push(body); }
+          }
+          if (!updates.length && !deletes.length) { status(false, 'No changes to save.', 3000); return; }
+          save.disabled = true;
+          spinner(true, 'Saving ' + (updates.length + deletes.length) + ' interface(s)…');
+          // One PATCH per dirty row (tagged with its id for the error report),
+          // then the batch DELETE. api() never rejects, so Promise.all is safe.
+          var calls = updates.map(function (u) {
+            var id = u.id; delete u.id;
+            return api('PATCH', base + '/interface/' + id, u).then(function (res) {
+              res.id = id;
+              return res;
+            });
+          });
+          Promise.all(calls).then(function (results) {
+            if (!deletes.length) { return results; }
+            return api('DELETE', base + '/interface?id=' + deletes.join(',')).then(function (d) {
+              d.id = 'delete';
+              results.push(d);
+              return results;
+            });
+          }).then(function (results) {
+            spinner(false);
+            save.disabled = false;
+            var nSaved = 0, nDel = 0, skipped = 0, errs = [];
+            for (var k = 0; k < results.length; k++) {
+              var res = results[k];
+              if (!res.ok) { errs.push((res.id === 'delete' ? 'delete' : '#' + res.id) + ': ' + errMsg(res)); continue; }
+              if (res.id === 'delete') {
+                var d = res.data || {};
+                nDel = (d.deleted && d.deleted.length) || 0;
+                skipped = (d.skipped && Object.keys(d.skipped).length) || 0;
+              } else {
+                nSaved++;
+              }
+            }
+            var msg = nSaved + ' saved' + (nDel ? ', ' + nDel + ' deleted' : '') +
+                      (skipped ? ' (' + skipped + ' skipped)' : '');
+            if (errs.length) { msg += ', ' + errs.length + ' error(s): ' + errs.join('; '); }
+            status(!errs.length, msg, errs.length ? 10000 : undefined);
+            if (!errs.length) { setTimeout(function () { location.reload(); }, 700); }
+          });
+        }
+
+        save.addEventListener('click', doSave);
+        // Enter in an input submits the form -> save (Mason's form submit).
+        form.addEventListener('submit', function (e) { e.preventDefault(); doSave(); });
+      })(forms[i]);
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
     initDiscRun();
+    initIntEdit();
     initDhcpEnable();
     initToggle();
     initRecToggles();

@@ -475,6 +475,9 @@ sub _interfaces {
     my $ifsort   = $c->param('ifsort') || 'number';
     $ifsort      = 'number' unless $sort_keys{$ifsort};
     my $showvlan = $c->param('showvlan') || 'all';
+    # Edit mode (Mason's ?editints=1): display only — the mutations go through
+    # the JSON API (PATCH /api/interface/<id>, DELETE /api/interface?id=…).
+    my $editints = $c->param('editints') ? 1 : 0;
 
     my $ifs = eval { $o->interfaces_by($ifsort) };
     $ifs = [] if $@ || !ref($ifs);
@@ -502,6 +505,29 @@ sub _interfaces {
     for my $if (@ifs) {
         $present{jack} = 1 if defined eval { $if->jack };
         $present{desc} = 1 if defined eval { $if->description };
+    }
+
+    # Edit mode: the Jack cell is a <select> fed by the device room's closet
+    # jacks when that list is small enough (Mason's select_lookup defaults);
+    # otherwise a keyword search (nd-fk-search, target horizontalcable).
+    my ( $jack_opts, $jack_kw );
+    if ($editints) {
+        my @closet_jacks;
+        my $room = eval { $o->room };
+        if ($room) {
+            my @closets = eval { $room->closets } || ();
+            for my $cl (@closets) {
+                my @hc = @{ ( eval { $cl->horizontalcables } || [] ) };
+                push @closet_jacks, @hc;
+            }
+        }
+        @closet_jacks = sort { ( eval { $a->get_label } // '' ) cmp ( eval { $b->get_label } // '' ) } @closet_jacks;
+        my $max = Netdot->config->get('DEFAULT_SELECTMAX') || 100;
+        if ( @closet_jacks && @closet_jacks <= $max ) {
+            $jack_opts = [ map { [ $_->id, eval { $_->get_label } // '' ] } @closet_jacks ];
+        } else {
+            $jack_kw = 1;
+        }
     }
 
     my @rows;
@@ -553,7 +579,22 @@ sub _interfaces {
 
         my $jack = Netdot::Mojo::Registry::link_for( eval { $if->jack } );
 
+        # Edit-mode values (Mason's form_field echo): the JS sends back only the
+        # fields that differ from these (data-nd-orig), via PATCH /api/interface/<id>.
+        my %edit;
+        if ($editints) {
+            $edit{number}      = $if->number // '';
+            $edit{name}        = $if->name // '';
+            $edit{description} = $if->description // '';
+            my $jackid = eval { $if->jack->id };
+            $edit{jack} = defined $jackid ? $jackid : undef;
+            $edit{jack_label} = eval { $if->jack->get_label } // '#' . $jackid
+                if defined $jackid;
+        }
+
         push @rows, {
+            id     => $i,
+            edit   => \%edit,
             number => [ [ $if->number // '', $ihref ] ],
             name   => [ [ $if->name   // '', $ihref ] ],
             speed  => [ [ $if->speed_pretty // '', undef ] ],
@@ -571,8 +612,13 @@ sub _interfaces {
         showvlan  => $showvlan,
         rows      => \@rows,
         vids      => [ sort { $a <=> $b } keys %allvids ],
-        show_jack => $present{jack} ? 1 : 0,
-        show_desc => $present{desc} ? 1 : 0,
+        # Mason shows the Jack / Descr. columns in edit mode even when no
+        # interface has a value yet.
+        show_jack => ( $present{jack} || $editints ) ? 1 : 0,
+        show_desc => ( $present{desc} || $editints ) ? 1 : 0,
+        editints  => $editints,
+        jack_opts => $jack_opts,
+        jack_kw   => $jack_kw ? 1 : 0,
         sort_base => Netdot::Mojo::Registry::set_uri( "/management/device/$id?view=Interfaces" ),
     };
 }

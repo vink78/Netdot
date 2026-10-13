@@ -110,6 +110,12 @@
 % my $show_jack = $c->stash->{show_jack} // 0;
 % my $show_desc = $c->stash->{show_desc} // 0;
 % my $sort_base = $c->stash->{sort_base} // $base;
+% my $editints  = $c->stash->{editints}  // 0;
+% my $ifsort    = $c->stash->{ifsort}    // 'number';
+% my $jack_opts = $c->stash->{jack_opts} // [];
+% my $jack_kw   = $c->stash->{jack_kw}   // 0;
+% my $api_base  = $c->web_prefix . '/api';
+% my $edit_url  = $base . '?view=Interfaces&ifsort=' . $ifsort;
 <div style="margin:0.5em 0; font-size:0.9em">
   <form method="get" action="<%= $base %>" style="display:inline">
     <input type="hidden" name="view" value="Interfaces">
@@ -124,19 +130,36 @@
   &nbsp;&nbsp; Legend:
   <span style="background-color:#cccccc">manual</span>
   <span style="background-color:#ff8e8e">removed</span>
+  % if ( $can_edit && !$editints ) {
+  &nbsp;&nbsp;<a class="btn" href="<%= $edit_url %>&amp;editints=1">Edit</a>
+  % }
 </div>
-
-% my @cols = (
-%   [ 'number', 'Number', 'number' ],
-%   [ 'name',   'Name',   'name'   ],
-%   [ 'speed',  'Speed',  'speed'  ],
-%   [ 'vlans',  'VLAN',   'vlan'   ],
-%   [ 'status', 'Status', 'oper_status' ],
-% );
-% push @cols, [ 'jack',  'Jack',     'jack'  ] if $show_jack;
-% push @cols, [ 'descr', 'Descr.',   'descr' ] if $show_desc;
-% push @cols, [ 'conn',  'Connected Devices', undef ];
-
+% if ($editints) {
+% # Mason's ?editints=1: the whole table becomes editable; saving goes through
+% # the JSON API (netdot.js initIntEdit: PATCH /api/interface/<id> per dirty
+% # row, ONE DELETE /api/interface?id=… for the checked rows).
+<form class="nd-if-edit" data-nd-api-base="<%= $api_base %>">
+% }
+% my @cols;
+% if ($editints) {
+%   # Edit mode: [del] + the editable fields only, plain headers (Mason).
+%   @cols = ( [ 'del',    undef,    undef    ],
+%             [ 'number', 'Number', undef    ],
+%             [ 'name',   'Name',   undef    ],
+%             [ 'jack',   'Jack',   undef    ],
+%             [ 'descr',  'Descr.', undef    ] );
+% } else {
+%   @cols = (
+%     [ 'number', 'Number', 'number' ],
+%     [ 'name',   'Name',   'name'   ],
+%     [ 'speed',  'Speed',  'speed'  ],
+%     [ 'vlans',  'VLAN',   'vlan'   ],
+%     [ 'status', 'Status', 'oper_status' ],
+%   );
+%   push @cols, [ 'jack',  'Jack',  'jack'  ] if $show_jack;
+%   push @cols, [ 'descr', 'Descr.','descr' ] if $show_desc;
+%   push @cols, [ 'conn',  'Connected Devices', undef ];
+% }
 <table class="datatable sortable">
   <thead>
     <tr>
@@ -153,10 +176,42 @@
   <tbody>
     % for my $r (@$rows) {
     % if ($r->{style}) {
-    <tr style="<%= $r->{style} %>">
+    <tr data-nd-if="<%= $r->{id} %>" style="<%= $r->{style} %>">
     % } else {
-    <tr>
+    <tr data-nd-if="<%= $r->{id} %>">
     % }
+      % if ($editints) {
+      % my $edit = $r->{edit} || {};
+      % my $jval = defined $edit->{jack} ? $edit->{jack} : '';
+      <td><input type="checkbox" class="nd-if-del"></td>
+      <td><input type="text" data-nd-f="number" data-nd-orig="<%= $edit->{number} // '' %>" value="<%= $edit->{number} // '' %>" style="width:5em"></td>
+      <td><input type="text" data-nd-f="name" data-nd-orig="<%= $edit->{name} // '' %>" value="<%= $edit->{name} // '' %>" style="width:10em"></td>
+      <td>
+        % if ($jack_kw) {
+        % # Many (or no) closet jacks: keyword search + select (nd-fk-search),
+        % # like the detail edit form's large-FK picker.
+        <span class="nd-fk-search">
+          <input type="text" class="nd-fk-kw" placeholder="Search…" data-nd-target="horizontalcable" data-nd-max="100">
+          <button type="button" class="btn nd-fk-go">List</button>
+          <select data-nd-f="jack" data-nd-orig="<%= $jval %>">
+            <option value="">-- Search --</option>
+            % if ( defined $edit->{jack} ) {
+            <option value="<%= $jval %>" selected><%= $edit->{jack_label} // '#' . $jval %></option>
+            % }
+            <option value="">[null]</option>
+          </select>
+        </span>
+        % } else {
+        <select data-nd-f="jack" data-nd-orig="<%= $jval %>">
+          <option value="">[null]</option>
+          % for my $jo (@$jack_opts) {
+          <option value="<%= $jo->[0] %>"<%= ( $jval ne '' && $jval eq $jo->[0] ) ? ' selected' : '' %>><%= $jo->[1] %></option>
+          % }
+        </select>
+        % }
+      </td>
+      <td><input type="text" data-nd-f="description" data-nd-orig="<%= $edit->{description} // '' %>" value="<%= $edit->{description} // '' %>"></td>
+      % } else {
       % for my $col (@cols) {
       % my $key  = $col->[0];
       % my $segs = $r->{$key};
@@ -183,10 +238,19 @@
         % }
       </td>
       % }
+      % }
     </tr>
     % }
   </tbody>
 </table>
+% if ($editints) {
+  <p style="margin:0.8em 0 0">
+    <button type="button" class="btn nd-if-save">Save</button>
+    <a class="btn" href="<%= $edit_url %>">Cancel</a>
+    &nbsp;&nbsp;<span style="color:#666;font-size:0.85em">Checked rows are deleted; unchanged fields are not sent.</span>
+  </p>
+</form>
+% }
 % }
 % elsif ($view eq 'IP' || $view eq 'BGP' || $view eq 'Hosted' || $view eq 'Circuits'
 %        || $view eq 'STP' || $view eq 'Modules' || $view eq 'Audit' || $view eq 'Rights') {
