@@ -381,6 +381,46 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
      (`ints_by_number`, the `get_ips` loop) → `for my`: the package `$_`
      transiently held the last looped object.
 
+ ### 6. JSON booleans from the API are **blessed scalars** (2026-10-14)
+ Mojolicious `req->json` decodes `true`/`false` to **blessed scalar objects**
+ (`JSON::PP::Boolean`; `Mojo::JSON::Boolean` on some versions) — truthy,
+ `ref` = the class name. Legacy `Netdot::Model` assumes **blessed ⇒ Netdot
+ object**: `Model::_audit` (the `after_insert`/`after_update` trigger) calls
+ `->get_label()` on any blessed field value → a JSON boolean dies
+ (`Can't call method "get_label" … JSON::PP::Boolean`) → 400 on any
+ POST/PATCH whose body carries a JSON boolean (e.g. the Device Basics
+ checkboxes: `collect_stp`, `snmp_polling`, `ipforwarding`, `auto_dns`).
+ - **Fix layer 1 — API boundary** (`Api.pm::_args`): normalize every blessed
+   non-HASH/ARRAY value (including array items) to plain `0 + $v` before it
+   reaches the models. All JSON write handlers route through `_args`, so the
+   models see plain 0/1 exactly like the non-API callers (SNMP poller,
+   wizards).
+ - **Fix layer 2 — model guard** (`Model::_audit`, insert AND update branch):
+   call `get_label` only on values that actually have it —
+   `blessed($v) && $v->can('get_label')` (every Netdot object has it, a JSON
+   boolean does not). Otherwise push the raw value — a boolean stringifies to
+   `1`/`0` in the audit `join`. `can('get_label')` covers both JSON boolean
+   classes (the class name is version-dependent) and any future blessed
+   scalar; an `isa('JSON::PP::Boolean')` check would not.
+ - **Silent no-op bug (cost hours)**: the first `_args` normalization loop
+   wrote `ref $a->{$k}` / `$a->{$k} = …` while the local hash is `%a`. `$a`
+   is the **global sort variable** — a leftover hashref from the last `sort`
+   of hashrefs in the process. Syntactically valid, no warning, `perl -c`
+   passes; at runtime `ref undef` = `''` so the normalization `if` never
+   fired and the blessed booleans sailed through untouched. Element access of
+   a local `%a` is `$a{$k}`; `$a->{k}` dereferences the *global* `$a`. Same
+   hazard for `$b` next to a local `%b`.
+ - **Diagnosing it**: the model's Log4perl logger is ERROR-level
+   (`log4perl.category.Netdot = ERROR, Syslog` in `etc/Default.conf`), so
+   `->info` diagnostics in `Model.pm` never reach the daemon log — use the
+   app logger (level `info`) or file-based canaries in the API layer instead.
+ - **Observation — a failed PATCH still commits the SQL**: the audit crash
+   happens in the `after_update` trigger, which runs AFTER the UPDATE
+   statement → the 400 response leaves the changed values committed in the
+   DB. Re-sending the same payload is then a no-op (only `last_updated`
+   changes) → 200. That is the "1st post fails, 2nd passes" symptom. With
+   both fixes in place every post 200s.
+
 ## Mason → Mojolicious reference
 - Generic view of a record: `htdocs/generic/view.html?table=X&id=Y`.
 - Port a type: take the Mason page (`htdocs/management/*.mhtml`) and its
@@ -1374,5 +1414,24 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
            existence (404), and maps the model's `throw_user` to a 400
            (`$e->message`). ⚠️ the overload takes a **hashref** — the first cut
            called it with a key/value list (`Can't use string ("object_class") as
-           a HASH ref`); the fix (still uncommitted at this writing — it must
-           accompany any commit of the refactor) wraps the arguments in `{…}`.
+           a HASH ref`); the fix (commit `5eaa6e72`) wraps the arguments in
+           `{…}`.
+          - **Fix JSON boolean writes (2026-10-14, Pitfall §6)** — `PATCH /api/…`
+            with a JSON `true`/`false` body (e.g. the Device Basics checkboxes)
+            400'd: `req->json` decodes booleans to blessed `JSON::PP::Boolean`
+            scalars and `Model::_audit` (the `after_insert`/`after_update`
+            trigger) assumed blessed ⇒ Netdot object → `->get_label()` crash.
+            Two fixes: (1) `Api.pm::_args` normalizes every blessed non-HASH/
+            ARRAY value to plain `0 + $v` at the JSON boundary (all write
+            handlers route through it); (2) `Model::_audit` (insert + update
+            branch) only calls `get_label` on `blessed && $v->can('get_label')`.
+            The original normalization loop was a **silent no-op** — it read
+            `$a->{$k}` (the *global* sort variable `$a`, a leftover hashref
+            from the last `sort`) instead of the local hash element `$a{$k}`;
+            `perl -c` passed and nothing warned. Also observed: the audit crash
+            happens in the `after_update` trigger AFTER the UPDATE, so a 400
+            PATCH still leaves the changed values committed — re-sending the
+            same payload is a no-op → 200 ("1st post fails, 2nd passes").
+            Verified: `collect_stp` 0→1 / repeat / 1→0 all 200, audit `vals`
+            records `1`/`0` correctly, device state restored. Commit `5eaa6e72`
+            (« Fix boolean issue »).

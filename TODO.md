@@ -562,8 +562,21 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
    >   l'existence de l'objet, et mappe les `throw_user` du modèle en 400. ⚠️ l'overload
    >   prend une **hashref** (`AccessRight->insert({...})`) — un appel en liste de
    >   paires donne « Can't use string ("object_class") as a HASH ref » — le
-   >   fix (passage en hashref) est **non commité** (working tree `Api.pm`), à
-   >   inclure au prochain commit.
+   >   fix (passage en hashref) commité dans `5eaa6e72` (Fix boolean issue).
+   >   ⚠️ **Booléens JSON (2026-10-14)** : `req->json` décode `true`/`false` en
+   >   scalaires **blessed** (`JSON::PP::Boolean`) ; le legacy `Model::_audit`
+   >   suppose blessed = objet Netdot (`->get_label()`) → 400 sur tout PATCH
+   >   avec un booléen JSON (checkboxes Device Basics). Fix double :
+   >   (1) `Api.pm::_args` normalise toute valeur blessed non-HASH/ARRAY en
+   >   `0 + $v` à la frontière JSON (tous les handlers d'écriture y passent) ;
+   >   (2) guard `blessed && $v->can('get_label')` dans `_audit` (branches
+   >   insert + update). ⚠️ la 1ʳᵉ version de la normalisation était un **no-op
+   >   silencieux** : `$a->{$k}` (le `$a` global de tri = hashref résiduelle du
+   >   dernier `sort`) au lieu de `$a{$k}` (élément du hash local `%a`) —
+   >   `perl -c` OK, sans warning. À noter : le crash d'audit survient dans le
+   >   trigger `after_update` **après** l'UPDATE → un PATCH en 400 laisse
+   >   quand même les valeurs commitées (2ᵉ post identique = 200 no-op, « 1er
+   >   post fails, 2ème passe »). Cf. `PORTING_NOTES.md` §6.
 
 ## Déprécié / non migré — ⛔
 
@@ -895,3 +908,9 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   C (add : POST body complet) → **PASS** ; `initRights` inchangé (générique).
 - **Log daemon** : 0 erreur depuis le dernier restart (hors bruit préexistant :
   compile error `device_discover.html.ep` + passphrases USM SNMP).
+- **Booléens JSON** (Device Basics) : `PATCH {"collect_stp":true}` 0→1, post
+  identique répété, 1→0 → tous **200** (avant : 1er post 400 `get_label` sur
+  `JSON::PP::Boolean`, 2ᵉ post 200 — le SQL étant commité avant le crash du
+  trigger `after_update`) ; l'audit enregistre bien `1`/`0` dans `vals` ;
+  état du device restauré. Fixs : normalisation `_args` + guard `_audit`
+  (cf. `PORTING_NOTES.md` §6) — commit `5eaa6e72`.

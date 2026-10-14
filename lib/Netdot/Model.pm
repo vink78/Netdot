@@ -163,10 +163,13 @@ BEGIN {
 		next if exists $EXCLUDE_AUDIT_COL{$col};
 		if ( defined $self->$col ){ 
 		    push @fields, $col;
-		    if ( $self->$col && blessed($self->$col) ){
-			push @values, $self->$col->get_label();
+		    my $val = $self->$col;
+		    # Blessed JSON booleans (JSON::PP::Boolean / Mojo::JSON::Boolean)
+		    # come from the JSON API; only real Netdot objects carry a label.
+		    if ( $val && blessed( $val ) && $val->can("get_label") ){
+			push @values, $val->get_label();
 		    }else{
-			push @values, $self->$col;
+			push @values, $val;
 		    }
 		} 
 	    }
@@ -181,10 +184,13 @@ BEGIN {
 		my @values;
 		foreach my $col ( @$changed_columns ){
 		    next if exists $EXCLUDE_AUDIT_COL{$col};
-		    if ( $self->$col && blessed($self->$col) ){
-			push @values, $self->$col->get_label();
+		    my $val = $self->$col;
+		    # Blessed JSON booleans (JSON::PP::Boolean / Mojo::JSON::Boolean)
+		    # come from the JSON API; only real Netdot objects carry a label.
+		    if ( $val && blessed( $val ) && $val->can("get_label") ){
+			push @values, $val->get_label();
 		    }else{
-			push @values, $self->$col;
+			push @values, $val;
 		    }
 		}
 		$data{vals} = join ',', map { "'$_'" } @values;

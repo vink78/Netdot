@@ -81,6 +81,21 @@ sub _args {
     my %a = %{ $c->req->params->to_hash };
     my $body = eval { $c->req->json };
     %a = ( %a, %$body ) if ref $body eq 'HASH';
+    # JSON booleans decode to blessed scalar objects (JSON::PP::Boolean).
+    # The legacy models assume a blessed value is a Netdot object — e.g.
+    # _audit() calls ->get_label() on any blessed field value (and the
+    # _adjust_vals "" handling skips blessed values) — so normalize them to
+    # plain 0/1 here, at the JSON boundary. This keeps the models fed plain
+    # scalars, exactly like the non-API callers (SNMP poller, wizards).
+    for my $k ( keys %a ) {
+        my $r = ref $a{$k};
+        $a{$k} = 0 + $a{$k} if $r && $r ne 'HASH' && $r ne 'ARRAY';
+        next unless ref $a{$k} eq 'ARRAY';
+        for my $item ( @{ $a{$k} } ) {
+            my $ir = ref $item;
+            $item = 0 + $item if $ir && $ir ne 'HASH' && $ir ne 'ARRAY';
+        }
+    }
     return \%a;
 }
 
