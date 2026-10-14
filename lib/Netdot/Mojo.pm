@@ -308,6 +308,13 @@ sub startup ($self) {
     # SNMP update (re-poll) of an existing device with its stored credentials
     # (Mason: updatedevice.html?device=<id> / "snmp-update").
     $r->post('/api/device/:id/update')->to('api#update_device');
+    # Device IP view actions (Mason: device.html IP section handlers).
+    $r->post('/api/device/:id/add_ip')->to('api#add_ip');
+    $r->post('/api/device/:id/auto_dns')->to('api#set_auto_dns');
+    $r->post('/api/device/:id/regen_dns')->to('api#regen_dns');
+    # Create an IP service (Mason: addservice.html popup): duplicate-checked,
+    # and the parent IP is set monitored afterwards (legacy side effect).
+    $r->post('/api/ipservice')->to('api#add_ipservice');
     $r->any('/api/:table')->to('api#generic');
     $r->any('/api/:table/:id')->to('api#generic');
     # Create a new alias (CNAME) pointing at an RR: new RR + rrcname.

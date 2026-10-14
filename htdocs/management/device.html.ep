@@ -269,7 +269,198 @@
 </form>
 % }
 % }
-% elsif ($view eq 'IP' || $view eq 'BGP' || $view eq 'Hosted' || $view eq 'Circuits'
+% elsif ($view eq 'IP') {
+% # Device IP view (port of device.html "IP" section): display + edit (editips)
+% # + add IP (add_ip) + DNS options. Writes go through the JSON API:
+% #   row save  -> PATCH /api/ipblock/<id>  (interface / monitored)
+% #   row/cell  -> DELETE /api/{ipblock,rr,ipservice}?id=…
+% #   add IP    -> POST /api/device/<id>/add_ip
+% #   add svc   -> POST /api/ipservice
+% #   auto DNS  -> POST /api/device/<id>/auto_dns | /regen_dns
+% my $rows       = $c->stash->{rows}       // [];
+% my $sort_base  = $c->stash->{sort_base}  // $base;
+% my $sort       = $c->stash->{sort}       // 'address';
+% my $empty_msg  = $c->stash->{empty_msg}  // 'No data.';
+% my $can_edit   = $c->stash->{can_edit}   // 0;
+% my $editips    = $c->stash->{editips}    // 0;
+% my $add_ip     = $c->stash->{add_ip}     // 0;
+% my $int_opts   = $c->stash->{int_opts}   // [];
+% my $svc_opts   = $c->stash->{svc_opts}   // [];
+% my $cl_opts    = $c->stash->{cl_opts}    // [];
+% my $cl_def     = $c->stash->{cl_def};
+% my $api_base   = $c->web_prefix . '/api';
+% my $ip_url     = $base . '?view=IP&ipsort=' . $sort;
+
+% if ( $can_edit && !$editips && !$add_ip ) {
+<div style="margin:0.5em 0; font-size:0.9em">
+  <a class="btn" href="<%= $ip_url %>&amp;editips=1">Edit</a>
+  <a class="btn" href="<%= $ip_url %>&amp;add_ip=1">Add</a>
+</div>
+% }
+
+% if ($editips) {
+% # Mason's ?editips=1: per-IP delete, interface select, per-RR / per-service
+% # delete checkboxes, monitored checkbox; saving goes through the JSON API
+% # (initIntEdit, data-nd-table="ipblock").
+<form class="nd-if-edit" data-nd-table="ipblock" data-nd-api-base="<%= $api_base %>">
+% }
+% if (!@$rows) {
+<p style="color:#666"><i><%= $empty_msg %></i></p>
+% } else {
+<table class="datatable sortable">
+  <thead>
+    <tr>
+    % if ($editips) {
+    <th></th>
+    % }
+    <th><a href="<%= $sort_base %>&amp;ipsort=address">Address</a></th>
+    <th>Subnet</th>
+    <th><a href="<%= $sort_base %>&amp;ipsort=interface">Interface</a></th>
+    <th>DNS Name(s)</th>
+    <th>Monitored?</th>
+    <th>Services</th>
+    </tr>
+  </thead>
+  <tbody>
+    % for my $row (@$rows) {
+    <tr data-nd-if="<%= $row->{id} %>">
+      % if ($editips) {
+      <td><input type="checkbox" class="nd-if-del" data-nd-del="ipblock"></td>
+      <td><%= $row->{address}[0] %></td>
+      <td><%= $row->{subnet}[0] %></td>
+      <td>
+        % my $ival = defined $row->{iface_id} ? $row->{iface_id} : '';
+        <select class="nd-fk-select" data-nd-f="interface" data-nd-orig="<%= $ival %>">
+          <option value="">[null]</option>
+          % for my $io (@$int_opts) {
+          <option value="<%= $io->[0] %>"<%= ( $ival ne '' && $ival eq $io->[0] ) ? ' selected' : '' %>><%= $io->[1] %></option>
+          % }
+        </select>
+      </td>
+      <td>
+        % for my $d (@{ $row->{dns} }) {
+        % if ($d->{deletable}) {
+        <input type="checkbox" class="nd-cell-del" data-nd-del="rr" data-nd-id="<%= $d->{id} %>" title="Delete this DNS name">
+        % }
+        <a href="<%= $d->{href} %>"><%= $d->{label} %></a><br>
+        % }
+      </td>
+      <td><input type="checkbox" data-nd-f="monitored" data-nd-orig="<%= $row->{monitored} %>"<%= $row->{monitored} ? ' checked' : '' %></td>
+      <td>
+        % for my $s (@{ $row->{services} }) {
+        <input type="checkbox" class="nd-cell-del" data-nd-del="ipservice" data-nd-id="<%= $s->{id} %>" title="Delete this service">
+        <a href="<%= $s->{href} %>"><%= $s->{name} %></a><br>
+        % }
+      </td>
+      % } else {
+      <td><a href="<%= $row->{address}[1] %>"><%= $row->{address}[0] %></a></td>
+      % if ($row->{subnet}[1]) {
+      <td><a href="<%= $row->{subnet}[1] %>"><%= $row->{subnet}[0] %></a></td>
+      % } else {
+      <td><%= $row->{subnet}[0] %></td>
+      % }
+      % if ($row->{iface}[1]) {
+      <td><a href="<%= $row->{iface}[1] %>"><%= $row->{iface}[0] %></a></td>
+      % } else {
+      <td><%= $row->{iface}[0] %></td>
+      % }
+      <td>
+        % for my $d (@{ $row->{dns} }) {
+        <a href="<%= $d->{href} %>"><%= $d->{label} %></a><br>
+        % }
+      </td>
+      <td><%= $row->{monitored} ? 'yes' : 'no' %></td>
+      <td>
+        % for my $s (@{ $row->{services} }) {
+        <a href="<%= $s->{href} %>"><%= $s->{name} %></a><br>
+        % }
+        % if ($can_edit) {
+        % # Inline port of Mason's addservice.html popup.
+        <a class="hand nd-svc-toggle" href="#">[add]</a>
+        <div class="nd-svc-form" style="display:none">
+          <form class="nd-if-svc" data-nd-ip="<%= $row->{id} %>" data-nd-api-base="<%= $api_base %>">
+            <select name="service">
+              <option value="">-- Service --</option>
+              % for my $so (@$svc_opts) {
+              <option value="<%= $so->[0] %>"><%= $so->[1] %></option>
+              % }
+            </select>
+            <label><input type="checkbox" name="monitored" value="1" checked>mon.</label>
+            <select name="contactlist">
+              <option value="">-- Contact --</option>
+              % for my $clo (@$cl_opts) {
+              <option value="<%= $clo->[0] %>"<%= ( defined $cl_def && $cl_def == $clo->[0] ) ? ' selected' : '' %>><%= $clo->[1] %></option>
+              % }
+            </select>
+            <button type="submit" class="btn">Add</button>
+          </form>
+        </div>
+        % }
+      </td>
+      % }
+    </tr>
+    % }
+  </tbody>
+</table>
+% }
+% if ($editips) {
+  <p style="margin:0.8em 0 0">
+    <button type="button" class="btn nd-if-save">Save</button>
+    <a class="btn" href="<%= $ip_url %>">Cancel</a>
+    &nbsp;&nbsp;<span style="color:#666;font-size:0.85em">Checked rows are deleted; unchanged fields are not sent.</span>
+  </p>
+</form>
+% }
+% if ($add_ip) {
+% # Mason's ?add_ip=1: add an IP address to the device (POST /api/device/<id>/add_ip).
+<form class="nd-add-ip" data-nd-api-base="<%= $api_base %>" data-nd-id="<%= $id %>">
+  <table class="datatable">
+    <tr><th>Address</th><th>Interface</th></tr>
+    <tr>
+      <td><input type="text" name="address" style="width:15em" placeholder="1.2.3.4 or 2001:db8::1"></td>
+      <td>
+        <select name="interface">
+          <option value="">Select Interface</option>
+          % for my $io (@$int_opts) {
+          <option value="<%= $io->[0] %>"><%= $io->[1] %></option>
+          % }
+        </select>
+      </td>
+    </tr>
+  </table>
+  <p style="margin:0.8em 0 0">
+    <button type="submit" class="btn">Add</button>
+    <a class="btn" href="<%= $ip_url %>">Cancel</a>
+  </p>
+</form>
+% }
+% if ($can_edit && !$editips && !$add_ip) {
+% # Mason's "DNS Options" box (two small actions on the device).
+<div class="container" style="margin-top:0.8em">
+  <div class="containerhead">DNS Options</div>
+  <div class="containerbody">
+    <p style="margin:0.3em 0">
+      <form class="nd-dev-act" data-nd-action="auto_dns" data-nd-api-base="<%= $api_base %>" data-nd-id="<%= $id %>" style="display:inline">
+        Set Auto DNS on all IP interfaces to:
+        <select name="value">
+          <option value="" selected>--Select--</option>
+          <option value="0">No</option>
+          <option value="1">Yes</option>
+        </select>
+        <button type="submit" class="btn">Set</button>
+      </form>
+    </p>
+    <p style="margin:0.3em 0">
+      <form class="nd-dev-act" data-nd-action="regen_dns" data-nd-api-base="<%= $api_base %>" data-nd-id="<%= $id %>" style="display:inline">
+        Re-generate DNS names for all IPs
+        <button type="submit" class="btn">Go</button>
+      </form>
+    </p>
+  </div>
+</div>
+% }
+% }
+% elsif ($view eq 'BGP' || $view eq 'Hosted' || $view eq 'Circuits'
 %        || $view eq 'STP' || $view eq 'Modules' || $view eq 'Audit' || $view eq 'Rights') {
 % my $cols       = $c->stash->{cols}       // [];
 % my $rows       = $c->stash->{rows}       // [];

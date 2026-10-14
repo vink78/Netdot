@@ -46,6 +46,8 @@ our %TYPES = (
     ipblockstatus   => { class => 'IpblockStatus',   nav => 0 },
     circuit         => { class => 'Circuit',         nav => 0 },
     arpcache        => { class => 'ArpCache',        nav => 0 },
+    # IP service rows: reached from the device IP view's service cells.
+    ipservice       => { class => 'IpService',       nav => 0 },
     sitelink        => { class => 'SiteLink',        nav => 0 },
     fwtable         => { class => 'FWTable',         nav => 0 },
     stpinstance     => { class => 'STPInstance',     nav => 0 },
@@ -72,8 +74,8 @@ our @ORDER = qw(
     ipblock device asset interface vlan vlangroup zone site room floor closet person
     rr rrns rrmx rrtxt rrnaptr entity service contactlist physaddr
     product availability ipblockstatus circuit arpcache sitelink fwtable stpinstance
-    horizontalcable backbonecable dhcscope producttype asn usertype contacttype
-    dhcpscopetype entitytype
+    horizontalcable backbonecable ipservice dhcscope producttype asn usertype
+    contacttype dhcpscopetype entitytype
 );
 sub types { @ORDER }
 

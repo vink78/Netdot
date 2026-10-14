@@ -677,12 +677,71 @@ sub _ip_view {
     my %ok       = map { $_ => 1 } qw(address interface);
     my $ipsort   = $c->param('ipsort') || 'address';
     $ipsort      = 'address' unless $ok{$ipsort};
+    my $showvlan = $c->param('showvlan') || 'all';
+    my $editips  = $c->param('editips') ? 1 : 0;
+    my $add_ip   = $c->param('add_ip')  ? 1 : 0;
+    my $can_edit = $c->perm( 'edit', $o );
+
     my $r = eval { $o->get_ips( sort_by => $ipsort ) };
     $r = [] if $@ || !ref $r;
     my @ips = @$r;
 
+    # Mason filters the IP rows by the showvlan param (as the Interfaces view).
+    my %showif;
+    if ( $showvlan ne 'all' ) {
+        my @allifs;
+        eval { @allifs = $o->interfaces };
+        for my $if (@allifs) {
+            my @ifv;
+            eval { @ifv = $if->vlans };
+            for my $ifv (@ifv) {
+                my $vid = eval { $ifv->vlan->vid };
+                if ( defined $vid && "$vid" eq "$showvlan" ) {
+                    $showif{ $if->id } = 1;
+                    last;
+                }
+            }
+        }
+    }
+
+    # The device's interfaces: the Interface select options (edit mode + add
+    # form), sorted by label as in Mason.
+    my @ints;
+    eval { @ints = $o->interfaces };
+    my @int_opts =
+        map  { [ $_->id, ( eval { $_->get_label } || '#' . $_->id ) ] }
+        grep { $_ }
+        sort { ( eval { $a->get_label } // '' ) cmp ( eval { $b->get_label } // '' ) } @ints;
+
+    # The RR the device name points to: it must never be deletable from here
+    # (Mason: deleting it would break the device.name referential integrity).
+    my $name_rr = eval { $o->name->id };
+
+    # Service / contact list options for the inline "add service" form
+    # (Mason's addservice.html popup, inline here). The contact list defaults
+    # to the device's first contact's list, as in Mason.
+    my ( @svc_opts, @cl_opts, $cl_def );
+    eval {
+        my @svcs = Service->retrieve_all;
+        @svc_opts =
+            map  { [ $_->id, ( $_->name // '' ) ] }
+            grep { $_ }
+            sort { ( $a->name // '' ) cmp ( $b->name // '' ) } @svcs;
+        my @cls = ContactList->retrieve_all;
+        @cl_opts =
+            map  { [ $_->id, ( $_->name // '' ) ] }
+            grep { $_ }
+            sort { ( $a->name // '' ) cmp ( $b->name // '' ) } @cls;
+        my @cts = $o->contacts;
+        $cl_def = $cts[0] ? eval { $cts[0]->contactlist->id } : undef;
+    };
+
     my @rows;
     for my $ip (@ips) {
+        my $iface = eval { $ip->interface };
+        my $iface_id = eval { $iface->id };
+        next if $showvlan ne 'all' && !$showif{ $iface_id };
+
         my @dns;
         my @ar;
         eval { @ar = $ip->a_records };
@@ -691,48 +750,61 @@ sub _ip_view {
             next unless $rr;
             my $lbl = eval { $rr->get_label };
             $lbl //= eval { $rr->name };
-            push @dns, [ $lbl // '', Netdot::Mojo::Registry::set_uri( "/management/rr/" . $rr->id ) ] if length( $lbl // '' );
+            push @dns, {
+                id        => $rr->id,
+                label     => $lbl // '',
+                href      => Netdot::Mojo::Registry::set_uri( '/management/rr/' . $rr->id ),
+                deletable => ( defined $name_rr && $rr->id != $name_rr ) ? 1 : 0,
+            } if length( $lbl // '' );
         }
 
         my @svc;
         my @sv;
         eval { @sv = $ip->services };
         for my $s (@sv) {
-            my $sn = eval { $s->name };
-            push @svc, [ $sn // '', '' ] if length( $sn // '' );
+            my $sn = eval { $s->service->name };
+            push @svc, {
+                id   => $s->id,
+                name => $sn // '',
+                href => Netdot::Mojo::Registry::set_uri( '/management/ipservice/' . $s->id ),
+            } if length( $sn // '' );
         }
 
         my $parent = eval { $ip->parent };
-        my $iface  = eval { $ip->interface };
-
-        push @rows, [
-            [ [ ( eval { $ip->address } // '' ), Netdot::Mojo::Registry::set_uri( "/management/ipblock/" . $ip->id ) ] ],
-            $parent
-              ? [ [ ( eval { $parent->cidr } // eval { $parent->address } // '' ),
-                    Netdot::Mojo::Registry::set_uri( "/management/ipblock/" . $parent->id ) ] ]
-              : [ [ '', '' ] ],
-            $iface ? [ [ ( eval { $iface->name } // '' ), Netdot::Mojo::Registry::set_uri( "/management/interface/" . $iface->id ) ] ] : [ [ '', '' ] ],
-            _ml(@dns),
-            [ [ ( eval { $ip->monitored } ) ? 'yes' : 'no', '' ] ],
-            _ml(@svc),
-        ];
+        push @rows, {
+            id        => $ip->id,
+            address   => [ ( eval { $ip->address } // '' ),
+                            Netdot::Mojo::Registry::set_uri( '/management/ipblock/' . $ip->id ) ],
+            subnet    => $parent
+                        ? [ ( eval { $parent->cidr } // eval { $parent->address } // '' ),
+                             Netdot::Mojo::Registry::set_uri( '/management/ipblock/' . $parent->id ) ]
+                        : [ '', '' ],
+            iface     => $iface
+                        ? [ ( eval { $iface->name } // '' ),
+                             Netdot::Mojo::Registry::set_uri( '/management/interface/' . $iface->id ) ]
+                        : [ '', '' ],
+            dns       => \@dns,
+            monitored => ( eval { $ip->monitored } ) ? 1 : 0,
+            services  => \@svc,
+            iface_id  => $iface_id,
+        };
     }
 
     return {
         view         => 'IP',
-        cols         => [
-            [ 'Address',      'address' ],
-            [ 'Subnet',       undef ],
-            [ 'Interface',    'interface' ],
-            [ 'DNS Name(s)',  undef ],
-            [ 'Monitored?',   undef ],
-            [ 'Services',     undef ],
-        ],
         rows         => \@rows,
         sort_base    => Netdot::Mojo::Registry::set_uri( "/management/device/$id?view=IP" ),
         sort_param   => 'ipsort',
         sort         => $ipsort,
         empty_msg    => 'This device has no IP addresses.',
+        editips      => $editips,
+        add_ip       => $add_ip,
+        can_edit     => $can_edit,
+        showvlan     => $showvlan,
+        int_opts     => \@int_opts,
+        svc_opts     => \@svc_opts,
+        cl_opts      => \@cl_opts,
+        cl_def       => $cl_def,
     };
 }
 

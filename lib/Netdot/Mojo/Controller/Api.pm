@@ -1354,6 +1354,120 @@ sub update_device {
 }
 
 # ---------------------------------------------------------------------------
+# Device IP view actions (port of the legacy device.html "IP" section).
+# Permission is 'edit' on the device (Mason: $manager->can($user,'edit',$o)).
+# ---------------------------------------------------------------------------
+
+# Add an IP address to the device (Mason: device.html add_ip form).
+# Body: {address: "1.2.3.4", interface?: <id>}. Device->add_ip makes a /32
+# (v4) or /128 (v6) block: an existing block is re-pointed at the interface,
+# a new one is inserted with status Static. Interface defaults to the device's
+# first (as in Mason).
+sub add_ip {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        my $id = $c->stash('id');
+        _err( 400, 'Missing device id' ) unless defined $id && $id =~ /^\d+$/;
+        my $dev = eval { Device->retrieve($id) };
+        _err( 404, "Device $id not found" ) if $@ || !$dev;
+        _err( 403, 'User not allowed to edit this device' )
+            unless Netdot::Mojo::Permissions->can( $p, 'edit', $dev );
+        my %A = %{ _args($c) };
+        _err( 400, 'Missing "address"' ) unless defined $A{address} && length $A{address};
+        my $int;
+        if ( defined $A{interface} && length $A{interface} ) {
+            $int = eval { Interface->retrieve( $A{interface} ) };
+            _err( 404, "Interface $A{interface} not found" ) if $@ || !$int;
+            _err( 400, 'Interface does not belong to this device' )
+                unless eval { $int->device->id } == $id;
+        }
+        my $ipb = eval { $dev->add_ip( $A{address}, $int ) };
+        _err( 400, "Could not add IP: $@" ) if $@;
+        return $c->render( json => Netdot::Mojo::Api::get( $ipb, $p, undef, depth => 0 ),
+                           status => 200 );
+    });
+}
+
+# Set auto DNS on all of the device's IP-bearing interfaces (Mason: the
+# "Set Auto DNS on all IP interfaces" form). Body: {value: 0|1}.
+sub set_auto_dns {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        my $id = $c->stash('id');
+        _err( 400, 'Missing device id' ) unless defined $id && $id =~ /^\d+$/;
+        my $dev = eval { Device->retrieve($id) };
+        _err( 404, "Device $id not found" ) if $@ || !$dev;
+        _err( 403, 'User not allowed to edit this device' )
+            unless Netdot::Mojo::Permissions->can( $p, 'edit', $dev );
+        my %A = %{ _args($c) };
+        _err( 400, '"value" must be 0 or 1' )
+            unless defined $A{value} && $A{value} =~ /^(?:0|1)$/;
+        eval { $dev->set_interfaces_auto_dns( $A{value} ) };
+        _err( 400, "Could not set auto DNS: $@" ) if $@;
+        return $c->render( json => { ok => 1 }, status => 200 );
+    });
+}
+
+# Re-generate DNS names for all interface IPs of the device (Mason: the
+# "Re-generate DNS names for all IPs" form). Skips silently when auto DNS is
+# disabled (model logs a debug line and returns).
+sub regen_dns {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        my $id = $c->stash('id');
+        _err( 400, 'Missing device id' ) unless defined $id && $id =~ /^\d+$/;
+        my $dev = eval { Device->retrieve($id) };
+        _err( 404, "Device $id not found" ) if $@ || !$dev;
+        _err( 403, 'User not allowed to edit this device' )
+            unless Netdot::Mojo::Permissions->can( $p, 'edit', $dev );
+        eval { $dev->do_auto_dns() };
+        _err( 400, "DNS generation failed: $@" ) if $@;
+        return $c->render( json => { ok => 1 }, status => 200 );
+    });
+}
+
+# Create an IP service (Mason: addservice.html popup). Body:
+# {ip: <id>, service: <id>, monitored?: bool, contactlist?: <id>}.
+# A duplicate (ip, service) is a 400. Legacy side effect kept: the parent IP
+# is set monitored on success.
+sub add_ipservice {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        my %A = %{ _args($c) };
+        _err( 400, 'Missing "ip" and/or "service"' )
+            unless defined $A{ip} && $A{ip} =~ /^\d+$/
+               && defined $A{service} && $A{service} =~ /^\d+$/;
+        my $ipb = eval { Ipblock->retrieve( $A{ip} ) };
+        _err( 404, "Ipblock $A{ip} not found" ) if $@ || !$ipb;
+        my $dev = eval { $ipb->interface->device };
+        _err( 403, 'User not allowed to edit this device' )
+            if $dev && !Netdot::Mojo::Permissions->can( $p, 'edit', $dev );
+        my $svc = eval { Service->retrieve( $A{service} ) };
+        _err( 404, "Service $A{service} not found" ) if $@ || !$svc;
+        if ( eval { IpService->search( ip => $A{ip}, service => $A{service} ) } ) {
+            _err( 400, 'Service already exists on this IP' );
+        }
+        my %st = ( ip => $A{ip}, service => $A{service} );
+        $st{monitored}   = _is_true( $A{monitored} ) ? 1 : 0;
+        $st{contactlist} = $A{contactlist}
+            if defined $A{contactlist} && $A{contactlist} =~ /^\d+$/;
+        my $new = eval { IpService->insert( \%st ) };
+        _err( 400, "Could not add service: $@" ) if $@;
+        eval { $ipb->update( { monitored => 1 } ) };    # legacy side effect
+        return $c->render( json => Netdot::Mojo::Api::get( $new, $p, undef, depth => 0 ),
+                           status => 200 );
+    });
+}
+
+# ---------------------------------------------------------------------------
 # OpenAPI spec + Swagger UI
 # ---------------------------------------------------------------------------
 

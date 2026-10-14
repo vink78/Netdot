@@ -1382,73 +1382,101 @@
       (function (form) {
         var save = form.querySelector('.nd-if-save');
         var base = form.getAttribute('data-nd-api-base');
+        // Table the rows belong to (interface edit, device IP edit, …).
+        var table = form.getAttribute('data-nd-table') || 'interface';
         if (!save || !base) { return; }
 
-        // Current value of an editable cell: select -> id or null, number ->
-        // int when purely numeric, else the string as-is.
-        function cellVal(f, el) {
-          if (f === 'number' && /^\d+$/.test(el.value)) { return parseInt(el.value, 10); }
+        // Current value of an editable cell: checkbox -> 0/1, number -> int
+        // when purely numeric, select -> id or null, else the string as-is.
+        function cellVal(el) {
+          if (el.type === 'checkbox') { return el.checked ? 1 : 0; }
           if (el.tagName === 'SELECT') { return el.value === '' ? null : el.value; }
+          if (/^\d+$/.test(el.value)) { return parseInt(el.value, 10); }
           return el.value;
+        }
+
+        function normOrig(f, el, orig) {
+          if (el.type === 'checkbox') { return orig === '1' ? 1 : 0; }
+          if (el.tagName === 'SELECT') { return orig || null; }
+          if (f === 'number' && /^\d+$/.test(orig)) { return parseInt(orig, 10); }
+          return orig;
         }
 
         function doSave() {
           var rows = form.querySelectorAll('tr[data-nd-if]');
-          var updates = [], deletes = [];
+          var updates = [], delTables = {}, nDel = 0;
           for (var r = 0; r < rows.length; r++) {
             var row = rows[r];
             var id  = row.getAttribute('data-nd-if');
             var del = row.querySelector('.nd-if-del');
-            if (del && del.checked) { deletes.push(id); continue; }
+            if (del && del.checked) {
+              (delTables[table] = delTables[table] || []).push(id);
+              nDel++;
+              continue;
+            }
             var body = {};
             var els = row.querySelectorAll('[data-nd-f]');
             for (var j = 0; j < els.length; j++) {
               var el   = els[j];
               var f    = el.getAttribute('data-nd-f');
-              var orig = el.getAttribute('data-nd-orig') || '';
-              // selects: '' (no value) means null, like cellVal() produces.
-              if (el.tagName === 'SELECT') { orig = orig || null; }
-              if (f === 'number' && /^\d+$/.test(orig)) { orig = parseInt(orig, 10); }
-              var val = cellVal(f, el);
+              var orig = normOrig(f, el, el.getAttribute('data-nd-orig') || '');
+              var val  = cellVal(el);
               if (val !== orig) { body[f] = val; }
             }
             if (Object.keys(body).length) { body.id = id; updates.push(body); }
+            // Cell-level deletes (DNS names, IP services): grouped per table.
+            var cds = row.querySelectorAll('.nd-cell-del');
+            for (var k = 0; k < cds.length; k++) {
+              if (!cds[k].checked) { continue; }
+              var ct  = cds[k].getAttribute('data-nd-del') || table;
+              var cid = cds[k].getAttribute('data-nd-id');
+              (delTables[ct] = delTables[ct] || []).push(cid);
+              nDel++;
+            }
           }
-          if (!updates.length && !deletes.length) { status(false, 'No changes to save.', 3000); return; }
+          if (!updates.length && !nDel) { status(false, 'No changes to save.', 3000); return; }
           save.disabled = true;
-          spinner(true, 'Saving ' + (updates.length + deletes.length) + ' interface(s)…');
+          spinner(true, 'Saving ' + (updates.length + nDel) + ' change(s)…');
           // One PATCH per dirty row (tagged with its id for the error report),
-          // then the batch DELETE. api() never rejects, so Promise.all is safe.
+          // then one batched DELETE per table that has checked rows. api()
+          // never rejects, so Promise.all is safe.
           var calls = updates.map(function (u) {
             var id = u.id; delete u.id;
-            return api('PATCH', base + '/interface/' + id, u).then(function (res) {
+            return api('PATCH', base + '/' + table + '/' + id, u).then(function (res) {
               res.id = id;
               return res;
             });
           });
+          for (var t in delTables) {
+            (function (t, ids) {
+              calls.push(api('DELETE', base + '/' + t + '?id=' + ids.join(',')).then(function (d) {
+                d.id = 'delete:' + t;
+                return d;
+              }));
+            })(t, delTables[t]);
+          }
           Promise.all(calls).then(function (results) {
-            if (!deletes.length) { return results; }
-            return api('DELETE', base + '/interface?id=' + deletes.join(',')).then(function (d) {
-              d.id = 'delete';
-              results.push(d);
-              return results;
-            });
-          }).then(function (results) {
             spinner(false);
             save.disabled = false;
-            var nSaved = 0, nDel = 0, skipped = 0, errs = [];
-            for (var k = 0; k < results.length; k++) {
-              var res = results[k];
-              if (!res.ok) { errs.push((res.id === 'delete' ? 'delete' : '#' + res.id) + ': ' + errMsg(res)); continue; }
-              if (res.id === 'delete') {
+            var nSaved = 0, nDeleted = 0, skipped = 0, errs = [];
+            for (var k2 = 0; k2 < results.length; k2++) {
+              var res = results[k2];
+              var sid = String(res.id);
+              if (!res.ok) {
+                errs.push((sid.indexOf('delete:') === 0 ? 'delete ' + sid.slice(7) : '#' + sid) + ': ' + errMsg(res));
+                continue;
+              }
+              if (sid.indexOf('delete:') === 0) {
                 var d = res.data || {};
-                nDel = (d.deleted && d.deleted.length) || 0;
-                skipped = (d.skipped && Object.keys(d.skipped).length) || 0;
+                // batch delete -> array; single delete -> "Class/id" string.
+                var del = d.deleted;
+                nDeleted += (del && (typeof del === 'string' ? 1 : del.length)) || 0;
+                skipped += (d.skipped && Object.keys(d.skipped).length) || 0;
               } else {
                 nSaved++;
               }
             }
-            var msg = nSaved + ' saved' + (nDel ? ', ' + nDel + ' deleted' : '') +
+            var msg = nSaved + ' saved' + (nDeleted ? ', ' + nDeleted + ' deleted' : '') +
                       (skipped ? ' (' + skipped + ' skipped)' : '');
             if (errs.length) { msg += ', ' + errs.length + ' error(s): ' + errs.join('; '); }
             status(!errs.length, msg, errs.length ? 10000 : undefined);
@@ -1463,10 +1491,84 @@
     }
   }
 
+  // Device IP view extras: inline "add service" forms (port of the legacy
+  // addservice.html popup), the "add IP" form and the DNS Options actions.
+  // All write through the JSON API, then reload.
+  function initIpExtras() {
+    var toggles = document.querySelectorAll('.nd-svc-toggle');
+    for (var i = 0; i < toggles.length; i++) {
+      toggles[i].addEventListener('click', function (e) {
+        e.preventDefault();
+        var box = this.parentNode.querySelector('.nd-svc-form');
+        if (!box) { return; }
+        box.style.display = (box.style.display === 'none') ? 'inline' : 'none';
+      });
+    }
+    var svcForms = document.querySelectorAll('form.nd-if-svc');
+    for (var j = 0; j < svcForms.length; j++) {
+      svcForms[j].addEventListener('submit', function (e) {
+        e.preventDefault();
+        var f = e.target;
+        var sel = f.querySelector('select[name=service]');
+        if (!sel || !sel.value) { status(false, 'Choose a service.', 3000); return; }
+        var mon = f.querySelector('input[name=monitored]');
+        var cl  = f.querySelector('select[name=contactlist]');
+        var body = { ip: f.getAttribute('data-nd-ip'), service: sel.value,
+                     monitored: mon ? mon.checked : false };
+        if (cl && cl.value) { body.contactlist = cl.value; }
+        spinner(true, 'Adding service…');
+        api('POST', f.getAttribute('data-nd-api-base') + '/ipservice', body).then(function (res) {
+          spinner(false);
+          if (!res.ok) { status(false, errMsg(res), 8000); return; }
+          status(true, 'Service added.', 2000);
+          setTimeout(function () { location.reload(); }, 700);
+        });
+      });
+    }
+    var actForms = document.querySelectorAll('form.nd-dev-act');
+    for (var a = 0; a < actForms.length; a++) {
+      actForms[a].addEventListener('submit', function (e) {
+        e.preventDefault();
+        var f = e.target;
+        var v = f.querySelector('select[name=value]');
+        if (v && !v.value) { status(false, 'Choose Yes or No.', 3000); return; }
+        var body = v && v.value ? { value: v.value } : {};
+        var action = f.getAttribute('data-nd-action');
+        spinner(true, action === 'auto_dns' ? 'Setting auto DNS…' : 'Re-generating DNS names…');
+        api('POST', f.getAttribute('data-nd-api-base') + '/device/' + f.getAttribute('data-nd-id') + '/' + action, body).then(function (res) {
+          spinner(false);
+          if (!res.ok) { status(false, errMsg(res), 8000); return; }
+          status(true, 'Done.', 2000);
+          setTimeout(function () { location.reload(); }, 700);
+        });
+      });
+    }
+    var addForms = document.querySelectorAll('form.nd-add-ip');
+    for (var b = 0; b < addForms.length; b++) {
+      addForms[b].addEventListener('submit', function (e) {
+        e.preventDefault();
+        var f = e.target;
+        var addr = f.querySelector('input[name=address]');
+        if (!addr || !addr.value.trim()) { status(false, 'Enter an IP address.', 3000); return; }
+        var body = { address: addr.value.trim() };
+        var sel = f.querySelector('select[name=interface]');
+        if (sel && sel.value) { body.interface = sel.value; }
+        spinner(true, 'Adding IP…');
+        api('POST', f.getAttribute('data-nd-api-base') + '/device/' + f.getAttribute('data-nd-id') + '/add_ip', body).then(function (res) {
+          spinner(false);
+          if (!res.ok) { status(false, errMsg(res), 8000); return; }
+          status(true, 'IP added.', 2000);
+          setTimeout(function () { location.reload(); }, 700);
+        });
+      });
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
     initDiscRun();
     initIntEdit();
+    initIpExtras();
     initDhcpEnable();
     initToggle();
     initRecToggles();
