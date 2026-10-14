@@ -590,6 +590,11 @@ sub _interfaces {
             $edit{jack} = defined $jackid ? $jackid : undef;
             $edit{jack_label} = eval { $if->jack->get_label } // '#' . $jackid
                 if defined $jackid;
+            # Connected Device picker: current neighbor id + label (the JS
+            # compares against data-nd-orig and PATCHes `neighbor: <id|null>`).
+            $edit{neighbor} = $nbr ? $nbr->id : undef;
+            $edit{neighbor_label} = eval { $nbr->get_label } // '#' . $nbr->id
+                if $nbr;
         }
 
         push @rows, {

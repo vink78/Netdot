@@ -143,11 +143,12 @@
 % my @cols;
 % if ($editints) {
 %   # Edit mode: [del] + the editable fields only, plain headers (Mason).
-%   @cols = ( [ 'del',    undef,    undef    ],
-%             [ 'number', 'Number', undef    ],
-%             [ 'name',   'Name',   undef    ],
-%             [ 'jack',   'Jack',   undef    ],
-%             [ 'descr',  'Descr.', undef    ] );
+%   @cols = ( [ 'del',    undef,     undef    ],
+%             [ 'number', 'Number',  undef    ],
+%             [ 'name',   'Name',    undef    ],
+%             [ 'jack',   'Jack',    undef    ],
+%             [ 'descr',  'Descr.',  undef    ],
+%             [ 'conn',   'Connected', undef  ] );
 % } else {
 %   @cols = (
 %     [ 'number', 'Number', 'number' ],
@@ -193,7 +194,7 @@
         <span class="nd-fk-search">
           <input type="text" class="nd-fk-kw" placeholder="Search…" data-nd-target="horizontalcable" data-nd-max="100">
           <button type="button" class="btn nd-fk-go">List</button>
-          <select data-nd-f="jack" data-nd-orig="<%= $jval %>">
+          <select class="nd-fk-select" data-nd-f="jack" data-nd-orig="<%= $jval %>">
             <option value="">-- Search --</option>
             % if ( defined $edit->{jack} ) {
             <option value="<%= $jval %>" selected><%= $edit->{jack_label} // '#' . $jval %></option>
@@ -211,6 +212,22 @@
         % }
       </td>
       <td><input type="text" data-nd-f="description" data-nd-orig="<%= $edit->{description} // '' %>" value="<%= $edit->{description} // '' %>"></td>
+      <td>
+        % # Connected Device picker: keyword search over all interfaces
+        % # (?kw= via the generic API) + select; saving sends `neighbor`
+        % # (id or null) through the row's PATCH (initIntEdit).
+        <span class="nd-fk-search">
+          <input type="text" class="nd-fk-kw" placeholder="Search…" data-nd-target="interface" data-nd-max="100">
+          <button type="button" class="btn nd-fk-go">List</button>
+          <select class="nd-fk-select" data-nd-f="neighbor" data-nd-orig="<%= $edit->{neighbor} // '' %>">
+            <option value="">-- Search --</option>
+            % if ( defined $edit->{neighbor} ) {
+            <option value="<%= $edit->{neighbor} %>" selected><%= $edit->{neighbor_label} // '#' . $edit->{neighbor} %></option>
+            % }
+            <option value="">[null]</option>
+          </select>
+        </span>
+      </td>
       % } else {
       % for my $col (@cols) {
       % my $key  = $col->[0];
