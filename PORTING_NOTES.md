@@ -838,11 +838,36 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   (per-parent: `zone`/`rr`/`device`/`contactlist` FK; see `_create_parent`) — and
   **Netbox pagination** (`limit`/`offset` → `{count,next,previous,results}` via
   `Model::search_count`/`search_page`); purpose-built `devinfo`/`host_contacts`/`ipattr`/
-  `host`/`host_like`/`updatedev`. `_host_post`: create on a **new** IP = subnet
+  `host`/`host_like`/`updatedev`/`prometheus`. `_host_post`: create on a **new** IP = subnet
   `can('edit'/'choose_ip')` + `RR->add_host`; create on an **existing** IP = insert an
   **RRADDR** (no allocation) allowed iff `can('edit',$zone)` AND `can('edit',$ip)`.
    Also `root` (GET `/api` Netbox-style flat index), `spec` (`/api/openapi.yaml`),
    `docs` (Swagger UI, standalone).
+   - **`prometheus`** (GET `/api/prometheus`, commit `b30a1267`, object-model
+     rewrite pending) — port of the legacy `prometheus-inventory.php`: all
+     MONITORED devices — `Device->search({monitored => 1})` — walked through the
+     object model (FK accessors `name`→RR→`zone`, `site`, `asset_id`→`product_id`
+     →`type`/`manufacturer`, `used_by`→Entity — **no raw SQL**). A monitored
+     device missing any link of the chain is skipped, as in the PHP inner
+     joins. Grouped by (type, manufacturer, site, **env**) in the Prometheus
+     **file-based service-discovery** shape: an array of
+     `{labels: {__meta_netdot_type, __meta_netdot_manufacturer,
+     __meta_netdot_site, __meta_netdot_env}, targets: ["<rr.name>.<zone.name>",
+     …]}`. Differences vs the PHP script (intentional, requested): env is the
+     device's `used_by->short_name` (Entity), not the constant `"CI"` (JSON
+     null when the device has no used_by) — and env is **part of the group
+     key**, because 27 of the 172 (type, manufacturer, site) groups mix
+     several used_by values and a group's labels must stay consistent
+     (Prometheus requirement). Gated on a session + `has_action('Device',
+     $p, 'view')` (the PHP script was unauthenticated — direct DB access).
+     Manufacturer transform ported 1:1 (`lc()` as in the PHP `LOWER()`, first
+     `[A-Za-z0-9 ]+` run, trimmed, spaces → `_`), `Cache-Control: no-cache,
+     must-revalidate, max-age=0` header kept. Cost of the object model: ~1300
+     device fetches + per-FK PK SELECTs (CDBI in-memory cache deduplicates
+     sites/products/entities) instead of one join — fine at file-SD scrape
+     frequency. Verified on live data vs `php prometheus-inventory.php`:
+     identical 1237-target multiset; 205 groups (vs 172 — the env split);
+     every target's env label matches its device's used_by short_name (100%).
    - **FK keyword search `?kw=`** (edit-mode FK picker, `Api.pm` `generic` GET list):
      `GET /api/<table>?kw=<kw>&limit=N` → `{count, results:[{id,label}]}`. Default =
      `LIKE %kw%` on the label column (`search_page(like=>[labelcol,$kw])`). **Ipblock is

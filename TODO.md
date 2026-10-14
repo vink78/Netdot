@@ -221,7 +221,10 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
   `can('edit', $zone)` ET `can('edit', $ip)`. IP neuve / sous-réseau = allouement
   (`can('edit'/'choose_ip', $subnet)` + `RR->add_host`).
 - [x] ✅ **Endpoints dédiés** : `devinfo`, `host_contacts`, `ipattr`, `host`, `host_like`,
-  `updatedev`.
+  `updatedev`, `prometheus` (inventaire file-SD Prometheus : devices `monitored=1` via le
+  **modèle objet** (`Device->search` + accès FK, sans SQL brut), groupés par
+  type/fabricant/site/**env** ; env = `Device->used_by->short_name` (Entity, null sinon) —
+  port de `prometheus-inventory.php`, commit `b30a1267` + réécriture objet non commitée).
 - [x] ✅ **Index** (`GET /api`) : flat-map Netbox-style `{resource: url-absolute}` (tables +
   endpoints dédiés + `docs` + `openapi.yaml`).
 - [x] ✅ **Erreurs JSON-aware** : tout `/api/…` répond en JSON (404/405/500), quel que soit

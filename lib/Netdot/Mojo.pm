@@ -287,6 +287,7 @@ sub startup ($self) {
     $r->get('/api/devinfo')->to('api#devinfo');
     $r->get('/api/host_contacts')->to('api#host_contacts');
     $r->get('/api/ipattr')->to('api#ipattr');
+    $r->get('/api/prometheus')->to('api#prometheus');
     $r->any('/api/host')->to('api#host');
     $r->any('/api/host_like')->to('api#host_like');
     # Batch edit of a block's children (the list "Edit" mode): updates +

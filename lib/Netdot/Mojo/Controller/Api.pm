@@ -785,6 +785,78 @@ sub devinfo {
 }
 
 # ---------------------------------------------------------------------------
+# prometheus — Prometheus file-SD inventory (port of prometheus-inventory.php)
+# ---------------------------------------------------------------------------
+
+# All MONITORED devices, grouped by (type, manufacturer, site, env), in the
+# Prometheus file-based service-discovery shape: an array of groups
+# {labels => {__meta_netdot_…}, targets => ["name.zone", …]}. Port of the
+# legacy prometheus-inventory.php, built on the OBJECT MODEL
+# (Device->search + FK accessors — no raw SQL). Differences vs the PHP
+# script (intentional):
+#   - env = the device's `used_by` (Entity) `short_name`, not the constant
+#     "CI" (JSON null when the device has no used_by);
+#   - env is part of the group key, because 27 of the 172 (type,
+#     manufacturer, site) groups mix several used_by values and a group's
+#     labels must stay consistent (Prometheus requirement).
+sub prometheus {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'GET';
+        _err( 403, 'Insufficient privileges' )
+            unless Netdot::Mojo::Permissions->has_action( 'Device', $p, 'view' );
+        my @devices = Device->search( { monitored => 1 } );
+        # Group by (type, manufacturer, site, env), keeping first-seen order,
+        # like the keyed array of the PHP script.
+        my ( %groups, @order );
+        for my $d (@devices) {
+            my $rr      = $d->name;
+            my $zone    = $rr && $rr->zone;
+            my $site    = $d->site;
+            my $asset   = $d->asset_id;
+            my $product = $asset && $asset->product_id;
+            my $type    = $product && $product->type;
+            my $mfr     = $product && $product->manufacturer;
+            # Same selection as the PHP inner joins: skip devices missing any
+            # link of the chain.
+            next unless $rr && $zone && $site && $asset && $product && $type && $mfr;
+            my $name     = $rr->name;
+            my $zonename = $zone->name;
+            my $siteno   = $site->number;
+            my $typename = $type->name;
+            my $mfrname  = lc( $mfr->name );   # as in the PHP LOWER(entity.name)
+            my $env      = $d->used_by && $d->used_by->short_name;  # may be undef
+            # Manufacturer transform (as in the PHP script): first
+            # [A-Za-z0-9 ]+ run, trimmed, spaces -> _.
+            my $mfrlabel = $mfrname;
+            if ( my ($m) = $mfrname =~ /([A-Za-z0-9 ]+)/ ) {
+                $mfrlabel = _trim($m);
+                $mfrlabel =~ s/ /_/g;
+            }
+            my $key = join '-', ( $typename // '', $mfrlabel // '', $siteno // '', $env // '' );
+            unless ( exists $groups{$key} ) {
+                $groups{$key} = {
+                    labels => {
+                        __meta_netdot_type         => $typename,
+                        __meta_netdot_manufacturer => $mfrlabel,
+                        __meta_netdot_site         => $siteno,
+                        __meta_netdot_env          => $env,
+                    },
+                    targets => [],
+                };
+                push @order, $key;
+            }
+            push @{ $groups{$key}{targets} }, "$name.$zonename";
+        }
+        $c->res->headers->header(
+            'Cache-Control' => 'no-cache, must-revalidate, max-age=0'
+        );
+        $c->render( json => [ map { $groups{$_} } @order ], status => 200 );
+    });
+}
+
+# ---------------------------------------------------------------------------
 # ipattr
 # ---------------------------------------------------------------------------
 
