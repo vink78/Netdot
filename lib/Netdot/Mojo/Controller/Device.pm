@@ -14,6 +14,42 @@ use Log::Log4perl;
 #   Interfaces - the interfaces table (read-only port of interfaces.mhtml)
 # All edit/write functionality and the Topology/STP/Rights views are deferred.
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Device - Device detail page + SNMP discovery / re-poll
+
+    Read-only detail page (Basics / Interfaces views, port of the legacy
+    device.html) plus the SNMP discovery wizard and the re-poll page, both
+    display/validation only: the actual writes go through the API
+    (POST /api/device, POST /api/device/<id>/update).
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->any('/management/device/discover')->to('device#discover')
+    #   ->get('/management/device/:id/update')->to('device#update')
+    #   ->get('/management/device/:id')->to('device#show', type => 'device')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 show - Device detail page
+
+Arguments:  Controller (params: id, view)
+Returns:    Renders the management/device template
+Description: Port of the legacy device.html. Valid views: Basics,
+            Interfaces, IP, BGP, Hosted, Circuits, STP, Modules, Audit,
+            Rights. Basics shows the device attributes (meta "all" view) +
+            custom attributes and the in-place edit form (written via
+            PATCH /api/device/<id>). The page also offers a delete action
+            (API, with the optional remove-IPs/DNS choice) and, for Admins
+            only, the SNMP re-poll entry point (discover wizard).
+
+=cut
+
 sub show {
     my $c  = shift;
     my $id = $c->param('id');
@@ -109,6 +145,22 @@ sub show {
 # signed-cookie session, so the review form re-sends the original query
 # arguments and the API re-runs the query.
 
+=head2 discover - SNMP discovery wizard
+
+Arguments:  Controller (params: action, host, version, community / v3
+            security args; ?device=<id> for a direct re-poll)
+Returns:    Renders the management/device_discover template
+Description: Admin-only port of the legacy device_tasks.html "Discover
+            Device" + updatedevice.html. Display/validation only: every DB
+            write goes through the API (POST /api/device {discover: 1}).
+            A POST with action=discover runs the read-only SNMP query
+            (Device->get_snmp_info) and renders the review form (step 2)
+            with the guessed Owner / Used by / Site / Contacts; the confirm
+            step calls the API from the browser (netdot.js) and renders the
+            captured model log.
+
+=cut
+
 sub discover {
     my $c = shift;
     my $p = $c->current_person;
@@ -125,6 +177,18 @@ sub discover {
 # (all DB writes go through the API). The page shows the stored-credentials
 # re-poll with the dry-run choice; netdot.js renders the result (captured
 # model log + link to the device page) from the API response.
+=head2 update - SNMP re-poll page for an existing device
+
+Arguments:  Controller (stash: id)
+Returns:    Renders the management/device_discover template (mode=repoll)
+Description: Admin-only, display only: the actual re-poll is performed by
+            the UI via POST /api/device/<id>/update (all DB writes go
+            through the API). The page shows the stored-credentials re-poll
+            with the dry-run choice; the UI renders the captured model log
+            and a link to the device page from the API response.
+
+=cut
+
 sub update {
     my ($c) = @_;
     my $p = $c->current_person;

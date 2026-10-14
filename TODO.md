@@ -224,7 +224,8 @@ ipbat · security — + sous-vues (`poll`) + export CSV. Gating `access_section`
   `updatedev`, `prometheus` (inventaire file-SD Prometheus : devices `monitored=1` via le
   **modèle objet** (`Device->search` + accès FK, sans SQL brut), groupés par
   type/fabricant/site/**env** ; env = `Device->used_by->short_name` (Entity, null sinon) —
-  port de `prometheus-inventory.php`, commit `b30a1267` + réécriture objet non commitée).
+  port de `prometheus-inventory.php` ; version SQL brut `b30a1267`, réécriture
+  **modèle objet** commitée en `3ab1bd64` ; parité PHP vérifiée sur données live).
 - [x] ✅ **Index** (`GET /api`) : flat-map Netbox-style `{resource: url-absolute}` (tables +
   endpoints dédiés + `docs` + `openapi.yaml`).
 - [x] ✅ **Erreurs JSON-aware** : tout `/api/…` répond en JSON (404/405/500), quel que soit
@@ -423,6 +424,25 @@ les mêmes composants.
 
 ---
 
+## 11. Documentation POD (perldoc) — ✅ porté
+
+- [x] ✅ **POD par fonction** (2026-10-14, commit `68c9c8f6`) : les **26 modules** de
+  `lib/Netdot/Mojo/` sont documentés au format **perldoc**, selon la convention legacy
+  (`lib/Netdot/Model` — cf. `Model.pm`, `Device.pm`, `Model/RRAttr.pm`) :
+  - en-tête par fichier : `=encoding utf8` + `=head1 NAME` (module + description) +
+    `=head1 SYNOPSIS` (usage réel ; pour les contrôleurs, les **routes effectives** de
+    `Netdot::Mojo.pm`) + `=head1 CLASS METHODS` (modules à fonctions de classe : Api,
+    Registry, Detail, Permissions, OpenAPI) ou `=head1 INSTANCE METHODS` (AuthShim,
+    Sessions + les 19 contrôleurs) ;
+  - un bloc `=head2 <nom> - <description>` + `Arguments:` / `Returns:` / `Description:`
+    + `=cut` **directement au-dessus de chaque fonction publique** (117 sous ; les
+    helpers privés `_…` ne sont pas documentés) ;
+  - le bloc de fin `=head1 AUTHOR` / `=head1 COPYRIGHT & LICENSE` est inchangé.
+
+  Vérifié : `perl -c` OK sur les 26 modules ; `podchecker` sans erreur (la seule
+  warning restante — « Verbatim paragraph in NAME section » — est émise par le legacy
+  `Model.pm` lui-même, même convention).
+
 ## Hors périmètre (écriture) — ⛔
 
 Objectif = vues lecture seule. Pages de création/édition/suppression **non portées** :
@@ -565,7 +585,7 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
    >   l'existence de l'objet, et mappe les `throw_user` du modèle en 400. ⚠️ l'overload
    >   prend une **hashref** (`AccessRight->insert({...})`) — un appel en liste de
    >   paires donne « Can't use string ("object_class") as a HASH ref » — le
-   >   fix (passage en hashref) commité dans `5eaa6e72` (Fix boolean issue).
+   >   fix (passage en hashref) commité dans `f5650886` (Fix boolean issue).
    >   ⚠️ **Booléens JSON (2026-10-14)** : `req->json` décode `true`/`false` en
    >   scalaires **blessed** (`JSON::PP::Boolean`) ; le legacy `Model::_audit`
    >   suppose blessed = objet Netdot (`->get_label()`) → 400 sur tout PATCH
@@ -916,4 +936,4 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   `JSON::PP::Boolean`, 2ᵉ post 200 — le SQL étant commité avant le crash du
   trigger `after_update`) ; l'audit enregistre bien `1`/`0` dans `vals` ;
   état du device restauré. Fixs : normalisation `_args` + guard `_audit`
-  (cf. `PORTING_NOTES.md` §6) — commit `5eaa6e72`.
+  (cf. `PORTING_NOTES.md` §6) — commit `f5650886`.

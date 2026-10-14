@@ -18,6 +18,39 @@ use Netdot::Mojo::Registry;
 # Attributes table: every non-sensitive column of the class's "all" view, in
 # meta order, with user-friendly tags. FK values become links when the target
 # type has a route (Registry::link_for).
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Detail - Shared builders for read-only object detail pages
+
+    Used by the generic Controller::Show and by the dedicated controllers
+    (Zone, Contactlist, Closet, ...) so that the "attributes" table, the
+    in-place edit forms and the "has_many relations" tables are built
+    identically everywhere.
+
+=head1 SYNOPSIS
+
+    use Netdot::Mojo::Detail;
+
+    my $attrs     = Netdot::Mojo::Detail::build_attrs( $obj, 'Zone' );
+    my $relations = Netdot::Mojo::Detail::build_relations( $obj, $per, $off );
+
+=head1 CLASS METHODS
+
+=cut
+
+=head2 build_attrs - Attributes table of a detail page
+
+Arguments:  object, class (name or object)
+Returns:    [ [tag, text, href], ... ]: every non-sensitive column of the
+            class's "all" view, in meta order, with user-friendly tags. FK
+            values become links when the target type has a route
+            (Registry::link_for); boolean columns render as Yes/No.
+
+=cut
+
 sub build_attrs {
     my ($obj, $class) = @_;
     my @attrs;
@@ -42,6 +75,22 @@ sub build_attrs {
 #     keyword search box that queries the API; the dropdown is never dumped).
 # FK targets that are not a registered type are skipped (field stays read-only).
 # Drives the form for every generic detail page (Controller::Show).
+=head2 build_edit_fields - Editable field specs of an object
+
+Arguments:  object, class (name or object)
+Returns:    [ {name, tag, kind, ...}, ... ] for the in-place edit form: the
+            class's "all"-view columns that are non-sensitive. Scalar columns
+            carry {name, tag, kind (text|number|textarea|checkbox|date),
+            value}; FK columns carry {name, tag, kind=>'fk', target, max,
+            cur_id, cur_label, options} — options are the full {id,label}
+            list for a small target table (count <= DEFAULT_SELECTMAX),
+            undef for a large one (the form renders a keyword search box that
+            queries the API instead of dumping a dropdown). FK targets that
+            are not a registered type, and system-managed timestamps, are
+            skipped (they stay read-only in the attributes table).
+
+=cut
+
 sub build_edit_fields {
     my ( $obj, $class ) = @_;
     my @fields;
@@ -111,6 +160,18 @@ sub build_edit_fields {
 # client renders a keyword search instead of a dropdown). This is the single
 # source of truth for what the bulk-edit UI offers AND what POST /api/<table>/
 # batch accepts (Api.pm batch_edit derives its allowed-field set from here).
+=head2 editable_field_specs - Class-level editable field specs
+
+Arguments:  class (name or object)
+Returns:    [ {name, tag, kind, ...}, ... ]: the same columns
+            build_edit_fields offers (no per-object values) — the class's
+            "all"-view columns minus id / sensitive / system timestamps.
+            Single source of truth for what the bulk-edit UI offers AND what
+            POST /api/<table>/batch accepts (the batch API derives its
+            allowed-field set from here).
+
+=cut
+
 sub editable_field_specs {
     my ($class) = @_;
     my @fields;
@@ -147,6 +208,15 @@ sub editable_field_specs {
 # Current value of one editable field on an object, normalized for the
 # bulk-edit table and the batch API: FK -> the target id (0 when unset — the
 # relationship stringifies to its id under CDBI), bool -> 0/1, the rest raw.
+=head2 bulk_edit_value - Current value of one editable field, normalized
+
+Arguments:  field spec ({name, kind, ...}), object
+Returns:    The value normalized for the bulk-edit table and the batch API:
+            FK -> the target id (0 when unset), checkbox -> 0/1, date -> ''
+            for the zero-date sentinel, everything else raw
+
+=cut
+
 sub bulk_edit_value {
     my ( $f, $o ) = @_;
     my $col = $f->{name};
@@ -170,6 +240,20 @@ sub bulk_edit_value {
 # a <select> of all options for a small target, or a keyword search box +
 # <select> for a large one (.nd-fk-search, wired by initFkSearch) —
 # $cur_label is the label of the current FK value, pre-filling that select.
+=head2 bulk_edit_cell_html - HTML for one editable cell of the bulk-edit table
+
+Arguments:  field spec ({name, kind, options, ...}), value, cur_label (label
+            of the current FK value), attr (tag attribute: data-nd-f for row
+            cells, data-nd-apply for the "apply to all" row)
+Returns:    The field's input pre-filled with the value: a checkbox, a
+            <select> (small FK target) or a keyword search box + <select>
+            (large FK target, wired by initFkSearch), a textarea, or a text
+            input (number / date / text)
+Description: Port of the legacy edit-multiple.html stage 2, rendered
+            server-side.
+
+=cut
+
 sub bulk_edit_cell_html {
     my ( $f, $val, $cur_label, $attr ) = @_;
     $attr = 'data-nd-f' unless $attr;
@@ -237,6 +321,19 @@ sub _fk_options {
 # fields only) to keep the UI light; the model's insert() validates the
 # required fields (a missing one -> 400 with the model's own message) and fills
 # the rest with defaults. Timestamps are excluded (system-managed).
+=head2 build_create_fields - Field specs for a NEW object
+
+Arguments:  class (name or object)
+Returns:    [ {name, tag, kind, ...}, ... ] (the generic list page's "New
+            <type>" create box): same shape as build_edit_fields but every
+            value blank (FKs unselected, scalars empty). Uses the class's
+            BRIEF-view columns (the key fields only) to keep the UI light;
+            the model's insert() validates the required fields (a missing
+            one -> 400 with the model's own message) and fills the rest with
+            defaults.
+
+=cut
+
 sub build_create_fields {
     my ( $class ) = @_;
     my @fields;
@@ -285,6 +382,19 @@ sub build_create_fields {
 # per non-empty relation. Columns from _rel_columns (brief view; for join /
 # connector tables whose label IS the FK set the FK columns are shown as
 # clickable cells). Rows paginated via $offset; $per is the page size.
+=head2 build_relations - has_many relation tables of a detail page
+
+Arguments:  object, perpage, offset
+Returns:    [ {title, cols, rows, total, per, offset, start, last_item,
+            csv_rel}, ... ]: one table per non-empty relation (like the old
+            Mason view.html "View" section). Rows are fetched ordered +
+            paginated in SQL (see relation_objects); columns come from the
+            related class's brief view; the leading label column links to
+            the related object's detail page (FK columns link to their
+            target).
+
+=cut
+
 sub build_relations {
     my ($obj, $per, $offset) = @_;
     $offset = 0 unless defined $offset && $offset > 0;
@@ -361,6 +471,20 @@ sub build_relations {
 # Ordered relation objects via SQL. Looks up the relation's target class + FK and
 # delegates to _relation_fetch. $per undef/0 = no LIMIT (all rows, for CSV).
 # Returns ( \@objs, $total ).
+=head2 relation_objects - Ordered, paginated objects of one relation
+
+Arguments:  object, relation name, perpage (undef/0 = no LIMIT, all rows —
+            used for the CSV export), offset
+Returns:    ( \@objs, $total ): the current page of target objects and the
+            full count
+Description: Looks up the relation's target class + FK column (meta
+            get_links_from) and delegates to the SQL fetch: ORDER BY matches
+            the on-screen first column (Ipblock orders by the exact integer
+            address so IPv4 comes before IPv6; a relationship first column
+            is ordered via a LEFT JOIN on the related label).
+
+=cut
+
 sub relation_objects {
     my ( $obj, $rel, $per, $offset ) = @_;
     my %linksfrom;
@@ -482,6 +606,18 @@ sub _brief_columns {
 # ($show_label = 1). But a CONNECTOR / join table has only its FK columns, which
 # ARE the label: there we keep the FK columns (rendered as clickable cells) and
 # drop the combined label column ($show_label = 0).
+=head2 rel_columns - Columns to display for a has_many relation
+
+Arguments:  related class name
+Returns:    ( $cols, $show_label ): normally the brief-view columns (minus
+            the label columns, which the leading get_label column already
+            covers — $show_label = 1). A CONNECTOR / join table has only FK
+            columns, which ARE the label: there the FK columns are kept
+            (rendered as clickable cells) and the combined label column is
+            dropped ($show_label = 0).
+
+=cut
+
 sub rel_columns {
     my ($related) = @_;
     my $bcols = _brief_columns($related);
@@ -495,6 +631,15 @@ sub rel_columns {
 
 # Display text for a related (FK) object. IP blocks are shown as a CIDR
 # (e.g. 10.0.0.0/24 via ->cidr) instead of the generic get_label.
+=head2 obj_text - Display text for a related (FK) object
+
+Arguments:  object (undef is fine)
+Returns:    The display text: IP blocks are shown as a CIDR (e.g.
+            10.0.0.0/24 via ->cidr) instead of the generic get_label;
+            everything else uses its link text (label, or "type #id")
+
+=cut
+
 sub obj_text {
     my ($v) = @_;
     return '' unless ref $v;

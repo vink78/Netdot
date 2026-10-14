@@ -27,8 +27,50 @@ sub _kcmp {
     return lc( $x ) cmp lc( $y );
 }
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Browse - Generic list / search / CSV / bulk-edit pages
+
+    Bounded, paginated list of one object type (SQL LIMIT/OFFSET + retrieve
+    by id), per-type filtered search, CSV export and the dedicated bulk-edit
+    page (port of the legacy edit-multiple.html). Reuses the Netdot model
+    out of Apache; works for every type in the Registry.
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo (per type $t of Registry::types()):
+    #   ->get("/management/$t")->to('browse#list', type => $t)
+    #   ->get("/management/$t/search")->to('browse#search', type => $t)
+    #   ->get("/management/$t/csv")->to('browse#csv', type => $t)
+    #   ->get('/management/bulk_edit')->to('browse#bulk_edit')
+
+=head1 INSTANCE METHODS
+
+=cut
+
 # BOUNDED, paginated list of one object type (SQL LIMIT/OFFSET + retrieve by id).
 # Reuses the Netdot model, out of Apache. Works for every type in the Registry.
+=head2 list - Bounded, paginated list of one object type
+
+Arguments:  Controller (stash: type; params: offset, search, per-type
+            filter columns, rootversion/show_ch_util for ipblock)
+Returns:    Renders the management/list template (management/ipblock for the
+            ipblock root view)
+Description: The generic list view for every registered type. Rows come from
+            the model layer (search_page/search_count): bounded by the
+            per-user 'view' predicate (Admin/Operator unrestricted), ordered
+            by the type's first display column, paginated via offset
+            (DEFAULT_PERPAGE). Optional column filters go through the model's
+            own search_like(); the free-text box (?search=) is a raw LIKE on
+            the primary column. The page also carries the delete form, the
+            bulk-edit entry point, and the type-specific create boxes (rr:
+            new name in a zone; device: manual add + discover wizard).
+            ipblock shows the root blocks only (hierarchical navigation).
+
+=cut
+
 sub list ($c) {
     my $type  = $c->stash('type');
     my $spec  = Netdot::Mojo::Registry::spec($type)
@@ -355,6 +397,21 @@ sub list ($c) {
 # itself is a popup on the list / search page, netdot.js initBulkEdit). The GET
 # only renders — saving is client-side (netdot.js initBulkEditPage) via
 # POST /api/<table>/batch, which re-checks per-object edit rights on every id.
+=head2 bulk_edit - Bulk-edit page
+
+Arguments:  Controller (params: table (type), object_id (comma-separated
+            ids), fields (comma-separated field names))
+Returns:    Renders the management/bulk_edit template (a GET without any
+            valid field redirects back to the list)
+Description: Port of the legacy edit-multiple.html: the full-width editable
+            table for the selected objects. Only resolvable, viewable
+            objects are kept; per-object edit rights are re-checked by the
+            batch API at save time (POST /api/<table>/batch). The chosen
+            fields are validated against the model's editable set
+            (editable_field_specs, single source of truth with the API).
+
+=cut
+
 sub bulk_edit ($c) {
     my $type = $c->param( 'table' ) // '';
     my $spec = Netdot::Mojo::Registry::spec( $type )
@@ -428,10 +485,33 @@ sub bulk_edit ($c) {
 # results are paginated and rendered by the same list template. The dedicated
 # rr/physaddr/ipblock controllers override this for their richer multi-field
 # searches (name / IP / MAC, hierarchical IP blocks, ...).
+=head2 search - Generic per-type search box
+
+Arguments:  Controller (route /management/<type>/search; param: search)
+Returns:    Same as list (delegates to it)
+Description: Reads ?search= and filters the primary display column through
+            the model layer; the per-user 'view' rule is re-applied and the
+            results are paginated and rendered by the list template. The
+            dedicated rr/physaddr/ipblock controllers override this for
+            their richer multi-field searches.
+
+=cut
+
 sub search ($c) { $c->list; }
 
 # CSV export of ALL objects of one type (header line + every row), streamed from
 # the model iterator. Relationships are rendered via ->get_label (like viewtext.html).
+=head2 csv - CSV export of ALL objects of one type
+
+Arguments:  Controller (stash: type)
+Returns:    A text/csv attachment (header line + every row)
+Description: Streams the type's whole object set (model iterator, in the
+            list view's first-column order, bounded by the per-user 'view'
+            predicate for plain Users). Relationship columns are rendered
+            via ->get_label (like viewtext.html).
+
+=cut
+
 sub csv ($c) {
     my $type  = $c->stash('type');
     my $spec  = Netdot::Mojo::Registry::spec($type)

@@ -4,6 +4,39 @@ use Mojo::Base 'Mojolicious::Controller';
 use Netdot::Model;
 use Netdot::Mojo::Permissions;
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Advanced - Changelog page (audit records)
+
+    Port of the legacy changelog view: searchable (label LIKE), operation-
+    filtered, paginated list of the audit table. Admin/Operator see every
+    entry, any other user only their own.
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/changelog')->to('advanced#changelog');
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 changelog - Changelog page: audit records with search + pagination
+
+Arguments:  query params: C<< search >> (matched with label LIKE),
+            C<< operation >> (insert|update|delete, anything else ignored),
+            C<< offset >> (pagination offset)
+Returns:    Renders the advanced/changelog template (rows, total, perpage,
+            search/operation state for the pagination links)
+Description: Admin/Operator see every audit entry; any other user sees only
+            their own (audit.username = session username). Rows come from a
+            raw SQL COUNT + SELECT ... ORDER BY tstamp DESC LIMIT/OFFSET on
+            the audit table.
+
+=cut
+
 # Changelog: audit records with search (label LIKE) + operation filter + pagination.
 sub changelog {
     my $c      = shift;

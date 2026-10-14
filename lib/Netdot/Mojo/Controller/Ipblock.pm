@@ -14,6 +14,38 @@ use NetAddr::IP;
 # Detail page for an IP block: hierarchical navigation, view-format
 # (list | block | tree), section tabs, and the individual-address view.
 # (Dedicated controller: the only browsable type with custom detail logic.)
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Ipblock - IP block detail page (port of ipblock.html) + search
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/management/ipblock/:id')->to('ipblock#show', type => 'ipblock')
+    #   ->get('/management/ipblock/search')->to('ipblock#search', type => 'ipblock')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 show - IP block detail page
+
+Arguments:  Controller (params: id, view, offset)
+Returns:    Renders the management/ipblock template
+Description: Dedicated port of ipblock.html (the only browsable type with
+            custom detail logic): hierarchical navigation, view format
+            (list | block | tree), section tabs and the individual-address
+            view. The in-place edit form (written via POST /api/ipblock/<id>)
+            excludes version/parent (recomputed by the model); editing
+            address/prefix is a reblock handled end-to-end by
+            Ipblock->update, and the status field is restricted to the
+            values valid for the block type (the model re-checks them).
+
+=cut
+
 sub show ($c) {
     my $id = $c->param('id');
     $id =~ /^\d+$/ or return $c->reply->not_found;
@@ -576,6 +608,19 @@ sub show ($c) {
 #   - IP[/prefix]: exact lookup; if not found, offer the closest covering block.
 #   - IP regex:    regular-expression match on the address (Ipblock->search_like).
 #   - Keywords:    text match across description, info, related sites/entities.
+=head2 search - Address Space search
+
+Arguments:  Controller (params: search_address, search_regex, search_other)
+Returns:    Renders the management/search_results template (an empty query
+            redirects to the block list)
+Description: Port of address_tasks.html "search". Three criteria:
+            IP[/prefix] (exact lookup; when not found, the closest covering
+            block is offered), IP regular expression (Ipblock->search_like)
+            and keywords (text match across description, info, related
+            sites/entities via Ipblock->keyword_search).
+
+=cut
+
 sub search ($c) {
     my $sa = _trim( $c->param('search_address') );
     my $sr = $c->param('search_regex');

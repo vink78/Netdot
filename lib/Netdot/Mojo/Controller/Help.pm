@@ -6,7 +6,33 @@ use File::Path qw(make_path);
 
 my $ROOT = sub { Netdot->config->get('NETDOT_PATH') };
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Help - Help pages (manual + database schema)
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/help')->to('help#index')
+    #   ->get('/help/manual')->to('help#manual')
+    #   ->get('/help/database')->to('help#database')
+    #   ->get('/help/database/graph')->to('help#graph')
+
+=head1 INSTANCE METHODS
+
+=cut
+
 # Help landing page: links to Manual + Database schema.
+=head2 index - Help landing page
+
+Arguments:  Controller
+Returns:    Renders the help/index template (links to Manual + Database
+            schema)
+
+=cut
+
 sub index {
     my $c = shift;
     $c->render(
@@ -17,6 +43,15 @@ sub index {
 }
 
 # User Manual: serve the static pandoc-generated HTML document.
+=head2 manual - Serve the User Manual
+
+Arguments:  Controller
+Returns:    The static pandoc-generated HTML document
+            (NETDOT_PATH/doc/manual/netdot-manual.html), or the help page
+            with an error when the file is missing
+
+=cut
+
 sub manual {
     my $c    = shift;
     my $file = $ROOT->() . '/doc/manual/netdot-manual.html';
@@ -35,6 +70,15 @@ sub manual {
 }
 
 # Database schema (HTML) via Netdot::Meta::SQLT.
+=head2 database - Database schema (HTML)
+
+Arguments:  Controller
+Returns:    Renders the help/database template with the HTML schema produced
+            by Netdot::Meta::SQLT->html_schema (error shown in-page on
+            failure)
+
+=cut
+
 sub database {
     my $c    = shift;
     my $html = '';
@@ -56,6 +100,15 @@ sub database {
 }
 
 # Database schema (GraphViz PNG) via Netdot::Meta::SQLT.
+=head2 graph - Database schema (GraphViz PNG)
+
+Arguments:  Controller
+Returns:    Renders the help/graph template; generates the GraphViz PNG
+            (NETDOT_PATH/htdocs/img/graphs/schema.png) via
+            Netdot::Meta::SQLT->graphviz_schema before rendering
+
+=cut
+
 sub graph {
     my $c    = shift;
     my $dir  = $ROOT->() . '/htdocs/img/graphs';

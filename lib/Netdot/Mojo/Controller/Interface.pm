@@ -9,6 +9,35 @@ use Netdot::Mojo::Registry;
 # interface attributes (netdot.meta "all" view), the VLANs, the forwarding-table
 # and ARP entry timestamps (each linking to the FDB/ARP sub-view), the IP
 # addresses, the neighbors, and the audit records.
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Interface - Interface detail page (port of interface.html) + FDB / ARP sub-views
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/management/interface/:id')->to('interface#show', type => 'interface')
+    #   ->get('/management/interface/:id/fdb')->to('interface#fdb')
+    #   ->get('/management/interface/:id/arp')->to('interface#arp')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 show - Interface detail page
+
+Arguments:  Controller (param: id)
+Returns:    Renders the management/interface template
+Description: Read-only port of interface.html: the interface attributes
+            (netdot.meta "all" view), the VLANs, the IP addresses, the
+            neighbors, the FDB / ARP entry timestamps (each linking to the
+            fdb/arp sub-view) and the audit records.
+
+=cut
+
 sub show {
     my $c  = shift;
     my $id = $c->param('id');
@@ -73,6 +102,15 @@ sub show {
 
 # FDB (forwarding table) entries seen on this interface at a given timestamp —
 # port of i_fdb.html.
+=head2 fdb - FDB (forwarding table) entries seen on an interface
+
+Arguments:  Controller (params: id, tstamp)
+Returns:    Renders the management/i_fdb template (MACs from
+            PhysAddr->search_interface_macs at the given timestamp)
+Description: Port of i_fdb.html.
+
+=cut
+
 sub fdb {
     my $c      = shift;
     my $id     = $c->param('id');
@@ -99,6 +137,15 @@ sub fdb {
 }
 
 # ARP entries on this interface at a given timestamp — port of i_arp.html.
+=head2 arp - ARP entries on an interface at a timestamp
+
+Arguments:  Controller (params: id, tstamp)
+Returns:    Renders the management/i_arp template (rows of IP + MAC, both
+            linkable, from ArpCacheEntry->search_interface)
+Description: Port of i_arp.html.
+
+=cut
+
 sub arp {
     my $c      = shift;
     my $id     = $c->param('id');

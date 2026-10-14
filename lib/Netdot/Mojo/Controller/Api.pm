@@ -172,9 +172,46 @@ sub _page_url {
     return $base . '?' . join( '&', @kv );
 }
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Api - JSON API controller (port of the legacy /rest handlers + Netdot::REST)
+
+    All DB writes of the management UI go through these actions. Permission
+    checks (Netdot::Mojo::Permissions) and argument shape validation are done
+    here; the write semantics themselves live in the model overloads.
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo (specific endpoints first, then the generic
+    # resource router):
+    #   ->any('/api')->to('api#root')
+    #   ->get('/api/openapi.yaml')->to('api#spec')
+    #   ->get('/api/docs')->to('api#docs')
+    #   ->get('/api/prometheus')->to('api#prometheus')
+    #   ->post('/api/:table/batch')->to('api#batch_edit')
+    #   ->post('/api/device')->to('api#create_device')
+    #   ->any('/api/:table')->to('api#generic')
+    #   ->any('/api/:table/:id')->to('api#generic')
+
+=head1 INSTANCE METHODS
+
+=cut
+
 # A machine-readable landing point, Netbox-style: a flat {resource: absolute-url}
 # map. Every model table plus the purpose-built endpoints and the docs/spec.
 # GET only (else 405 JSON).
+=head2 root - API index
+
+Arguments:  Controller (GET /api)
+Returns:    A machine-readable landing point, Netbox-style: a flat
+            {resource: absolute-url} map of every model table plus the
+            purpose-built endpoints and the docs/spec
+Description: GET only (else 405 JSON).
+
+=cut
+
 sub root {
     my ($c) = @_;
     return $c->render( json => { error => 'Method not allowed', path => $c->web_prefix . '/api' }, status => 405 )
@@ -200,6 +237,29 @@ sub root {
 # ---------------------------------------------------------------------------
 # generic resource router
 # ---------------------------------------------------------------------------
+
+=head2 generic - Generic resource router
+
+Arguments:  Controller (stash: table; params: id plus merged query/JSON
+            args)
+Returns:    JSON per operation:
+            - GET /api/<table>          paginated list (count/next/previous/
+              results); ?kw=<kw>&limit=N returns lightweight {id,label} FK
+              search results (the edit-mode FK picker; big tables are
+              searched, never dumped)
+            - GET /api/<table>/meta_data the model meta
+            - GET /api/<table>/<id>     the object (depth/linked_from
+              options); 403 when the user may not view it
+            - POST|PATCH|PUT .../<id>   create or update (FK fields as ids)
+            - DELETE .../<id>           delete; ?id=1,2,3 batch delete
+              ({deleted: [...], skipped: {id: reason}}, each id
+              permission-checked on its own)
+Description: Port of the legacy /rest handlers. Permission checks and
+            shape validation live here (_can_create: per-parent FK gating
+            for Interface/RR/Contact, admin-only classes); the write
+            semantics live in the model's insert/update overloads.
+
+=cut
 
 sub generic {
     my ($c) = @_;
@@ -539,6 +599,20 @@ sub _create_alias {
 }
 
  # POST /api/rr/:id/alias  {name, ttl} — create a new alias pointing at the RR.
+=head2 alias - Create a new alias (CNAME) for a DNS record
+
+Arguments:  Controller (POST /api/rr/<id>/alias, body: {name, ttl?})
+Returns:    The created CNAME record (200); 400/403/404 otherwise
+Description: Port of the legacy host alias form: creates a new RR (the
+            alias name) plus a CNAME pointing at the target. The zone for
+            the new name is resolved from the entered name: a short name
+            stays in the target's zone; a name whose domain part matches a
+            zone the user can edit is mapped to that zone; any other long
+            name is placed in the target's zone as a label. Conflicts (the
+            name already has records) are handled by RRCNAME->insert.
+
+=cut
+
 sub alias {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -566,6 +640,19 @@ sub alias {
 
 # POST /api/ipblock/:id/range  {start, end, status, owner?, used_by?, description?}
 # Create a range of /32 or /128 IP blocks under the parent subnet.
+=head2 range - Create a range of IP blocks under a subnet
+
+Arguments:  Controller (POST /api/ipblock/<id>/range, body: {start, end,
+            status, owner?, used_by?, description?, gen_dns?, name_prefix?,
+            name_suffix?, fzone?})
+Returns:    {created, start, end, status} (201)
+Description: Creates /32 (v4) or /128 (v6) blocks for the address range
+            under the parent subnet, with the optional DNS generation
+            (forward zone, name prefix/suffix). The model's add_range does
+            the work; 'edit' on the subnet is required.
+
+=cut
+
 sub range {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -615,6 +702,22 @@ sub range {
 # Only the fields a caller actually sends are written (the client sends only
 # the dirty cells), so each audit-trail row reflects a real user change:
 # CDBI's after_update trigger records only columns whose value changed.
+=head2 batch - Batch edit of an Ipblock's children
+
+Arguments:  Controller (POST /api/ipblock/batch, body: {updates: [{id,
+            status?, owner?, used_by?, description?}, ...], deletes:
+            [id, ...]})
+Returns:    {updated: [...], deleted: [...], errors: {id: reason}}
+Description: Several field updates and several deletes applied in ONE
+            request (the Children list "Edit" mode), so the client acts on
+            a single consistent outcome instead of firing N parallel
+            per-row calls that can half-apply. Each id is resolved and
+            permission-checked on its own; only the sent fields are
+            written, so each audit-trail row reflects a real user change
+            (CDBI's after_update records only changed columns).
+
+=cut
+
 sub batch {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -706,6 +809,20 @@ sub batch {
 # editable column of the table (the same set the edit form offers, via
 # Detail::editable_field_specs) — so the audit trail reflects a real user change
 # (CDBI's after_update trigger records only columns whose value changed).
+=head2 batch_edit - Generic bulk edit of a list/search selection
+
+Arguments:  Controller (POST /api/<table>/batch, body: {updates: [{id,
+            <field>: value}, ...]})
+Returns:    {updated: [...], errors: {id: reason}}
+Description: Port of the legacy edit-multiple.html: each id is resolved
+            and permission-checked on its own (a denied id is reported, the
+            rest is applied); the fields are validated against
+            Detail::editable_field_specs (the single source of truth shared
+            with the bulk-edit UI), so the audit trail reflects a real user
+            change.
+
+=cut
+
 sub batch_edit {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -772,6 +889,13 @@ sub _trim {
 # devinfo
 # ---------------------------------------------------------------------------
 
+=head2 devinfo - Device information (exporter)
+
+Arguments:  Controller (GET /api/devinfo, param: site, optional)
+Returns:    {device: ...} from Netdot::Exporter->get_device_info (200)
+
+=cut
+
 sub devinfo {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -799,6 +923,26 @@ sub devinfo {
 #   - env is part of the group key, because 27 of the 172 (type,
 #     manufacturer, site) groups mix several used_by values and a group's
 #     labels must stay consistent (Prometheus requirement).
+=head2 prometheus - Prometheus file-based service-discovery inventory
+
+Arguments:  Controller (GET /api/prometheus, no params)
+Returns:    An array of groups {labels => {__meta_netdot_type,
+            __meta_netdot_manufacturer, __meta_netdot_site,
+            __meta_netdot_env}, targets => ["name.zone", ...]} (200, with a
+            no-cache header)
+Description: Port of the legacy prometheus-inventory.php, built on the
+            OBJECT MODEL (Device->search + FK accessors — no raw SQL). All
+            MONITORED devices, grouped by (type, manufacturer, site, env);
+            env = the device's used_by (Entity) short_name (JSON null when
+            the device has no used_by) and is part of the group key,
+            because a group's labels must stay consistent (Prometheus
+            requirement). Devices missing any link of the rr/zone/site/
+            asset/product/type/manufacturer chain are skipped (PHP
+            inner-join parity). Gated on view rights on Device (403
+            otherwise).
+
+=cut
+
 sub prometheus {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -860,6 +1004,15 @@ sub prometheus {
 # ipattr
 # ---------------------------------------------------------------------------
 
+=head2 ipattr - IP attributes
+
+Arguments:  Controller (GET /api/ipattr, param: addr)
+Returns:    The Ipblock's inherited attributes
+            (Ipblock->get_inherited_attributes) (200); 404 when the IP is
+            unknown
+
+=cut
+
 sub ipattr {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -877,6 +1030,19 @@ sub ipattr {
 # ---------------------------------------------------------------------------
 # host_contacts
 # ---------------------------------------------------------------------------
+
+=head2 host_contacts - DNS + contact information for an IP
+
+Arguments:  Controller (GET /api/host_contacts, params: ip, dns, contacts)
+Returns:    {address, name: {<fqdn>: {txt, hinfo, cname, info}}, ether,
+            ethertype, subnet, entities, contact_list} (200); 403 when the
+            user may not view the IP
+Description: The IP's DNS data (the A records' TXT/HINFO/CNAME sub-records,
+            the DHCP scope's ether/ethertype) and/or its contact lists (the
+            parent subnet's used_by contact list + the sites' entities and
+            their contact lists, with the contact details).
+
+=cut
 
 sub host_contacts {
     my ($c) = @_;
@@ -957,6 +1123,26 @@ sub host_contacts {
 # ---------------------------------------------------------------------------
 # host / host_like
 # ---------------------------------------------------------------------------
+
+=head2 host - Host manipulation (exact name match)
+
+Arguments:  Controller (GET /api/host: criteria name/ip/device/...;
+            POST/PATCH/DELETE: create/update/delete of the matched RRs and
+            IPs)
+Returns:    GET: {RR: [...], Ipblock: [...]} (serialized objects); write
+            ops: the JSON of the shared host handler
+Description: Port of the legacy host manipulation (host.html): gathers the
+            RRs and IPs matching the criteria and applies the requested
+            operations on them. The "name" criterion is matched exactly.
+
+=head2 host_like - Host manipulation (fuzzy name match)
+
+Arguments:  (same as host)
+Returns:    (same as host)
+Description: Same as host, but the "name" criterion is a fuzzy search
+            (LIKE) instead of an exact match.
+
+=cut
 
 sub host      { my ( $c ) = @_; _host( $c, 0 ); }
 sub host_like { my ( $c ) = @_; _host( $c, 1 ); }
@@ -1304,6 +1490,22 @@ sub _discover_captured {
     return ( $dev, \@loglines, $err );
 }
 
+=head2 create_device - Create a device (manual add or SNMP discovery)
+
+Arguments:  Controller (POST /api/device, body: {discover: false, host}
+            for a manual add (Device->manual_add: DNS resolution + monitored
+            device + interface + /32 or /128 block + snmp_target), or
+            {discover: true, name, snmp_version, community | v3 fields} for
+            an SNMP discovery (Device->get_snmp_info then Device->discover,
+            run in a transaction with the model log captured for the UI))
+Returns:    {device: <serialized device>, log: [model log lines]} (200)
+Description: Admin-only. The static /api/device route wins over the
+            generic /api/:table, so the generic device insert is
+            unreachable by design: device creation only goes through these
+            two modes.
+
+=cut
+
 sub create_device {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -1410,6 +1612,18 @@ sub create_device {
 # Admin-only. Optional `pretend`: dry run (the model rolls back at the end of
 # the info update, but some nested fast_updates commit independently —
 # see PORTING_NOTES).
+=head2 update_device - SNMP re-poll of an existing device
+
+Arguments:  Controller (POST /api/device/<id>/update, body: optional
+            pretend = dry run, or explicit SNMP credentials)
+Returns:    {device: <serialized device>, log: [model log lines]} (200)
+Description: Admin-only: runs Device->get_snmp_info (stored credentials by
+            default) then the model's update, with the model log captured
+            for the UI. A dry run (pretend) is rolled back at the end of
+            the transaction.
+
+=cut
+
 sub update_device {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -1450,6 +1664,19 @@ sub update_device {
 # (v4) or /128 (v6) block: an existing block is re-pointed at the interface,
 # a new one is inserted with status Static. Interface defaults to the device's
 # first (as in Mason).
+=head2 add_ip - Add an IP address to a device
+
+Arguments:  Controller (POST /api/device/<id>/ip, body: {address,
+            interface?})
+Returns:    The created /32 (v4) or /128 (v6) block (200)
+Description: Port of the legacy device.html add_ip form: Device->add_ip
+            makes the block — an existing block is re-pointed at the
+            interface, a new one is inserted with status Static. The
+            interface must belong to the device and defaults to the
+            device's first (as in Mason). 'edit' on the device required.
+
+=cut
+
 sub add_ip {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -1479,6 +1706,16 @@ sub add_ip {
 
 # Set auto DNS on all of the device's IP-bearing interfaces (Mason: the
 # "Set Auto DNS on all IP interfaces" form). Body: {value: 0|1}.
+=head2 set_auto_dns - Set auto DNS on all of a device's IP interfaces
+
+Arguments:  Controller (POST /api/device/<id>/auto_dns, body: {value: 0|1})
+Returns:    {ok: 1} (200)
+Description: Port of the legacy "Set Auto DNS on all IP interfaces" form
+            (Device->set_interfaces_auto_dns). 'edit' on the device
+            required.
+
+=cut
+
 sub set_auto_dns {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -1502,6 +1739,17 @@ sub set_auto_dns {
 # Re-generate DNS names for all interface IPs of the device (Mason: the
 # "Re-generate DNS names for all IPs" form). Skips silently when auto DNS is
 # disabled (model logs a debug line and returns).
+=head2 regen_dns - Re-generate DNS names for a device's interface IPs
+
+Arguments:  Controller (POST /api/device/<id>/regen_dns, no body)
+Returns:    {ok: 1} (200)
+Description: Port of the legacy "Re-generate DNS names for all IPs" form
+            (Device->do_auto_dns); skips silently when auto DNS is
+            disabled (the model logs a debug line and returns). 'edit' on
+            the device required.
+
+=cut
+
 sub regen_dns {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -1523,6 +1771,17 @@ sub regen_dns {
 # {ip: <id>, service: <id>, monitored?: bool, contactlist?: <id>}.
 # A duplicate (ip, service) is a 400. Legacy side effect kept: the parent IP
 # is set monitored on success.
+=head2 add_ipservice - Create an IP service
+
+Arguments:  Controller (POST /api/ipservice, body: {ip: <id>, service:
+            <id>, monitored?, contactlist?})
+Returns:    The created IpService (200); a duplicate (ip, service) is a 400
+Description: Port of the legacy addservice.html popup. Permission is
+            'edit' on the device owning the IP. Legacy side effect kept:
+            the parent IP is set monitored on success.
+
+=cut
+
 sub add_ipservice {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -1564,6 +1823,23 @@ sub add_ipservice {
 # API only adds the permission check and input-shape validation, and maps the
 # model's throw_user errors to a 400. Row removal goes through the generic
 # DELETE /api/userright/<id> / /api/groupright/<id>.
+=head2 accessright - Grant access rights on an object
+
+Arguments:  Controller (POST /api/accessright, body: {object_class,
+            object_id, subject_type: user|group, subject_id, rights:
+            [view|edit|delete|choose_ip|none]})
+Returns:    {ok: 1} (200); the model's validation errors are mapped to 400
+Description: Port of the generic access_right_form.html "Add rights" form
+            (used from the Ipblock and Device Rights sections). Admin-only.
+            All the grant semantics (allowed classes, find-or-create of the
+            AccessRight row, join-row dedup, the 'none' right semantics)
+            live in the model's insert overloads; the API only adds the
+            permission check and input-shape validation. Row removal goes
+            through the generic DELETE /api/userright/<id> /
+            /api/groupright/<id>.
+
+=cut
+
 sub accessright {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -1606,6 +1882,16 @@ sub accessright {
 # Serve the OpenAPI 3 spec (YAML) at /api/openapi.yaml. Uses the generated
 # file (api/gen_openapi.pl) when present; otherwise builds it on the fly from
 # the model's meta (Netdot::Mojo::OpenAPI::build_spec).
+=head2 spec - Serve the OpenAPI 3 spec
+
+Arguments:  Controller (GET /api/openapi.yaml)
+Returns:    The OpenAPI 3 document as YAML (application/yaml)
+Description: Uses the generated file (api/gen_openapi.pl) when present;
+            otherwise builds it on the fly from the model's meta
+            (Netdot::Mojo::OpenAPI::build_spec).
+
+=cut
+
 sub spec {
     my ($c) = @_;
     my $base = Netdot->config->get('NETDOT_PATH');
@@ -1625,6 +1911,15 @@ sub spec {
 # Swagger UI page at /api/docs (loads /api/openapi.yaml via the Swagger UI CDN).
 # Standalone (no Netdot layout) so it works at the root or behind a sub-path
 # proxy without pulling in site CSS/nav that assume a root deployment.
+=head2 docs - Swagger UI
+
+Arguments:  Controller (GET /api/docs)
+Returns:    The Swagger UI page (loads /api/openapi.yaml via the Swagger UI
+            CDN), standalone (no Netdot layout) so it works at the root or
+            behind a sub-path proxy
+
+=cut
+
 sub docs {
     my ($c) = @_;
     $c->render( template => 'api_docs', layout => undef );

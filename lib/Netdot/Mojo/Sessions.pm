@@ -52,7 +52,54 @@ sub _ensure_dir {
 
 sub _file { path( $_[0]->dir )->child( $_[1] ) }
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Sessions - Server-side (flat-file) sessions for Netdot::Mojo
+
+    Replaces the default signed/encrypted cookie sessions with an opaque
+    128-bit random session id carried in a plain (unsigned) cookie; the
+    session data is stored on disk, one 0600 JSON file per session in a 0700
+    directory (SESSION_DIR config). Works under Hypnotoad (multi-worker):
+    every worker reads/writes the same files, so a session survives being
+    served by a different worker. The engine is instantiated by Mojolicious
+    and called with the controller as argument (see the header comment at
+    the top of the file).
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo (dir/secure/idle from the Netdot config
+    # SESSION_DIR / SESSION_SECURE / SESSION_IDLE):
+    my $sessions = Netdot::Mojo::Sessions->new(
+        dir    => '/var/lib/netdot/sessions',
+        secure => 1,
+    );
+
+    # Called by Mojolicious on every request / session change:
+    $sessions->load( $c );
+    $sessions->store( $c );
+
+=head1 INSTANCE METHODS
+
+=cut
+
 # Load session data from disk, keyed by the opaque id in the (plain) cookie.
+=head2 load - Load session data from disk
+
+Arguments:  Controller (reads the opaque session id from the plain cookie)
+Returns:    1 when a valid, non-expired session file was loaded into the
+            stash; nothing otherwise
+Description: Part of the server-side flat-file session store (replacement of
+            the signed/encrypted cookie sessions). The cookie holds only a
+            128-bit random id (strictly validated before any file access:
+            path-traversal / injection guard); the session data itself lives
+            in a 0600 JSON file in a 0700 directory (SESSION_DIR config).
+            Mirrors Mojolicious::Sessions sliding-expiry and flash handling.
+            Works under Hypnotoad: every worker reads/writes the same files.
+
+=cut
+
 sub load {
     my ( $self, $c ) = @_;
 
@@ -79,6 +126,21 @@ sub load {
 }
 
 # Persist session data to disk + set the opaque id cookie.
+=head2 store - Persist session data to disk
+
+Arguments:  Controller (reads the session hash from the stash)
+Returns:    1 when the session was stored (or the logout file/cookie was
+            cleared); nothing when there is no session
+Description: Persists the session hash as a JSON file (atomic write: temp
+            file + rename, so a crash never leaves a partial file), reuses
+            the client's session id when it is valid, otherwise mints a
+            fresh 128-bit random id, and sets the plain cookie (HttpOnly,
+            SameSite, Secure per SESSION_SECURE). On logout/expiry the file
+            is removed and the cookie cleared. Also triggers the
+            opportunistic prune of expired files (once per purge_interval).
+
+=cut
+
 sub store {
     my ( $self, $c ) = @_;
 

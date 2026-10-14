@@ -843,8 +843,8 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   **RRADDR** (no allocation) allowed iff `can('edit',$zone)` AND `can('edit',$ip)`.
    Also `root` (GET `/api` Netbox-style flat index), `spec` (`/api/openapi.yaml`),
    `docs` (Swagger UI, standalone).
-   - **`prometheus`** (GET `/api/prometheus`, commit `b30a1267`, object-model
-     rewrite pending) — port of the legacy `prometheus-inventory.php`: all
+   - **`prometheus`** (GET `/api/prometheus`; raw-SQL version `b30a1267`, object-model
+     rewrite `3ab1bd64`) — port of the legacy `prometheus-inventory.php`: all
      MONITORED devices — `Device->search({monitored => 1})` — walked through the
      object model (FK accessors `name`→RR→`zone`, `site`, `asset_id`→`product_id`
      →`type`/`manufacturer`, `used_by`→Entity — **no raw SQL**). A monitored
@@ -915,6 +915,18 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   FK points at) so the docs match the runtime nested reference; a FK property =
   `anyOf [integer, $ref FkReference_<Classe>]`.
 - `api/gen_openapi.pl` — regenerator → `api/openapi.yaml` (re-run after model/spec changes).
+ - **POD documentation (perldoc, 2026-10-14, commit `68c9c8f6`)** — every one of the
+   26 `lib/Netdot/Mojo/**.pm` modules carries perldoc-readable POD, following the legacy
+   `lib/Netdot/Model` convention (`Model.pm`, `Device.pm`, `Model/RRAttr.pm`): a
+   `=head1 NAME` + `=head1 SYNOPSIS` + `=head1 CLASS METHODS` / `=head1 INSTANCE METHODS`
+   header block (SYNOPSIS = real usage; for the controllers, the actual routes as wired
+   in `Netdot::Mojo.pm`), then one `=head2 <name> — <one-line description>` block
+   (`Arguments:` / `Returns:` / optional `Description:` + `=cut`) directly above every
+   **public** sub — 117 subs documented, private `_` helpers excluded — plus
+   `=encoding utf8` in the first POD region; the trailing `=head1 AUTHOR` /
+   `=head1 COPYRIGHT & LICENSE` blocks untouched. Verified: `perl -c` clean on all 26;
+   `podchecker` error-free (the lone remaining warning, "Verbatim paragraph in NAME
+   section", is the same one the legacy `Model.pm` reference emits).
 - `htdocs/management/{ipblock,rr,ipaddress,detail,search_results}.html.ep` — templates.
 - **UI / design (2026)**: `htdocs/css/style.css` (the "MODERN DESIGN LAYER" at the bottom:
   sticky navbar, `datatable` look + rounded corners, **`table.datatable.detail` field tables**
@@ -1439,7 +1451,7 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
            existence (404), and maps the model's `throw_user` to a 400
            (`$e->message`). ⚠️ the overload takes a **hashref** — the first cut
            called it with a key/value list (`Can't use string ("object_class") as
-           a HASH ref`); the fix (commit `5eaa6e72`) wraps the arguments in
+           a HASH ref`); the fix (commit `f5650886`) wraps the arguments in
            `{…}`.
           - **Fix JSON boolean writes (2026-10-14, Pitfall §6)** — `PATCH /api/…`
             with a JSON `true`/`false` body (e.g. the Device Basics checkboxes)
@@ -1458,5 +1470,9 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
             PATCH still leaves the changed values committed — re-sending the
             same payload is a no-op → 200 ("1st post fails, 2nd passes").
             Verified: `collect_stp` 0→1 / repeat / 1→0 all 200, audit `vals`
-            records `1`/`0` correctly, device state restored. Commit `5eaa6e72`
+            records `1`/`0` correctly, device state restored. Commit `f5650886`
             (« Fix boolean issue »).
+ - Done: **POD documentation (perldoc)** (2026-10-14, `68c9c8f6`) — all 26
+   `lib/Netdot/Mojo/**.pm` modules documented per the legacy `lib/Netdot/Model`
+   convention (NAME / SYNOPSIS / CLASS|INSTANCE METHODS + one head2 block per public
+   sub; see the Key files entry above).

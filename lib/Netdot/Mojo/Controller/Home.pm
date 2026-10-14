@@ -2,6 +2,28 @@ package Netdot::Mojo::Controller::Home;
 
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Home - Home page
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/')->to('home#index')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 index - Home page
+
+Arguments:  Controller
+Returns:    Renders the index template
+
+=cut
+
 sub index ($c) {
     $c->render( template => 'index', layout => 'default', title => 'Home' );
 }

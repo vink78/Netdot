@@ -12,6 +12,37 @@ use Netdot::Mojo::Detail;
 # PTR, NS, DS, NAPTR, LOC, SRV), honouring the same display conditionals as the
 # original. Write actions ([add]/[edit]/[delete]) are omitted (edit interface not
 # yet migrated).
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Rr - DNS resource record detail page (port of host.html) + search
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/management/rr/:id')->to('rr#show', type => 'rr')
+    #   ->get('/management/rr/search')->to('rr#search', type => 'rr')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 show - DNS resource record detail page
+
+Arguments:  Controller (param: id)
+Returns:    Renders the management/rr template
+Description: Port of host.html. Shows the record itself plus each related
+            record type (A/AAAA, HINFO, TXT, MX, CNAME, PTR, NS, DS, NAPTR,
+            LOC, SRV), honouring the same display conditionals as the
+            original. The in-place edit form (written via PATCH /api/rr/<id>)
+            excludes the system-managed timestamps created/modified; the
+            delete action and the "add related record" forms go through the
+            API.
+
+=cut
+
 sub show ($c) {
     my $id = $c->param('id');
     $id =~ /^\d+$/ or return $c->reply->not_found;
@@ -55,6 +86,20 @@ sub show ($c) {
 # name lookup. A MAC resolves to PhysAddr, an IP to Ipblock, anything else to RR.
 # A single hit goes straight to the object's detail page; otherwise the matches
 # are listed (or a "not found" notice).
+=head2 search - DNS Records search
+
+Arguments:  Controller (params: search, zone_id, offset)
+Returns:    A single match redirects to the object's detail page; otherwise
+            renders the management/search_results template (paginated, with
+            a batch-delete option per result type)
+Description: Port of host_tasks.html "search". The query term can be a name,
+            an IP, or a MAC: a MAC resolves to PhysAddr, an IP to Ipblock,
+            anything else to an RR name (optionally narrowed by zone via
+            zone_id). The result set is homogeneous per query, so each type
+            has its own /api/<type> batch-delete endpoint.
+
+=cut
+
 sub search ($c) {
     my $search = _trim( $c->param('search') // '' );
     $search = '*' if $search eq '';

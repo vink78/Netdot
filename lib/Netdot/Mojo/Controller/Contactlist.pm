@@ -12,6 +12,35 @@ use Netdot::Mojo::Detail;
 # the linked Person + contact type + notify/escalation fields), sorted by the
 # person's label. All other has_many relations are shown as generic tables.
 # Write actions ([new]/[edit]/[delete]) are omitted (edit interface not migrated).
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Contactlist - Contact List detail page (port of generic/contactlist.html)
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/management/contactlist/:id')->to('contactlist#show', type => 'contactlist')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 show - Contact List detail page
+
+Arguments:  Controller (params: id, offset)
+Returns:    Renders the management/contactlist template
+Description: Port of generic/contactlist.html. Shows the contact list
+            attributes (meta "all" view), the in-place edit form (written
+            via PATCH /api/contactlist/<id>) and the contact roles (linked
+            Person + contact type + notify/escalation fields, sorted by the
+            person's label) as a dedicated section. Every other has_many
+            relation is rendered as a generic table (read-only).
+
+=cut
+
 sub show ($c) {
     my $id = $c->param('id');
     $id =~ /^\d+$/ or return $c->reply->not_found;

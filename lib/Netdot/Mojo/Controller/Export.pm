@@ -88,8 +88,43 @@ sub _run {
     return ( $log, \@errors );
 }
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Export - Export 3rd-party configurations (BIND / NAMED / RFC952 / DHCPD / ...)
+
+    Port of the legacy config_tasks.html: GET renders the exporter form,
+    POST runs the selected exporters (Netdot::Exporter) and re-renders with
+    the captured log. Types are gated by the writer's rights on DNS records
+    (Permissions::can_export); the remaining types are Admin-only.
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->any('/export')->to('export#index')
+
+=head1 INSTANCE METHODS
+
+=cut
+
 # GET  -> render the export form.
 # POST -> run the selected exporters and re-render with the captured log.
+=head2 index - Export configurations page
+
+Arguments:  Controller (GET: render the form; POST with submit: run the
+            selected exporters)
+Returns:    Renders the export template (available types, zones, DHCP
+            scopes, captured log, errors)
+Description: Port of htdocs/export/config_tasks.html. The exporter + DHCP
+            logger output is captured in a Log4perl String appender and shown
+            on the page. Admins can run every exporter type; other users
+            (write rights on DNS records) are limited to the DNS + DHCP set
+            (BIND, NAMED, RFC952, DHCPD); requesting another type yields an
+            error message instead.
+
+=cut
+
 sub index ($c) {
     return if _guard( $c );
 

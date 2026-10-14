@@ -12,6 +12,35 @@ use Netdot::Mojo::Detail;
 # the apex (@) record's A/NS/MX entries, and the zone's recent DNS/DHCP change
 # history (HostAudit). Write actions ([add]/[edit]/[import]) are omitted (edit
 # interface not yet migrated).
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Zone - DNS zone detail page (port of zone.html)
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/management/zone/:id')->to('zone#show', type => 'zone')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 show - DNS zone detail page
+
+Arguments:  Controller (params: id, offset)
+Returns:    Renders the management/zone template
+Description: Port of zone.html. Beyond the plain attributes (meta "all"
+            view) and the has_many tables, shows the record-type count
+            summary, the apex (@) record's A/NS/MX entries and the zone's
+            recent DNS/DHCP change history (HostAudit, most recent first,
+            capped at 50). The in-place edit form is written via
+            PATCH /api/zone/<id>.
+
+=cut
+
 sub show ($c) {
     my $id = $c->param('id');
     $id =~ /^\d+$/ or return $c->reply->not_found;

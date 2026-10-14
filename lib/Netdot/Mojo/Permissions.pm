@@ -35,7 +35,41 @@ sub _log () {
 # Public helpers
 ##################################################################
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Permissions - Permission layer for the Mojolicious app
+
+    Port of the Apache/mod_perl rule-based manager
+    (Netdot::NetdotPermissionFactory + Apache2::SiteControl::PermissionManager),
+    combining the SectionAccessRule, the ObjectAccessRule and the GrantAllRule
+    default (see the header comment at the top of the file). The original
+    per-request user was an Apache2::SiteControl::User wrapper; here the
+    equivalent is a Netdot::Model::Person object (user type from
+    Person->user_type, allowed objects from Person->get_allowed_objects()).
+
+=head1 SYNOPSIS
+
+    use Netdot::Mojo::Permissions;
+
+    my $type = Netdot::Mojo::Permissions->user_type( $person );
+    return 1 if Netdot::Mojo::Permissions->can( $person, 'view', $object );
+    my $allowed = Netdot::Mojo::Permissions->allowed_objects( $person );
+
+=head1 CLASS METHODS
+
+=cut
+
 # User type of a Person ('Admin' | 'Operator' | 'User' | '' if unset).
+=head2 user_type - User type of a Person
+
+Arguments:  Person (undef is fine)
+Returns:    The user type name ('Admin' | 'Operator' | 'User'), or '' when
+            unset / no person
+
+=cut
+
 sub user_type {
     my ($class, $person) = @_;
     return '' unless $person && ref $person;
@@ -47,6 +81,14 @@ sub user_type {
 
 # Hashref of allowed objects for a Person:
 #   { ObjectClass => { object_id => { view=>1, edit=>1, ... } } }
+=head2 allowed_objects - Hashref of allowed objects for a Person
+
+Arguments:  Person (undef is fine)
+Returns:    C<< { ObjectClass => { object_id => { view=>1, edit=>1, ... } } } >>
+            (from Person->get_allowed_objects); an empty hashref on error
+
+=cut
+
 sub allowed_objects {
     my ($class, $person) = @_;
     return {} unless $person && ref $person;
@@ -63,6 +105,21 @@ sub allowed_objects {
 #
 # Built from the FK columns so we never materialise a huge id list (a single
 # Zone can hold tens of thousands of RRs; we filter by `zone IN (...)` instead).
+=head2 viewable_predicate - SQL WHERE fragment for a bounded list
+
+Arguments:  class (name or object), Person
+Returns:    (undef, undef) — no restriction (Admin/Operator or no person);
+            ( $where, [] ) — a raw predicate to append after the table name
+            (ids inlined as a literal IN list, no placeholders, e.g.
+            "(id IN (3,7) OR zone IN (2))"); or ( '0', [] ) — nothing is
+            viewable (a User with no matching rights)
+Description: Built from FK columns (a Zone grant restricts its RRs via
+            "zone IN (...)") so a huge id list is never materialised. Only
+            object ids granting the 'view' action count — a User may hold
+            edit/delete without view on a given object.
+
+=cut
+
 sub viewable_predicate {
     my ( $self, $class, $person ) = @_;
     my $type = user_type( __PACKAGE__, $person );
@@ -106,6 +163,17 @@ sub viewable_predicate {
 # delete control on list pages and to filter the navigation). Conservative:
 # checks the type itself plus the FK types whose rights grant access
 # (Device->Interface, Zone->RR, ...).
+=head2 has_action - Whether a person holds an action on ANY object of a class
+
+Arguments:  class (name or object), Person, action
+Returns:    1 when allowed, 0 otherwise
+Description: Used to show/hide the delete control on list pages and to
+            filter the navigation. Conservative: checks the type itself plus
+            the FK types whose rights grant access (Device->Interface,
+            Zone->RR, ContactList->Contact). Admins always return 1.
+
+=cut
+
 sub has_action {
     my ( $self, $class, $person, $action ) = @_;
     my $type = user_type( __PACKAGE__, $person );
@@ -116,6 +184,16 @@ sub has_action {
 
 # Same as has_action but takes a PRE-FETCHED allowed_objects() hashref (so a
 # caller can inspect many types in one shot without re-querying the DB per type).
+=head2 has_action_on - has_action on a PRE-FETCHED allowed-objects hash
+
+Arguments:  class (name or object), allowed_objects hashref, action
+Returns:    1 when allowed, 0 otherwise
+Description: Same check as has_action but takes a pre-fetched
+            allowed_objects() hashref, so a caller can inspect many types in
+            one shot without re-querying the DB per type.
+
+=cut
+
 sub has_action_on {
     my ( $class, $access, $action ) = @_;
     return 0 unless ref $access eq 'HASH';
@@ -142,6 +220,18 @@ sub has_action_on {
 # or 'delete' on a Zone or RR (Zone rights apply to their records; has_action
 # already resolves the Zone->RR grant and short-circuits to "yes" for Admins).
 # (Original: access_admin_section / Admin only; relaxed to "DNS write" on request.)
+=head2 can_export - Whether a person may trigger the Export section
+
+Arguments:  Person
+Returns:    1 when allowed, 0 otherwise
+Description: Reserved to people holding WRITE rights on DNS records: 'edit'
+            (create/modify) or 'delete' on a Zone or RR (Zone rights apply
+            to their records; the Zone->RR grant is already resolved).
+            The original was Admin only; this was relaxed to "DNS write" on
+            request.
+
+=cut
+
 sub can_export {
     my ( $class, $person ) = @_;
     return 0 unless defined $person && ref $person;
@@ -153,6 +243,23 @@ sub can_export {
 ##################################################################
 # Main entry point
 ##################################################################
+
+=head2 can - Main permission entry point
+
+Arguments:  Person, action ('view' | 'edit' | 'delete' | 'choose_ip' |
+            'access_section' | 'access_admin_section'), resource (a Netdot
+            model object, or a section name string for section actions),
+            optional precomputed allowed_objects() hashref
+Returns:    1 if allowed, 0 otherwise
+Description: Port of the Apache/mod_perl rule-based manager, combining three
+            rules: SectionAccessRule (denies UI sections for non-Admin /
+            non-Operator), ObjectAccessRule (denies object access based on
+            user type + allowed objects; on error, deny: conservative
+            default), and the GrantAllRule default (allow). allowed_objects
+            is resolved lazily so Admins and section checks avoid the DB
+            query.
+
+=cut
 
 sub can {
     my ( $class, $person, $action, $resource, $access ) = @_;

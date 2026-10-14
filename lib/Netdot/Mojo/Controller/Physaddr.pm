@@ -8,6 +8,34 @@ use Netdot::Mojo::Registry;
 # attributes (address, vendor/OUI, static, first/last seen), the devices and
 # interfaces using the address, the edge port, the last N forwarding-table and
 # ARP entries, and the DHCP scopes.
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Physaddr - MAC / PhysAddr detail page (port of mac.html) + search
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/management/physaddr/:id')->to('physaddr#show', type => 'physaddr')
+    #   ->get('/management/physaddr/search')->to('physaddr#search', type => 'physaddr')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 show - MAC / PhysAddr detail page
+
+Arguments:  Controller (param: id)
+Returns:    Renders the management/mac template
+Description: Read-only port of mac.html: the MAC attributes (address,
+            vendor/OUI, static, first/last seen), the devices and interfaces
+            using the address, the edge port, the last N forwarding-table
+            and ARP entries (grouped by timestamp) and the DHCP scopes.
+
+=cut
+
 sub show {
     my $c  = shift;
     my $id = $c->param('id');
@@ -129,6 +157,18 @@ sub show {
 # MAC search (port of mac.html "search"): a LIKE on the address (full MAC or
 # OUI prefix). One match -> straight to the detail page; several -> a results
 # table; none -> not found.
+=head2 search - MAC address search
+
+Arguments:  Controller (param: search = full MAC or OUI prefix)
+Returns:    A single match redirects to the detail page; several matches
+            render the management/search_results template (max 200 rows,
+            with a batch-delete option when the user may delete PhysAddr);
+            no match -> not found
+Description: Port of mac.html "search": a LIKE on the address
+            (PhysAddr->search_like).
+
+=cut
+
 sub search {
     my $c    = shift;
     my $term = $c->param('search');

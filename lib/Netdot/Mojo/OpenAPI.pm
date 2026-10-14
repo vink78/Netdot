@@ -29,7 +29,41 @@ my %TYPE_MAP = (
     longblob  => 'string',
 );
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::OpenAPI - OpenAPI 3.0 document builder for the Netdot JSON API
+
+    Built from Netdot's meta (lib/Netdot/Meta.pm), i.e. the same source of
+    truth as the model: one schema and a set of paths per Netdot table, plus
+    the specific (non-generic) endpoints. Single source of truth used both
+    by the generator script (api/gen_openapi.pl -> api/openapi.yaml) and, on
+    the fly, by the /api/openapi.yaml route when the file is absent.
+
+=head1 SYNOPSIS
+
+    my $spec = Netdot::Mojo::OpenAPI->build_spec();    # -> hashref
+
+=head1 CLASS METHODS
+
+=cut
+
 # Build the full OpenAPI document (hashref).
+=head2 build_spec - Build the OpenAPI 3 document
+
+Arguments:  None
+Returns:    The full OpenAPI 3.0 document as a hashref
+Description: Built from Netdot's meta (the same source of truth as the
+            model): one schema and a set of paths per Netdot table (list /
+            retrieve / create / update / delete, with the per-column search
+            parameters and the FK $refs), plus the specific non-generic
+            endpoints. Single source of truth used both by the generator
+            script (api/gen_openapi.pl -> api/openapi.yaml) and, on the
+            fly, by the /api/openapi.yaml route when the file is absent.
+
+=cut
+
 sub build_spec {
     my @tabs = Netdot->meta->get_tables();
     my ( %schemas, %paths );

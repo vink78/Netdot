@@ -11,6 +11,37 @@ use Netdot::Mojo::Detail;
 # attribute, with FK values rendered as links when their type has a route.
 # IP blocks have their own dedicated controller (Netdot::Mojo::Controller::Ipblock),
 # the only browsable type with custom detail logic so far.
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Show - Generic detail page (registered types without a dedicated controller) + picture binaries
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/management/<type>/:id')->to('show#show', type => <type>)
+    #   ->get('/management/sitepicture/:id')->to('show#picture', type => 'sitepicture')
+    #   ->get('/management/floorpicture/:id')->to('show#picture', type => 'floorpicture')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 show - Generic detail page
+
+Arguments:  Controller (stash: type; params: id, offset, csv)
+Returns:    Renders the management/detail template, or a CSV download when
+            ?csv=<rel> is given (one has_many relation, all rows)
+Description: Read-only detail for any registered type: every attribute of
+            the netdot.meta "all" view (FK values become links when their
+            type has a route), the in-place edit form (written via
+            PATCH /api/<table>/<id> where table is the DB table name) and
+            the has_many relation tables (paginated via offset).
+
+=cut
+
 sub show ($c) {
     my $type = $c->stash('type');
     my $spec = Netdot::Mojo::Registry::spec($type)
@@ -116,6 +147,16 @@ sub show ($c) {
 # Picture binary (read-only): serve a SitePicture / FloorPicture bindata BLOB
 # inline with its content type, so a picture's label links straight to the image.
 # Mirrors Closet#picture (the ClosetPicture equivalent, which has its own route).
+=head2 picture - Serve a Site/Floor picture's binary data
+
+Arguments:  Controller (stash: type = sitepicture | floorpicture; param: id)
+Returns:    The picture BLOB with its stored content type (inline download)
+Description: Read-only; gated on the right to view the owning site/floor.
+            An unknown/invalid stored content type falls back to
+            application/octet-stream. Mirrors Closet#picture.
+
+=cut
+
 sub picture ($c) {
     my %class  = ( sitepicture => 'Netdot::Model::SitePicture',
                    floorpicture => 'Netdot::Model::FloorPicture' );

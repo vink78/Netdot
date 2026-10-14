@@ -156,6 +156,38 @@ sub _render {
 # ---------------------------------------------------------------------------
 # Landing page
 # ---------------------------------------------------------------------------
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Reports - Reports pages (Admin + Operator)
+
+    One action per report (device, asset, ip, macs, ipbat, security, custom,
+    hinfo, usedby, database, topology, pollstats, poll), each building its
+    own HTML table server-side from raw SQL / model queries.
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/reports')->to('reports#index')
+    #   ->get('/reports/<rep>')->to("reports#<rep>")
+    #       for <rep> in device asset ip macs topology pollstats poll
+    #                   database custom ipbat security hinfo usedby
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 index - Reports landing page
+
+Arguments:  Controller
+Returns:    Renders the reports/index template (menu built by
+            Registry::reports_menu)
+Description: Admin/Operator only (other users get a 403).
+
+=cut
+
 sub index ($c) {
     return if _guard($c);
     $c->render(
@@ -181,6 +213,21 @@ my @DEVICE_OPTS = (
     [ 'vlan_mismatches',   'VLAN Mismatches' ],
     [ 'os_mismatches',     'OS Mismatches' ],
 );
+
+=head2 device - Device inventory report
+
+Arguments:  Controller (params: report_type = product | product_monitored
+            | site | siteos | os | downtime | snmp_down | duplex |
+            vlan_mismatches | os_mismatches; format=csv for CSV export)
+Returns:    Renders the reports/report template (or a CSV attachment)
+Description: Port of the legacy device_inventory reports: devices grouped by
+            product type/model (all or monitored only), by site/type/model
+            (optionally per OS), by manufacturer/model/OS (non-recommended
+            OS in red), or the mismatch lists (scheduled downtime, SNMP
+            down, duplex/speed mismatches, VLAN mismatches, OS mismatches).
+            Admin/Operator only.
+
+=cut
 
 sub device ($c) {
     return if _guard($c);
@@ -495,6 +542,18 @@ my @ASSET_OPTS = (
     [ 'detailed',     'Detailed' ],
 );
 
+=head2 asset - Asset inventory report
+
+Arguments:  Controller (params: report_type = type_product | detailed,
+            sort (detailed view), format=csv)
+Returns:    Renders the reports/report template (or a CSV attachment)
+Description: Port of the legacy asset reports: a Type/Model/Vendor count
+            summary, or a detailed view (serial number, inventory number,
+            installed?, reserved for, sortable by column). Admin/Operator
+            only.
+
+=cut
+
 sub asset ($c) {
     return if _guard($c);
     my $rt   = $c->param('report_type') // 'type_product';
@@ -590,6 +649,21 @@ my @IP_OPTS = (
     [ 'unused_v4_statics','Unused Static Addresses' ],
 );
 
+=head2 ip - IP reports
+
+Arguments:  Controller (params: report_type = unused_subnets |
+            unused_v4_subnets | unused_v6_subnets | maxed_v4_subnets |
+            maxed_v6_subnets | unused_v4_statics; version, days;
+            format=csv)
+Returns:    Renders the reports/report template (or a CSV attachment)
+Description: Port of the legacy IP reports: subnets that appear unused
+            (Ipblock->get_unused_subnets), subnets below the
+            SUBNET_USAGE_MINPERCENT free threshold
+            (Ipblock->get_maxed_out_subnets), and static IPv4 addresses not
+            seen on the network in the past N days. Admin/Operator only.
+
+=cut
+
 sub ip ($c) {
     return if _guard($c);
     my $rt    = $c->param('report_type') // '';
@@ -672,6 +746,18 @@ sub _ipblock_rows {
 # ---------------------------------------------------------------------------
 # MAC addresses by vendor
 # ---------------------------------------------------------------------------
+=head2 macs - MAC addresses by vendor
+
+Arguments:  Controller (params: topn (default 100), type = node |
+            infrastructure | all, format=csv)
+Returns:    Renders the reports/report template (or a CSV attachment)
+Description: Port of the legacy macs report: the top N vendors
+            (PhysAddr->vendor_count) with the OUI linked to the filtered
+            PhysAddr list and a percentage of the total. Admin/Operator
+            only.
+
+=cut
+
 sub macs ($c) {
     return if _guard($c);
     my $topn   = $c->param('topn') // 100;
@@ -712,6 +798,18 @@ sub macs ($c) {
 # ---------------------------------------------------------------------------
 # IP per building (IP par Batiment)
 # ---------------------------------------------------------------------------
+=head2 ipbat - IP per building report (IP par Bâtiment)
+
+Arguments:  Controller (params: site, format=csv)
+Returns:    Renders the reports/report template (or a CSV attachment)
+Description: UNIL-specific report (raw SQL): for a selected building (a site
+            with sitesubnets), lists the allocated (status 3/6) IP addresses
+            with their PTR record (host name) and the used_by entity (the
+            address' own, falling back to the parent subnet's).
+            Admin/Operator only.
+
+=cut
+
 sub ipbat ($c) {
     return if _guard($c);
     my $site = $c->param('site') // '';
@@ -770,6 +868,17 @@ sub ipbat ($c) {
 # ---------------------------------------------------------------------------
 # Green list (security report)
 # ---------------------------------------------------------------------------
+=head2 security - Green list report (Liste Verte)
+
+Arguments:  Controller (param: format=csv)
+Returns:    Renders the reports/report template (or a CSV attachment)
+Description: UNIL-specific security report (raw SQL): the DNS records whose
+            info starts with « Liste Verte », with the resolved IP (CNAMEs
+            resolved), the used_by entity, and the list / contact / date
+            lines parsed from the record's info. Admin/Operator only.
+
+=cut
+
 sub security ($c) {
     return if _guard($c);
     my $type = 'Verte';
@@ -851,6 +960,16 @@ sub security ($c) {
 # ---------------------------------------------------------------------------
 # UNIL custom reports
 # ---------------------------------------------------------------------------
+=head2 custom - UNIL custom reports landing page
+
+Arguments:  Controller
+Returns:    Renders the reports/custom template (the CPU list from the
+            DEFAULT_HINFO_CPU_VALUES config)
+Description: Entry point of the UNIL-specific reports (hinfo per CPU,
+            used-by-entity IP counts). Admin/Operator only.
+
+=cut
+
 sub custom ($c) {
     return if _guard($c);
     my $cpus = Netdot::Model->config->get('DEFAULT_HINFO_CPU_VALUES');
@@ -859,6 +978,15 @@ sub custom ($c) {
     $c->render( template => 'reports/custom', layout => 'default', title => 'UNIL Reports',
                 cpus => \@hinfo );
 }
+
+=head2 hinfo - Hosts by HINFO for a given CPU
+
+Arguments:  Controller (params: cpu, format=csv)
+Returns:    Renders the reports/report template (or a CSV attachment)
+Description: UNIL-specific report (raw SQL): the DNS records whose HINFO cpu
+            equals the given CPU, with the record's IP. Admin/Operator only.
+
+=cut
 
 sub hinfo ($c) {
     return if _guard($c);
@@ -886,6 +1014,17 @@ sub hinfo ($c) {
     _render( $c, title => "Hosts by HINFO for CPU=$cpu", headers => $hi_headers,
              rows => $hi_rows );
 }
+
+=head2 usedby - IP addresses by entity
+
+Arguments:  Controller (params: version = 4 | 6, format=csv)
+Returns:    Renders the reports/report template (or a CSV attachment)
+Description: UNIL-specific report (raw SQL): allocated (status 3/6) IP
+            addresses grouped by used_by entity (the address' own, falling
+            back to the parent subnet's), with counts and percentages.
+            Admin/Operator only.
+
+=cut
 
 sub usedby ($c) {
     return if _guard($c);
@@ -919,6 +1058,17 @@ sub usedby ($c) {
 # ---------------------------------------------------------------------------
 # Database (MySQL table information)
 # ---------------------------------------------------------------------------
+=head2 database - Database table information
+
+Arguments:  Controller (param: format=csv)
+Returns:    Renders the reports/report template (or a CSV attachment)
+Description: Port of the legacy database report: the MySQL
+            « SHOW TABLE STATUS » per table (row count, data/index length,
+            free space, create/update time, comment) with a total-size
+            footer. Admin/Operator only.
+
+=cut
+
 sub database ($c) {
     return if _guard($c);
     my @headers = ( 'Table', 'Rows', 'Data Length', 'Index Length', 'Max Data Length', 'Data Free', 'Create Time', 'Update Time', 'Comment' );
@@ -945,6 +1095,20 @@ sub database ($c) {
 # Topology graph + poll stats (RRD/GraphViz) — graceful fallback when the
 # tooling / data is not available in this environment.
 # ---------------------------------------------------------------------------
+=head2 topology - Network topology graph
+
+Arguments:  Controller (params: show_names, minlen (1-3), regen = 1 |
+            no_vlans | with_vlans)
+Returns:    Renders the reports/topology template (PNG cards for the
+            with/without-VLANs whole-network graphs)
+Description: Shows the whole-network topology graphs (GraphViz PNGs written
+            under htdocs/img/graphs by Netdot::UI->build_device_topology_graph)
+            and offers on-demand regeneration (resource-heavy, run only on
+            request). Degrades gracefully when the tooling/data is not
+            available. Admin/Operator only.
+
+=cut
+
 sub topology ($c) {
     return if _guard($c);
     my $netdot_path = Netdot::Model->config->get('NETDOT_PATH') // '';
@@ -999,10 +1163,30 @@ sub topology ($c) {
                 show_names => $show_names, minlen => $minlen );
 }
 
+=head2 pollstats - Polling stats landing page
+
+Arguments:  Controller
+Returns:    Renders the reports/pollstats template
+Description: Entry point of the polling-stats graphs (see poll).
+            Admin/Operator only.
+
+=cut
+
 sub pollstats ($c) {
     return if _guard($c);
     $c->render( template => 'reports/pollstats', layout => 'default', title => 'Polling Stats' );
 }
+
+=head2 poll - Polling RRD graphs
+
+Arguments:  Controller (param: type = addr | dev | time)
+Returns:    Renders the reports/poll template (RRD graph cards for the last
+            day / week / month / year)
+Description: Draws the RRD graphs (Netdot::UI->rrd_graph) from the
+            POLL_STATS_FILE_PATH RRD written by the Netdot pollers; degrades
+            gracefully when the RRD file is absent. Admin/Operator only.
+
+=cut
 
 sub poll ($c) {
     return if _guard($c);

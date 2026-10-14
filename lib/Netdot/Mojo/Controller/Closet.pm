@@ -19,6 +19,37 @@ use Netdot::Mojo::Detail;
 my @LEFT_FIELDS  = qw(name room dimensions racks outlets shared_with hvac_type ground_buss asbestos_tiles);
 my @RIGHT_FIELDS = qw(ru_avail patch_panels ot_blocks ss_blocks catv_taps access_key_type rack_type pair_count converted_patch_panels work_needed);
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Closet - Closet detail page (port of cable_plant/closet.html) + closet picture
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/management/closet/:id')->to('closet#show', type => 'closet')
+    #   ->get('/management/closetpicture/:id')->to('closet#picture')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 show - Closet detail page
+
+Arguments:  Controller (params: id, offset)
+Returns:    Renders the management/closet template
+Description: Port of cable_plant/closet.html. Shows a curated two-column
+            layout of the physical attributes, the in-place edit form
+            (written via PATCH /api/closet/<id>), the devices located in the
+            closet's room (room -> floor -> site), the backbone cables
+            (backbones_start + backbones_end merged, sorted by name) and the
+            horizontal cables. The backbone/horizontal link types are
+            deprecated, so their names are shown as plain text rather than
+            deep links.
+
+=cut
+
 sub show ($c) {
     my $id = $c->param('id');
     $id =~ /^\d+$/ or return $c->reply->not_found;
@@ -60,6 +91,16 @@ sub show ($c) {
 
 # Serve a closet picture's binary data (ClosetPicture->bindata BLOB) with its
 # stored content type. Read-only; gated on viewing the owning closet.
+=head2 picture - Serve a closet picture's binary data
+
+Arguments:  Controller (param: id = ClosetPicture id)
+Returns:    The picture BLOB with its stored content type (inline download)
+Description: Read-only; gated on the right to view the owning closet. An
+            unknown/invalid stored content type falls back to
+            application/octet-stream.
+
+=cut
+
 sub picture ($c) {
     my $id = $c->param('id');
     $id =~ /^\d+$/ or return $c->reply->not_found;

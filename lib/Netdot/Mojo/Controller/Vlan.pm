@@ -9,6 +9,39 @@ use Netdot::Mojo::Permissions;
 # VLAN landing page (port of the original vlan.html SHOW_GROUPS action): two
 # sections -- "VLAN Groups" and "Ungrouped VLANs". A Vlan's detail page is the
 # generic one (show#show); this controller only builds the landing list.
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Vlan - VLAN landing page (port of the original vlan.html SHOW_GROUPS action)
+
+    Two sections: "VLAN Groups" and "Ungrouped VLANs". A Vlan's detail page
+    is the generic one (Show#show); this controller only builds the landing
+    list.
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/management/vlan')->to('vlan#list', type => 'vlan')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 list - VLAN landing page
+
+Arguments:  Controller
+Returns:    Renders the management/vlan template
+Description: Port of the original vlan.html SHOW_GROUPS action: two
+            sections -- "VLAN Groups" (ordered by the range start, no
+            pagination) and "Ungrouped VLANs" (vlans with no vlangroup,
+            ordered by vid). For plain Users the sets are bounded by the
+            per-type view predicates. A Vlan's detail page is the generic
+            one (Show#show); this controller only builds the landing list.
+
+=cut
+
 sub list ($c) {
     my $person = $c->current_person;
 

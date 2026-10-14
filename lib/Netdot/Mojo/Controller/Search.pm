@@ -4,6 +4,37 @@ use Mojo::Base 'Mojolicious::Controller';
 use Netdot::Model;
 
 # Global search: detect IP / MAC / text and route accordingly.
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Search - Global search (IP / MAC / hostname detection)
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/search')->to('search#index')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 index - Global search
+
+Arguments:  Controller (param: q)
+Returns:    Redirects to the matching detail page (single hit), renders the
+            search/results template otherwise; an empty query redirects to
+            home
+Description: Detects the query type and routes accordingly: a MAC (with or
+            without delimiters, checked BEFORE IPv6 because a colon-delimited
+            MAC also matches the IPv6 pattern) goes to the PhysAddr search,
+            an IPv4/IPv6 (with optional /prefix) to the Ipblock search, and
+            anything else to an RR name search (RR->search_like, results
+            capped at 200).
+
+=cut
+
 sub index {
     my $c    = shift;
     my $q    = $c->param('q') // '';

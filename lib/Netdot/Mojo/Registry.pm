@@ -77,6 +77,41 @@ our @ORDER = qw(
     horizontalcable backbonecable ipservice dhcscope producttype asn usertype
     contacttype dhcpscopetype entitytype
 );
+
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Registry - Registry of the browsable object types + shared display helpers
+
+    Central registry of the object types browsable from the management UI
+    (types(), with their class and routing info). The list columns, the
+    object label and the descriptions are derived from the model meta
+    (netdot.meta: "brief" / "all" views, table name/description) on the
+    fly, which keeps the model the single source of truth. Also provides
+    the shared display helpers used by every list / detail / search page
+    (link_for, format_value, display_columns, csv_field, ...).
+
+=head1 SYNOPSIS
+
+    use Netdot::Mojo::Registry;
+
+    my @types = Netdot::Mojo::Registry::types();
+    my $spec  = Netdot::Mojo::Registry::spec( 'device' );
+    my ( $text, $href ) = @{ Netdot::Mojo::Registry::link_for( $obj ) };
+
+=head1 CLASS METHODS
+
+=cut
+
+=head2 types - List the browsable object types
+
+Arguments:  None
+Returns:    The ordered list of Registry type keys (drives the routes and the
+            generic listing logic)
+
+=cut
+
 sub types { @ORDER }
 
 # Navigation, organised into the 5 top-level sections of the original
@@ -96,6 +131,15 @@ our %MENU = (
 );
 our @MENU_ORDER = qw(management contacts cable_plant generic reports export help);
 # Ordered (key, meta) pairs for the navigation.
+=head2 menu - Ordered navigation sections
+
+Arguments:  None
+Returns:    (key, meta) pairs for the top-level navigation sections
+            (Management, Contacts, Cable Plant, Advanced, Reports, Export,
+            Help), each with its sub-menu types
+
+=cut
+
 sub menu { map { [ $_, $MENU{$_} ] } @MENU_ORDER }
 
 # Friendly navigation labels (match the original menu_admin.mhtml sub-section
@@ -111,6 +155,15 @@ our %NAV_LABELS = (
     interface => 'Interfaces',  physaddr  => 'MAC Addresses',
     service => 'Services',      dhcscope  => 'DHCP',
 );
+=head2 nav_label - Friendly navigation label of a type
+
+Arguments:  type key
+Returns:    The navigation label (e.g. device -> "Devices"), or undef when
+            the type is not listed (the caller falls back to the model meta
+            name)
+
+=cut
+
 sub nav_label { $NAV_LABELS{ $_[0] } }
 
 # Reports sub-menu (fixed list, mirrors the original reports/autohandler
@@ -129,6 +182,14 @@ our @REPORTS = (
     { key => 'security',  label => 'Liste Verte',       desc => 'Hosts listed on the green (security) list' },
 );
 # Ordered list of the report nav items.
+=head2 reports_menu - Reports sub-menu
+
+Arguments:  None
+Returns:    The list of report nav items ({ key, label, desc }), mirroring
+            the original reports autohandler sub_sections
+
+=cut
+
 sub reports_menu { @REPORTS }
 
 # Columns that must never be displayed (secrets / raw credentials).
@@ -140,6 +201,14 @@ sub reports_menu { @REPORTS }
 our %SENSITIVE = map { $_ => 1 } qw(password snmp_authkey snmp_privkey authkey);
 
 # Accessors (avoid the "PKG::HASH{$x}" parse-as-method pitfall).
+=head2 is_sensitive - Whether a column must never be displayed
+
+Arguments:  column name
+Returns:    1 for sensitive columns (password, snmp_authkey, snmp_privkey,
+            authkey), 0 otherwise
+
+=cut
+
 sub is_sensitive { exists $SENSITIVE{ $_[0] } }
 
 # Memoized spec for a type: { class, label, desc, cols, nav, ... }. label/desc/cols
@@ -147,6 +216,18 @@ sub is_sensitive { exists $SENSITIVE{ $_[0] } }
 # %TYPES wins. The model is loaded by the time this runs (requests), so meta_data
 # is available; guard anyway.
 our %SPEC;
+=head2 spec - Memoized spec of a browsable type
+
+Arguments:  type key
+Returns:    { class, label, desc, cols, nav, ... }: class from %TYPES, and
+            label/desc/cols derived from the model meta (netdot.meta: brief
+            view columns, table name/description) — the model is the single
+            source of truth; an override in %TYPES (label, cols) wins
+Description: Memoized per key. Used to build the routes, the list/CSV
+            columns and the generic pages.
+
+=cut
+
 sub spec {
     my ($key) = @_;
     my $base = $TYPES{$key} or return;
@@ -182,6 +263,14 @@ sub _brief_cols {
 
 # User-friendly tag (label) of a column from the meta, falling back to the
 # column name. Single source for the tag look-up that several controllers need.
+=head2 column_tag - User-friendly tag of a column
+
+Arguments:  class (name or object), column name
+Returns:    The column's meta tag (e.g. serial_number -> "S/N"), falling back
+            to the column name
+
+=cut
+
 sub column_tag {
     my ( $class, $col ) = @_;
     my $meta = eval { $class->meta_data };
@@ -191,6 +280,14 @@ sub column_tag {
 
 # Meta SQL type of a column ('bool', 'integer', 'varchar', ...). Accepts a class
 # name or an object; returns undef when the column/type is unknown.
+=head2 column_type - Meta SQL type of a column
+
+Arguments:  class (name or object), column name
+Returns:    The meta SQL type ('bool', 'integer', 'varchar', ...), or undef
+            when the column/type is unknown
+
+=cut
+
 sub column_type {
     my ( $class, $col ) = @_;
     $class = ref( $class ) if ref( $class );
@@ -203,6 +300,16 @@ sub column_type {
 # Registry key of the object a column links to (from the meta links_to), or
 # undef when the column is not a foreign key. Lets a list render FK cells as
 # links to the related object's detail page.
+=head2 column_link_key - Registry key of a column's link target
+
+Arguments:  class (name or object), column name
+Returns:    The Registry key of the object the column links to (meta
+            links_to), or undef when the column is not a foreign key. Lets a
+            list render FK cells as links to the related object's detail
+            page.
+
+=cut
+
 sub column_link_key {
     my ( $class, $col ) = @_;
     my $meta = eval { $class->meta_data };
@@ -213,6 +320,14 @@ sub column_link_key {
 }
 
 # HTML-escape a value for interpolation into raw (b()) cell HTML.
+=head2 esc - HTML-escape a value
+
+Arguments:  value
+Returns:    The value escaped for interpolation into raw cell HTML
+            (&, <, >, " -> entities; undef becomes the empty string)
+
+=cut
+
 sub esc {
     my ($s) = @_;
     $s = '' unless defined $s;
@@ -227,6 +342,15 @@ sub esc {
 # [ [col, tag], ... ]. The tag is the user-friendly label (e.g. serial_number ->
 # "S/N", product_id -> "Product", info -> "Comments"). Falls back to the raw
 # column list (minus id) when the class has no "all" view.
+=head2 display_columns - Ordered display columns of the "all" view
+
+Arguments:  class (name or object)
+Returns:    [ [col, tag], ... ] in the netdot.meta "all" view order (the tag
+            being the user-friendly label); falls back to the raw column
+            list (minus id) when the class has no "all" view
+
+=cut
+
 sub display_columns {
     my ($class) = @_;
     my $meta  = $class->meta_data;
@@ -240,6 +364,16 @@ sub display_columns {
 # Ordered columns of a class's "brief" view (the same columns the list shows),
 # as [ [col, tag], ... ], minus id. Used to drive the lightweight generic create
 # form: only the key fields are offered, the model's insert() fills the rest.
+=head2 display_brief_columns - Ordered columns of the "brief" view
+
+Arguments:  class (name or object)
+Returns:    [ [col, tag], ... ] of the brief view (the same columns the list
+            shows), minus id. Drives the lightweight generic create form:
+            only the key fields are offered, the model's insert() fills the
+            rest.
+
+=cut
+
 sub display_brief_columns {
     my ($class) = @_;
     my @cols = _brief_cols( $class );
@@ -261,6 +395,16 @@ our %CLASS_TO_KEY;
     }
     %CLASS_TO_KEY = %seen;
 }
+=head2 class_key - Map a class to its Registry key
+
+Arguments:  class (name or object)
+Returns:    The Registry type key used in routes/URLs (Site -> site,
+            DhcpScope -> dhcscope). lc(short class name) is resolved through
+            the %TYPES values first, so the DhcpScope/dhcscope mismatch is
+            handled; falls back to lc(short name).
+
+=cut
+
 sub class_key {
     my ($class) = @_;
     return $CLASS_TO_KEY{$class} if exists $CLASS_TO_KEY{$class};
@@ -271,6 +415,14 @@ sub class_key {
 
 # Render a (possibly inflated) column value as a display string.
 # Relationships use the object's own ->get_label; fallback is "ShortClass #id".
+=head2 format_value - Render a column value as a display string
+
+Arguments:  value (scalar or inflated relationship object)
+Returns:    The object's own ->get_label when it is a relationship (fallback
+            "ShortClass #id"); the value itself otherwise (undef -> '')
+
+=cut
+
 sub format_value {
     my ($v) = @_;
     return '' unless defined $v;
@@ -287,6 +439,17 @@ sub format_value {
 
 # Return [text, href] for a value. A relationship to a browsable type becomes a
 # link to its detail page; anything else is plain text.
+=head2 link_for - [text, href] for a value
+
+Arguments:  value (scalar or inflated relationship object)
+Returns:    [ text, href ]: a relationship to a browsable type becomes a
+            link to its detail page (/management/<type>/<id>); picture
+            objects link to the binary route that serves the image inline;
+            anything else is plain text (text falls back to
+            "type #id" when the object has no label)
+
+=cut
+
 sub link_for {
     my ($v) = @_;
     return [ format_value($v) ] unless ref $v;
@@ -312,6 +475,16 @@ sub link_for {
 # columns render as Yes/No (readable, consistent across the HTML detail
 # pages); anything else delegates to link_for (plain text for a scalar,
 # label+href for an FK).
+=head2 attr_display - [text, href] for a scalar attribute value
+
+Arguments:  class (name or object), column name, value
+Returns:    [ text, href ]: boolean columns render as Yes/No (readable,
+            consistent across the HTML detail pages); anything else
+            delegates to link_for (plain text for a scalar, label+href for
+            an FK)
+
+=cut
+
 sub attr_display {
     my ( $class, $col, $v ) = @_;
     if ( column_type( $class, $col ) eq 'bool' ) {
@@ -324,6 +497,15 @@ sub attr_display {
 
 # link_for() as a ready-to-emit HTML anchor: escaped label, prefixed href; empty
 # string when there is no route. Safe for raw (<%== %>) output in templates.
+=head2 link_html - link_for() as a ready-to-emit HTML anchor
+
+Arguments:  value (scalar or inflated relationship object)
+Returns:    An escaped <a href="...">label</a> string, or the empty string
+            when there is no route. Safe for raw (<%== %>) output in
+            templates.
+
+=cut
+
 sub link_html {
     my ($v) = @_;
     my ($t, $h) = @{ link_for( $v ) };
@@ -336,6 +518,16 @@ sub link_html {
 # root). Single source of truth for the base prefix -- used by link_for and the
 # set_uri controller helper -- because controllers build some links by hand
 # rather than via url_for(). Reads the base fresh so it needs no controller.
+=head2 set_uri - Prefix an internal path with the app's base URL
+
+Arguments:  root-absolute path (e.g. "/management/rr/5")
+Returns:    The path prefixed with WEB_BASE_URL ("/netdot/management/rr/5"),
+            unchanged at the domain root. Single source of truth for the
+            base prefix — controllers build some links by hand rather than
+            via url_for(). Reads the base fresh so it needs no controller.
+
+=cut
+
 sub set_uri {
     my ($uri) = @_;
     my $base = eval { Netdot->config->get('WEB_BASE_URL') } // '';
@@ -349,6 +541,14 @@ sub set_uri {
 }
 
 # Escape a value for CSV (matches Netdot viewtext.html: comma -> space, quote -> apostrophe).
+=head2 csv_field - Escape a value for CSV
+
+Arguments:  value
+Returns:    The value with commas replaced by spaces and double quotes by
+            apostrophes (matches Netdot viewtext.html); undef -> ''
+
+=cut
+
 sub csv_field {
     my ($s) = @_;
     $s = '' unless defined $s;

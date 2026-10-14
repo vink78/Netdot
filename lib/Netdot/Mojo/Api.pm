@@ -26,17 +26,78 @@ use Netdot::Mojo::Permissions;
 use Netdot::Mojo::Registry;
 use JSON::PP ();
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Api - Framework-agnostic JSON serializer for the Netdot REST API
+
+    Port of Netdot::REST::get / _get_linked_from (which were Apache2-based),
+    producing plain hashrefs suitable for Mojolicious render(json => ...).
+    Foreign keys are rendered as lightweight nested references (the
+    target's id, url and label fields); see the header comment at the top of
+    the file for the full rendering rules (depth, linked_from). Errors are
+    signalled by C<< die Netdot::Mojo::Api::Error->new(code =>, msg =>) >>
+    and caught by the controller, which turns them into a JSON error
+    response.
+
+=head1 SYNOPSIS
+
+    use Netdot::Mojo::Api;
+
+    # Serialize one object (FKs as lightweight references):
+    my $hashref = Netdot::Mojo::Api::get( $obj, $person );
+    $c->render( json => $hashref );
+
+    # FK values as full nested objects instead of references:
+    my $full = Netdot::Mojo::Api::get( $obj, $person, undef, depth => 1 );
+
+=head1 CLASS METHODS
+
+=cut
+
 # ---------------------------------------------------------------------------
 # Tiny exception carrying an HTTP status code + message.
 # ---------------------------------------------------------------------------
 package Netdot::Mojo::Api::Error;
 
+=head2 new - Create an API error
+
+Arguments:  C<< Error->new(code => HTTP_code, msg => message) >>
+Returns:    Blessed Netdot::Mojo::Api::Error object
+
+=cut
+
 sub new {
     my ( $class, %a ) = @_;
     return bless { code => ( $a{code} || 500 ), msg => ( $a{msg} || 'Error' ) }, $class;
 }
+
+=head2 code - Return the HTTP status code carried by the error
+
+Arguments:  None
+Returns:    HTTP status code (default 500)
+
+=cut
+
 sub code { $_[0]->{code} }
+
+=head2 msg - Return the error message
+
+Arguments:  None
+Returns:    Human-readable error message
+
+=cut
+
 sub msg  { $_[0]->{msg} }
+
+=head2 as_string - Stringify the error (used when it is $@)
+
+Arguments:  None
+Returns:    The error message
+
+=cut
+
 sub as_string { $_[0]->{msg} }
 
 # ---------------------------------------------------------------------------
@@ -88,6 +149,23 @@ sub _ref {
 #   $user       - Person (for permission checks)
 #   $manager    - unused in the Mojolicious port (permissions via $user)
 #   %opts       - depth => int (default 0), linked_from => 1
+=head2 get - Serialize a Netdot object into a JSON-ready hashref
+
+Arguments:  $obj (Netdot::Model object), $user (Person, for permission checks),
+            $manager (unused in the Mojolicious port), %opts:
+            C<< depth => int >> (default 0: FK columns are rendered as a
+            lightweight C<< {id, url, ...label fields} >> reference; >0: the FK
+            value becomes the full nested object), C<< linked_from => 1 >>
+            (adds a "linked_from" key holding the back-references, as arrays of
+            references or of nested objects when depth > 0)
+Returns:    Hashref ready for C<< render(json => ...) >>: the object id, its
+            url, every non-sensitive column (boolean columns as real JSON
+            true/false) and, per FK, a nested reference (null when the FK is
+            null)
+Exceptions: 404 if $obj is undef; 403 if $user may not view the object
+
+=cut
+
 sub get {
     my ( $obj, $user, $manager, %argv ) = @_;
 

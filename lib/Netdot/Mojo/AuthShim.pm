@@ -10,10 +10,46 @@ use warnings;
 #
 # Allows reusing the existing auth out of Apache without modifying it.
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::AuthShim - Apache request object shim for the Netdot auth modules
+
+    Emulates the Apache request object ($r) expected by Netdot::LDAP and
+    Netdot::AuthLocal (dir_config / log_error / warn), so the existing auth
+    code can be reused out of Apache without modification. dir_config()
+    answers from the Netdot config (etc/Site.conf); log_error() / warn() log
+    through the Mojolicious logger.
+
+=head1 SYNOPSIS
+
+    my $shim = Netdot::Mojo::AuthShim->new( app => $c->app );
+    Netdot::LDAP::check_credentials( $shim, $user, $pass );
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 new - Create an Apache request shim
+
+Arguments:  C<< %args: app => Mojolicious app (for the logger) >>
+Returns:    AuthShim object
+
+=cut
+
 sub new {
     my ( $class, %args ) = @_;
     return bless { app => $args{app} }, $class;
 }
+
+=head2 dir_config - Netdot config value lookup (emulates Apache dir_config)
+
+Arguments:  key
+Returns:    The value from the Netdot config (etc/Site.conf), or undef when the
+            key is absent (like Apache dir_config: no exception)
+
+=cut
 
 sub dir_config {
     my ( $self, $key ) = @_;
@@ -24,11 +60,25 @@ sub dir_config {
     return $val;
 }
 
+=head2 log_error - Log a message (emulates Apache log_error)
+
+Arguments:  message
+Returns:    Nothing (logs "[netdot-auth] ..." via the Mojolicious logger)
+
+=cut
+
 sub log_error {
     my ( $self, $msg ) = @_;
     $self->{app}->log->warn( "[netdot-auth] $msg" ) if $self->{app};
     return;
 }
+
+=head2 warn - Log a warning (emulates Apache warn)
+
+Arguments:  message
+Returns:    Nothing (same behaviour as log_error)
+
+=cut
 
 sub warn {
     my ( $self, $msg ) = @_;

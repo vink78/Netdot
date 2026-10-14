@@ -5,6 +5,34 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 use Netdot;
 use Netdot::Mojo::AuthShim;
 
+=encoding utf8
+
+=head1 NAME
+
+Netdot::Mojo::Controller::Auth - Login / logout (web session)
+
+    Login via Netdot::LDAP (with the Netdot::Mojo::AuthShim emulating the
+    Apache request object); a successful login sets the session (username,
+    login_time) through Netdot::Mojo::Sessions.
+
+=head1 SYNOPSIS
+
+    # Wired in Netdot::Mojo:
+    #   ->get('/login')->to('auth#login_form')
+    #   ->post('/login')->to('auth#login_submit')
+    #   ->get('/logout')->to('auth#logout')
+
+=head1 INSTANCE METHODS
+
+=cut
+
+=head2 login_form - Render the login page
+
+Arguments:  Controller
+Returns:    Renders the login template (navigation hidden, no error)
+
+=cut
+
 sub login_form ($c) {
     $c->render(
         template => 'login',
@@ -15,6 +43,20 @@ sub login_form ($c) {
         username => ''
     );
 }
+
+=head2 login_submit - Authenticate and start a web session
+
+Arguments:  Controller (params: username, password)
+Returns:    Nothing; on success sets the session (username, login_time) and
+            redirects to home, on failure re-renders the login page with an
+            error message
+Description: Tries Netdot::LDAP::check_credentials (which itself falls back to
+            local auth when NetdotLDAPFailToLocal=yes); when the LDAP module
+            is unavailable (Net::LDAP missing) falls back directly to
+            Netdot::AuthLocal::check_credentials. Every attempt is logged with
+            the client IP (X-Forwarded-For honored only from trusted proxies).
+
+=cut
 
 sub login_submit ($c) {
     my $user = $c->param('username') // '';
@@ -57,6 +99,13 @@ sub login_submit ($c) {
         );
     }
 }
+
+=head2 logout - Expire the session and redirect to the login page
+
+Arguments:  Controller
+Returns:    Nothing (302 to login)
+
+=cut
 
 sub logout ($c) {
     $c->session( expires => 1 );
