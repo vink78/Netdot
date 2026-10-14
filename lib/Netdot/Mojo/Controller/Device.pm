@@ -47,6 +47,8 @@ sub show {
     # SNMP re-poll (wizard step 1, pre-filled with this device): admin only,
     # as in Mason (access_admin_section).
     my $can_discover = Netdot::Mojo::Permissions->user_type( $c->current_person ) eq 'Admin';
+    # Access Rights tab (Mason: visible to access_section 'device.html:edit_rights').
+    my $show_rights = $c->perm( 'access_section', 'device.html:edit_rights' );
     my %stash = (
         id       => $id,
         view     => $view,
@@ -59,6 +61,7 @@ sub show {
         del_path   => $can_delete ? $c->web_prefix . '/api/device/' . $id : '',
         del_goto   => $can_delete ? Netdot::Mojo::Registry::set_uri( '/management/device' ) : '',
         can_discover => $can_discover,
+        show_rights  => $show_rights,
     );
 
     if ($view eq 'Basics') {
@@ -813,23 +816,35 @@ sub _bgp_view {
     my %ok       = map { $_ => 1 } qw(ip id state);
     my $peersort = $c->param('peersort') || 'ip';
     $peersort    = 'ip' unless $ok{$peersort};
+    my $can_edit   = $c->perm( 'edit', $o );
+    my $editbgp    = $c->param('editbgp')   ? 1 : 0;
+    my $editdevbgp = $c->param('editdevbgp') ? 1 : 0;
 
     my $localas = eval { $o->bgplocalas };
     my $bgpid   = eval { $o->bgpid };
-    my @info;
-    push @info, [ 'BGP ID', _fmt($bgpid), '' ] if defined $bgpid && length $bgpid;
-    if ( $localas && ( eval { $localas->number } ) ) {
-        my ( $at, $ah ) = @{ Netdot::Mojo::Registry::link_for( $localas ) };
-        push @info, [ 'Local AS', $localas->number, $ah ];
+    my $whois   = eval { Netdot->config->get( 'BGP_AS_WHOIS_URL' ) };
+
+    # Mason: show the iBGP and eBGP sections; "all" only when both are empty
+    # (happens when the device's local AS is not set).
+    my $ipeers = eval { $o->get_bgp_peers( type => 'internal', sort => $peersort ) };
+    $ipeers = [] if $@ || !ref $ipeers;
+    my $epeers = eval { $o->get_bgp_peers( type => 'external', sort => $peersort ) };
+    $epeers = [] if $@ || !ref $epeers;
+    my $allpeers;
+    if ( !@$ipeers && !@$epeers ) {
+        $allpeers = eval { $o->get_bgp_peers( type => 'all', sort => $peersort ) };
+        $allpeers = [] if $@ || !ref $allpeers;
     }
 
-    my ( $peers, $ptype );
-    for my $t ( qw(internal external all) ) {
-        my $r = eval { $o->get_bgp_peers( type => $t, sort => $peersort ) };
-        $r = [] if $@ || !ref $r;
-        if ( @$r ) { $peers = $r; $ptype = $t; last; }
-    }
-    $peers = [] unless $peers;
+    # Contact lists for the per-peer select (edit mode).
+    my @cl_opts;
+    eval {
+        my @cls = ContactList->retrieve_all;
+        @cl_opts =
+            map  { [ $_->id, ( $_->name // '' ) ] }
+            grep { $_ }
+            sort { ( $a->name // '' ) cmp ( $b->name // '' ) } @cls;
+    };
 
     # Remote IP: link each peer address to its /32 ipblock when that address is a
     # Netdot block (Ipblock->search(address=>..)); memoised per address.
@@ -845,44 +860,69 @@ sub _bgp_view {
         return $ip_cache{$addr};
     };
 
-    my @rows;
-    for my $p (@$peers) {
-        my $ent  = eval { $p->entity };
-        my @cl;
-        eval { @cl = $p->contactlist };
-        my @clinks;
-        for my $cl (@cl) {
-            my $cn = eval { $cl->name };
-            push @clinks, [ ( $cn || '#' . $cl->id ), Netdot::Mojo::Registry::set_uri( "/management/contactlist/" . $cl->id ) ];
+    # One row hash per peer (Mason columns). AS Number links to the configured
+    # whois URL; eBGP skips the private ASN range 64512-65535 (Mason).
+    my $peer_row = sub {
+        my ($p, $ext) = @_;
+        my $ent    = eval { $p->entity };
+        my $asn    = eval { $ent->asnumber };
+        my $ahref  = '';
+        if ( $whois && defined $asn
+             && !( $ext && $asn >= 64512 && $asn <= 65535 ) ) {
+            $ahref = $whois;
+            $ahref =~ s{<ASNUMBER>}{ $asn }g;
         }
-        push @rows, [
-            [ $ip_link->( eval { $p->bgppeeraddr } ) ],
-            [ [ ( eval { $p->bgppeerid } // '' ),   '' ] ],
-            [ [ ( eval { $ent->name } // '' ),       '' ] ],
-            [ [ ( eval { $ent->asname } // '' ),     '' ] ],
-            [ [ ( eval { $ent->asnumber } // '' ), 'http://www.iana.org/assignments/autonomous-systems/autonomous-system-numbers' ] ],
-            [ [ ( eval { $p->state } // '' ), '' ] ],
-            _ml(@clinks),
-        ];
+        my $cl   = eval { $p->contactlist };
+        return {
+            id        => $p->id,
+            addr      => $ip_link->( eval { $p->bgppeeraddr } ),
+            pid       => ( eval { $p->bgppeerid } // '' ),
+            entity    => $ent
+                        ? [ ( eval { $ent->name } // '' ),
+                             Netdot::Mojo::Registry::set_uri( '/management/entity/' . $ent->id ) ]
+                        : [ '', '' ],
+            asname    => ( eval { $ent->asname } // '' ),
+            asn       => [ ( defined $asn ? $asn : '' ), $ahref ],
+            state     => ( eval { $p->state } // '' ),
+            monitored => ( eval { $p->monitored } ) ? 1 : 0,
+            contactlist => $cl
+                        ? [ $cl->id, ( eval { $cl->name } // '' ),
+                             Netdot::Mojo::Registry::set_uri( '/management/contactlist/' . $cl->id ) ]
+                        : [ undef, '', '' ],
+        };
+    };
+
+    my @rows;    # section markers + peer row hashes
+    if ( @$epeers ) {
+        push @rows, { section => 'External (eBGP)' };
+        push @rows, map { $peer_row->( $_, 1 ) } @$epeers;
+        push @rows, { section => '' };    # Mason's spacer row
+    }
+    if ( @$ipeers ) {
+        push @rows, { section => 'Internal (iBGP)' };
+        push @rows, map { $peer_row->( $_, 0 ) } @$ipeers;
+    }
+    if ( !@rows && defined $allpeers ) {
+        push @rows, map { $peer_row->( $_, 1 ) } @$allpeers;
     }
 
     return {
         view        => 'BGP',
-        cols        => [
-            [ 'Remote IP',   'ip' ],
-            [ 'ID',          'id' ],
-            [ 'Entity',      undef ],
-            [ 'AS Name',     undef ],
-            [ 'AS Number',   undef ],
-            [ 'State',       'state' ],
-            [ 'Contact List',undef ],
-        ],
         rows        => \@rows,
-        info        => \@info,
-        peer_type   => $ptype // '',
+        can_edit    => $can_edit,
+        editbgp     => $editbgp,
+        editdevbgp  => $editdevbgp,
+        bgpid       => ( defined $bgpid ? $bgpid : '' ),
+        localas     => $localas
+                    ? { id     => $localas->id,
+                        number => ( eval { $localas->number } // '' ),
+                        href   => ( Netdot::Mojo::Registry::link_for( $localas ) )[1] // '' }
+                    : undef,
+        peer_type   => ( @$ipeers || @$epeers ) ? '' : 'all',
         sort_base   => Netdot::Mojo::Registry::set_uri( "/management/device/$id?view=BGP" ),
         sort_param  => 'peersort',
         sort        => $peersort,
+        cl_opts     => \@cl_opts,
         empty_msg   => 'This device has no BGP peers.',
     };
 }
@@ -1010,46 +1050,90 @@ sub _audit_view {
 # Rows are grouped by subject name; rights joined as display names.
 sub _rights_view {
     my ( $o, $c, $id ) = @_;
+    # Mason: the section is visible to access_section('device.html:edit_rights');
+    # only Admin may grant/revoke (the legacy add form required Admin too).
+    my $can_rights = $c->perm( 'access_section', 'device.html:edit_rights' );
+    return {
+        view => 'Rights', can_rights => 0, rights => [],
+        empty_msg => 'No access rights for this device.',
+    } unless $can_rights;
+    my $can_rights_edit = ( $c->user_type eq 'Admin' );
+
     my %anames = ( view => 'View', edit => 'Edit', delete => 'Delete',
                    choose_ip => 'Choose IP', none => 'None' );
     my @arights;
-    @arights = eval { AccessRight->search( object_class => 'Device', object_id => $id ) };
-    my %r;
+    eval { @arights = AccessRight->search( object_class => 'Device', object_id => $id ) };
+    @arights = () if $@;
+    my @rows;
     for my $ar (@arights) {
-        my @ur  = eval { $ar->user_rights };
-        my @gr  = eval { $ar->group_rights };
-        my @sub = ( @ur, @gr );
-        for my $right (@sub) {
-            my $type = ( ref($right) =~ /User/ ) ? 'User' : 'Group';
-            my $subj = ( $type eq 'User' ) ? eval { $right->person }
-                                           : eval { $right->contactlist };
-            next unless $subj;
-            my $name = eval { $subj->get_label } // '';
-            next unless length $name;
-            $r{$name}{type}    = $type;
-            $r{$name}{subject} = $subj;
-            $r{$name}{rights}{ $ar->access } = 1;
+        my $access = $ar->access;
+        my @sub;
+        my @ur = eval { $ar->user_rights  }; @ur = () if $@;
+        my @gr = eval { $ar->group_rights }; @gr = () if $@;
+        for my $r (@ur) {
+            my $s = eval { $r->person };
+            push @sub, { type => 'user',  subj => $s, right_id => $r->id, right_table => 'userright' } if $s;
+        }
+        for my $r (@gr) {
+            my $s = eval { $r->contactlist };
+            push @sub, { type => 'group', subj => $s, right_id => $r->id, right_table => 'groupright' } if $s;
+        }
+        for my $e (@sub) {
+            my $label = eval { $e->{subj}->get_label } // '';
+            my $table = $e->{type} eq 'user' ? 'person' : 'contactlist';
+            my $href  = Netdot::Mojo::Registry::set_uri( "/management/$table" ) . '/' . $e->{subj}->id;
+            push @rows, {
+                type         => $e->{type},
+                name         => $label,
+                subject_html => '<a href="' . $href . '">' . _esc( $label ) . '</a>',
+                access       => $access,
+                access_name  => $anames{ $access } // $access,
+                del_subject  => $e->{type} . ':' . $e->{subj}->id,
+                right_id     => $e->{right_id},
+                right_table  => $e->{right_table},
+            };
         }
     }
-    my @rows;
-    for my $name ( sort keys %r ) {
-        my $e     = $r{$name};
-        my $table = $e->{type} eq 'User' ? 'person' : 'contactlist';
-        my $href  =
-            Netdot::Mojo::Registry::set_uri( "/management/$table" ) . '/' . $e->{subject}->id;
-        my $rights = join( ', ', map { $anames{$_} // $_ } sort keys %{ $e->{rights} } );
-        push @rows, [
-            [ [ $e->{type}, '' ] ],
-            [ [ $name, $href ] ],
-            [ [ $rights, '' ] ],
-        ];
+    @rows = sort {
+        $a->{type} cmp $b->{type}
+            || $a->{name} cmp $b->{name}
+            || $a->{access} cmp $b->{access}
+    } @rows;
+
+    # Subjects for the "Add rights" form (loaded only when the user may write).
+    my ( @right_users, @right_groups );
+    if ( $can_rights_edit ) {
+        eval {
+            my @ps = Person->retrieve_all;
+            @right_users =
+                map  { [ $_->id, ( eval { $_->get_label } // '' ) ] }
+                grep { $_ }
+                sort { ( eval { $a->get_label } // '' ) cmp ( eval { $b->get_label } // '' ) } @ps;
+            my @cls = ContactList->retrieve_all;
+            @right_groups =
+                map  { [ $_->id, ( $_->name // '' ) ] }
+                grep { $_ }
+                sort { ( $a->name // '' ) cmp ( $b->name // '' ) } @cls;
+        };
     }
+
     return {
-        view      => 'Rights',
-        cols      => [ [ 'Type', undef ], [ 'Name', undef ], [ 'Rights', undef ] ],
-        rows      => \@rows,
-        empty_msg => 'No access rights for this device.',
+        view            => 'Rights',
+        can_rights      => 1,
+        can_rights_edit => $can_rights_edit ? 1 : 0,
+        rights          => \@rows,
+        right_users     => \@right_users,
+        right_groups    => \@right_groups,
+        empty_msg       => 'No access rights for this device.',
     };
+}
+
+# HTML-escape for user-visible labels (names come from the DB).
+sub _esc {
+    my ($s) = @_;
+    $s = '' unless defined $s;
+    $s =~ s/&/&amp;/g; $s =~ s/</&lt;/g; $s =~ s/>/&gt;/g; $s =~ s/"/&quot;/g;
+    return $s;
 }
 
 =head1 AUTHOR

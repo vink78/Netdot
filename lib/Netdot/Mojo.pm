@@ -308,6 +308,9 @@ sub startup ($self) {
     # SNMP update (re-poll) of an existing device with its stored credentials
     # (Mason: updatedevice.html?device=<id> / "snmp-update").
     $r->post('/api/device/:id/update')->to('api#update_device');
+    # Grant access rights on an object (Mason: generic access_right_form.html
+    # "Add rights"). Declared before the generic /api/:table routes.
+    $r->post('/api/accessright')->to('api#accessright');
     # Device IP view actions (Mason: device.html IP section handlers).
     $r->post('/api/device/:id/add_ip')->to('api#add_ip');
     $r->post('/api/device/:id/auto_dns')->to('api#set_auto_dns');

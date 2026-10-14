@@ -34,8 +34,10 @@
 %   [ 'STP',        'STP' ],
 %   [ 'Modules',    'Modules' ],
 %   [ 'Audit',      'Audit' ],
-%   [ 'Rights',     'Access Rights' ],
 % );
+% # Access Rights tab: only for users who may view the section (Mason:
+% # access_section 'device.html:edit_rights' => Admin/Operator).
+% push @tabs, [ 'Rights', 'Access Rights' ] if $c->stash->{show_rights};
 <div class="tabcard">
 <div class="tabbar">
 % for my $i (0 .. $#tabs) {
@@ -460,8 +462,268 @@
 </div>
 % }
 % }
-% elsif ($view eq 'BGP' || $view eq 'Hosted' || $view eq 'Circuits'
-%        || $view eq 'STP' || $view eq 'Modules' || $view eq 'Audit' || $view eq 'Rights') {
+% elsif ($view eq 'BGP') {
+% # Device BGP view (port of device.html "BGP" section): the "Device BGP Info"
+% # attribute box (bgpid + local AS number, editable via ?editdevbgp=1) and the
+% # BGP Peers table (editable via ?editbgp=1: per-peer remote IP, monitored,
+% # contact list -> PATCH /api/bgppeer/<id>; the info box PATCHes /api/device/<id>
+% # and /api/asn/<id> — netdot.js initBgpInfo).
+% my $rows       = $c->stash->{rows}       // [];
+% my $sort_base  = $c->stash->{sort_base}  // $base;
+% my $sort       = $c->stash->{sort}       // 'ip';
+% my $can_edit   = $c->stash->{can_edit}   // 0;
+% my $editbgp    = $c->stash->{editbgp}    // 0;
+% my $editdevbgp = $c->stash->{editdevbgp} // 0;
+% my $bgpid      = $c->stash->{bgpid}      // '';
+% my $localas    = $c->stash->{localas};
+% my $cl_opts    = $c->stash->{cl_opts}    // [];
+% my $empty_msg  = $c->stash->{empty_msg}  // 'No data.';
+% my $api_base   = $c->web_prefix . '/api';
+% my $bgp_url    = $base . '?view=BGP&peersort=' . $sort;
+
+<div class="container">
+  <div class="containerhead">Device BGP Info</div>
+  <div class="containerbody">
+  % if ($editdevbgp) {
+  % # Mason's ?editdevbgp=1. The device's own BGP ID is editable (PATCH
+  % # /api/device/<id>); the local AS is a reference to an ASN object and stays
+  % # read-only here (edit it on its own page).
+  <form class="nd-bgp-info" data-nd-api-base="<%= $api_base %>" data-nd-id="<%= $id %>">
+    <table class="datatable detail">
+      <tbody>
+      <tr><th>BGP ID</th><td><input type="text" name="bgpid" value="<%= $bgpid %>" style="width:15em"></td></tr>
+      <tr><th>Local AS</th><td>
+        % if ($localas) {
+        % if ($localas->{href}) {
+        <a href="<%= $localas->{href} %>"><%= $localas->{number} %></a>
+        % } else {
+        <%= $localas->{number} %>
+        % }
+        % } else {
+        n/a
+        % }
+      </td></tr>
+      </tbody>
+    </table>
+    <p style="margin:0.8em 0 0">
+      <button type="submit" class="btn">Save</button>
+      <a class="btn" href="<%= $bgp_url %>">Cancel</a>
+    </p>
+  </form>
+  % } else {
+    <p style="font-size:0.9em">
+      % if (length $bgpid) {
+      <b>BGP ID:</b> <%= $bgpid %>&nbsp;&nbsp;&nbsp;
+      % }
+      % if ($localas) {
+      <b>Local AS:</b>
+      % if ($localas->{href}) {
+      <a href="<%= $localas->{href} %>"><%= $localas->{number} %></a>
+      % } else {
+      <%= $localas->{number} %>
+      % }
+      % } else {
+      <b>Local AS:</b> n/a
+      % }
+    </p>
+    % if ($can_edit) {
+    <div style="margin:0.5em 0; font-size:0.9em">
+      <a class="btn" href="<%= $bgp_url %>&amp;editdevbgp=1">Edit</a>
+    </div>
+    % }
+  % }
+  </div>
+</div>
+
+% # BGP Peers (only when there is something to show, as in Mason).
+% my $npeers = scalar grep { ref($_) eq 'HASH' && !defined $_->{section} } @$rows;
+% if ($npeers) {
+<div class="container">
+  <div class="containerhead">BGP Peers</div>
+  <div class="containerbody">
+  % if ($can_edit && !$editbgp) {
+  <div style="margin:0.5em 0; font-size:0.9em">
+    <a class="btn" href="<%= $bgp_url %>&amp;editbgp=1">Edit</a>
+  </div>
+  % }
+  % if ($editbgp) {
+  <form class="nd-if-edit" data-nd-table="bgppeering" data-nd-api-base="<%= $api_base %>">
+  % }
+  <table class="datatable">
+    <thead>
+    <tr>
+      % if ($editbgp) {
+      <th>Remote IP</th><th>ID</th><th>Entity</th><th>AS Name</th><th>AS Number</th><th>State</th><th>Monitored?</th><th>Contact List</th>
+      % } else {
+      <th><a href="<%= $sort_base %>&amp;peersort=ip">Remote IP</a></th>
+      <th><a href="<%= $sort_base %>&amp;peersort=id">ID</a></th>
+      <th><a href="<%= $sort_base %>&amp;peersort=entity">Entity</a></th>
+      <th><a href="<%= $sort_base %>&amp;peersort=asname">AS Name</a></th>
+      <th><a href="<%= $sort_base %>&amp;peersort=asnumber">AS Number</a></th>
+      <th><a href="<%= $sort_base %>&amp;peersort=state">State</a></th>
+      <th>Monitored?</th><th>Contact List</th>
+      % }
+    </tr>
+    </thead>
+    <tbody>
+    % for my $row (@$rows) {
+      % if (ref $row eq 'HASH' && defined $row->{section}) {
+      % if ($row->{section}) {
+    <tr><td colspan="8"><strong><%= $row->{section} %></strong></td></tr>
+      % } else {
+    <tr><td colspan="8">&nbsp;</td></tr>
+      % }
+      % } else {
+      <tr data-nd-if="<%= $row->{id} %>">
+        % if ($editbgp) {
+        <td><input type="text" name="bgppeeraddr" value="<%= $row->{addr}[0] %>" data-nd-f="bgppeeraddr" data-nd-orig="<%= $row->{addr}[0] %>" style="width:14em"></td>
+        % } else {
+        <td>
+          % if ($row->{addr}[1]) {
+          <a href="<%= $row->{addr}[1] %>"><%= $row->{addr}[0] %></a>
+          % } else {
+          <%= $row->{addr}[0] %>
+          % }
+        </td>
+        % }
+        <td><%= $row->{pid} %></td>
+        <td>
+          % if ($row->{entity}[1]) {
+          <a href="<%= $row->{entity}[1] %>"><%= $row->{entity}[0] %></a>
+          % } else {
+          <%= $row->{entity}[0] %>
+          % }
+        </td>
+        <td><%= $row->{asname} %></td>
+        <td>
+          % if ($row->{asn}[1]) {
+          <a target="_blank" href="<%= $row->{asn}[1] %>"><%= $row->{asn}[0] %></a>
+          % } else {
+          <%= $row->{asn}[0] %>
+          % }
+        </td>
+        <td><%= $row->{state} %></td>
+        % if ($editbgp) {
+        <td><input type="checkbox" data-nd-f="monitored" data-nd-orig="<%= $row->{monitored} %>"<%= $row->{monitored} ? ' checked' : '' %></td>
+        <td>
+          % my $clval = defined $row->{contactlist}[0] ? $row->{contactlist}[0] : '';
+          <select data-nd-f="contactlist" data-nd-orig="<%= $clval %>">
+            <option value="">[null]</option>
+            % for my $co (@$cl_opts) {
+            <option value="<%= $co->[0] %>"<%= ( $clval ne '' && $clval eq $co->[0] ) ? ' selected' : '' %>><%= $co->[1] %></option>
+            % }
+          </select>
+        </td>
+        % } else {
+        <td><%= $row->{monitored} ? 'yes' : 'no' %></td>
+        <td>
+          % if ($row->{contactlist}[2]) {
+          <a href="<%= $row->{contactlist}[2] %>"><%= $row->{contactlist}[1] %></a>
+          % }
+        </td>
+        % }
+      </tr>
+      % }
+    % }
+    </tbody>
+  </table>
+  % if ($editbgp) {
+    <p style="margin:0.8em 0 0">
+      <button type="button" class="btn nd-if-save">Save</button>
+      <a class="btn" href="<%= $bgp_url %>">Cancel</a>
+      &nbsp;&nbsp;<span style="color:#666;font-size:0.85em">Unchanged fields are not sent.</span>
+    </p>
+  </form>
+  % }
+  % } else {
+  <p style="color:#666"><i><%= $empty_msg %></i></p>
+  % }
+  </div>
+</div>
+% }
+% elsif ($view eq 'Rights') {
+% # Access Rights (same mechanism as the Ipblock Rights section): display,
+% # per-row remove (DELETE /api/userright|groupright/<id>), and the "Add
+% # rights" form (POST /api/accessright). Visible to access_section, writable
+% # by Admin (netdot.js initRights).
+% my $can_rights      = $c->stash->{can_rights}      // 0;
+% my $can_rights_edit = $c->stash->{can_rights_edit} // 0;
+% my $rights          = $c->stash->{rights}          // [];
+% my $right_users     = $c->stash->{right_users};
+% my $right_groups    = $c->stash->{right_groups};
+% if ($can_rights) {
+<div class="container">
+  <div class="containerhead">Access Rights</div>
+  <div class="containerbody" style="padding:0.6em">
+  % if ( @$rights ) {
+    <table class="datatable" style="width:100%">
+      <thead>
+      <tr><th>Type</th><th>Subject</th><th>Right</th>
+      % if ($can_rights_edit) {
+      <th></th>
+      % }
+      </tr>
+      </thead>
+      <tbody>
+      % for my $r (@$rights) {
+          <tr>
+              <td><%= $r->{type} eq 'user' ? 'User' : 'Group' %></td>
+              <td><%== $r->{subject_html} %></td>
+              <td><%= $r->{access_name} %></td>
+% if ($can_rights_edit) {
+              <td>
+                  <button type="button" class="btn btn-sm nd-rights-del"
+                          data-nd-api="<%= $c->web_prefix %>/api/<%= $r->{right_table} %>/<%= $r->{right_id} %>">Remove</button>
+              </td>
+% }
+          </tr>
+      % }
+      </tbody>
+    </table>
+  % } else {
+      <p style="color:#888"><i>No access rights for this device.</i></p>
+  % }
+% if ($can_rights_edit) {
+    <form class="nd-rights-add" data-nd-api="<%= $c->web_prefix %>/api/accessright"
+          data-nd-object-class="Device" data-nd-object-id="<%= $id %>" style="margin-top:0.6em">
+    <table class="datatable detail" style="width:100%">
+        <tbody>
+        <tr><th>Subject</th><td>
+            <select name="subject" required>
+                <option value="">--SELECT--</option>
+                % if ( ref $right_users && @$right_users ) {
+                <optgroup label="Users">
+                % for my $u (@$right_users) {
+                <option value="user:<%= $u->[0] %>"><%= $u->[1] %></option>
+                % }
+                </optgroup>
+                % }
+                % if ( ref $right_groups && @$right_groups ) {
+                <optgroup label="Groups">
+                % for my $g (@$right_groups) {
+                <option value="group:<%= $g->[0] %>"><%= $g->[1] %></option>
+                % }
+                </optgroup>
+                % }
+            </select>
+        </td></tr>
+        <tr><th>Right</th><td>
+            <label><input type="checkbox" name="access" value="view"> View</label>
+            <label><input type="checkbox" name="access" value="edit"> Edit</label>
+            <label><input type="checkbox" name="access" value="delete"> Delete</label>
+            <label><input type="checkbox" name="access" value="choose_ip"> Choose IP</label>
+        </td></tr>
+        </tbody>
+    </table>
+    <p style="margin-top:0.4em"><button type="submit" class="btn">Add rights</button></p>
+    </form>
+% }
+  </div>
+</div>
+% }
+% }
+% elsif ($view eq 'Hosted' || $view eq 'Circuits'
+%        || $view eq 'STP' || $view eq 'Modules' || $view eq 'Audit') {
 % my $cols       = $c->stash->{cols}       // [];
 % my $rows       = $c->stash->{rows}       // [];
 % my $info       = $c->stash->{info}       // [];
