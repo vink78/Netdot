@@ -819,6 +819,7 @@ sub _bgp_view {
     my $can_edit   = $c->perm( 'edit', $o );
     my $editbgp    = $c->param('editbgp')   ? 1 : 0;
     my $editdevbgp = $c->param('editdevbgp') ? 1 : 0;
+    my $addpeer    = $c->param('addpeer')   ? 1 : 0;
 
     my $localas = eval { $o->bgplocalas };
     my $bgpid   = eval { $o->bgpid };
@@ -836,14 +837,19 @@ sub _bgp_view {
         $allpeers = [] if $@ || !ref $allpeers;
     }
 
-    # Contact lists for the per-peer select (edit mode).
-    my @cl_opts;
+    # Contact lists + entities for the per-peer selects (edit/add modes).
+    my ( @cl_opts, @ent_opts );
     eval {
         my @cls = ContactList->retrieve_all;
         @cl_opts =
             map  { [ $_->id, ( $_->name // '' ) ] }
             grep { $_ }
             sort { ( $a->name // '' ) cmp ( $b->name // '' ) } @cls;
+        my @ents = Entity->retrieve_all;
+        @ent_opts =
+            map  { [ $_->id, ( $_->name // '' ) ] }
+            grep { $_ }
+            sort { ( $a->name // '' ) cmp ( $b->name // '' ) } @ents;
     };
 
     # Remote IP: link each peer address to its /32 ipblock when that address is a
@@ -870,7 +876,7 @@ sub _bgp_view {
         if ( $whois && defined $asn
              && !( $ext && $asn >= 64512 && $asn <= 65535 ) ) {
             $ahref = $whois;
-            $ahref =~ s{<ASNUMBER>}{ $asn }g;
+            $ahref =~ s{<ASNUMBER>}{$asn}g;
         }
         my $cl   = eval { $p->contactlist };
         return {
@@ -912,6 +918,7 @@ sub _bgp_view {
         can_edit    => $can_edit,
         editbgp     => $editbgp,
         editdevbgp  => $editdevbgp,
+        addpeer     => $addpeer,
         bgpid       => ( defined $bgpid ? $bgpid : '' ),
         localas     => $localas
                     ? { id     => $localas->id,
@@ -923,6 +930,7 @@ sub _bgp_view {
         sort_param  => 'peersort',
         sort        => $peersort,
         cl_opts     => \@cl_opts,
+        ent_opts    => \@ent_opts,
         empty_msg   => 'This device has no BGP peers.',
     };
 }

@@ -1564,11 +1564,86 @@
     }
   }
 
+  // Device BGP info box (Mason's ?editdevbgp=1): bgpid -> PATCH
+  // /api/device/<id>, local AS number -> PATCH /api/asn/<id> (the number column
+  // of the linked ASN object, as in Mason). One PATCH per changed field.
+  function initBgpInfo() {
+    var forms = document.querySelectorAll('form.nd-bgp-info');
+    for (var i = 0; i < forms.length; i++) {
+      (function (f) {
+        f.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var base  = f.getAttribute('data-nd-api-base');
+          var devId = f.getAttribute('data-nd-id');
+          var calls = [];
+          var bgp = f.querySelector('input[name=bgpid]');
+          if (bgp && bgp.value !== (bgp.getAttribute('data-nd-orig') || '')) {
+            calls.push(api('PATCH', base + '/device/' + devId, { bgpid: bgp.value || null }));
+          }
+          var asn = f.querySelector('input[name=localas]');
+          var asnId = f.getAttribute('data-nd-asn-id');
+          if (asn && asnId && asn.value !== (asn.getAttribute('data-nd-orig') || '')) {
+            var num = /^\d+$/.test(asn.value) ? parseInt(asn.value, 10) : asn.value;
+            calls.push(api('PATCH', base + '/asn/' + asnId, { number: num }));
+          }
+          if (!calls.length) { status(false, 'No changes to save.', 3000); return; }
+          spinner(true, 'Saving…');
+          Promise.all(calls).then(function (results) {
+            spinner(false);
+            var errs = results.filter(function (r) { return !r.ok; });
+            if (errs.length) { status(false, errs.map(errMsg).join('; '), 8000); return; }
+            status(true, 'Saved.', 2000);
+            setTimeout(function () { location.reload(); }, 700);
+          });
+        });
+      })(forms[i]);
+    }
+  }
+
+  // BGP Peers "Add" form (Mason: peers normally come from the SNMP poll, manual
+  // add on top). POST /api/bgppeering with device + the filled fields; the NOT
+  // NULL columns left out of the form are defaulted by the model's insert.
+  function initBgpAdd() {
+    var forms = document.querySelectorAll('form.nd-bgp-add');
+    for (var i = 0; i < forms.length; i++) {
+      (function (f) {
+        f.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var body = { device: f.getAttribute('data-nd-device-id') };
+          var bgpaddr = f.querySelector('input[name=bgppeeraddr]');
+          var bgpid   = f.querySelector('input[name=bgppeerid]');
+          var state   = f.querySelector('input[name=state]');
+          if (bgpaddr && bgpaddr.value) { body.bgppeeraddr = bgpaddr.value; }
+          if (bgpid && bgpid.value)     { body.bgppeerid   = bgpid.value; }
+          if (state && state.value)     { body.state       = state.value; }
+          var mon = f.querySelector('input[name=monitored]');
+          if (mon && mon.checked)       { body.monitored   = 1; }
+          var ent = f.querySelector('select[name=entity]');
+          if (ent && ent.value)         { body.entity      = ent.value; }
+          var cl = f.querySelector('select[name=contactlist]');
+          if (cl && cl.value)           { body.contactlist = cl.value; }
+          if (!body.bgppeeraddr || !body.bgppeerid) {
+            status(false, 'Remote IP and ID are required.', 5000); return;
+          }
+          spinner(true, 'Adding peer…');
+          api('POST', f.getAttribute('data-nd-api-base') + '/bgppeering', body).then(function (res) {
+            spinner(false);
+            if (!res.ok) { status(false, errMsg(res), 8000); return; }
+            status(true, 'Peer added.', 2000);
+            setTimeout(function () { location.reload(); }, 700);
+          });
+        });
+      })(forms[i]);
+    }
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     initForms();
     initDiscRun();
     initIntEdit();
     initIpExtras();
+    initBgpInfo();
+    initBgpAdd();
     initDhcpEnable();
     initToggle();
     initRecToggles();
