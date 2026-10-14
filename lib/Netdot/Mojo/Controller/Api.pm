@@ -1470,9 +1470,13 @@ sub add_ipservice {
 # Grant access rights on an object (Mason: the generic access_right_form.html
 # "Add rights" form, used from the Ipblock and Device Rights sections).
 # Body: {object_class, object_id, subject_type: user|group, subject_id,
-# rights: [view|edit|delete|choose_ip]}. find_or_create semantics as in Mason:
-# re-granting an existing right is a no-op. The matching row delete goes
-# through the generic DELETE /api/userright/<id> / /api/groupright/<id>.
+# rights: [view|edit|delete|choose_ip|none]}. All the grant semantics — allowed
+# classes (AccessRight->get_classes), find-or-create of the AccessRight row,
+# join-row dedup and the 'none' right semantics — live in the model's insert
+# overloads (Model/AccessRight.pm + Model/UserRight.pm / GroupRight.pm); the
+# API only adds the permission check and input-shape validation, and maps the
+# model's throw_user errors to a 400. Row removal goes through the generic
+# DELETE /api/userright/<id> / /api/groupright/<id>.
 sub accessright {
     my ($c) = @_;
     my $p = _person($c) or return;
@@ -1481,45 +1485,30 @@ sub accessright {
         _err( 403, 'Managing access rights is reserved for administrators' )
             unless Netdot::Mojo::Permissions->user_type( $p ) eq 'Admin';
         my %A = %{ _args($c) };
-        my %objects = map { $_ => 1 } qw(Device Ipblock);    # the classes the UI offers
-        _err( 400, 'Invalid or missing object class' )
-            unless defined $A{object_class} && $objects{ $A{object_class} };
         _err( 400, 'Missing object id' )
             unless defined $A{object_id} && $A{object_id} =~ /^\d+$/;
-        my %subjects = ( user => [ 'Person', 'person' ],
-                         group => [ 'ContactList', 'contactlist' ] );
-        _err( 400, 'Invalid or missing subject type' )
-            unless defined $A{subject_type} && $subjects{ $A{subject_type} };
-        my ( $sclass, $scol ) = @{ $subjects{ $A{subject_type} } };
         _err( 400, 'Missing subject id' )
             unless defined $A{subject_id} && $A{subject_id} =~ /^\d+$/;
-        my $subj = eval { $sclass->retrieve( $A{subject_id} ) };
-        _err( 404, 'Subject not found' ) if $@ || ! $subj;
+        _err( 400, 'Select at least one right' )
+            unless ref $A{rights} eq 'ARRAY' && @{ $A{rights} };
         my $obj = eval { $A{object_class}->retrieve( $A{object_id} ) };
         _err( 404, 'Object not found' ) if $@ || ! $obj;
-        my @rights = ref $A{rights} eq 'ARRAY' ? @{ $A{rights} } : ();
-        my %okaccess = map { $_ => 1 } qw(view edit delete choose_ip);
-        @rights = grep { defined && $okaccess{$_} } @rights;
-        _err( 400, 'Select at least one valid right' ) unless @rights;
-        my @granted;
-        for my $access (@rights) {
-            my $ar = eval {
-                AccessRight->find_or_create(
-                    object_class => $A{object_class},
-                    object_id    => $A{object_id},
-                    access       => $access,
-                );
-            };
-            _err( 400, "Could not create access right ($access): $@" ) if $@ || ! $ar;
-            my $link = $A{subject_type} eq 'user'
-                ? eval { UserRight->find_or_create( accessright => $ar,
-                                                     person      => $A{subject_id} ) }
-                : eval { GroupRight->find_or_create( accessright   => $ar,
-                                                      contactlist => $A{subject_id} ) };
-            _err( 400, "Could not link the subject: $@" ) if $@ || ! $link;
-            push @granted, $access;
+        my $ar = eval {
+            # The model's insert overload takes a hashref (its plain-insert
+            # fallback forwards it to Netdot::Model::insert).
+            AccessRight->insert( {
+                object_class => $A{object_class},
+                object_id    => $A{object_id},
+                subject_type => $A{subject_type},
+                subject_id   => $A{subject_id},
+                rights       => $A{rights},
+            } );
+        };
+        if ( my $e = $@ ) {
+            $e = $e->message if ref $e && $e->can( 'message' );
+            _err( 400, "Could not grant rights: $e" );
         }
-        return $c->render( json => { ok => 1, granted => \@granted }, status => 200 );
+        return $c->render( json => { ok => 1 }, status => 200 );
     });
 }
 

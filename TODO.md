@@ -503,8 +503,8 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      > `LEFT JOIN rraddr` (plus de N+1) — le vieux `eval { $o->a_records } // ()` retournait un
      > Iterator (piège wantarray Class::DBI) → colonnes vides. Les selects ont un 1er item
      > `--SELECT--`. **Reste à porter** : (1) **édition de relations has_many**
-     > générique pour les AUTRES types (ex. interfaces d'un device, contacts d'un contactlist) —
-     > lecture seule aujourd'hui (les relations du **bloc** sont désormais ajoutables, cf. ci-
+     > générique pour les AUTRES types (ex. contacts d'un contactlist) —
+     > lecture seule aujourd'hui (les relations du **bloc** et du **device** sont désormais ajoutables, cf. ci-
      > dessus), (2) **créations complexes** multi-étapes — la partie **device** est
      > **portée** (2026-10-12 : ajout manuel + wizard SNMP 2 étapes, cf. « État création
      > device » ci-dessus) ; reste la **hiérarchie ipblock** si un jour,
@@ -519,6 +519,51 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      > routeur crée les blocs). **Re-poll `updatedevice` = porté (2026-10-12)** : wizard
      > `/management/device/discover` (bouton « SNMP update » sur la page détail device,
      > `?device=<id>`), état 2026-10-12 ci-dessus.
+
+   > **État vues device (2026-10-14)** : les vues device restantes sont portées en
+   > écriture — **Interfaces** (`f046de76`, 2026-10-13), **Neighbor** (`e5b8d117`),
+   > **IP** (`f0c1285a`), **Access Rights** (`bb62e9d1`) et **BGP** (`bb62e9d1` +
+   > `0c666a6b`) :
+   > - **Vue IP** (`?view=IP`, modes `editips`/`add_ip`) : édition en ligne — suppression
+   >   d'IP (`DELETE /api/ipblock?id=…`), interface + Monitored par IP
+   >   (`PATCH /api/ipblock/<id>`), suppression DNS nom à nom (protection device-name
+   >   UI-only, comme Mason), suppression service par service
+   >   (`DELETE /api/ipservice/<id>`) ; **ajout d'IP** (`POST /api/device/<id>/add_ip`),
+   >   formulaire inline **Add service** (port du popup `addservice.html`,
+   >   `POST /api/ipservice` ; effet legacy conservé : l'IP passe monitored), boîte
+   >   **DNS Options** (`auto_dns` 0/1 via `POST /api/device/<id>/auto_dns`,
+   >   `POST /api/device/<id>/regen_dns`). Boutons [Edit]/[Add] dans une **toolbar
+   >   au-dessus** du tableau (convention UI).
+   > - **Vue BGP** (`?view=BGP`, modes `editdevbgp`/`editbgp`/`addpeer`) : boîte
+   >   **Device BGP Info** éditable — BGP ID → `PATCH /api/device/<id>` ; **Local AS
+   >   éditable** (le `number` de l'ASN lié → `PATCH /api/asn/<id>`, comme Mason —
+   >   1 PATCH par champ modifié, JS `initBgpInfo`) ; tableau **BGP Peers** avec
+   >   sections External (eBGP) / Internal (iBGP), colonne **Monitored?** (manquante
+   >   dans le portage initial), liens **whois** AS depuis la config `BGP_AS_WHOIS_URL`
+   >   (`<ASNUMBER>` ; eBGP skippe les AS privés 64512-65535, iBGP tous) ; édition
+   >   par peer (`bgppeeraddr`/`monitored`/`contactlist` → `PATCH /api/bgppeering/<id>`,
+   >   réutilisation de `initIntEdit` via `data-nd-table`), **suppression par ligne**
+   >   (checkbox → batch `DELETE /api/bgppeering?id=…`) et **ajout de peer**
+   >   (`POST /api/bgppeering {device, …}`, JS `initBgpAdd` — les colonnes NOT NULL
+   >   omises sont defaulted par l'`insert` du modèle `_adjust_vals`, comme l'insert
+   >   SNMP legacy). ⚠️ le class s'appelle `BGPPeering` (table `bgppeering`) → l'URL
+   >   d'API = le **nom de table**.
+   > - **Vue Access Rights** (`?view=Rights`) : même mécanique que le Rights Ipblock —
+   >   table User/Group (subject lié + right), **Remove par ligne**
+   >   (`DELETE /api/userright|groupright/<id>`, générique), formulaire « Add rights »
+   >   (Admin) → `POST /api/accessright`. Tab Rights visible selon
+   >   `access_section 'device.html:edit_rights'` (Admin/Operator), écriture Admin.
+   >   **Refactor (2026-10-14, `23a9e013`)** : le handler `Api#accessright` ne duplique
+   >   plus la logique — il délègue à l'overload `AccessRight->insert` du modèle
+   >   (sémantiques : classes autorisées via `get_classes`, find-or-create de
+   >   l'accessright, dedup des lignes join + sémantique du right `none` dans
+   >   `UserRight`/`GroupRight->insert`, legacy `b912c1ed`) ; l'API n'ajoute que le
+   >   check Admin, la validation de forme (ids numériques, `rights` non vide) et
+   >   l'existence de l'objet, et mappe les `throw_user` du modèle en 400. ⚠️ l'overload
+   >   prend une **hashref** (`AccessRight->insert({...})`) — un appel en liste de
+   >   paires donne « Can't use string ("object_class") as a HASH ref » — le
+   >   fix (passage en hashref) est **non commité** (working tree `Api.pm`), à
+   >   inclure au prochain commit.
 
 ## Déprécié / non migré — ⛔
 
@@ -551,8 +596,10 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      vers le détail, plusieurs → table de résultats **MAC Address · First Seen · Last Seen**
      (tableau `sortable`), aucun → not found.
   2. [x] ✅ **Polish lecture seule** (2026-10-03) — tout porté :
-    - **Tab Access Rights** (device) : vue `Rights` dans `Device.pm` (`AccessRight->search`
-      object_class=Device → `user_rights`/`group_rights`), rendu via la table générique.
+    - **Tab Access Rights** (device) : vue `Rights` dans `Device.pm` — section
+      dédiée (table User/Group : subject lié + right), Remove par ligne + formulaire
+      « Add rights » (Admin) → `POST /api/accessright` (même mécanique et même
+      endpoint que le Rights Ipblock — cf. « État vues device » ci-dessus).
     - **Navigation NS/MX/TXT/NAPTR** (page host/RR) : types `rrns/rrmx/rrtxt/rrnaptr`
       enregistrés (`Registry %TYPES`+`@ORDER`, `nav=>0`) + lien « Record » → page détail
       de chaque record (`link_for`).
@@ -822,3 +869,29 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 - **Rapports en design 2026** : les tables de rapports (`/reports/device`, asset, macs,
   ipbat, security, database, …) utilisent `<thead>`/`<tbody>` + `datatable` (plus de classes
   legacy `formtabletitle`/`datatablerN`) → en-tête, zebra et coins arrondis modernes.
+
+### Vérifié le 2026-10-14 (vues device IP/BGP/Access Rights)
+
+- **Pages BGP** (device 532 `cr-bu21` = 2 peers, local AS 65310, bgpid 10.55.3.10 ;
+  device 12115 = sans BGP) : vue / `editbgp=1` / `addpeer=1` / `editdevbgp=1` = **200** ;
+  sections eBGP/iBGP, colonne Monitored, boutons [Edit]/[Add] au-dessus du tableau
+  ([Add] visible même sans peer) ; liens whois radb.net rendus pour un AS public
+  (23456, device 11380) et correctement **absents** pour un AS privé en eBGP (65130) ;
+  device sans local AS → `n/a` + `data-nd-asn-id=""` (le JS saute le PATCH ASN).
+- **Pages Rights** : affichage (User/Group, subject lié, right) + formulaire « Add
+  rights » (Admin) ; tab Rights gated par `access_section` (masqué sinon).
+- **API round-trips** (DB vérifiée avant/après, état restauré) :
+  `PATCH /api/bgppeering/<id>` (bgppeeraddr/monitored), `POST /api/bgppeering`
+  (création, defaults `max_v4/v6_prefixes=0` via `_adjust_vals`) + `DELETE`
+  (réponse single `{"deleted":"BGPPeering/<id>"}`), `PATCH /api/device/532 {bgpid}`,
+  `PATCH /api/asn/2 {number}` (local AS, aller-retour 65310→65311→65310),
+  `POST /api/accessright` (user + group, Device + Ipblock ; re-grant idempotent =
+  pas de doublon de ligne join grâce à l'overload du modèle) +
+  `DELETE /api/userright|groupright/<id>` ; cas d'erreur 400/404 vérifiés
+  (`rights` vide, droit invalide, subject inexistant, classe non autorisée via
+  `get_classes`, objet inexistant).
+- **JS** : harnais DOM-stub Node (`/tmp/js_bgp_test.js`) — A (édition peers :
+  PATCH des seuls champs sales + batch DELETE), B (info : PATCH device + PATCH asn),
+  C (add : POST body complet) → **PASS** ; `initRights` inchangé (générique).
+- **Log daemon** : 0 erreur depuis le dernier restart (hors bruit préexistant :
+  compile error `device_discover.html.ep` + passphrases USM SNMP).
