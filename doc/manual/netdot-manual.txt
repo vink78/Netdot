@@ -5,9 +5,11 @@
 
 # Copyright
 
-Version 1.0.8
+Version 2.0
 
 Copyright 2018 Carlos Vicente
+
+Copyright 2026 Vincent Magnin (2.0 web layer and API rewrite)
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
@@ -32,13 +34,20 @@ the Netdot application.
 
 # Introduction
 
-[Netdot](http://netdot.uoregon.edu) is an open source tool designed to
-help network administrators collect, organize and maintain network
-documentation.
+[Netdot](https://github.com/cvicente/Netdot) is an open source tool
+designed to help network administrators collect, organize and maintain
+network documentation.
 
 Netdot is actively developed by the [Network and Telecommunication
 Services](http://ns.uoregon.edu) group of the [University of
 Oregon](http://www.uoregon.edu).
+
+**[Netdot 2.0](https://github.com/vink78/Netdot)** is a rewrite of the
+web user interface and the API, carried out in *Vibe Coding* mode
+(human + AI), in order to
+bring back to life one of the best open source products for managing a
+network infrastructure. The back end (data model, database, SNMP
+collection, exports) is unchanged; only the web layer was rewritten.
 
 Netdot features include:
 
@@ -53,7 +62,9 @@ Netdot features include:
     IP and MAC address location and tracking.
 
 *   Cable plant information including: sites, rooms, jacks, closets,
-    inter and intra-building wiring, circuits, etc.
+    inter and intra-building wiring, circuits, etc. (as of 2.0, the
+    wiring and circuit features are deprecated; see the Cable Plant
+    section below)
 
 *   Contact information for related entities: departments, providers,
     vendors, etc.
@@ -95,8 +106,12 @@ Netdot consists of several components:
 
 3.  User Interface (UI)
 
-    The web user interface is built on a templating system called
-    HTML::Mason.
+    The web user interface is a Mojolicious application served by a
+    standalone multi-worker daemon (Hypnotoad) behind a reverse proxy.
+    (The original UI was built on HTML::Mason and ran inside
+    Apache/mod_perl; that web layer is what 2.0 rewrote.) In addition,
+    the application exposes a JSON API (`/api`) used both by the
+    UI itself and by external programs.
 
 4.  Command Line scripts (CLI)
 
@@ -111,7 +126,7 @@ Netdot consists of several components:
 Clone the latest version of the Netdot repository from Github.com. You will need the git utility:
 
 ~~~~
-git clone https://github.com/cvicente/Netdot.git
+git clone https://github.com/vink78/Netdot.git
 cd Netdot/
 ~~~~
 
@@ -191,8 +206,9 @@ the `Default.conf` file can be re-written (to add new variables, etc.),
 without overwriting your site-specific configuration.
 
 > **Tip**
-Notice that, each time you modify Site.conf, you must restart Apache for
-the changes to take effect in the web interface.
+Notice that, each time you modify Site.conf, you must restart the Netdot
+service (`systemctl restart netdot`) for the changes to take effect in
+the web interface.
 
 ## Upgrading
 
@@ -221,11 +237,11 @@ command:
 ~# make upgrade
 ~~~~
 
-Finally, install the new Netdot code and restart Apache:
+Finally, install the new Netdot code and restart the Netdot service:
 
 ~~~~ {.bash}
 ~# make install
-~# /etc/init.d/httpd restart
+~# systemctl restart netdot
 ~~~~
 
 ## Installing the package for the first time
@@ -290,68 +306,85 @@ Finally, install the new Netdot code and restart Apache:
 
     ~~~~ {.bash}
     PREFIX=YOUR-PREFIX (default: /usr/local/netdot)
-    APACHEUSER=USER-YOUR-APACHE-RUNS-AS (default: apache)
-    APACHEGROUP=GROUP-YOUR-APACHE-RUNS-AS (default: apache)
+    APACHEUSER=USER-THE-NETDOT-DAEMON-RUNS-AS (default: apache)
+    APACHEGROUP=GROUP-THE-NETDOT-DAEMON-RUNS-AS (default: apache)
     ~~~~
 
     > **Tip**
-    Debian or Ubuntu users: will probably need to set the APACHEUSER and
-    APACHEGROUP variables to "www-data", which is the user that Apache
-    runs as.
+    Since 2.0 the web application runs as its own daemon (not inside
+    Apache); APACHEUSER/APACHEGROUP select the user/group that the
+    daemon runs as. On Debian or Ubuntu this is usually "www-data".
 
 
-## Ubuntu 16.04
+## Supported operating systems
 
-Starting with Ubuntu 16.04, you will need to manually patch some files.
+The 2.0 web layer has only been **tested on GNU Debian 13 (trixie)**
+(Perl 5.40, MariaDB/MySQL). The stack is portable (standard Perl 5 +
+CPAN modules + a DBI database driver), so it is expected to work on
+any modern Linux distribution, in particular:
 
-The patches are included in the Netdot distribution. Before applying them,
-you need to move to the root directory, then use the patch command
-(adjust the location of your Netdot repository as needed):
+*   Debian and other APT-based distributions (Ubuntu, etc.) — install
+    the dependencies with `make apt-install`.
 
-~~~
-cd /
-patch -p0 < ~/Netdot/patches/ubuntu-1604/DBI.pm.patch
-patch -p0 < ~/Netdot/patches/ubuntu-1604/apache2-init.patch
-~~~
+*   Red Hat, CentOS, RHEL and their derivatives (AlmaLinux, Rocky),
+    as well as Fedora — install the dependencies with
+    `make rpm-install`.
 
-We will add patches for more recent versions of Ubuntu in the future.
+> **Note**
+> The legacy system patches for old distributions
+> (`patches/ubuntu-1604/`) are no longer needed as of 2.0: the web
+> layer no longer runs inside Apache.
 
-## Apache Configuration
+## Web Deployment
 
-Edit the supplied Apache config template for either Local, RADIUS, Kerberos or
-LDAP authentication, copy it to your Apache config directory and include
-it somewhere in your Apache configuration file (httpd.conf) (e.g.):
+Since 2.0, the web user interface and the API are served by a standalone
+Mojolicious application running under **Hypnotoad** (a pre-forking
+multi-worker server). Apache (or any other reverse proxy) only forwards
+requests to the daemon.
 
-~~~~ {.apache}
-Include conf/netdot_apache2_<local|radius|ldap|krb5>.conf
-~~~~
+*   **Start the daemon** (systemd): `make install` deploys the
+    `netdot.service` unit; enable and start it:
 
-Alternatively, some Apache environments provide a directory from which
-files are included automatically when Apache starts. In that case, you
-can create a link to the file in said directory.
+    ~~~~ {.bash}
+    ~# systemctl enable --now netdot
+    ~~~~
 
-For example, in Debian or Ubuntu, it's a two-step process:
+    The service runs `hypnotoad` in the foreground with the number of
+    workers defined by `NETDOT_WORKERS` (default 10). Each worker opens
+    its own database connection, so a slow request only blocks its own
+    worker.
 
-~~~~ {.bash}
-~# cd /etc/apache2
-~# ln -s /usr/local/netdot/etc/netdot_apache24_local.conf sites-available/netdot.conf
-~# a2ensite netdot
-~~~~
+*   **Reverse proxy**: copy the supplied `etc/netdot_apache.conf`
+    (version-independent, Apache 2.2 and 2.4) into
+    `/etc/apache2/conf-enabled/` and enable the proxy modules:
 
-Or, in other distributions with just one directory:
+    ~~~~ {.bash}
+    ~# cp /usr/local/netdot/etc/netdot_apache.conf /etc/apache2/conf-enabled/netdot.conf
+    ~# a2enmod proxy proxy_http
+    ~~~~
 
-~~~~ {.bash}
-~# ln -s /usr/local/netdot/etc/netdot_apache24_local.conf /etc/apache2/conf.d/netdot.conf
-~~~~
+    The file contains the reverse proxy
+    (`ProxyPass /netdot -> http://127.0.0.1:3000/netdot`) plus
+    `ProxyPassReverse` and `ProxyPreserveHost`. The equivalent with
+    nginx is:
 
-> **Tip**
-Make sure you use the version of the file that gets copied into your
-install directory by make install, not from the source directory. This
-file contains relevant path substitutions based on your chosen install
-prefix.
+    ~~~~ {.nginx}
+    location /netdot/ { proxy_pass http://127.0.0.1:3000; }
+    ~~~~
 
-Once this is done, you can restart Apache2. If you used the default
-settings, point your browser to:
+    (note the **no** trailing slash on the `proxy_pass` target).
+
+    > **Tip**
+    Make sure you use the copy of `netdot_apache.conf` that was installed
+    into your install directory by `make install`, not the one from the
+    source directory: the installed copy contains path substitutions
+    based on your chosen install prefix.
+
+*   **URL prefix**: the application is mounted under the prefix defined
+    by `WEB_BASE_URL` (e.g. `/netdot`) on both sides (the application
+    and the proxy). With no prefix, the routes are at the domain root.
+
+Once this is done, restart Apache and point your browser to:
 
 ~~~~
 http://servername.mydomain/netdot/
@@ -365,9 +398,10 @@ password: "admin"
 ~~~~
 
 >**Tip**
-If you are using the one of the external authentication options, you should
-have Netdot(radius|ldap|krb5)FailToLocal set to "yes" in your `netdot_apache2_x.conf` 
-file.
+Authentication now happens in the application itself (web login). It
+uses LDAP (`NetdotLDAP*` settings in `Site.conf`) and falls back to
+local passwords when `NetdotLDAPFailToLocal` is set to "yes".
+Kerberos and RADIUS authentication are no longer available.
 
 >**Warning**
 Please remember to change the "admin" password! Go to `Contacts ->
@@ -800,6 +834,13 @@ run syntax checks and load them into the appropriate name servers.
 Netdot supports the following DNS records: A, AAAA, CNAME, DS, HINFO,
 LOC, MX, NAPTR, PTR, SRV, and TXT.
 
+> **New in 2.0**: modern record types (CAA, HTTPS, SSHFP, SMIMEA, SVCB,
+> TLSA, URI, ...) are supported as **"Other Record Types"** (RRAttr):
+> they are stored as a single raw value, so they can be edited and
+> exported to zone files without re-formatting the data. In the UI this
+> section is reserved to Admins (a bad value can invalidate the whole
+> zone).
+
 You can import your existing BIND zones into netdot with the help of the
 tool `import_bind_zones.pl` from the import subdirectory
 
@@ -983,6 +1024,15 @@ going to the Contacts section.
 Netdot allows you to document inter-building and intra-building fiber
 and copper wiring, closets, jacks, etc.
 
+> **Note (2.0)**
+> As of Netdot 2.0, the **wiring and circuit features** (backbone
+> cables, fiber strands, circuits, horizontal cables) are **deprecated
+> and no longer maintained**: a dedicated product such as Netbox is a
+> better fit for cable and circuit management. Only **sites, floors,
+> rooms and closets** are maintained (the closet detail page still shows
+> the backbone/horizontal cable names as plain text). The sections below
+> are kept for reference.
+
 ### Sites
 Sites are usually buildings with one or more floors, closets and rooms.
 Sites can be associated with other things, such as people, departments,
@@ -1092,15 +1142,15 @@ there are also free-form fields in the "Room" and "Jack" columns. These
 are available in case you don't need to document the cable, but just
 the interface-to-jack relationship.
 
-## Advanced DB operations
+## Changelog (audit trail)
 
-The Advanced section of the top menu shows basic Browse, Search and Add
-operations on particular tables of the database. This often requires
-certain familiarity with the database schema.
-
-In this section you can also write your own SQL queries, which can be
-saved for future use. SQL query output can also be saved in
-comma-separated (CSV) format.
+As of 2.0, the Advanced section of the top menu contains the
+**Changelog**: a searchable, filterable and paginated view of the audit
+records (see the Audit records section below). Admins and Operators see
+every entry; any other user sees only his or her own. The old generic
+Browse/Search/Add screens for arbitrary database tables were removed
+from the web interface (the same operations remain available through
+the JSON API).
 
 ## Reports
 
@@ -1314,204 +1364,122 @@ contains the following information: time stamp, username, operation type
 (insert, update, delete), table affected, record ID, record label, fields
 and values affected.
 
-You can access these records by going to "Advanced" -> "Browse" -> "audit",
-or, if looking for a particular record, choose "Search" -> "audit" instead.
+You can access these records by going to "Advanced" -> "Changelog"
+(`/changelog`), which offers a search field (matched on the record
+label), a filter by operation (insert/update/delete) and pagination.
 
 This table can be pruned periodically using the bin/prune_db.pl script.
 
-# RESTful Interface
+# JSON API
 
-The RESTful interface allows programmatic access to the Netdot database
-over the HTTP/HTTPS protocol. At this moment, all objects are formatted
-in XML using the XML::Simple Perl module. In the future, Netdot may
-support other formats, such as YAML or JSON.
+The JSON API allows programmatic access to the Netdot database over the
+HTTP/HTTPS protocol. It is served under `/api`
+(`Content-Type: application/json`); the web user interface itself
+performs all of its writes through this API.
 
-## Generic RESTful resources
+Authentication is by **web session**: log in to the web interface first
+(browser cookie); the API then enforces the same permissions as the UI.
 
-* The REST interface is available using the following URL (or similar,
-depending on your Apache configuration):
+*   The API index lists every resource and purpose-built endpoint as a
+    flat map of absolute URLs (Netbox-style):
 
-~~~~
-https://myserver.mydomain.com/netdot/rest/
-~~~~
+    ~~~~
+    https://myserver.mydomain.com/netdot/api/
+    ~~~~
 
- This should load the Netdot::REST class and return something like:
+*   An **OpenAPI 3** machine-readable specification and a **Swagger UI**
+    are provided: `GET /api/openapi.yaml` and `GET /api/docs`.
 
-~~~~
-Netdot/1.0 REST OK.
-~~~~
+*   Generic resources represent Netdot objects and are part of the
+    request URI. For example:
 
-* Generic RESTful resources to be acted upon represent Netdot objects and are part
-of the request URI. For example, in this URI:
+    ~~~~
+    https://myserver.mydomain.com/netdot/api/device/1
+    ~~~~
 
-~~~~
-http://myserver.mydomain.com/netdot/rest/device/1
-~~~~
+    returns the contents of Device id 1 (foreign keys are rendered as
+    lightweight nested references `{id, url, ...label fields}`), and:
 
- the resource is "device/1", which for a GET request, will return the contents of
-Device id 1.
+    ~~~~
+    https://myserver.mydomain.com/netdot/api/device?sysname=host1
+    ~~~~
 
-* Using the following URI with a GET request:
+    returns all devices whose sysname field is 'host1'. Search filters
+    may be combined, and a filter on a foreign key matches on the
+    *label* of the linked object.
 
-~~~~
-http://myserver.mydomain.com/netdot/rest/device
-~~~~
+*   Lists are **paginated Netbox-style**: `?limit=N` (default 50,
+    maximum 1000) and `?offset=M` return the envelope
+    `{count, next, previous, results}`.
 
- this interface will return the contents of all Device objects in the database.
+*   The special keyword `meta_data` instead of an object ID provides
+    information about the object's class:
 
-* You can also specify certain search filters to limit the scope
-of a GET request:
+    ~~~~
+    https://myserver.mydomain.com/netdot/api/device/meta_data
+    ~~~~
 
-~~~~
-http://myserver.mydomain.com/netdot/rest/device?sysname=host1
-~~~~
+*   An existing resource can be updated with the 'PATCH' (or
+    POST/PUT) HTTP method, a new object can be created with 'POST'
+    (leaving the object id out), and specific objects can be removed
+    with the 'DELETE' HTTP method. All writes are permission-checked
+    (view / edit / delete) and go through the model, which applies the
+    same validation as the web interface.
 
- This will perform a search and return all devices whose sysname field is 'host1'.
+*   Sensitive fields (passwords, SNMP authentication keys) are **never**
+    exposed by the API.
 
-* The special keyword `meta_data` instead of an object ID will provide information
-about the object's class:
+## Special-purpose endpoints
 
-~~~~
-http://myserver.mydomain.com/netdot/rest/device/meta_data
-~~~~
+In addition to the generic resources, the API provides purpose-built
+endpoints (see the OpenAPI specification for the complete list):
 
-* An existing resource can be updated by using the 'POST' method with relevant
-parameters. For example, a POST request to the following URI:
+*   `/api/host`, `/api/host_like` — simplified DNS/DHCP record
+    manipulation (exact / fuzzy name match).
+*   `/api/devinfo` — extensive information about every device in the
+    database using a single GET request (same structure as the Nagios
+    exporter).
+*   `/api/host_contacts` — DNS and contact information for an IP.
+*   `/api/ipattr` — custom IP attributes.
+*   `/api/prometheus` — Prometheus **file-based service discovery**
+    inventory: monitored devices grouped by type / manufacturer / site /
+    environment (the `used_by` short name).
+*   `POST /api/device` — create a device either by manual add
+    (`{"discover": false, ...}`) or by SNMP discovery
+    (`{"discover": true, ...}`).
+*   `POST /api/device/:id/update` — SNMP re-poll of an existing device.
+*   `POST /api/accessright` — grant access rights on an object.
+*   Device IP actions: `POST /api/device/:id/add_ip`,
+    `POST /api/device/:id/auto_dns`, `POST /api/device/:id/regen_dns`.
+*   `POST /api/ipservice` — create an IP service.
+*   `POST /api/ipblock/:id/range` — create a range of /32 or /128 IP
+    blocks under a parent subnet.
+*   `POST /api/:table/:id/alias` — create a CNAME pointing at an RR.
+*   `POST /api/:table/batch` — bulk edit and bulk delete of a
+    list/search selection in a single request.
+*   `GET /api/:table?kw=<keyword>` — keyword search returning
+    `{id, label}` pairs (used by the UI's foreign-key pickers).
 
-~~~~
-URL: http://netdot.localdomain/rest/device/1
-POST: {sysname=>'newhostname'}
-~~~~
+## JSON API Authorization
 
- will update the 'sysname' field of the Device object with id 1 to be "newhostname".
-
-
-* Similarly, a new object can be created with a POST request. However, in this case
-the object id must be left out:
-
-~~~~
-URL: http://netdot.localdomain/rest/person
-POST: {firstname=>'John', lastname=>'Doe'}
-~~~~
-
-* Specific objects can be deleted by using the 'DELETE' HTTP method.
-
-## Special-purpose REST resources
-
-### /rest/host
-
-The special resource '/rest/host' provides a simplified interface for manipulating
-DNS and DHCP records.  We will illustrate its usage with the following examples:
-
-#### Retrieving host data (HTTP GET)
-
-* Retrieve all RR (DNS) objects
-
-~~~~
-http://netdot.localdomain/netdot/rest/host
-~~~~
-
-* Retrieve all RR objects within given zone
-
-~~~~
-http://netdot.localdomain/netdot/rest/host?zone=localdomain
-~~~~
-
-* Retrieve RR name "foo" and its related records
-
-~~~~
-http://netdot.localdomain/netdot/rest/host?name=foo
-~~~~
-
-* Retrieve RR id 1 and all related records
-
-~~~~
-http://netdot.localdomain/netdot/rest/host?rrid=1
-~~~~
-
-* Retrieve all Ipblock objects within given subnet
-
-~~~~
-http://netdot.localdomain/netdot/rest/host?subnet=192.168.1.0/24
-~~~~
-
-#### Creating new records (HTTP POST).
-
-* Create new A record named 'host1' using next available address in given subnet
-(note: do not specify an object ID):
-
-~~~~
-URL:  http://netdot.localdomain/netdot/rest/host
-POST: {name='host1', subnet=>'192.168.1.0/24'}
-~~~~
-
-#### Updating existing records (HTTP POST)
-
-* Requires passing rrid or ipid. Rename host with RR id=2
-
-~~~~
-URL:  http://netdot.localdomain/netdot/rest/host?rrid=2
-POST: {name=>'newname'}
-~~~~
-
-* Update DHCP scope ethernet for Ipblock with id=3
-
-~~~~
-URL:  http://netdot.localdomain/netdot/rest/host?ipid=2
-POST: {ethernet=>'DEADDEADBEEF'}
-~~~~
-
-#### Deleting records (HTTP DELETE)
-
-* Delete hostname with RR id 3 (also frees IP)
-
-~~~~
-http://netdot.localdomain/netdot/rest/host?rrid=3
-~~~~
-
-### /rest/devinfo
-
-This special REST resource can be used to retrieve extensive 
-information about every device in the database
-using a single GET request. The returned data structure is the same
-one used by the NAGIOS exporter class.
-
-### /rest/updatedev
-
-This special REST resource can be used to import devices into Netdot,
-as an alternative to using SNMP discovery. It accepts only POST requests.
-An example using the Perl client library can be found in the Netdot source, at:
-
-~~~~
-import/update_dev_rest.pl
-~~~~
-
-## RESTful Interface Authorization
-
-All user types can interact with the RESTful interface as long as they
-are granted permissions to do so. However only Admin users can edit
-or delete objects using generic REST resources. Operators and regular
-users can view generic resources but can only edit or delete them
-using specific-purpose resources such as 'rest/host'.
+All user types can interact with the API as long as they are granted
+the corresponding permissions: listing and reading apply the per-user
+'view' rule (pre-filtered in SQL), writes require 'edit' or 'delete' on
+the object (or on the parent object, for creation). Admins are
+unlimited. The same rules apply to the API as to the web interface.
 
 ## Client module on CPAN
 
-A convenient module is provided via CPAN for use in Perl scripts that
-need to access Netdot's REST interface. The module name is
-Netdot::Client::REST. It can be installed by doing something like this:
+There is currently no CPAN client for the Netdot JSON API.
 
-If you are on a Debian-based system:
-
-~~~~ {.bash}
-~# apt-get install libnetdot-client-rest-perl
-~~~~
-
-or
-
-~~~~ {.bash}
-~# cpan
->install Netdot::Client::REST
-~~~~
+> **Note (2.0)**
+> The current way to access the API is plain JSON over HTTP — and
+> since **every write operation of the web UI goes through the API**,
+> anything the UI can do is equally available to third-party clients.
+> Modern tools (such as Ansible) can consume the API very easily, and
+> a client can also be generated from the OpenAPI 3 specification
+> (`/api/openapi.yaml`). If someone is willing to write a
+> `Netdot::Client::API`, contributions are very welcome!
 
 # Database Maintenance
 
