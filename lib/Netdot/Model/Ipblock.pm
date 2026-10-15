@@ -2157,7 +2157,8 @@ sub update_a_records {
 			   $self->address);
     } 
 
-    unless ( $self->interface->auto_dns ){
+    my $label = $self->interface->get_label;
+    unless ( $self->interface->auto_dns || $label =~ / \[br0\]/i ){
 	$logger->debug(sprintf("Interface %s configured for no auto DNS", 
 			      $self->interface->get_label));
 	return;
@@ -2237,7 +2238,7 @@ sub update_a_records {
 	    my $rr = $ar->rr;
 
 	    # User might not want this updated
-	    if ( $rr->auto_update ){
+	    if ( $rr->auto_update || $name =~ /^ap-/i ){
 
 		# If this is the only IP, or the snmp_target IP, make sure that it uses 
 		# the same record that the device uses as its main name
@@ -2250,6 +2251,18 @@ sub update_a_records {
 			RRADDR->insert({rr=>$device->name, ipblock=>$self});
 			$logger->info(sprintf("%s: Updated DNS A record for main device IP %s: %s", 
 					      $host, $self->address, $device->name->name));
+		    } elsif ($name ne $self->interface->device->name->name) {
+			# Check if the name already exists
+			my $other;
+			if ( $other = RR->search(name=>$name, zone=>$zone)->first ){
+			    # Ooops
+			    $logger->info(sprintf("DUP/ERROR: %s: Updated DNS A record for main device IP %s: %s",
+					$host, $self->address, $name));
+			} else {
+			    $logger->info(sprintf("OK: %s: Updated DNS A record for main device IP %s: %s",
+					$host, $self->address, $name));
+			    $rr->update({name=>$name});
+			}
 		    }
 		}else{
 		    # We won't update the RR for the IP that the 
@@ -2321,7 +2334,7 @@ sub ip2int {
     }
 
     unless ( $ipobj = NetAddr::IP->new($address) ){
-	$self->throw_user("Invalid IP address: $address");
+	$self->throw_user("Ipblock::ip2int: Invalid IP address: $address");
     }
     return ($ipobj->numeric)[0];
 }
@@ -2892,6 +2905,10 @@ sub get_next_free {
     if ( $strategy eq 'first' ){
 	my $start = $s->first->numeric;
 	my $end   = $s->last->numeric;
+	if ($self->use_network_broadcast) {
+	    $start = $s->network->numeric;
+	    $end = $s->broadcast->numeric;
+	}
 	my $addr  = ($self->version == 6)? Math::BigInt->new($start) : $start;
 	while ( $addr <= $end ){
 	    $ret = &_chk_addr($class, $addr, \%used, $self->version);
@@ -2901,6 +2918,10 @@ sub get_next_free {
     }elsif ( $strategy eq 'last' ){
 	my $start = $s->last->numeric;
 	my $end   = $s->first->numeric;
+	if ($self->use_network_broadcast) {
+	    $start = $s->broadcast->numeric;
+	    $end = $s->network->numeric;
+	}
 	my $addr  = ($self->version == 6)? Math::BigInt->new($start) : $start;
 	while ( $addr >= $end ){
 	    $ret = &_chk_addr($class, $addr, \%used, $self->version);
@@ -3062,7 +3083,7 @@ sub _prevalidate {
     my $ip = NetAddr::IP->new($address, $prefix);
     my $str = ( $address && $prefix ) ? (join('/', $address, $prefix)) : $address;
     if ( !$ip || $ip->numeric == 0 ){
-	$class->throw_user("Invalid IP: $str");
+	$class->throw_user("Ipblock::_prevalidate: Invalid IP: $str");
     }
 
     # Make sure that what we're working with the base address

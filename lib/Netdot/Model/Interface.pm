@@ -440,7 +440,12 @@ sub snmp_update {
     if ( my $addr = $info->{physaddr} ){
 	my $physaddr = PhysAddr->search(address=>$addr)->first;
 	if ( $physaddr ){
-	    $physaddr->update({last_seen=>$self->timestamp, static=>1});
+	    eval {
+		$physaddr->update({last_seen=>$self->timestamp, static=>1});
+	    };
+	    if ( my $e = $@ ){
+		$logger->warn("Could not update interface MAC: $e");
+	    }
 	}else{
 	    eval {
 		$physaddr = PhysAddr->insert({address=>$addr, static=>1}); 

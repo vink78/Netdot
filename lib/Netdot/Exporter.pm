@@ -14,8 +14,14 @@ my %types = (
     'Sysmon'    => 'Netdot::Exporter::Sysmon',
     'Rancid'    => 'Netdot::Exporter::Rancid',
     'BIND'      => 'Netdot::Exporter::BIND',
+    'NAMED'     => 'Netdot::Exporter::NAMED',
+    'GIT'       => 'Netdot::Exporter::GIT',
+    'PLAYBOOK'  => 'Netdot::Exporter::Playbook',
     'DHCPD'     => 'Netdot::Exporter::DHCPD',
     'Smokeping' => 'Netdot::Exporter::Smokeping',
+    'RFC952'    => 'Netdot::Exporter::RFC952',
+    'Apache'    => 'Netdot::Exporter::Apache',
+    'UNILSTAT'  => 'Netdot::Exporter::Unilstat',
     );
 
 =head1 NAME

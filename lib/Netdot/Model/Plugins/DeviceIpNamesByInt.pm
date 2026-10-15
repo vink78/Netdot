@@ -139,10 +139,9 @@ sub get_name_from_interface {
     $name =~ s/-\./\./g;
     
     # Append device name
-    my $devname = $ip->interface->device->short_name;
-    $name .= ".".$devname ;
+    my $devname = $ip->interface->device->sysname;
 
-    return $name;
+    return $devname.'-'.$name;
 }
 
 

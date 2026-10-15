@@ -16,6 +16,7 @@ title => 'Device Tasks'
 %#######################################################################
 <%args>
 $device_search  => undef
+$device_ext     => undef
 $zone_id        => undef
 $ip_search      => undef
 $mac_search     => undef
@@ -55,7 +56,22 @@ $ARGS{show_tasks} = $show_tasks;
 if ( $submit eq 'Find' ){
     # Get rid of spaces
     $device_search =~ s/\s+//g;
-    if ( $device_search =~ /^$MAC$/ ){
+    $device_ext =~ s/\s+//g;
+    if ( $device_ext =~ /^\d+$/ ) {
+	$m->comp('.show_tasks', %ARGS, user=>$user);
+	my %args = (extension=>$device_ext);
+	if ( (@list = Device->search(extension=>$device_ext)) ) {
+	    if ( scalar(@list) == 1 ) {
+		# Don't offer list.  Just display device
+		my $o = $list[0];
+		my $id = $o->id;
+		$m->comp('/management/device.html', id => $id, user=>$user );
+	    } else {
+		$m->comp('/generic/show_search_results.mhtml', search=>$device_ext, list=>\@list,
+			dowindow=>1 );
+	    }
+	}
+    }elsif ( $device_search =~ /^$MAC$/ ){
 	$m->comp('.show_tasks', %ARGS, user=>$user);
 	$m->comp('/management/mac.html', search=>$device_search, dowindow=>1 );
     }elsif ( Ipblock->matches_ip($device_search) ){
@@ -110,6 +126,7 @@ if ( $submit eq 'Find' ){
 $show_tasks     => undef
 $hideheader     => undef
 $device_search  => undef
+$device_ext     => undef
 $ip_search      => undef
 $mac_search     => undef
 $view           => 'search'
@@ -163,6 +180,16 @@ my $manager = $ui->get_permission_manager($r);
 %                   }
 %               }
                 </select>
+                <input name="submit" value="Find" class="btn" type="submit">
+                </p>
+            </form>
+        </fieldset>
+        <fieldset class="medium">
+            <legend>Find Phones</legend>
+            <form action="device_tasks.html" method="POST">
+                <p>
+                <label for="search">Extension:</label>
+                <input type="text" name="device_ext" class="longtxt" value="<% $device_ext %>">
                 <input name="submit" value="Find" class="btn" type="submit">
                 </p>
             </form>

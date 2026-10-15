@@ -269,6 +269,7 @@ sub assign_name {
     $class->throw_fatal("Model::Device::assign_name: Missing arguments: host")
 	unless $host;
 
+    $sysname =~ s/\./-/g;
     # An RR record might already exist
     if ( defined $host && (my $rr = RR->search(name=>$host)->first) ){
 	$logger->debug(sub{"Name $host exists in DB"});
@@ -457,8 +458,22 @@ sub insert {
     if ( my $dbdev = $class->search(name=>$devtmp{name})->first ){
 	$logger->debug(sprintf("Device::insert: Device %s already exists in DB as %s",
 			       $argv->{name}, $dbdev->fqdn));
+	if ($dbdev->fqdn =~ /^ap-/ && $devtmp{snmp_ip}) {
+	    # Update SNMP Target
+	    my $ip = $devtmp{snmp_ip};
+	    my $ipb = Ipblock->search(address=>$ip)->first || Ipblock->insert({address=>$ip});
+	    my $oldip = $dbdev->{snmp_target};
+	    $ipb->update({monitored=>1});
+	    $dbdev->update({snmp_target=>$ipb, snmp_down=>0, snmp_conn_attempts=>0});
+
+	    # Clean old record
+	    $oldip->delete if ($oldip ne $ipb);
+	}
 	return $dbdev;
     }
+
+    # Remove unneed element
+    delete $devtmp{snmp_ip} if ($devtmp{snmp_ip});
 
     $class->_validate_args(\%devtmp);
     my $self = $class->SUPER::insert( \%devtmp );
@@ -643,6 +658,8 @@ sub get_snmp_info {
     $dev{sysname}        = $sinfo->name();
     $dev{router_id}      = $sinfo->root_ip();
     $dev{sysdescription} = $sinfo->description();
+    $dev{extension}      = $sinfo->extension()
+	 if ($dev{sysdescription} eq 'Avaya Phone');
     $dev{syscontact}     = $sinfo->contact();
     if ( $hashes{'e_descr'} ){
 	my $first_idx ;
@@ -964,7 +981,23 @@ sub get_snmp_info {
 		      ($dev->{interface}{$iid}{admin_status} eq 'down') );
 	return 0;
     }
-    
+
+    # Fix bug on pre 8.0 ICX series 
+    if ($dev{model} && $dev{model} =~ /ICX6\d50/) {
+	if ($dev{os} =~ /^(\d+)\./) {
+	    my $version = int($1);
+
+	    if (int($1) < 8) {
+		foreach my $iid ( keys %{$dev{interface}} ) {
+		    if (lc $dev{interface}{$iid}{name} eq 'management') {
+			$dev{interface}{2049} = delete $dev{interface}{$iid};
+			$dev{interface}{2049}{number} = 2049;
+		    }
+		}
+	    }
+	}
+    }
+
     ################################################################
     # IPv4 addresses and masks 
     #
@@ -978,7 +1011,7 @@ sub get_snmp_info {
     }
     while ( my($ipt,$iid) = each %{ $hashes{'ip_index'} } ){
         my $ip;
-        if ($iid > 150000000) { #nx-os has id > 150000000
+        if ($iid =~ /^\d+$/ && $iid > 150000000) { #nx-os has id > 150000000
             $ip=$hashes{'ip_table'}{$ipt};
         } else {
             $ip=$ipt;
@@ -1442,6 +1475,7 @@ sub discover {
 	}
 	# Insert the new Device
 	$devtmp{name} = $newname;
+	$devtmp{snmp_ip} = $name;
 	$logger->info(sprintf("Inserting new Device: %s", $name));
 	$dev = $class->insert(\%devtmp);
 	$device_is_new = 1;
@@ -2785,7 +2819,7 @@ sub info_update {
 
     ##############################################################
     # Fill in some basic device info
-    foreach my $field ( qw( community layers ipforwarding sysname 
+    foreach my $field ( qw( community layers ipforwarding sysname extension
                             sysdescription syslocation os collect_arp collect_fwt ) ){
 	$devtmp{$field} = $info->{$field} if exists $info->{$field};
     }
@@ -2955,7 +2989,7 @@ sub add_ip {
     }elsif ( Ipblock->matches_v6($address) ){
 	$version = 6; $prefix = 128;
     }else{
-	$self->throw_user("Invalid IP address: $address");
+	$self->throw_user("Model::Device::add_ip Invalid IP address: $address");
     }
     $int ||= $self->interfaces->first;
     $self->throw_user("Need an interface to add this IP to")
@@ -3670,7 +3704,7 @@ sub do_auto_dns {
 
     my $host = $self->fqdn;
 
-    unless ( $self->auto_dns ){
+    unless ( $self->auto_dns || $host =~ /^ap-/ ){
 	$logger->debug(sub{sprintf("Auto DNS is disabled for device %s.".
 				   " Skipping.", $host)});
 	return;
@@ -4332,7 +4366,8 @@ sub _fork_init {
 
     # Tell DBI that we don't want to disconnect the server's DB handle
     my $dbh = $class->db_Main;
-    unless ( $dbh->{InactiveDestroy} = 1 ) {
+    $dbh->{InactiveDestroy} = 1;
+    unless ( $dbh->{InactiveDestroy} == 1 ) {
 	$class->throw_fatal("Model::Device::_fork_init: Cannot set InactiveDestroy: ", $dbh->errstr);
     }
 
@@ -5337,7 +5372,8 @@ sub _launch_child {
 
     # Tell DBI that we don't want to disconnect the server's DB handle
     my $dbh = $class->db_Main;
-    unless ( $dbh->{InactiveDestroy} = 1 ) {
+    $dbh->{InactiveDestroy} = 1;
+    unless ( $dbh->{InactiveDestroy} == 1 ) {
 	$class->throw_fatal("Model::Device::_launch_child: Cannot set InactiveDestroy: ", $dbh->errstr);
     }
     # Run given code
@@ -6262,6 +6298,12 @@ sub _update_interfaces {
 	$obj->update({interface=>undef});
     }
     
+    ##############################################################
+    # Update A records for each AP
+    if ($info->{sysname} =~ /^ap-/ ) {
+	$self->do_auto_dns();
+    }
+ 
     1;
 }
 
@@ -6418,7 +6460,18 @@ sub _netdot_rebless {
 	$logger->debug("Device::_netdot_rebless: $host: Unknown SysObjectID $oid");
 	return;
     }
- 
+
+    my %OID2CLASSMAPAPI = %{ $self->config->get('FETCH_DEVICE_INFO_VIA_API') };
+    foreach my $pat ( keys %OID2CLASSMAPAPI ){
+	if ( $obj =~ /$pat/ ){
+	    my $subclass = $OID2CLASSMAPAPI{$pat};
+	    $new_class .= "::API::$subclass";
+	    $logger->debug("Device::_netdot_rebless: $host: changed class to $new_class");
+	    bless $self, $new_class;
+	    return $self;
+	}
+    }
+
     my %OID2CLASSMAP = %{ $self->config->get('FETCH_DEVICE_INFO_VIA_CLI') };
     foreach my $pat ( keys %OID2CLASSMAP ){
 	if ( $obj =~ /$pat/ ){

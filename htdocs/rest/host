@@ -349,7 +349,12 @@ if ( $method eq 'GET' ){
 	}
 	my $rr;
 	eval {
+	    use Mutex;
+
+	    my $m = Mutex->new ( path => "/tmp/file.lock" );
+	    $m->lock();
 	    $rr = RR->add_host(%add_args);
+	    $m->unlock();
 	};
 	if ( my $e = $@ ){
 	    $rest->throw(code=>Apache2::Const::HTTP_BAD_REQUEST, 

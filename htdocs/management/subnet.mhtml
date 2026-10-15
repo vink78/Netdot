@@ -53,7 +53,7 @@ my $make_cell = sub {
 		    $str = '<a href="../user_management/add_host.html?address='.$addr.
 			'&add_host_block='.$subnet_id.'" class="ipaddr">'.$str.'</a>';
 		}
-	    }elsif ( $divclass eq 'ipaddr_static' || $priv_user ){
+	    }elsif ( $divclass eq 'ipaddr_static' || $divclass eq 'ipaddr_dynamic' || $priv_user ){
 		$str = '<a href="'.$comp.'?id='.$id.'" class="ipaddr">'.$str.'</a>';
 		
 	    }elsif ( $DISCOVERED_OVERWRITE && ($divclass eq 'ipaddr_discovered') ) {

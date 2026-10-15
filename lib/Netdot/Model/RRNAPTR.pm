@@ -50,7 +50,7 @@ sub insert {
 	if ( $argv->{preference} < 0 || $argv->{preference} > $MAX_PREFERENCE );
 
     $class->throw_user("Invalid services string: ".$argv->{services})
-	if ( !($argv->{services} =~ /^e2u\+/i) );
+	if ( !($argv->{services} =~ /^e2u\+/i) && !($argv->{services} =~ /^sip\+/i) && !($argv->{services} =~ /^x-/i) );
     
     my $rr = (ref $argv->{rr})? $argv->{rr} : RR->retrieve($argv->{rr});
     $class->throw_fatal("Invalid rr argument") unless $rr;
@@ -109,7 +109,7 @@ sub update {
     }
     if ( defined $argv->{service} ){
 	$self->throw_user("Invalid service string: ".$argv->{service})
-	    if ( !($argv->{service} =~ /^e2u\+/i) );
+	    if ( !($argv->{service} =~ /^e2u\+/i) && !($argv->{service} =~ /^sip\+/i) && !($argv->{service} =~ /^x-/i) );
     }
 
     return $self->SUPER::update($argv);

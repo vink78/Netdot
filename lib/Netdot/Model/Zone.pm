@@ -3,7 +3,7 @@ package Netdot::Model::Zone;
 use base 'Netdot::Model';
 use warnings;
 use strict;
-use Net::DNS::ZoneFile::Fast;
+use Net::DNS::ZoneFile;
 
 my $logger = Netdot->log->get_logger('Netdot::Model::DNS');
 
@@ -218,8 +218,8 @@ sub insert {
 	# Some defaults
 	my %state = (
 	    name        => $argv->{name},
-	    mname       => $argv->{mname}       || 'localhost',
-	    rname       => $argv->{rname}       || "hostmaster.".$argv->{name},
+	    mname       => $argv->{mname}       || $class->config->get('DEFAULT_HOSTMASTER'),
+	    rname       => $argv->{rname}       || $class->config->get('DEFAULT_MAILBOX'),
 	    refresh     => $argv->{refresh}     || $class->config->get('DEFAULT_DNSREFRESH'),
 	    retry       => $argv->{retry}       || $class->config->get('DEFAULT_DNSRETRY'),
 	    expire      => $argv->{expire}      || $class->config->get('DEFAULT_DNSEXPIRE'),
@@ -651,9 +651,9 @@ sub import_records {
 
     if ( $argv{text } ){
 	eval {
-	    my $zone_content = $argv{text};
+	    my $zone_content = '$ORIGIN ' . $domain. "\n" . $argv{text};
 	    $zone_content =~ s/\r\n/\n/g;
-	    $rrs = Net::DNS::ZoneFile::Fast::parse(text=>$zone_content, origin=>$domain);
+	    $rrs = Net::DNS::ZoneFile->parse( $zone_content );
 	};
 	if ( my $e = $@ ){
 	    $self->throw_user("Error parsing Zone data: $e")

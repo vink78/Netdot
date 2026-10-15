@@ -177,6 +177,7 @@ sub _get_arp_from_cli {
 	    $logger->debug(sub{"Device::FoundryIW::_get_arp_from_cli: Missing information: $line" });
 	    next;
 	}
+	next if ($ip eq '0.0.0.0'); # Do not use this address
 	$cache{$iname}{$ip} = $mac;
     }
     return $self->_validate_arp(\%cache, 4);
@@ -212,7 +213,14 @@ sub _get_v6_nd_from_cli {
 	chomp($line);
 	# Lines look like this:
 	# 1   fe80::8271:1fff:fe63:ec91               2104 8071.1f63.ec91 REACH  0    1/4   1
-	if ( $line =~ /^\d+\s+($IPV6)\s+\d+\s+($CISCO_MAC)\s+\S+\s+\d+\s+(\S+)/o ) {
+	# 1000fe80::8271:1fff:fe63:ec91               2104 8071.1f63.ec91 REACH  0    1/4   1
+	# fe80::8271:1fff:fe63:ec91               8071.1f63.ec91 STALE   0   e 1/4 2104 0
+	if ( $line =~ /^\s*($IPV6)\s+($CISCO_MAC)\s+\S+\s+\d+\s+e (\S+)\s+(\d+)/o ) {
+	    $ip	   = $1;
+	    $mac   = $2;
+	    $iname = $3;
+	    # $vlan  = $4;
+	}elsif ( $line =~ /^....\s*($IPV6)\s+\d+\s+($CISCO_MAC)\s+\S+\s+\d+\s+(\S+)/o ) {
 	    $ip    = $1;
 	    $mac   = $2;
 	    $iname = $3;
@@ -281,11 +289,12 @@ sub _get_fwt_from_cli {
 	    $mac   = $1;
 	    $iname = $2;
 	    $vlan  = $3;
-	}elsif ( $line =~ /^(\w{4}\.\w{4}\.\w{4})\s+(\d+)\s+\S+\s+(\d+)\s+/ ) { # Turboiron 24X Syntax
+	}elsif ( $line =~ /^(\w{4}\.\w{4}\.\w{4})\s+(\S+)\s+\S+\s+(\d+)\s+/ ) { # Turboiron 24X/ICX7750 Syntax
 	    # Output look like this:
 	    # MAC-Address     Port           Type         VLAN 
 	    # d89e.3fb9.1107  24             Dynamic      144  
 	    # 0022.41fc.3713  24             Dynamic      135  
+	    # 0022.41fc.3713  1/1/1          Dynamic      135
 	    $mac   = $1;
 	    $iname = $2;
 	    $vlan  = $3;
@@ -333,7 +342,7 @@ sub _reduce_iname{
     my ($self, $name) = @_;
     return unless $name;
     $name =~ s/^.*Ethernet//;
-    $name =~ s/-.*$//; # Fix LACPa
+    $name =~ s/-.*$//; # Fix LACP
     $name =~ s/\*.*$//; # Fix LACP
     return $name;
 }

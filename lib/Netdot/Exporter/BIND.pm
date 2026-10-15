@@ -56,9 +56,9 @@ sub new{
 
 sub generate_configs {
     my ($self, %argv) = @_;
-    
+
     my @zones;
-    
+
     if ( $argv{zones} ){
 	unless ( ref($argv{zones}) eq 'ARRAY' ){
 	    $self->throw_fatal("zones argument must be arrayref!");
@@ -85,7 +85,24 @@ sub generate_configs {
     }else{
 	@zones = Zone->retrieve_all();
     }
-   
+
+    my $remotedir = Netdot->config->get('BIND_REMOTE_DIR')
+	|| $self->throw_user('BIND_REMOTE_DIR not defined in config file!');
+
+    my $sshserver = Netdot->config->get('BIND_SSH_SERVER')
+	|| $self->throw_user('BIND_SSH_SERVER not defined in config file!');
+
+    my $reloadcmd = Netdot->config->get('BIND_RELOAD_CMD')
+	|| $self->throw_user('BIND_RELOAD_CMD not defined in config file!');
+
+    my $gitdir = Netdot->config->get('Git_BIND_DIR')
+	|| $self->throw_user('Git_BIND_DIR not defined in config file!');
+
+    # Execute remote command only there REMOTE_EXEC == 1
+    my $remoteexec = Netdot->config->get('REMOTE_EXEC') || 0;
+
+    my @changes = ();
+
     foreach my $zone ( @zones ){
 	next unless $zone->active;
 	eval {
@@ -101,6 +118,11 @@ sub generate_configs {
 			$record->update({pending=>0});
 		    }
 		    $logger->info("Zone ".$zone->name." written to file: $path");
+
+		    system ("/usr/bin/scp $path $sshserver:$remotedir")
+		        if ($remoteexec == 1);
+		    system ('/bin/cp '.$path.' '.$gitdir.'/');
+		    push @changes, $zone->name;
 		}else{
 		    $logger->debug("Exporter::BIND::generate_configs: ".$zone->name.
 				   ": No pending changes.  Use -f to force.");
@@ -108,6 +130,15 @@ sub generate_configs {
 					  });
 	};
 	$logger->error($@) if $@;
+    }
+
+    if (@changes && $remoteexec == 1) {
+	open (FOO, "/usr/bin/ssh $sshserver '$reloadcmd' |");
+	while (<FOO>) {
+	    chomp;
+	    $logger->info( $_ );
+	}
+	close (FOO);
     }
 }
 
@@ -188,6 +219,11 @@ sub print_zone_to_file {
 			if ( $type =~ /^(MX|NS|CNAME|PTR)$/ ){
 			    # Add the final dot if necessary
 			    $data .= '.' unless $data =~ /\.$/;
+			}
+
+			if ($type eq 'TXT' && length($data) > 254) {
+			    my @subdata = unpack("(A254)*", $data);
+			    $data = join "\" \"", @subdata;
 			}
 
 			my $line = "$name\t$ttl\tIN\t$type\t$data\n";

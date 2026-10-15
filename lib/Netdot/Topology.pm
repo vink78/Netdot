@@ -417,8 +417,10 @@ sub get_dp_links {
     # Finds remote device given an IP
     sub _find_by_ip {
 	my($ip, $allips) = @_;
-	my $decimal = Ipblock->ip2int($ip);
-	exists $allips->{$decimal} && return Device->retrieve($allips->{$decimal});
+	if ($ip =~ /^\d+\.\d+\.\d+\.\d+$/) {
+	    my $decimal = Ipblock->ip2int($ip);
+	    exists $allips->{$decimal} && return Device->retrieve($allips->{$decimal});
+	}
     }
     
     foreach my $row ( @$results ){
@@ -531,6 +533,14 @@ sub get_dp_links {
 	unless ( $rem_int ){
 	    if ( $r_port ) {
 		foreach my $rem_port ( split ';', $r_port ) {
+		    # Barox fix
+		    if ($rem_dev->product->get_label() =~ /^Barox/ && $rem_port =~ /^GigabitEthernet 1\/(\d+)$/) {
+			$rem_port = "$1";
+		    }
+		    # Netgear fix
+		    if ($rem_dev->product->get_label() =~ /^Netgear/ && $rem_port =~ /^g(\d+)$/) {
+			$rem_port = "$1";
+		    }
 		    if ( exists $intsmap->{$rem_dev->id} ){
 			my $rem_int_id = $intsmap->{$rem_dev->id}{number}{$rem_port} ||
 			    $intsmap->{$rem_dev->id}{name}{$rem_port};
@@ -540,6 +550,22 @@ sub get_dp_links {
 			if ( $rem_port =~ /($MAC)/io ){
 			    (undef, $rem_int) = &_find_by_mac($rem_port, $macs2ints, $base_macs);
 			}
+		    }
+		    unless ( $rem_int ){
+			# Foundry Fix
+			if ( ($rem_port =~ /^ethernet(\d+\/\d+\/\d+)$/i) || ($rem_port =~ /^ethernet(\d+\/\d+)$/i) || ($rem_port =~ /^ethernet(\d+)$/i) ){
+			    $rem_port = "'".'%Ethernet'.$1."'";
+			}
+			# Brocade VDX Fix
+			if ($rem_port =~ /^(Ten|Forty)?GigabitEthernet \d\/(\d+\/\d+)$/) {
+			    $rem_port = "'$1GigabitEthernet $2'";
+			}
+			# Ruckus fix
+			if ($rem_port =~ /^($MAC)$/) {
+			    $rem_port = "'eth0'";
+			}
+			# Try name first, then number, then description (if it is unique)
+			$rem_int = Interface->search_like(device=>$rem_dev, name=>$rem_port)->first;
 		    }
 		    unless ( $rem_int ){
 		    	# If interface name has a slot/sub-slot number
@@ -565,6 +591,7 @@ sub get_dp_links {
 		unless ( $rem_int ){
 		    my $int = Interface->retrieve($iid);
 		    my $dev = blessed($rem_dev) ? $rem_dev : Device->retrieve($rem_dev);
+#		    $logger->warn(sprintf("Debug: %s", Dumper ($rem_dev->product->get_label('manufacturer'))));
 		    $logger->warn(sprintf("Topology::get_dp_links: %s: Port %s not found in Device: %s", 
 					  $int->get_label, $r_port, $dev->get_label));
 		}

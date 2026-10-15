@@ -13,7 +13,8 @@ my $USAGE = <<EOF;
          [ -s|--scopes <scope1, scope2>]
          [ -d|--debug ] [ -h|--help ]
 
-    Available types:  Nagios, Sysmon, Rancid, Smokeping, BIND, DHCPD
+    Available types:  Nagios, Sysmon, Rancid, Smokeping, BIND, NAMED,
+                      DHCPD, RFC952, Apache, UNILSTAT, GIT, PLAYBOOK
 
     BIND exporter Options:
        zones  - Comma-separated list of zone names.  If not 
@@ -72,7 +73,7 @@ foreach my $type ( split ',', $self{types} ){
     $type =~ s/\s+//g;
     my %args;
     if ( $type eq 'BIND' ){
-	%args = (nopriv => $self{nopriv},
+	%args = (nopriv_txt => $self{nopriv}, nopriv_hinfo => $self{nopriv},
 		 force  => $self{force},
 	    );
 	if ( $self{zones} ){

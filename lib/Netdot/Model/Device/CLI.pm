@@ -74,6 +74,7 @@ sub _get_credentials {
 # Returns:
 #   array
 #
+my %NAScache;
 sub _cli_cmd {
     my ($self, %argv) = @_;
     my ($login, $password, $privileged, $transport, $timeout, $host, $personality, $cmd) = 
@@ -102,28 +103,58 @@ sub _cli_cmd {
     # when fixed, remove terminal pager commands below
 
     my @output;
+    if ($NAScache{$host}) {
+	eval {
+	    my $s = $NAScache{$host}{'session'};
+	    $logger->debug(sub{"$host: issuing CLI command: '$cmd' over CACHE"});
+	    @output = $s->cmd($cmd, {timeout=>$timeout});
+	    $NAScache{$host}{'last'} = time();
+	};
+	if ( my $e = $@ ){
+	    $self->throw_user("Device::CLI::_get_arp_from_cli: $host: $e");
+	}
+    } else {
     eval {
 	$logger->debug(sub{"$host: issuing CLI command: '$cmd' over $transport"});
 	my $s = Net::Appliance::Session->new(\%sess_args);
+	# $s->set_global_log_at('debug');
 
-	$s->nci->transport->ors("\r\n") if ($personality eq 'foundry');                                        
+	if ($personality eq 'foundry') {
+	    my $info = new SNMP::Info(AutoSpecify => 1, DestHost => $host, Community => 'public', Version => 2) or die "Can't connect to device.\n";
+	    my $version = $info->os_ver();
+	    $version =~ m/^(\d+)\./;
+	    if (int($1) < 8 && $transport eq 'Telnet') {
+		$s->nci->transport->ors("\r\n");
+	    }
+	}
 
 #       Uncomment this to debug session exchanges	
-#	$s->set_global_log_at('debug');
-	
 	$s->connect({username  => $login, 
 		     password  => $password,
 		    });
-	
+
 	$s->begin_privileged({password=>$privileged}) if ( $privileged );
 	$s->cmd('terminal pager 0') if ( $personality eq 'pixos' );
 	@output = $s->cmd($cmd, {timeout=>$timeout});
 	$s->cmd('terminal pager 36') if ( $personality eq 'pixos' );
 	$s->end_privileged if ( $privileged );
-	$s->close;
+	$NAScache{$host} = {'session'=>$s, 'last'=>time()};
     };
     if ( my $e = $@ ){
 	$self->throw_user("Device::CLI::_get_arp_from_cli: $host: $e");
+    }
+    }
+
+    # Remove old sessions
+    my $last = time();
+    foreach my $kh (keys %NAScache) {
+	my $klast = $NAScache{$kh}{'last'};
+	if ($klast + 60 < $last) {
+	    $logger->debug(sub{"$kh: cache sesion removal"});
+	    my $s = $NAScache{$kh}{'session'};
+	    $s->close;
+	    delete($NAScache{$kh});
+	}
     }
     return @output;
 }

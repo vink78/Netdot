@@ -558,7 +558,7 @@ HERE
 			  my %stored = ();
 			  foreach my $bb (sort { $a->name cmp $b->name } @backbones)
 			  {
-			      next if ($bb->id == int($st->cable) || exists($stored{$bb}));
+			      next if ($bb->id == int(exists($stored{$bb})));
 			      $stored{$bb} = 1;
 			      $ac .= sprintf("<OPTION VALUE=\"%s\">%s</OPTION>\n", $bb->id, $bb->name);
 			  }
@@ -583,7 +583,7 @@ HERE
 			  %stored = ();
 			  foreach my $bb (sort { $a->name cmp $b->name } @backbones)
 			  {
-			      next if ($bb->id == int($st->cable) || exists($stored{$bb}));
+			      next if ($bb->id == int(exists($stored{$bb})));
 			      $stored{$bb} = 1;
 			      $ac .= sprintf("<OPTION VALUE=\"%s\">%s</OPTION>\n", $bb->id, $bb->name);
 			  }

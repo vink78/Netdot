@@ -254,6 +254,8 @@ sub _sanitize_ptrdname {
 	    $self->throw_user("Invalid domain name size");
 	}
 	$argv->{ptrdname} =~ s/\s+//g;  # remove spaces
+	$argv->{ptrdname} =~ s/\*//g;  # remove wildcard
+	$argv->{ptrdname} =~ s/^\.//g;  # remove leading dot (if dname was *.toto.mydomain.com)
 	$argv->{ptrdname} = lc($argv->{ptrdname}); # lowercase
     }
     1;
