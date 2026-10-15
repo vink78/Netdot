@@ -293,6 +293,73 @@ sub _ldap_attr_map {
 
 ############################################################################
 
+=head2 uid_from_email - Resolve the LDAP uid from an email address
+
+Arguments:  Apache request object (or Netdot::Mojo::AuthShim), email address
+Returns:    The LDAP uid (string) or 0
+Description: For the OAuth (OpenID Connect) login flow (NetdotOAuthEmailToLDAP):
+             the provider's id_token carries the user's email (UPN /
+             preferred_username or email claim), while the Netdot username is
+             the LDAP uid. Connects to the configured LDAP server, binds the
+             attribute-reader account (NetdotLDAPAttrReaderDN/Pass, the same
+             account as the attribute auto-fill; anonymous otherwise) and
+             searches NetdotLDAPSearchBase with (mail=<email>) for the uid.
+             Fails closed: an email that does not look like one (also rejects
+             LDAP filter metacharacters), a bind/search error, or an ambiguous
+             (multiple) answer all yield 0.
+
+=cut
+
+sub uid_from_email {
+    my ( $r, $email ) = @_;
+    # A plain local@domain shape only: this also rejects the LDAP filter
+    # metacharacters (* \ ( )) that would alter the search filter.
+    return 0 unless defined $email && $email =~ /\A[A-Za-z0-9._%+-]+\@[A-Za-z0-9.-]+\z/;
+
+    my $ldap = _connect( $r ) or return 0;
+
+    # Read-only search: use the attribute-reader account when configured
+    # (same policy as _upsert_person_from_ldap), anonymous otherwise.
+    my $reader_dn = $r->dir_config( 'NetdotLDAPAttrReaderDN' );
+    my $reader_pw = $r->dir_config( 'NetdotLDAPAttrReaderPass' );
+    if ( defined $reader_dn && length $reader_dn
+         && defined $reader_pw && length $reader_pw ) {
+        my $rb = eval { $ldap->bind( $reader_dn, password => $reader_pw ) };
+        unless ( $rb && ! $rb->code ) {
+            $r->log_error( "netdot-auth LDAP: uid_from_email: reader bind failed for $reader_dn: ",
+                           ( $rb ? $rb->code . " (" . $rb->error . ")" : $@ // "no result" ) );
+            return 0;
+        }
+    }
+
+    my $res = eval {
+        $ldap->search(
+            base   => ( $r->dir_config( 'NetdotLDAPSearchBase' ) // '' ),
+            scope  => 'subtree',
+            filter => "(mail=$email)",
+            attrs  => [ 'uid' ],
+        );
+    };
+    if ( my $e = $@ ) {
+        $r->log_error( "netdot-auth LDAP: uid_from_email: search error for $email: $e" );
+        return 0;
+    }
+    unless ( $res && $res->code() == 0 ) {
+        $r->log_error( "netdot-auth LDAP: uid_from_email: search failed for $email: ",
+                       ( $res ? $res->code() . " (" . $res->error() . ")" : "no result" ) );
+        return 0;
+    }
+    my @uids = map { my @v = $_->get_value( 'uid' ); @v ? $v[0] : '' } $res->entries;
+    @uids = grep { length } @uids;
+    return 0 unless @uids;
+    return $uids[0] if @uids == 1;
+    $r->log_error( "netdot-auth LDAP: uid_from_email: AMBIGUOUS (",
+                   join( ', ', @uids ), ") for mail=$email" );
+    return 0;
+}
+
+############################################################################
+
 =head2 _upsert_person_from_ldap - Fill Person fields from the LDAP entry
 
 After a successful LDAP bind, read the mapped attributes from the user's LDAP

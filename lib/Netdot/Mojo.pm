@@ -116,6 +116,39 @@ sub startup ($self) {
         pid_file => $ENV{NETDOT_PID_FILE} // 'tmp/hypnotoad.pid',
     } );
 
+    # ---- OAuth2 / OpenID Connect login (e.g. Microsoft Entra ID) ----
+    # Registered only when enabled AND fully configured (client id, secret,
+    # well-known URL): the plugin fetches the provider's OpenID configuration
+    # + JWKS at startup (blocking; a short UA timeout so an unreachable
+    # provider cannot stall the workers' boot — the login page then shows a
+    # clean error instead of a hung request, see auth#oauth_login).
+    if ( ( Netdot->config->get('NetdotOAuthEnabled') // '' ) eq 'yes' ) {
+        my $oid  = Netdot->config->get('NetdotOAuthClientID')  // '';
+        my $sec  = Netdot->config->get('NetdotOAuthSecret')    // '';
+        my $well = Netdot->config->get('NetdotOAuthWellKnown') // '';
+        if ( length $oid && length $sec && length $well ) {
+            require Mojolicious::Plugin::OAuth2;
+            $self->plugin( 'OAuth2' => {
+                ua        => Mojo::UserAgent->new( timeout => 10 ),
+                providers => {
+                    netdot => {
+                        key            => $oid,
+                        secret         => $sec,
+                        well_known_url => $well,
+                        scope          => ( Netdot->config->get('NetdotOAuthScope') || 'openid profile email' ),
+                    },
+                },
+            });
+        }
+        else {
+            $self->log->error(
+                'OAuth: NetdotOAuthEnabled is yes but NetdotOAuthClientID / '
+                . 'NetdotOAuthSecret / NetdotOAuthWellKnown are incomplete — '
+                . 'OAuth login disabled'
+            );
+        }
+    }
+
     # ---- Current user + permissions (mirrors the old Apache2::SiteControl manager) ----
     # current_person: the logged-in Person (resolved from the session username, cached per request).
     $self->helper(current_person => sub ($c) {
@@ -329,6 +362,12 @@ sub startup ($self) {
     $r->get('/login')->to('auth#login_form')->name('login');
     $r->post('/login')->to('auth#login_submit');
     $r->get('/logout')->to('auth#logout')->name('logout');
+    # OAuth2 (OpenID Connect) login, e.g. Microsoft Entra ID: ONE route for both
+    # legs — without a `code` param it redirects to the provider, with one it
+    # exchanges it and starts the session (auth#oauth_login). Public: the
+    # provider's callback arrives without a Netdot session (exempt in
+    # before_dispatch below).
+    $r->get('/auth/oauth')->to('auth#oauth_login')->name('oauth_login');
 
     # Static assets under the prefix (css, img, java_script). The default static
     # fallback only serves the raw request path, so with a prefix we serve these
@@ -344,11 +383,13 @@ sub startup ($self) {
     }
 
     # ---- Authentication: redirect (302) unauthenticated requests to /login ----
-    # Public paths (login/logout and static assets) are exempt.
+    # Public paths (login/logout, the OAuth2 callback and static assets) are
+    # exempt.
     $self->hook( before_dispatch => sub {
         my ($c)  = @_;
         my $path = $c->req->url->path;
         return if $path eq "$base/login" || $path eq "$base/logout";
+        return if $path eq "$base/auth/oauth";    # OAuth2 callback (no session yet)
         return if $path =~ m{^\Q$base\E(?:/(?:css|img|java_script))(?:/|$)};
         return if $path eq "$base/favicon.ico";
         # Set REMOTE_USER from the session for the audit trail (Model::_audit

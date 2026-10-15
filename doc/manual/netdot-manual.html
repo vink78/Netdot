@@ -303,8 +303,10 @@ password: &quot;admin&quot;</code></pre>
 <p><strong>Tip</strong> Authentication now happens in the application
 itself (web login). It uses LDAP (<code>NetdotLDAP*</code> settings in
 <code>Site.conf</code>) and falls back to local passwords when
-<code>NetdotLDAPFailToLocal</code> is set to “yes”. Kerberos and RADIUS
-authentication are no longer available.</p>
+<code>NetdotLDAPFailToLocal</code> is set to “yes”. It can also use
+OAuth 2.0 / OpenID Connect (e.g. Microsoft Entra ID), see the dedicated
+section below. Kerberos and RADIUS authentication are no longer
+available.</p>
 </blockquote>
 <blockquote>
 <p><strong>Warning</strong> Please remember to change the “admin”
@@ -313,8 +315,53 @@ open the person’s page and click on the <strong>Password</strong>
 button, then type in the new password (twice) and click <strong>Set
 password</strong>.</p>
 </blockquote>
-<h2 data-number="3.7" id="cron-jobs"><span
-class="header-section-number">3.7</span> CRON jobs</h2>
+<h2 data-number="3.7"
+id="oauth-login-openid-connect-e.g.-microsoft-entra-id"><span
+class="header-section-number">3.7</span> OAuth login (OpenID Connect,
+e.g. Microsoft Entra ID)</h2>
+<p>Netdot can also authenticate against an OpenID Connect provider. When
+enabled, the login page shows an extra button (label configurable) below
+the username/password form; clicking it runs the standard
+authorization-code flow. After the provider redirects back, Netdot
+checks the signed id_token, resolves the Netdot username and starts the
+web session.</p>
+<p>In <code>Site.conf</code>:</p>
+<pre><code>NetdotOAuthEnabled     =&gt; &#39;yes&#39;,
+NetdotOAuthLabel       =&gt; &#39;Microsoft Entra ID&#39;,
+NetdotOAuthClientID    =&gt; &#39;...&#39;,          # application (client) ID
+NetdotOAuthSecret      =&gt; &#39;...&#39;,          # client secret
+NetdotOAuthWellKnown   =&gt; &#39;https://login.microsoftonline.com/&lt;tenant-id-or-domain&gt;/v2.0/.well-known/openid-configuration&#39;,
+NetdotOAuthScope       =&gt; &#39;openid profile email&#39;,
+NetdotOAuthUserClaim   =&gt; &#39;preferred_username&#39;,
+NetdotOAuthEmailToLDAP =&gt; &#39;no&#39;,</code></pre>
+<ul>
+<li><code>NetdotOAuthEmailToLDAP</code>: when the provider returns an
+email address (the usual case) but the Netdot usernames are the LDAP
+uids, set this to “yes” – the email is resolved to its <code>uid</code>
+through LDAP (<code>(mail=&lt;email&gt;)</code>, using the
+<code>NetdotLDAP*</code> settings and the attribute-reader account). The
+login is refused when no single uid matches. When “no”, the claim value
+itself is used as the username.</li>
+<li>The Person is created automatically on first login (user type
+“User”), like with LDAP authentication; the empty first name / last name
+/ email fields are filled from the token claims, existing values are
+never overwritten.</li>
+<li><code>WEB_BASE_URL</code> should be the full public URL (e.g.
+<code>https://netdot.localdomain/netdot</code>) when the app sits behind
+a TLS proxy: the OAuth redirect URI is built from it and must match the
+value registered in the identity provider exactly.</li>
+</ul>
+<p>What to announce to the identity provider administrator (Microsoft
+Entra ID): the <strong>Redirect URI</strong>
+<code>&lt;WEB_BASE_URL&gt;/auth/oauth</code>, e.g.
+<code>https://netdot.localdomain/netdot/auth/oauth</code> (exact scheme,
+no trailing slash). Netdot itself only needs the application (client)
+ID, the client secret and the tenant ID (used in the well-known URL
+above). The default delegated API permissions (<code>openid</code>,
+<code>profile</code>, <code>email</code>) are sufficient; no
+administrator consent is required.</p>
+<h2 data-number="3.8" id="cron-jobs"><span
+class="header-section-number">3.8</span> CRON jobs</h2>
 <p>Netdot comes with a few scripts that should be run periodically as
 cron jobs.</p>
 <ul>
@@ -335,8 +382,8 @@ Netdot data. See details later in this document.</p></li>
 <li><p>The netdot.cron file included in the package is a sample crontab
 containing recommended periodic jobs. You should customize it to your
 liking and copy it to your cron directory, for example:</p>
-<div class="sourceCode" id="cb26"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> cp etc/netdot.cron /etc/cron.d/netdot</span></code></pre></div></li>
+<div class="sourceCode" id="cb27"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> cp etc/netdot.cron /etc/cron.d/netdot</span></code></pre></div></li>
 </ul>
 <h1 data-number="4" id="operation"><span
 class="header-section-number">4</span> Operation</h1>
@@ -381,15 +428,15 @@ command line interface (CLI)</h3>
 <p>For brevity, let’s assume you are located at the Netdot installation
 prefix, for example, /usr/local/netdot.</p>
 <p>You can discover a single device by executing:</p>
-<div class="sourceCode" id="cb27"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-H</span> <span class="op">&lt;</span>device-name<span class="op">&gt;</span> -I <span class="at">-c</span> <span class="op">&lt;</span>community<span class="op">&gt;</span></span></code></pre></div>
-<p>You can also try discovering a whole subnet like this:</p>
 <div class="sourceCode" id="cb28"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-B</span> 192.168.1.0/24 <span class="at">-I</span> <span class="at">-c</span> <span class="op">&lt;</span>community<span class="op">&gt;</span></span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-H</span> <span class="op">&lt;</span>device-name<span class="op">&gt;</span> -I <span class="at">-c</span> <span class="op">&lt;</span>community<span class="op">&gt;</span></span></code></pre></div>
+<p>You can also try discovering a whole subnet like this:</p>
+<div class="sourceCode" id="cb29"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-B</span> 192.168.1.0/24 <span class="at">-I</span> <span class="at">-c</span> <span class="op">&lt;</span>community<span class="op">&gt;</span></span></code></pre></div>
 <p>In addition, you can give Netdot a specific list of devices you would
 like to discover:</p>
-<div class="sourceCode" id="cb29"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-E</span> <span class="op">&lt;</span>text-file<span class="op">&gt;</span> -I</span></code></pre></div>
+<div class="sourceCode" id="cb30"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-E</span> <span class="op">&lt;</span>text-file<span class="op">&gt;</span> -I</span></code></pre></div>
 <p>The file should contain a list of device names or IP addresses, one
 per line, for example:</p>
 <pre><code>device1
@@ -406,22 +453,22 @@ device3 community2
 probably want to fetch ARP caches from your layer 3 devices (i.e.
 routers and firewalls), and forwarding tables from your layer 2 devices
 (switches). Examples:</p>
-<div class="sourceCode" id="cb32"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-H</span> <span class="op">&lt;</span>router<span class="op">&gt;</span> -A <span class="at">-c</span> <span class="op">&lt;</span>community<span class="op">&gt;</span></span></code></pre></div>
 <div class="sourceCode" id="cb33"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-H</span> <span class="op">&lt;</span>switch<span class="op">&gt;</span> -F <span class="at">-c</span> <span class="op">&lt;</span>community<span class="op">&gt;</span></span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-H</span> <span class="op">&lt;</span>router<span class="op">&gt;</span> -A <span class="at">-c</span> <span class="op">&lt;</span>community<span class="op">&gt;</span></span></code></pre></div>
+<div class="sourceCode" id="cb34"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-H</span> <span class="op">&lt;</span>switch<span class="op">&gt;</span> -F <span class="at">-c</span> <span class="op">&lt;</span>community<span class="op">&gt;</span></span></code></pre></div>
 <p>Netdot can also try to discover the network topology. For that, you
 need to run:</p>
-<div class="sourceCode" id="cb34"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-T</span></span></code></pre></div>
+<div class="sourceCode" id="cb35"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-T</span></span></code></pre></div>
 <p>If the configuration option <code>ADD_UNKNOWN_DP_DEVS</code> is set
 to 1 (true), then Netdot will attempt to discover any devices seen (via
 CDP/LLDP) on existing device interfaces. With the previous command,
 Netdot will only try to discover directly connected devices. In order to
 attempt to discover all unknown neighbors, and the neighbors of those
 neighbors, use the following parameter:</p>
-<div class="sourceCode" id="cb35"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-T</span> <span class="at">--recursive</span></span></code></pre></div>
+<div class="sourceCode" id="cb36"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-T</span> <span class="at">--recursive</span></span></code></pre></div>
 <p>Ideally, once you have discovered all your devices, you should
 combine all this functionality and have it run periodically (e.g. every
 hour) via CRON. A sample crontab entry would be:</p>
@@ -512,8 +559,8 @@ IPs” at the bottom of the IP info tab of the device page. This will act
 on only that device</li>
 <li>By using the updatedevices.pl executable as follows:</li>
 </ol>
-<div class="sourceCode" id="cb38"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-DN</span></span></code></pre></div>
+<div class="sourceCode" id="cb39"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/updatedevices.pl <span class="at">-DN</span></span></code></pre></div>
 <p>The command above will instruct Netdot to generate DNS records for
 all IPs belong to device interfaces, as long as the criteria explained
 earlier are met.</p>
@@ -1059,11 +1106,11 @@ Netdot will show output from the exporter tool, including the paths to
 the new files.</p>
 <p>Additionally, the exporter can be called from the command line. For
 example, to generate Nagios configurations:</p>
-<div class="sourceCode" id="cb41"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb41-1"><a href="#cb41-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/exporter.pl <span class="at">-t</span> Nagios</span></code></pre></div>
-<p>Or you can export several in one call:</p>
 <div class="sourceCode" id="cb42"><pre
-class="sourceCode bash"><code class="sourceCode bash"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/exporter.pl <span class="at">-t</span> Nagios,Sysmon,Rancid,Smokeping,BIND,DHCPD</span></code></pre></div>
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/exporter.pl <span class="at">-t</span> Nagios</span></code></pre></div>
+<p>Or you can export several in one call:</p>
+<div class="sourceCode" id="cb43"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a><span class="ex">~#</span> bin/exporter.pl <span class="at">-t</span> Nagios,Sysmon,Rancid,Smokeping,BIND,DHCPD</span></code></pre></div>
 <p>There are specific export parameters for each of these which you can
 customize by editing your <code>Site.conf</code> file.</p>
 <h2 data-number="5.1" id="cacti-integration"><span

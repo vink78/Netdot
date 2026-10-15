@@ -17,6 +17,12 @@
         </label>
         <button type="submit" class="btn">Log in</button>
       </form>
+% if ( defined( my $oauth = $c->stash('oauth') ) ) {
+      % # OAuth2 / OpenID Connect (e.g. Microsoft Entra ID), enabled in the
+      % # config (NetdotOAuthEnabled): the button starts the flow (auth#oauth_login).
+      <hr style="margin:14px 0 10px 0">
+      <a class="btn" href="<%= $oauth->{url} %>"><%= $oauth->{label} %></a>
+% }
     </div>
   </div>
 </div>

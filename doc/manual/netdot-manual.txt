@@ -400,14 +400,61 @@ password: "admin"
 >**Tip**
 Authentication now happens in the application itself (web login). It
 uses LDAP (`NetdotLDAP*` settings in `Site.conf`) and falls back to
-local passwords when `NetdotLDAPFailToLocal` is set to "yes".
-Kerberos and RADIUS authentication are no longer available.
+local passwords when `NetdotLDAPFailToLocal` is set to "yes". It can
+also use OAuth 2.0 / OpenID Connect (e.g. Microsoft Entra ID), see the
+dedicated section below. Kerberos and RADIUS authentication are no
+longer available.
 
 >**Warning**
 Please remember to change the "admin" password! Go to `Contacts ->
 People`, search for 'Admin', open the person's page and click on the
 **Password** button, then type in the new password (twice) and click
 **Set password**.
+
+## OAuth login (OpenID Connect, e.g. Microsoft Entra ID)
+
+Netdot can also authenticate against an OpenID Connect provider. When
+enabled, the login page shows an extra button (label configurable) below
+the username/password form; clicking it runs the standard
+authorization-code flow. After the provider redirects back, Netdot
+checks the signed id\_token, resolves the Netdot username and starts the
+web session.
+
+In `Site.conf`:
+
+~~~~
+NetdotOAuthEnabled     => 'yes',
+NetdotOAuthLabel       => 'Microsoft Entra ID',
+NetdotOAuthClientID    => '...',          # application (client) ID
+NetdotOAuthSecret      => '...',          # client secret
+NetdotOAuthWellKnown   => 'https://login.microsoftonline.com/<tenant-id-or-domain>/v2.0/.well-known/openid-configuration',
+NetdotOAuthScope       => 'openid profile email',
+NetdotOAuthUserClaim   => 'preferred_username',
+NetdotOAuthEmailToLDAP => 'no',
+~~~~
+
+*   `NetdotOAuthEmailToLDAP`: when the provider returns an email address
+    (the usual case) but the Netdot usernames are the LDAP uids, set this
+    to "yes" -- the email is resolved to its `uid` through LDAP
+    (`(mail=<email>)`, using the `NetdotLDAP*` settings and the
+    attribute-reader account). The login is refused when no single uid
+    matches. When "no", the claim value itself is used as the username.
+*   The Person is created automatically on first login (user type
+    "User"), like with LDAP authentication; the empty first name / last
+    name / email fields are filled from the token claims, existing values
+    are never overwritten.
+*   `WEB_BASE_URL` should be the full public URL (e.g.
+    `https://netdot.localdomain/netdot`) when the app sits behind a TLS
+    proxy: the OAuth redirect URI is built from it and must match the
+    value registered in the identity provider exactly.
+
+What to announce to the identity provider administrator (Microsoft Entra
+ID): the **Redirect URI** `<WEB_BASE_URL>/auth/oauth`, e.g.
+`https://netdot.localdomain/netdot/auth/oauth` (exact scheme, no trailing
+slash). Netdot itself only needs the application (client) ID, the client
+secret and the tenant ID (used in the well-known URL above). The default
+delegated API permissions (`openid`, `profile`, `email`) are sufficient;
+no administrator consent is required.
 
 ## CRON jobs
 

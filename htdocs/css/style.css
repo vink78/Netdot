@@ -680,8 +680,18 @@ hr
 .loginbox form .btn {
     display: block;
     width: 100%;
+    box-sizing: border-box;
     margin-top: 4px;
     padding: 9px;
+}
+.loginbox a.btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 4px;
+    padding: 9px;
+    text-align: center;
+    text-decoration: none;
 }
 
 /* Tables de donnees (generic/data_table): defilement horizontal propre */
