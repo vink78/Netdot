@@ -920,7 +920,7 @@ sub devinfo {
 # (Device->search + FK accessors — no raw SQL). Differences vs the PHP
 # script (intentional):
 #   - env = the device's `used_by` (Entity) `short_name`, not the constant
-#     "CI" (JSON null when the device has no used_by);
+#     "CI" (a device with no used_by / empty short_name is not exported);
 #   - env is part of the group key, because 27 of the 172 (type,
 #     manufacturer, site) groups mix several used_by values and a group's
 #     labels must stay consistent (Prometheus requirement).
@@ -934,13 +934,14 @@ Returns:    An array of groups {labels => {__meta_netdot_type,
 Description: Port of the legacy prometheus-inventory.php, built on the
             OBJECT MODEL (Device->search + FK accessors — no raw SQL). All
             MONITORED devices, grouped by (type, manufacturer, site, env);
-            env = the device's used_by (Entity) short_name (JSON null when
-            the device has no used_by) and is part of the group key,
+            env = the device's used_by (Entity) short_name and is part of
+            the group key,
             because a group's labels must stay consistent (Prometheus
-            requirement). Devices missing any link of the rr/zone/site/
-            asset/product/type/manufacturer chain are skipped (PHP
-            inner-join parity). Gated on view rights on Device (403
-            otherwise).
+            requirement). Devices missing any link of the
+            rr/zone/site/asset/product/type/manufacturer chain (PHP
+            inner-join parity), or with no env (no used_by / empty
+            short_name), are not exported. Gated on view rights on Device
+            (403 otherwise).
 
 =cut
 
@@ -963,15 +964,17 @@ sub prometheus {
             my $product = $asset && $asset->product_id;
             my $type    = $product && $product->type;
             my $mfr     = $product && $product->manufacturer;
+            my $env     = $d->used_by && $d->used_by->short_name;
             # Same selection as the PHP inner joins: skip devices missing any
-            # link of the chain.
-            next unless $rr && $zone && $site && $asset && $product && $type && $mfr;
+            # link of the chain; and skip devices with no env (used_by
+            # short_name): they cannot be labelled, so they are not exported.
+            next unless $rr && $zone && $site && $asset && $product && $type
+                && $mfr && $env;
             my $name     = $rr->name;
             my $zonename = $zone->name;
             my $siteno   = $site->number;
             my $typename = $type->name;
             my $mfrname  = lc( $mfr->name );   # as in the PHP LOWER(entity.name)
-            my $env      = $d->used_by && $d->used_by->short_name;  # may be undef
             # Manufacturer transform (as in the PHP script): first
             # [A-Za-z0-9 ]+ run, trimmed, spaces -> _.
             my $mfrlabel = $mfrname;
