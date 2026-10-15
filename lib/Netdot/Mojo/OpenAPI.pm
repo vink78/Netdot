@@ -488,6 +488,15 @@ sub _add_specific_endpoints {
         },
     };
 
+    $paths->{'/prometheus'} = {
+        get => {
+            tags        => [qw(specific)],
+            summary     => 'Prometheus file-based service discovery (monitored devices)',
+            operationId => 'prometheus',
+            responses   => { '200' => { description => 'Service groups: labels (type / manufacturer / site / env) plus target hostnames.', content => { 'application/json' => { schema => { type => 'array' } } } }, '401' => _err(401), '403' => _err(403) },
+        },
+    };
+
     for my $ep ( [ 'host' => 'exact name match' ], [ 'host_like' => 'fuzzy name match' ] ) {
         my ( $name, $note ) = @$ep;
         $paths->{ "/$name" } = {

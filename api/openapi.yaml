@@ -19456,6 +19456,34 @@ paths:
                   type: object
             description: Not found
       summary: Update a ProductType (body = fields to change; FK fields as their id)
+  /prometheus:
+    get:
+      operationId: prometheus
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+          description: 'Service groups: labels (type / manufacturer / site / env)
+            plus target hostnames.'
+        '401':
+          '401':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Authentication required
+        '403':
+          '403':
+            content:
+              application/json:
+                schema:
+                  type: object
+            description: Not allowed
+      summary: Prometheus file-based service discovery (monitored devices)
+      tags:
+      - specific
   /room:
     get:
       operationId: list_room

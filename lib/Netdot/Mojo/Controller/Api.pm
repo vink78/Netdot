@@ -214,6 +214,7 @@ Description: GET only (else 405 JSON).
 
 sub root {
     my ($c) = @_;
+    my $p = _person($c) or return;
     return $c->render( json => { error => 'Method not allowed', path => $c->web_prefix . '/api' }, status => 405 )
         unless $c->req->method eq 'GET';
 
@@ -225,7 +226,7 @@ sub root {
     $index{$_} = $url->("/api/$_") for sort keys %tables;
 
     # Purpose-built endpoints (same flat name -> url style).
-    for my $ep (qw(devinfo host_contacts host host_like ipattr)) {
+    for my $ep (qw(devinfo host_contacts host host_like ipattr prometheus)) {
         $index{$ep} = $url->("/api/$ep");
     }
     $index{docs}           = $url->('/api/docs');
@@ -1894,6 +1895,7 @@ Description: Uses the generated file (api/gen_openapi.pl) when present;
 
 sub spec {
     my ($c) = @_;
+    my $p = _person($c) or return;
     my $base = Netdot->config->get('NETDOT_PATH');
     my $file = $base ? "$base/api/openapi.yaml" : undef;
     my $yaml;
@@ -1922,6 +1924,7 @@ Returns:    The Swagger UI page (loads /api/openapi.yaml via the Swagger UI
 
 sub docs {
     my ($c) = @_;
+    my $p = _person($c) or return;
     $c->render( template => 'api_docs', layout => undef );
 }
 
