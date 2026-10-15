@@ -8,6 +8,10 @@
   % if ( $can_edit && @$fields ) {
   <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
   % }
+  % if ( $c->stash('setpass_api') ) {
+  % # Person pages, Admins only: dedicated password box (see initSetPassword).
+  <button type="button" class="btn" id="nd-setpass-toggle" style="margin-left:0.6em">Password</button>
+  % }
   % if ( $can_delete ) {
   <button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" style="margin-left:0.6em">Delete</button>
   % }
@@ -45,6 +49,33 @@
 
 <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
                           can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
+
+% # Person pages (Admins): dedicated password box. The generic edit form excludes
+% # the sensitive `password` column, so the new password goes through its own
+% # small form (wired by netdot.js initSetPassword, skipped by the generic
+% # form handler): new + repeat fields, checked client-side, PATCHes the same
+% # API endpoint with {password} — the model's trigger hashes it server-side.
+% my $setpass_api = $c->stash('setpass_api');
+% if ($setpass_api) {
+<form id="nd-setpass" class="nd-setpass" data-nd-api="<%= $setpass_api %>" style="display:none; margin-top:0.8em">
+  <table class="datatable detail c2">
+    <tbody>
+    <tr>
+      <th>New password</th>
+      <td><input type="password" name="password" autocomplete="new-password"></td>
+    </tr>
+    <tr>
+      <th>Repeat new password</th>
+      <td><input type="password" name="password_repeat" autocomplete="new-password"></td>
+    </tr>
+    </tbody>
+  </table>
+  <p style="margin-top:0.8em">
+    <button type="submit" class="btn">Set password</button>
+    <button type="button" class="btn" id="nd-setpass-cancel" style="margin-left:0.6em">Cancel</button>
+  </p>
+</form>
+% }
 
 % my $relations = $c->stash->{relations} // [];
 % my $dbase     = $c->set_uri( "/management/$type/$id" );

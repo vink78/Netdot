@@ -405,8 +405,9 @@ Kerberos and RADIUS authentication are no longer available.
 
 >**Warning**
 Please remember to change the "admin" password! Go to `Contacts ->
-People`, search for 'Admin', click on [edit] and type in a new password.
-Then click on the Update button.
+People`, search for 'Admin', open the person's page and click on the
+**Password** button, then type in the new password (twice) and click
+**Set password**.
 
 ## CRON jobs
 
@@ -1343,7 +1344,7 @@ tasks:
     make sure that the username corresponds with the login information
     in those external authentication systems. If you are using local
     authentication instead, make sure that you set a local password
-    using the Password field.
+    using the **Password** button on the person's page.
 
 *   On the Person page, you can add permissions by clicking on the
     [access\_rights] button. This will display current permissions. You

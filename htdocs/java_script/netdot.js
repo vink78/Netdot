@@ -100,8 +100,10 @@
       // The rights form builds a custom payload (subject split + rights array) —
       // handled by initRights. The discovery/re-poll forms (nd-disc-run) render
       // the captured log client-side — handled by initDiscRun (a generic handler
-      // on the same form would fire a duplicate POST).
-      if (forms[i].classList.contains('nd-dhcp-enable') || forms[i].classList.contains('nd-rights-add') || forms[i].classList.contains('nd-disc-run')) { continue; }
+      // on the same form would fire a duplicate POST). The person "password"
+      // form (nd-setpass) has a repeat-only client-side field — handled by
+      // initSetPassword (collect() would send it to the API as an unknown column).
+      if (forms[i].classList.contains('nd-dhcp-enable') || forms[i].classList.contains('nd-rights-add') || forms[i].classList.contains('nd-disc-run') || forms[i].classList.contains('nd-setpass')) { continue; }
       forms[i].addEventListener('submit', function (e) {
         e.preventDefault();
         var form   = e.target;
@@ -589,6 +591,40 @@
         if (readonly) { readonly.style.display = 'block'; }
       });
     }
+  }
+
+  // Person pages (Admins): "Password" toggle reveals a dedicated box (two
+  // password fields) to set the person's password. The repeat field is
+  // client-side only (never sent); the form PATCHes {password} to the person's
+  // API endpoint, where the model's trigger hashes it (the generic form
+  // handler skips it — see initForms).
+  function initSetPassword() {
+    var toggle = document.getElementById('nd-setpass-toggle');
+    if (!toggle) { return; }
+    var form = document.getElementById('nd-setpass');
+    var cancel = document.getElementById('nd-setpass-cancel');
+    if (!form) { return; }
+    function show(v) { form.style.display = v ? 'block' : 'none'; }
+    toggle.addEventListener('click', function () { show(form.style.display === 'none'); });
+    if (cancel) { cancel.addEventListener('click', function () { show(false); }); }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var p1 = form.querySelector('input[name=password]').value;
+      var p2 = form.querySelector('input[name=password_repeat]').value;
+      if (!p1) { status(false, 'Enter a new password.', 4000); return; }
+      if (p1 !== p2) { status(false, 'The two passwords do not match.', 4000); return; }
+      var btn = form.querySelector('button[type=submit]');
+      btn.disabled = true;
+      api('PATCH', form.getAttribute('data-nd-api'), { password: p1 }).then(function (res) {
+        if (res.ok) {
+          status(true, 'Password updated');
+          setTimeout(function () { location.reload(); }, 700);
+        } else {
+          status(false, errMsg(res), 8000);
+          btn.disabled = false;
+        }
+      });
+    });
   }
 
   // "Create block/IP" modal (Mason ADD_BLOCK): shown when clicking a free partition
@@ -1646,6 +1682,7 @@
     initBgpAdd();
     initDhcpEnable();
     initToggle();
+    initSetPassword();
     initRecToggles();
     initRecDeletes();
     initAddForm();

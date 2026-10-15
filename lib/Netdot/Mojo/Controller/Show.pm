@@ -38,7 +38,11 @@ Description: Read-only detail for any registered type: every attribute of
             the netdot.meta "all" view (FK values become links when their
             type has a route), the in-place edit form (written via
             PATCH /api/<table>/<id> where table is the DB table name) and
-            the has_many relation tables (paginated via offset).
+            the has_many relation tables (paginated via offset). On person
+            pages, Admins additionally get a dedicated "Password" box (the
+            sensitive password column is excluded from the generic edit
+            form): it PATCHes the same endpoint with the new plaintext,
+            which the model's trigger hashes.
 
 =cut
 
@@ -74,6 +78,13 @@ sub show ($c) {
     my $can_delete = $c->perm( 'delete', $obj );
     my $del_path   = $can_delete ? $c->web_prefix . '/api/' . $table . '/' . $id : '';
     my $del_goto   = $can_delete ? Netdot::Mojo::Registry::set_uri( "/management/$type" ) : '';
+    # Person pages only, Admins only: a dedicated "Password" box. The generic
+    # edit form excludes the sensitive `password` column, so setting a password
+    # has its own small form (netdot.js initSetPassword) that PATCHes the
+    # person's API endpoint with {password: <plaintext>}; the model's
+    # deflate trigger hashes it (Person::_encrypt_passwd).
+    my $setpass_api = ( $type eq 'person' && $c->user_type eq 'Admin' )
+        ? $c->web_prefix . '/api/' . $table . '/' . $id : '';
 
     # has_many relations (like the old Mason view.html "View" section): one table
     # per non-empty relation. Columns from the related class's brief view. Rows
@@ -141,6 +152,7 @@ sub show ($c) {
         can_delete => $can_delete,
         del_path   => $del_path,
         del_goto   => $del_goto,
+        setpass_api => $setpass_api,
     );
 }
 
