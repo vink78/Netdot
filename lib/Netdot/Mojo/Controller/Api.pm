@@ -1758,6 +1758,52 @@ sub set_auto_dns {
     });
 }
 
+=head2 import_zone_records - Bulk-import BIND-format zone data
+
+Arguments:  Controller (POST /api/zone/:id/import, body: {text, overwrite,
+            update_ptrs})
+Returns:    { ok: 1 }
+Description: Port of the legacy zone.html view=bulk_import form: parse
+            BIND-format zone data (Net::DNS::ZoneFile) and create the records
+            in the zone (Zone->import_records — A/AAAA/TXT/HINFO/MX/NS/DS/
+            CNAME/PTR/NAPTR/SRV/LOC; missing IP blocks are created Static).
+            overwrite replaces existing records of the same name;
+            update_ptrs also creates/updates the matching PTRs. Run in a
+            transaction (the model inserts the new IP blocks with
+            no_update_tree and rebuilds the tree at the end). Admin-only,
+            as in Mason (the zone.html:bulk admin section). The individual
+            record inserts are audited by the model's own triggers.
+
+=cut
+
+sub import_zone_records {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        my $id = $c->stash('id');
+        _err( 400, 'Missing zone id' ) unless defined $id && $id =~ /^\d+$/;
+        my $o = eval { Zone->retrieve($id) };
+        _err( 404, "Zone $id not found" ) if $@ || !$o;
+        _err( 403, 'Zone import is reserved for administrators' )
+            unless Netdot::Mojo::Permissions->user_type( $p ) eq 'Admin';
+        my %A = %{ _args($c) };
+        _err( 400, 'Empty import data' )
+            unless defined $A{text} && length $A{text};
+        eval {
+            Netdot::Model->do_transaction( sub {
+                $o->import_records(
+                    text        => $A{text},
+                    overwrite   => $A{overwrite}   ? 1 : 0,
+                    update_ptrs => $A{update_ptrs} ? 1 : 0,
+                );
+            });
+        };
+        _err( 400, "Import failed: $@" ) if $@;
+        return $c->render( json => { ok => 1 }, status => 200 );
+    });
+}
+
 # Re-generate DNS names for all interface IPs of the device (Mason: the
 # "Re-generate DNS names for all IPs" form). Skips silently when auto DNS is
 # disabled (model logs a debug line and returns).

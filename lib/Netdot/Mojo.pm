@@ -349,6 +349,9 @@ sub startup ($self) {
     $r->post('/api/device/:id/add_ip')->to('api#add_ip');
     $r->post('/api/device/:id/auto_dns')->to('api#set_auto_dns');
     $r->post('/api/device/:id/regen_dns')->to('api#regen_dns');
+    # Bulk import of BIND-format zone data (legacy zone.html view=bulk_import)
+    # — Admin-only. Declared before the generic /api/:table/:id routes.
+    $r->post('/api/zone/:id/import')->to('api#import_zone_records');
     # Create an IP service (Mason: addservice.html popup): duplicate-checked,
     # and the parent IP is set monitored afterwards (legacy side effect).
     $r->post('/api/ipservice')->to('api#add_ipservice');

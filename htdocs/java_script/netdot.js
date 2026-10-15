@@ -598,6 +598,46 @@
   // client-side only (never sent); the form PATCHes {password} to the person's
   // API endpoint, where the model's trigger hashes it (the generic form
   // handler skips it — see initForms).
+  // Zone bulk import (legacy view=bulk_import): BIND-format zone data pasted in
+  // the textarea, POSTed to /api/zone/:id/import (Admin-only). The generic
+  // form handler would work, but the section is toggled and the busy overlay
+  // is warranted (a large import takes a while).
+  function initZoneImport() {
+    var toggle = document.getElementById('nd-import-toggle');
+    if (!toggle) { return; }
+    var form = document.getElementById('nd-import');
+    var cancel = document.getElementById('nd-import-cancel');
+    if (!form) { return; }
+    function show(v) { form.style.display = v ? 'block' : 'none'; }
+    toggle.addEventListener('click', function () { show(form.style.display === 'none'); });
+    if (cancel) { cancel.addEventListener('click', function () { show(false); }); }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var text = form.querySelector('textarea[name=text]').value;
+      if (!text || !text.replace(/^\s*;\s/, '').trim()) {
+        status(false, 'Paste zone data first.', 4000);
+        return;
+      }
+      var btns = form.querySelectorAll('button[type=submit]');
+      for (var b = 0; b < btns.length; b++) { btns[b].disabled = true; }
+      spinner(true, 'Importing…');
+      api('POST', form.getAttribute('data-nd-api'), {
+        text: text,
+        overwrite: form.querySelector('input[name=overwrite]').checked,
+        update_ptrs: form.querySelector('input[name=update_ptrs]').checked
+      }).then(function (res) {
+        spinner(false);
+        if (res.ok) {
+          status(true, 'Imported');
+          setTimeout(function () { location.reload(); }, 700);
+        } else {
+          status(false, errMsg(res), 8000);
+          for (var b = 0; b < btns.length; b++) { btns[b].disabled = false; }
+        }
+      });
+    });
+  }
+
   function initSetPassword() {
     var toggle = document.getElementById('nd-setpass-toggle');
     if (!toggle) { return; }
@@ -1683,6 +1723,7 @@
     initDhcpEnable();
     initToggle();
     initSetPassword();
+    initZoneImport();
     initRecToggles();
     initRecDeletes();
     initAddForm();

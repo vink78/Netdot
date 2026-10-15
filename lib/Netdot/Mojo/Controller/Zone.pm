@@ -7,11 +7,11 @@ use Netdot::Model;
 use Netdot::Mojo::Registry;
 use Netdot::Mojo::Detail;
 
-# Detail page for a DNS zone (port of zone.html, read-only). Beyond the plain
+# Detail page for a DNS zone (port of zone.html). Beyond the plain
 # attributes + has_many tables, the original shows a record-type count summary,
-# the apex (@) record's A/NS/MX entries, and the zone's recent DNS/DHCP change
-# history (HostAudit). Write actions ([add]/[edit]/[import]) are omitted (edit
-# interface not yet migrated).
+# the apex (@) record's A/NS/MX entries, the zone's pending + recent DNS/DHCP
+# change history (HostAudit), and a bulk-import form (BIND zone data,
+# POST /api/zone/:id/import, Admin-only).
 
 =encoding utf8
 
@@ -34,9 +34,11 @@ Arguments:  Controller (params: id, offset)
 Returns:    Renders the management/zone template
 Description: Port of zone.html. Beyond the plain attributes (meta "all"
             view) and the has_many tables, shows the record-type count
-            summary, the apex (@) record's A/NS/MX entries and the zone's
-            recent DNS/DHCP change history (HostAudit, most recent first,
-            capped at 50). The in-place edit form is written via
+            summary, the apex (@) record's A/NS/MX entries, the zone's
+            pending and recent DNS/DHCP change history (HostAudit, most
+            recent first; recent capped at 50), and — for Admins — the
+            bulk-import form (BIND zone data, POST /api/zone/:id/import).
+            The in-place edit form is written via
             PATCH /api/zone/<id>.
 
 =cut
@@ -63,6 +65,11 @@ sub show ($c) {
     my $apex  = _apex_records( $o, $id );
     my $relations = Netdot::Mojo::Detail::build_relations( $o, $perpage, $offset );
     my $recent  = _recent_changes( $o );
+    my $pending = _pending_changes( $o );
+    # Bulk import (legacy view=bulk_import): Admin-only, as in Mason
+    # (access_admin_section 'zone.html:bulk').
+    my $can_import  = $c->user_type eq 'Admin';
+    my $import_api  = $can_import ? $c->web_prefix . '/api/zone/' . $id . '/import' : '';
 
     $c->render(
         template    => 'management/zone',
@@ -77,8 +84,11 @@ sub show ($c) {
         count       => $count,
         apex        => $apex,
         relations   => $relations,
+        pending     => $pending,
         recent      => $recent,
         recent_total => scalar @$recent,
+        can_import  => $can_import,
+        import_api  => $import_api,
     );
 }
 
@@ -125,6 +135,35 @@ sub _apex_records {
     };
 }
 
+# HostAudit scope column -> [text, href] -> HTML (linked label when the scope
+# object has a detail page).
+sub _audit_scope_html {
+    my ($scope) = @_;
+    return '' unless ref $scope;
+    my ( $t, $h ) = @{ Netdot::Mojo::Registry::link_for($scope) };
+    return $h ? '<a href="' . $h . '">' . Netdot::Mojo::Registry::esc( $t // '' ) . '</a>'
+              : Netdot::Mojo::Registry::esc( $t // '' );
+}
+
+# Pending DNS/DHCP changes for this zone (HostAudit pending=1, most recent
+# first, as in the legacy view=pending_changes — no cap). Rows: [tstamp, scope].
+sub _pending_changes {
+    my ($o) = @_;
+    my @rows;
+    eval {
+        my $it = HostAudit->search_where(
+            { zone => $o->name, pending => 1 },
+            { order_by => 'tstamp DESC' },
+        );
+        while ( my $r = $it->next ) {
+            my $tstamp = eval { $r->tstamp } // '';
+            my $scope  = eval { $r->scope };
+            push @rows, [ $tstamp, _audit_scope_html($scope) ];
+        }
+    };
+    return \@rows;
+}
+
 # Recent DNS/DHCP change history for this zone (HostAudit, most recent first,
 # capped at 50). Rows: [ tstamp, pending, scope_html ].
 sub _recent_changes {
@@ -139,13 +178,8 @@ sub _recent_changes {
             my $tstamp = eval { $r->tstamp } // '';
             my $pend   = eval { $r->pending } ? 'yes' : 'no';
             my $scope  = eval { $r->scope };
-            my $scope_html;
-            if ( ref $scope ) {
-                my ( $t, $h ) = @{ Netdot::Mojo::Registry::link_for($scope) };
-                $scope_html = $h ? '<a href="' . $h . '">' . Netdot::Mojo::Registry::esc($t // '') . '</a>'
-                                 : Netdot::Mojo::Registry::esc( $t // '' );
-            }
-            push @rows, [ $tstamp, $pend, $scope_html // '' ];
+            my $scope_html = _audit_scope_html($scope);
+            push @rows, [ $tstamp, $pend, $scope_html ];
         }
     };
     return \@rows;

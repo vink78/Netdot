@@ -332,6 +332,32 @@ sub list ($c) {
          && Netdot::Mojo::Permissions->has_action( $class, $person, 'edit' ) ) {
         my @cfields = @{ Netdot::Mojo::Detail::build_create_fields( $class ) };
         if (@cfields) {
+            # Zone: an optional "template" zone to clone from (port of the legacy
+            # zone_tasks.html new-zone form — name + template select). Not a
+            # column: Zone->insert() copies the template's SOA/TTL values and
+            # clones its records. Sent as the zone id (or null when the select
+            # is empty, which insert() ignores).
+            if ( $type eq 'zone' ) {
+                my $max   = eval { Netdot->config->get('DEFAULT_SELECTMAX') } || 100;
+                my $count = eval { Zone->count_all } // 0;
+                my $tfield = {
+                    name      => 'template',
+                    tag       => 'Use template (optional)',
+                    kind      => 'fk',
+                    target    => 'zone',
+                    max       => $max,
+                    cur_id    => 0,
+                    cur_label => '',
+                };
+                if ( $count <= $max ) {
+                    my @all;
+                    eval { @all = Zone->retrieve_all };    # list context (a `//` would scalarize)
+                    @all    = sort { ( $a->name // '' ) cmp ( $b->name // '' ) } @all;
+                    $tfield->{options} =
+                        [ map { { id => $_->id, label => $_->name // '' } } @all ];
+                }
+                push @cfields, $tfield;
+            }
             $extra{new_obj} = {
                 label  => $spec->{label},
                 fields => \@cfields,

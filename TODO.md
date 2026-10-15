@@ -946,3 +946,40 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   trigger `after_update`) ; l'audit enregistre bien `1`/`0` dans `vals` ;
   état du device restauré. Fixs : normalisation `_args` + guard `_audit`
   (cf. `PORTING_NOTES.md` §6) — commit `76e6d26c`.
+
+### Vérifié le 2026-10-15 (DNS Zone : template + import + pending)
+
+- **Création de zone avec template** (port de `zone_tasks.html` new) : la box
+  « New Zone » de la liste (`/management/zone/`) offre un select
+  « Use template (optional) » (toutes les zones triées ; si > `DEFAULT_SELECTMAX`
+  → search box générique). Le POST `POST /api/zone {name, template}` passe
+  `template` tel quel à `Zone->insert` qui copie les valeurs SOA/TTL du
+  template et **clone ses records + sub-records** ; select vide → `null` →
+  ignoré par le modèle. Testé : clonage d'une zone de 3 records (1 A + 2 NS)
+  → zone + records + SOA copiés ; clonage d'une grande zone (~26k records)
+  **très long** (synchron, comme en Mason) — nettoyé en SQL après coup.
+- **Import bulk** (port de `zone.html` `view=bulk_import`) : section « Import »
+  sur le détail zone (**Admin only**, comme la section admin Mason
+  `zone.html:bulk`) : bouton toggle → formulaire `#nd-import` (textarea BIND +
+  checkboxes *Overwrite existing records of same name* / *Update PTRs*) →
+  `POST /api/zone/:id/import` (`Api.pm#import_zone_records`, Admin-only,
+  `do_transaction` + `Zone->import_records` — A/AAAA/TXT/HINFO/MX/NS/DS/
+  CNAME/PTR/NAPTR/SRV/LOC, blocks manquants créés Static + `build_tree`).
+  Testé : import 1 A + 1 CNAME + 1 TXT → records créés, A → Ipblock Static ;
+  erreurs 400 (texte vide / données invalides), 404 (zone inexistante),
+  403 (User avec droit view : section absente de la page + API refus).
+- **Pending Changes** (port du `view=pending_changes`) : section sur le détail
+  zone (`Zone.pm#_pending_changes`, HostAudit `pending=1` du nom de zone,
+  tri `tstamp DESC`, sans cap — comme legacy) ; helper partagé
+  `_audit_scope_html` avec `_recent_changes`. Rendu confirmé (10 lignes
+  pending après l'import).
+- **Permissions création (TODO #5)** — commit `fca36dec` : `_can_create`
+  Ipblock gated sur le bloc couvrant l'adresse (`get_covering_block`, dérivé
+  de l'adresse comme à l'insertion, jamais pris du client) ; héritage
+  ancêtres via `_deny_ip_access` ; bloc racine → droit de classe. 10 cas CLI
+  (grant parent / frère hors grant / racine non liée / grant ancêtre / sans
+  droits / racine ± droit classe / régression zone→RR).
+- ⚠️ **Gotcha CDBI** : `my @x = eval { ... } // (...)` met l'`eval` en
+  **contexte scalaire** (le `//` scalarise) → `retrieve_all`/`sub_records`
+  renvoient un Iterator ou un count au lieu de la liste. Toujours
+  `my @x; eval { @x = ... }`. (Tombé 3× : `retrieve_all`, `sub_records`.)
