@@ -100,6 +100,7 @@
   % my $rel   = $r->{csv_rel};
   % my $rlink = sub { my $off = shift; return $dbase . '?rel=' . $rel . ( ( defined $off && $off > 0 ) ? '&offset=' . $off : '' ); };
   <div class="tab-pane" data-rel="<%= $rel %>"<%= ($multi && $active ne $rel) ? ' hidden' : '' %>>
+    % if ( $r->{total} ) {
     <table class="datatable">
       <thead>
         <tr>
@@ -125,6 +126,9 @@
         % }
       </tbody>
     </table>
+    % } else {
+    <p>No attribute.</p>
+    % }
     <p style="font-size:0.85em; margin:0.3em 0 0 0">
       % if ( $r->{total} > $r->{per} ) {
       Results: [<%= $r->{start} %>-<%= $r->{last_item} %>] of <%= $r->{total} %>&nbsp;
@@ -138,6 +142,33 @@
       % }
       <a href="<%= $dbase . '?csv=' . $rel %>">[csv]</a>
     </p>
+    % if ( my $attr_names = $c->stash('attr_names') ) {
+    % # DhcpScope only (see Show#show): add a dhcpattr row via the JSON API
+    % # (POST /api/dhcpattr {name, scope, value}; wired by netdot.js initAttrAdd).
+    % # Mirrors the legacy scope.html [add] link on the attributes section.
+    % if ( $rel eq 'attributes' ) {
+    <form class="nd-attr-add" data-nd-api="<%= $c->web_prefix %>/api/dhcpattr" data-nd-scope="<%= $id %>" style="margin-top:0.8em">
+      <table class="datatable">
+        <tbody>
+        <tr>
+          <th>Option</th>
+          <td>
+            <select name="name">
+              <option value="">--</option>
+              % for my $n ( @$attr_names ) {
+              <option value="<%= $n->{name} %>"><%= $n->{name} %></option>
+              % }
+            </select>
+          </td>
+          <th>Value</th>
+          <td><input type="text" name="value" size="40"></td>
+          <td><button type="submit" class="btn">Add</button></td>
+        </tr>
+        </tbody>
+      </table>
+    </form>
+    % }
+    % }
   </div>
 % }
 </div>

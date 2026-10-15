@@ -829,6 +829,37 @@
     }
   }
 
+  // DhcpScope detail page, attributes tab: "Add attribute" form (nd-attr-add)
+  // POSTs /api/dhcpattr with {name: <option name>, scope: <id>, value}; the
+  // model resolves the option name to the dhcpattrname row. Reloads on success.
+  function initAttrAdd() {
+    var form = document.querySelector('form.nd-attr-add');
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var url = form.getAttribute('data-nd-api');
+        var scope = parseInt(form.getAttribute('data-nd-scope'), 10);
+        var sel = form.querySelector('select[name=name]');
+        var name = sel ? sel.value : '';
+        var valEl = form.querySelector('input[name=value]');
+        var value = valEl ? valEl.value : '';
+        if (!name) { status(false, 'Select an option.', 4000); return; }
+        if (value === '') { status(false, 'Enter a value.', 4000); return; }
+        var btn = form.querySelector('button[type=submit]');
+        if (btn) { btn.disabled = true; }
+        api('POST', url, { name: name, scope: scope, value: value }).then(function (res) {
+          if (res.ok) {
+            status(true, 'Attribute added.');
+            setTimeout(function () { location.reload(); }, 700);
+          } else {
+            status(false, errMsg(res), 8000);
+            if (btn) { btn.disabled = false; }
+          }
+        });
+      });
+    }
+  }
+
   // Range mode: click "Range" button → select IPs on the grid (mousedown=start,
   // mouseup=end), a side panel shows the form, submit creates the range via API.
   function initRange() {
@@ -1730,6 +1761,7 @@
     initFkSearch();
     initCreateBlocks();
     initRights();
+    initAttrAdd();
     initRange();
     initBatch();
     initEditChildren();

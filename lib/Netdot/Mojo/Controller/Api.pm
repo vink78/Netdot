@@ -432,6 +432,9 @@ sub _create_parent {
     my $otype = eval { $class->short_class } // lc($class);
     return ( 'Device',      'device' )      if $otype eq 'Interface';
     return ( 'ContactList', 'contactlist' ) if $otype eq 'Contact';
+    # A scope's DHCP option attributes (DhcpAttr) are created via the scope's
+    # edit right (the legacy scope.html [add] link checked 'edit' on the scope).
+    return ( 'DhcpScope',  'scope' )        if $otype eq 'DhcpAttr';
     # A base RR owns its zone directly; record sub-types (rrtxt, rrcname, rrns,
     # ...) hang off a parent RR (fk `rr`), whose zone grants the rights.
     return ( 'Zone',        'zone' )        if $otype eq 'RR';

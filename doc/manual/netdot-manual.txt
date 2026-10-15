@@ -974,13 +974,10 @@ To create a new global scope, go to `Management->DHCP`. Click on the
 your DHCP server) and select type "global". Global scopes are not
 contained by any other scope, so leave the Container field unselected.
 
-Once a scope is created, you can add attributes to it. For example,
-click on the [attributes] button and then [add]. You will see a new page
-where you can create a new attribute. Let's say, for example, that you
-want to add a list of name servers. Type "name-servers" in the Name
-search box and click on "List". Select the "domain-name-servers"
-attribute name from the list and add a list of values. Then click
-Insert.
+Once a scope is created, you can add attributes to it. On the scope
+page, open the Attributes tab: select the attribute name from the
+Option list (for example, "domain-name-servers"), type the value, and
+click Add. The new attribute appears in the list once the page reloads.
 
 ### Subnet Scopes
 

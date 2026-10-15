@@ -983,3 +983,33 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   **contexte scalaire** (le `//` scalarise) → `retrieve_all`/`sub_records`
   renvoient un Iterator ou un count au lieu de la liste. Toujours
   `my @x; eval { @x = ... }`. (Tombé 3× : `retrieve_all`, `sub_records`.)
+
+### Vérifié le 2026-10-15 (DhcpScope : ajout d'attributs + le « 404 » dhcpscope)
+
+- **Ajout d'attributs** (port du lien `[add]` de la section attributes du
+  `scope.html` legacy) : dans le tab `attributes` du détail du scope
+  (`Show#show` générique), visible si `can('edit', $scope)` — formulaire en
+  place `nd-attr-add` (select Option = toutes les `DhcpAttrName` triées +
+  champ Value) → `POST /api/dhcpattr {name: <nom d'option>, scope, value}` ;
+  le modèle `DhcpAttr::_objectify_args` résout le nom vers la ligne
+  `dhcpattrname` (nom ou id). `netdot.js#initAttrAdd` (même pattern que
+  `initRights`) : validation client, status, reload après création. Le tab
+  est montré aussi quand le scope a **zéro** attribut (239 scopes dans la
+  DB) : `Show#show` injecte une relation vide synthétique (`total=0`), le
+  template rend `No attribute.` à la place d'un tableau vide. Testé :
+  création + affichage sur un scope peuplé (398) et **premier** attribut sur
+  un scope vide (71), suppression via l'API ; régression zone/94,
+  ipblock/19, dhcscope 277/398 → 200.
+- **Permission** (`Api.pm#_create_parent`) : la création d'un `DhcpAttr` est
+  gated sur l'**edit** du scope parent (le legacy vérifiait
+  `$manager->can($user,'edit',$scope)`). DhcpScope n'est pas une classe
+  grantable (`%CLASSES` AccessRight : Device/Ipblock/ContactList/Zone) →
+  en pratique seules les Admin/Operator ajoutent des attributs, comme en
+  legacy. Testé CLI : User → refus (tous scopes), Admin → OK.
+- **Le « 404 » intermittent de `/management/dhcpscope/398` n'est pas un
+  bug** : la clé registry/route est `dhcscope` (typo assumée et documentée,
+  `Registry.pm#class_key`), l'URL saisie à la main avait l'orthographe
+  `dhcpscope`. Le daemon répond 200 sur `/management/dhcscope/398` ; les
+  liens de l'app utilisent tous la clé typoée (cohérent).
+- **Manuel** : section DHCP mise à jour (l'ajout d'attributs se fait en
+  place sur la page du scope, plus de page dédiée) + pdf/html régénérés.
