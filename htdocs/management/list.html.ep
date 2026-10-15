@@ -62,8 +62,8 @@
       % # version=3 -> the wizard step 1, then review + guesses, then
       % # Device->discover) and "Add Device manually" (name/IP only ->
       % # POST /api/device {discover: false, host} -> Device->manual_add),
-      % # both admin-only.
-      <hr style="margin:0.9em 0">
+      % # both admin-only. (No <hr> above: for device the generic create
+      % # form is not rendered, so there is nothing to separate from.)
       <p style="margin:0.2em 0; font-weight:600">Discover Device</p>
       <form method="post" action="<%= $ndm->{discover} %>">
         <input type="hidden" name="action" value="discover">
