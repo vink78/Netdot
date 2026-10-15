@@ -817,10 +817,19 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
       `contacttype` (Contact.contacttype), `dhcpscopetype` (DhcpScope.type), `entitytype`
       (EntityRole.type). (Scan exhaustif : c'était l'intégralité des cibles manquantes.)
 4. ⛔ **Câblage/circuits** — dépréciés (Netbox).
-5. 🔶 **Création — raffiner la permission par parent** : `_can_create` est une approximation
-   (l'objet cible n'existe pas → `can('edit', $parent)` sur le parent FK) ; couvre zone→rr,
-   rr→rrtxt/rrcname, device→interface, contactlist→contact. À évaluer : faut-il aussi couvrir
-    le fallback « IP dans un bloc autorisé » (héritage complet `ObjectAccessRule`) pour la création ?
+5. [x] ✅ **Création — permission par parent** (2026-10-15) : règles de l'utilisateur —
+   le droit de **modification d'une Zone** permet de créer des RR dans la zone (déjà le cas,
+   `can('edit', $zone)`, les droits d'une zone s'appliquent à ses records) ; le droit de
+   **modification d'un Ipblock** s'hérite sur ses descendants (création des sous-réseants).
+   Implémentation (`Api.pm#_can_create`) : pour `Ipblock`, le parent **n'est pas pris dans la
+   requête** — il est dérivé de l'adresse comme le fait l'insertion (arbre IP) via
+   `Ipblock->get_covering_block` ; la création est gated sur `can('edit', $bloc_couvrant)`.
+   `Permissions#_deny_ip_access` consulte le bloc **et ses ancêtres**, donc un droit sur un
+   /8 couvre tous les sous-réseaux en dessous. Bloc racine (rien ne couvre l'adresse) →
+   fallback au droit de classe (`has_action`). Testé (script CLI, 10 cas) : grant sur le
+   parent → OK ; sous-réseau frère hors grant → refus ; racine non liée → refus ; grant
+   ancêtre seul → OK (héritage) ; aucun droit → refus ; racine avec/sans droit de classe ;
+   régression zone→RR inchangée.
 6. ⬜ **Perf affichage IP (gros sous-réseaux)** — discussion 2026-10-09, **non engagé** :
    - **Symptôme** : affichage d'une plage d'IP lent sur de très gros sous-réseaux.
    - **Cause** (`Ipblock::search_like`, `lib/Netdot/Model/Ipblock.pm:269-302`) : sur le range

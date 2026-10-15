@@ -450,12 +450,30 @@ sub _admin_only_write {
 # May $p create an object of $class from args %a?
 #   - Admin: yes (insert validates required fields).
 #   - Parented class: require 'edit' on the SPECIFIC parent the record would
-#     belong to (e.g. an RR only if the zone it's created in is editable).
+#     belong to (e.g. an RR only if the zone it's created in is editable;
+#     zone rights apply to their records, so a Zone grant covers its RRs).
+#   - Ipblock: the parent is derived from the address by the IP tree at
+#     insert time (never taken from the client): require 'edit' on the
+#     covering block. Rights on a block apply to its descendants (the
+#     permission layer consults the ancestors too), so a /8 grant covers
+#     every subnet beneath it; a root block (nothing covers the address)
+#     falls back to the class-level right.
 #   - Otherwise: require 'edit' on the class as a whole (has_action).
 sub _can_create {
     my ( $class, $p, $a ) = @_;
     return 1 if Netdot::Mojo::Permissions->user_type( $p ) eq 'Admin';
     return 0 if _admin_only_write( $class );
+    my $otype = eval { $class->short_class } // lc( $class );
+    if ( $otype eq 'Ipblock' && defined $a->{address} && length $a->{address} ) {
+        my ( $addr, $prefix ) =
+            $a->{address} =~ m{^([^/]+)/(\d+)$} ? ( $1, $2 ) : ( $a->{address}, undef );
+        my $parent = eval {
+            Ipblock->get_covering_block( address => $addr, prefix => $prefix );
+        };
+        return 0 if $@;
+        return Netdot::Mojo::Permissions->can( $p, 'edit', $parent ) if $parent;
+        return Netdot::Mojo::Permissions->has_action( $class, $p, 'edit' );
+    }
     my ( $parent_class, $fk ) = _create_parent( $class );
     if ( $parent_class ) {
         my $pid = $a->{$fk};
