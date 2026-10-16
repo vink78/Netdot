@@ -283,6 +283,35 @@
   </p>
 </form>
 % }
+% # Mason's Interfaces-tab "Options" box (shown when not in edit mode and the
+% # user may edit the device): "Manually Add N interfaces" (POST
+% # /api/device/<id>/add_interfaces) and "SNMP Updates Overwrite Descriptions"
+% # (POST /api/device/<id>/overwrite_if_descr; the "Yes" case confirms in JS).
+% if ( $can_edit && !$editints ) {
+<div class="container" style="margin-top:0.8em">
+  <div class="containerhead">Options</div>
+  <div class="containerbody">
+    <p>
+      <form class="nd-add-interfaces" data-nd-api-base="<%= $api_base %>" data-nd-id="<%= $id %>" style="display:inline">
+        Manually
+        <input type="submit" class="btn" value="Add">
+        <input type="number" name="num" value="1" min="1" step="1" size="3" style="width:4em"> interfaces
+      </form>
+    </p>
+    <p>
+      <form class="nd-dev-act" data-nd-action="overwrite_if_descr" data-nd-api-base="<%= $api_base %>" data-nd-id="<%= $id %>" style="display:inline">
+        SNMP Updates Overwrite Descriptions:
+        <select name="value">
+          <option value="" selected>--Select--</option>
+          <option value="0">No</option>
+          <option value="1">Yes</option>
+        </select>
+        <input type="submit" class="btn" value="Set">
+      </form>
+    </p>
+  </div>
+</div>
+% }
 % }
 % elsif ($view eq 'IP') {
 % # Device IP view (port of device.html "IP" section): display + edit (editips)

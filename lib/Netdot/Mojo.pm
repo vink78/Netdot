@@ -347,8 +347,10 @@ sub startup ($self) {
     $r->post('/api/accessright')->to('api#accessright');
     # Device IP view actions (Mason: device.html IP section handlers).
     $r->post('/api/device/:id/add_ip')->to('api#add_ip');
+    $r->post('/api/device/:id/add_interfaces')->to('api#add_interfaces');
     $r->post('/api/device/:id/auto_dns')->to('api#set_auto_dns');
     $r->post('/api/device/:id/regen_dns')->to('api#regen_dns');
+    $r->post('/api/device/:id/overwrite_if_descr')->to('api#set_overwrite_if_descr');
     # Bulk import of BIND-format zone data (legacy zone.html view=bulk_import)
     # — Admin-only. Declared before the generic /api/:table/:id routes.
     $r->post('/api/zone/:id/import')->to('api#import_zone_records');

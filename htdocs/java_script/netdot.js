@@ -1610,11 +1610,37 @@
         if (v && !v.value) { status(false, 'Choose Yes or No.', 3000); return; }
         var body = v && v.value ? { value: v.value } : {};
         var action = f.getAttribute('data-nd-action');
-        spinner(true, action === 'auto_dns' ? 'Setting auto DNS…' : 'Re-generating DNS names…');
+        if (action === 'overwrite_if_descr' && body.value === '1' &&
+            !confirm('Any currently saved interface descriptions will be overwritten by SNMP-fetched data the next time the device is discovered. Are you sure?')) {
+          return;
+        }
+        var msg = action === 'auto_dns' ? 'Setting auto DNS…'
+                : action === 'overwrite_if_descr' ? 'Saving setting…'
+                : 'Re-generating DNS names…';
+        spinner(true, msg);
         api('POST', f.getAttribute('data-nd-api-base') + '/device/' + f.getAttribute('data-nd-id') + '/' + action, body).then(function (res) {
           spinner(false);
           if (!res.ok) { status(false, errMsg(res), 8000); return; }
           status(true, 'Done.', 2000);
+          setTimeout(function () { location.reload(); }, 700);
+        });
+      });
+    }
+    // "Manually Add N interfaces" (Interfaces tab Options box): POST
+    // /api/device/<id>/add_interfaces {num}.
+    var intfForms = document.querySelectorAll('form.nd-add-interfaces');
+    for (var k = 0; k < intfForms.length; k++) {
+      intfForms[k].addEventListener('submit', function (e) {
+        e.preventDefault();
+        var f = e.target;
+        var n = f.querySelector('input[name=num]');
+        var num = n ? parseInt(n.value, 10) : NaN;
+        if (!num || num < 1) { status(false, 'Enter a number of interfaces (>= 1).', 3000); return; }
+        spinner(true, 'Adding interfaces…');
+        api('POST', f.getAttribute('data-nd-api-base') + '/device/' + f.getAttribute('data-nd-id') + '/add_interfaces', { num: num }).then(function (res) {
+          spinner(false);
+          if (!res.ok) { status(false, errMsg(res), 8000); return; }
+          status(true, (res.data && res.data.count != null ? res.data.count : num) + ' interface(s) added.', 2000);
           setTimeout(function () { location.reload(); }, 700);
         });
       });

@@ -1377,11 +1377,17 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
              rows → ONE `DELETE /api/interface?id=1,2,3` (batch delete,
              per-id permission + {deleted, skipped} report). Per-id error
              report; full success → reload.
-           - Not ported yet (Mason's Options box): « Manually Add N
-             interfaces » (`Device->add_interfaces`) and « SNMP Updates
-             Overwrite Descriptions » (`set_overwrite_if_descr`) — both need
-             dedicated API endpoints (model actions, not plain column
-             writes).
+           - **Options box (2026-10-16)** — port of Mason's Interfaces-tab
+             "Options" container (shown when not in edit mode and the user
+             may edit the device), both actions via dedicated API endpoints
+             (display/validation only): « Manually Add N interfaces »
+             (`form.nd-add-interfaces` → `POST /api/device/<id>/add_interfaces
+             {num}` → `Device->add_interfaces`, numbered after the current
+             highest) and « SNMP Updates Overwrite Descriptions »
+             (`form.nd-dev-act data-nd-action=overwrite_if_descr` →
+             `POST /api/device/<id>/overwrite_if_descr {value:0|1}` →
+             `Device->set_overwrite_if_descr`; the "Yes" case confirms in JS,
+             as the legacy confirm page).
          - **Device IP tab write (2026-10-14, commit `f0c1285a`)** — port of
            Mason's `ip.mhtml` `?editips=1` + `add_ip`, display/validation only:
            edit mode reuses the **table-aware `initIntEdit`**

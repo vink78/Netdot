@@ -1765,6 +1765,73 @@ sub set_auto_dns {
     });
 }
 
+# Manually add N unnumbered interfaces to a device (Mason: the Interfaces tab
+# "Options" box, `add_ints_form` / `intadd`). Body: {num: <int>}.
+# Device->add_interfaces creates $num interfaces numbered after the current
+# highest. 'edit' on the device required.
+=head2 add_interfaces - Manually add N interfaces to a device
+
+Arguments:  Controller (POST /api/device/<id>/add_interfaces, body: {num})
+Returns:    {ok: 1, count: N} (200)
+Description: Port of the legacy Interfaces-tab "Manually Add N interfaces"
+            form (Device->add_interfaces). 'edit' on the device required.
+
+=cut
+
+sub add_interfaces {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        my $id = $c->stash('id');
+        _err( 400, 'Missing device id' ) unless defined $id && $id =~ /^\d+$/;
+        my $dev = eval { Device->retrieve($id) };
+        _err( 404, "Device $id not found" ) if $@ || !$dev;
+        _err( 403, 'User not allowed to edit this device' )
+            unless Netdot::Mojo::Permissions->can( $p, 'edit', $dev );
+        my %A   = %{ _args($c) };
+        my $num = $A{num};
+        _err( 400, '"num" must be a positive integer' )
+            unless defined $num && $num =~ /^\d+$/ && $num > 0;
+        my $ints = eval { $dev->add_interfaces( $num + 0 ) };
+        _err( 400, "Could not add interfaces: $@" ) if $@;
+        return $c->render( json => { ok => 1, count => scalar @$ints }, status => 200 );
+    });
+}
+
+# Set the "overwrite interface descriptions on SNMP poll" flag on all of a
+# device's interfaces (Mason: the Interfaces tab "SNMP Updates Overwrite
+# Descriptions" form). Body: {value: 0|1}.
+=head2 set_overwrite_if_descr - Set the SNMP overwrite-descriptions flag
+
+Arguments:  Controller (POST /api/device/<id>/overwrite_if_descr,
+            body: {value: 0|1})
+Returns:    {ok: 1} (200)
+Description: Port of the legacy "SNMP Updates Overwrite Descriptions" form
+            (Device->set_overwrite_if_descr). 'edit' on the device required.
+
+=cut
+
+sub set_overwrite_if_descr {
+    my ($c) = @_;
+    my $p = _person($c) or return;
+    return _run( $c, sub {
+        _err( 405, 'Method not allowed' ) unless $c->req->method eq 'POST';
+        my $id = $c->stash('id');
+        _err( 400, 'Missing device id' ) unless defined $id && $id =~ /^\d+$/;
+        my $dev = eval { Device->retrieve($id) };
+        _err( 404, "Device $id not found" ) if $@ || !$dev;
+        _err( 403, 'User not allowed to edit this device' )
+            unless Netdot::Mojo::Permissions->can( $p, 'edit', $dev );
+        my %A = %{ _args($c) };
+        _err( 400, '"value" must be 0 or 1' )
+            unless defined $A{value} && $A{value} =~ /^(?:0|1)$/;
+        eval { $dev->set_overwrite_if_descr( $A{value} ) };
+        _err( 400, "Could not set overwrite descr: $@" ) if $@;
+        return $c->render( json => { ok => 1 }, status => 200 );
+    });
+}
+
 =head2 import_zone_records - Bulk-import BIND-format zone data
 
 Arguments:  Controller (POST /api/zone/:id/import, body: {text, overwrite,

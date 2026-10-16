@@ -1106,3 +1106,17 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
     form caché + API refusé) ; mapping (edit requis, view seul refusé) ;
     pages 200 (physaddr/11, device/2 Basics+Interfaces, contactlist/1,
     deviceattrname, physaddrattrname) ; daemon sans erreur.
+  - **Boîte Options de l'onglet Interfaces** (audit point-2, item interface) :
+    portée le 2026-10-16 — « Manually Add N interfaces »
+    (`form.nd-add-interfaces` → `POST /api/device/<id>/add_interfaces {num}` →
+    `Device->add_interfaces`, numérotées après le plus haut numéro existant)
+    et « SNMP Updates Overwrite Descriptions »
+    (`form.nd-dev-act data-nd-action=overwrite_if_descr` →
+    `POST /api/device/<id>/overwrite_if_descr {value:0|1}` →
+    `Device->set_overwrite_if_descr` ; le cas « Yes » confirme en JS,
+    équivalent moderne de la page de confirmation legacy). Affichée si
+    `$can_edit && !$editints` (même gate que le bouton Edit). Ligne
+    « Not ported yet » de PORTING_NOTES remplacée par la description du port
+    (les endpoints d'action dédiés existent déjà : `add_ip`, `auto_dns`,
+    `regen_dns`). Testé : boîte rendue (le compte de test) / absente (guest sans droit)
+    / 403 API (guest) / e2e add 2 interfaces + DELETE / set 0|1 vérifié en DB.
