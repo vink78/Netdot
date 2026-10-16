@@ -394,13 +394,10 @@ Returns:    [ {rel, related, table, fields}, ... ] sorted by relation name:
 Description: Skipped: relations with more than one FK column; child classes
             never offered as in-page adds (Circuit / HorizontalCable /
             BackboneCable - deprecated, moved to Netbox; DhcpScopeUse - scope
-            templates, template_edit descoped; DhcpAttr - its option-name FK
-            targets the unregistered DhcpAttrName type, which
-            build_create_fields skips, and the DhcpScope attributes tab has
-            its own dedicated form; picture classes - binary uploads need a
-            file form); and classes the person may not create (class-level
-            'edit', same gate as the list "New <type>" boxes - the API
-            re-enforces it at write time via _can_create).
+            templates, template_edit descoped; picture classes - binary
+            uploads need a file form); and classes the person may not create
+            (class-level 'edit', same gate as the list "New <type>" boxes -
+            the API re-enforces it at write time via _can_create).
 
 =cut
 
@@ -413,7 +410,7 @@ sub relation_adds {
     # Child classes never offered as in-page adds (see the description above).
     my %noadd = map { $_ => 1 } qw(
         Circuit HorizontalCable BackboneCable
-        DhcpScopeUse DhcpAttr
+        DhcpScopeUse
         SitePicture FloorPicture
     );
 

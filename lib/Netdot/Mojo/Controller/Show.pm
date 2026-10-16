@@ -90,20 +90,6 @@ sub show ($c) {
     # deflate trigger hashes it (Person::_encrypt_passwd).
     my $setpass_api = ( $type eq 'person' && $c->user_type eq 'Admin' )
         ? $c->web_prefix . '/api/' . $table . '/' . $id : '';
-    # DhcpScope pages, editors only: an "Add attribute" form in the attributes
-    # tab (wired by netdot.js initAttrAdd). It creates the dhcpattr row via
-    # POST /api/dhcpattr with {name: <option name>, scope: <this id>, value};
-    # the model resolves the option name to the dhcpattrname row. The name
-    # select is the full DhcpAttrName list (small, static). Mirrors the legacy
-    # scope.html [add] link on the attributes section
-    # (edit.html?table=DhcpAttr&scope=<id>), gated on 'edit' of the scope.
-    my $attr_names;
-    if ( $type eq 'dhcscope' && $can_edit ) {
-        my @names;
-        my $ok = eval { @names = DhcpAttrName->retrieve_all; 1 };
-        $attr_names = [ map { { id => $_->id, name => $_->name } } sort { $a->name cmp $b->name } @names ]
-            if $ok && @names;
-    }
 
     # has_many relations (like the old Mason view.html "View" section): one table
     # per non-empty relation. Columns from the related class's brief view. Rows
@@ -186,26 +172,6 @@ sub show ($c) {
     # Relation name -> Add spec (for the form in the relation's tab).
     my %rel_adds_by_rel = map { $_->{rel} => $_ } @$rel_adds;
 
-    # DhcpScope: keep the attributes tab (and its Add form) visible even when
-    # the scope has no attributes yet (empty relations are skipped otherwise);
-    # legacy showed the [add] link on empty sections too.
-    if ( $type eq 'dhcscope' && $attr_names ) {
-        unless ( grep { $_->{csv_rel} eq 'attributes' } @$relations ) {
-            unshift @$relations, {
-                title   => 'Attributes (0)',
-                cols    => [ 'DhcpAttr', 'Scope' ],
-                rows    => [],
-                total   => 0,
-                per     => $perpage,
-                offset  => 0,
-                start   => 0,
-                last_item => 0,
-                csv_rel => 'attributes',
-            };
-        }
-        @$relations = sort { $a->{csv_rel} cmp $b->{csv_rel} } @$relations;
-    }
-
     # Title: prefer the object's own label (built from netdot.meta "label" columns
     # by ->get_label), falling back to "Type #id" when the label is empty.
     my $label = eval { $obj->get_label } // '';
@@ -226,7 +192,6 @@ sub show ($c) {
         del_path   => $del_path,
         del_goto   => $del_goto,
         setpass_api => $setpass_api,
-        attr_names  => $attr_names,
         rel_adds    => \%rel_adds_by_rel,
     );
 }

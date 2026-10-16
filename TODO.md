@@ -1035,6 +1035,7 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
 - **Exclusions assumées** (`%noadd`) : `Circuit`/`HorizontalCable`/
   `BackboneCable` (⛔ câblage → Netbox), `DhcpScopeUse` (⛔ template_edit),
   `SitePicture`/`FloorPicture` (upload binaire, pas un formulaire générique).
+  `DhcpAttr` est **couvert par le générique** (voir cas (a) ci-dessous).
 - **Testé e2e** : vlan→vlangroup (1er vlan d'un groupe **vide**, 9 : formulaire
   + POST + affichage + DELETE ; gotcha métier : le modèle recalcule le groupe
   depuis le vid — plage du groupe 9 = 3900-3999, vid 4093 → groupe NULL),
@@ -1062,3 +1063,17 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   POD de ce repo sont de vrais `=head2 … =cut` (sans `#`).
 - **Manuel** : note courte dans Structure → UI (édition en place + formulaires
   « Add » par section) ; pdf/html régénérés.
+- **Cas (a) — DhcpAttr rattrapé par le générique** (remplace le form. spécial
+  du commit `fedf26f8`) : `dhcpattrname` **enregistré** dans le Registry
+  (`%TYPES` `nav=>0` + `@ORDER`) — c'est ce qui manquait : `build_create_fields`
+  sautait la FK `DhcpAttr.name` parce que sa cible `DhcpAttrName` n'était pas
+  un type résolvable. Le tab `attributes` du scope utilise maintenant le form.
+  générique (search box sur le nom d'option — 180 lignes > SELECTMAX=100 — +
+  value + scope caché, `POST /api/dhcpattr {name: <id>, scope, value}` ; le
+  modèle `DhcpAttr::_objectify_args` accepte l'id comme le nom). Supprimés :
+  form. `nd-attr-add` (detail.html.ep), `initAttrAdd` (netdot.js), blocs
+  `attr_names`/relation-vide particuliers (Show.pm). Testé : recherche
+  `/api/dhcpattrname?kw=` (format `{results:[{id,label}]}` attendu par
+  `fkSearch`), création d'un attribut via l'id d'option, suppression ;
+  régression : page scope 398/1, boîtes New, pages dédiées. Coût assumé :
+  nouvelle page liste `/management/dhcpattrname` (+ boîte « New »).
