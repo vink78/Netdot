@@ -8,11 +8,13 @@ use Netdot::Mojo::Permissions;
 use Netdot::Model::Device;
 use Netdot::Util::Log;
 use Log::Log4perl;
+use GraphViz;
+use File::Temp qw(tempfile);
+use Mojo::Util  qw(b64_encode);
 
-# Read-only Device detail page. Two views for now:
-#   Basics     - device attributes (netdot.meta "all" view) + custom attributes
-#   Interfaces - the interfaces table (read-only port of interfaces.mhtml)
-# All edit/write functionality and the Topology/STP/Rights views are deferred.
+# Device detail page (port of the legacy device.html): Basics, Interfaces,
+# IP, BGP, Hosted, Circuits, STP, Topology, ARP, FWT, Modules, Audit,
+# Rights. Display/validation only: all writes go through the JSON API.
 
 =encoding utf8
 
@@ -41,12 +43,17 @@ Netdot::Mojo::Controller::Device - Device detail page + SNMP discovery / re-poll
 Arguments:  Controller (params: id, view)
 Returns:    Renders the management/device template
 Description: Port of the legacy device.html. Valid views: Basics,
-            Interfaces, IP, BGP, Hosted, Circuits, STP, Modules, Audit,
-            Rights. Basics shows the device attributes (meta "all" view) +
-            custom attributes and the in-place edit form (written via
-            PATCH /api/device/<id>). The page also offers a delete action
-            (API, with the optional remove-IPs/DNS choice) and, for Admins
-            only, the SNMP re-poll entry point (discover wizard).
+            Interfaces, IP, BGP, Hosted, Circuits, STP, Topology, ARP,
+            FWT, Modules, Audit, Rights. Basics shows the device attributes
+            (meta "all" view) + custom attributes and the in-place edit
+            form (written via PATCH /api/device/<id>). Topology renders the
+            Layer-2 topology as a GraphViz graph (on the fly, embedded as a
+            data: URI with the clickable image map); ARP and FWT list the
+            device's ARP caches / forwarding tables (the tabs are only
+            shown when the device has data, as in Mason). The page also
+            offers a delete action (API, with the optional remove-IPs/DNS
+            choice) and, for Admins only, the SNMP re-poll entry point
+            (discover wizard).
 
 =cut
 
@@ -60,7 +67,8 @@ sub show {
 
     my $view = $c->param('view') || 'Basics';
     my %views = map { $_ => 1 }
-        qw(Basics Interfaces IP BGP Hosted Circuits STP Modules Audit Rights);
+        qw(Basics Interfaces IP BGP Hosted Circuits STP Topology ARP FWT
+           Modules Audit Rights);
     $view = 'Basics' unless $views{$view};
 
     my ($name, $fqdn) = ('', '');
@@ -85,6 +93,10 @@ sub show {
     my $can_discover = Netdot::Mojo::Permissions->user_type( $c->current_person ) eq 'Admin';
     # Access Rights tab (Mason: visible to access_section 'device.html:edit_rights').
     my $show_rights = $c->perm( 'access_section', 'device.html:edit_rights' );
+    # ARP / FWT tabs (as in Mason): only shown when the device has data.
+    my (@arp_caches, @fwt);
+    eval { @arp_caches = $o->arp_caches };
+    eval { @fwt        = $o->forwarding_tables };
     my %stash = (
         id       => $id,
         view     => $view,
@@ -98,6 +110,10 @@ sub show {
         del_goto   => $can_delete ? Netdot::Mojo::Registry::set_uri( '/management/device' ) : '',
         can_discover => $can_discover,
         show_rights  => $show_rights,
+        has_arp      => @arp_caches ? 1 : 0,
+        has_fwt      => @fwt ? 1 : 0,
+        arp_caches   => \@arp_caches,
+        fwt          => \@fwt,
     );
 
     if ($view eq 'Basics') {
@@ -115,6 +131,13 @@ sub show {
         }
     } elsif ($view eq 'Interfaces') {
         my $d = _interfaces($o, $c, $id);
+        @stash{ keys %$d } = values %$d;
+    } elsif ($view eq 'ARP' || $view eq 'FWT') {
+        my $d = _cache_view( $o, $c, $view,
+                             $view eq 'ARP' ? \@arp_caches : \@fwt );
+        @stash{ keys %$d } = values %$d;
+    } elsif ($view eq 'Topology') {
+        my $d = _topology_view($o, $c, $id);
         @stash{ keys %$d } = values %$d;
     } else {
         my $d = _table_view($view, $o, $c, $id);
@@ -1099,6 +1122,400 @@ sub _modules_view {
         rows      => \@rows,
         empty_msg => 'No modules.',
     };
+}
+
+# ---------------------------------------------------------------------------
+# ARP / FWT views (port of the legacy device.html sections): the device's
+# ARP caches / forwarding tables (ArpCache / FWTable objects, tstamp DESC),
+# each row linked to the object's detail page.
+# ---------------------------------------------------------------------------
+sub _cache_view {
+    my ( $o, $c, $view, $objs ) = @_;
+    my ( $type, $empty ) =
+        $view eq 'ARP' ? ( 'arpcache', 'No ARP caches.' )
+                      : ( 'fwtable',  'No forwarding tables.' );
+    my @rows;
+    for my $a (@$objs) {
+        my $aid = eval { $a->id };
+        my $dev = eval { $a->device };
+        my $did = eval { $dev->id };
+        push @rows, [
+            [ [ _fmt( eval { $a->tstamp } ),
+                $aid ? $c->set_uri( '/management/' . $type . '/' . $aid ) : '' ] ],
+            [ [ ( eval { $dev->short_name } || '' ),
+                $did ? $c->set_uri( '/management/device/' . $did ) : '' ] ],
+        ];
+    }
+    return {
+        view      => $view,
+        cols      => [ [ 'Tstamp', undef ], [ 'Device', undef ] ],
+        rows      => \@rows,
+        empty_msg => $empty,
+    };
+}
+
+# ---------------------------------------------------------------------------
+# Topology view (port of the legacy device.html "Topology" section +
+# Netdot::UI::build_device_topology_graph[_html]): the Layer-2 topology as a
+# GraphViz "dot" graph — nodes = devices (click -> device page, keeping the
+# Topology parameters), edges = L2 links (click -> interface pages, colored
+# per VLAN, dashed when STP-blocking). The PNG is generated on the fly and
+# embedded as a data: URI (Mason wrote htdocs/img/graphs/); the GraphViz
+# image map (as_cmapx) makes the nodes/edges clickable.
+# ---------------------------------------------------------------------------
+sub _topology_view {
+    my ( $o, $c, $id ) = @_;
+
+    # Form parameters (Mason's change_topo_view_form, same names).
+    my $p_int = sub {
+        my $v = $c->param( shift );
+        return ( defined $v && $v =~ /^\d+$/ ) ? $v + 0 : 0;
+    };
+    my $depth_up   = $p_int->('topodepth_up')   || 1;
+    my $depth_down = $p_int->('topodepth_down') || 1;
+    my $show_vlans = $c->param('topovlans') ? 1 : 0;
+    my $show_names = $c->param('toponames') ? 1 : 0;
+    my $minlen     = $p_int->('topominlen')     || 1;
+    my $svid       = $p_int->('specific_vlan');
+    my $root_name  = $c->param('toporoot');
+    unless ( defined $root_name && length $root_name ) {
+        $root_name = Netdot::Model->config->get('NMS_DEVICE') // '';
+    }
+    $root_name =~ s/^\s+|\s+$//g;
+
+    # The "Show this Vlan only?" select: this device's VLANs. (Mason filled
+    # it from the Interfaces view render, which left it empty on a direct
+    # ?view=Topology request.)
+    my ( %vseen, @vlan_opts );
+    eval {
+        for my $i ( @{ $o->interfaces } ) {
+            for my $iv ( @{ $i->vlans } ) {
+                my $vid = eval { $iv->vlan->vid };
+                next unless defined $vid && $vid != 0;
+                next if $vseen{ $vid }++;
+                push @vlan_opts, $vid;
+            }
+        }
+    };
+    @vlan_opts = sort { $a <=> $b } @vlan_opts;
+
+    my $d = {
+        view            => 'Topology',
+        topo_depth_up   => $depth_up,
+        topo_depth_down => $depth_down,
+        topo_vlans      => $show_vlans,
+        topo_names      => $show_names,
+        topo_minlen     => $minlen,
+        topo_root       => $root_name,
+        topo_svid       => $svid,
+        topo_vlan_opts  => \@vlan_opts,
+        topo_error      => '',
+        topo_img        => '',
+        topo_map        => '',
+        topo_legend     => [],
+    };
+
+    # Root device: by name (Mason), or the device itself when left empty
+    # (Mason's default NMS_DEVICE is unset in this deployment, where
+    # Device->search(name=>undef) would have picked the first device).
+    my $root = $o;
+    if ( length $root_name ) {
+        $root = eval { Device->search( name => $root_name )->first };
+        $d->{topo_error} = "Cannot find root device: $root_name"
+            unless $root && !$@;
+    }
+    return $d if $d->{topo_error};
+
+    my ( $g, $bytes, $vlans ) =
+        _topology_graph(
+            id            => $id,
+            root          => $root->id,
+            depth_up      => $depth_up,
+            depth_down    => $depth_down,
+            show_vlans    => $show_vlans,
+            show_names    => $show_names,
+            minlen        => $minlen,
+            specific_vlan => $svid,
+        );
+    if ( !$g ) {
+        $d->{topo_error} = $bytes;
+        return $d;
+    }
+    $d->{topo_img}    = 'data:image/png;base64,' . b64_encode( $bytes );
+    $d->{topo_map}    = $g->as_cmapx;
+    $d->{topo_legend} = [
+        map {
+            [ $_, $vlans->{$_}{color},
+              Netdot::Mojo::Registry::set_uri( '/management/vlan/' . $vlans->{$_}{vlan} ) ]
+        } sort keys %$vlans
+    ] if $show_vlans;
+    return $d;
+}
+
+# Graph builder: port of Netdot::UI::build_device_topology_graph.
+# Returns ( $g, $png_bytes, \%vlans ) or ( undef, $error_message ).
+sub _topology_graph {
+    my (%a) = @_;
+    my ( $id, $root, $depth_up, $depth_down, $show_vlans, $show_names,
+         $minlen, $specific_vlan ) =
+        @a{ qw(id root depth_up depth_down show_vlans show_names
+               minlen specific_vlan) };
+
+    # Guard against malicious input (same as Mason).
+    $depth_up   = ( int( $depth_up   || 0 ) > 0 ) ? int $depth_up   : 0;
+    $depth_down = ( int( $depth_down || 0 ) > 0 ) ? int $depth_down : 0;
+    $show_vlans = ( $show_vlans == 1 ) ? 1 : 0;
+    $show_names = ( $show_names == 1 ) ? 1 : 0;
+    $minlen     ||= 1;
+    $root      ||= $id;
+    if ( !defined $specific_vlan || $specific_vlan == 0 || $show_vlans == 0 ) {
+        $specific_vlan = undef;
+    }
+    if ( defined $specific_vlan && $specific_vlan != 0 ) {
+        $show_vlans = 1;
+    }
+
+    my $g = GraphViz->new(
+        layout    => 'dot',
+        truecolor => 1,
+        bgcolor   => '#ffffff00',
+        ranksep   => 2.0,
+        node      => { shape => 'record', fillcolor => '#ffffff88',
+                       style => 'filled',  fontsize => 10,    height => .25 },
+        edge      => { dir => 'none', labelfontsize => 8, minlen => $minlen },
+        rankdir   => 1,    # as in Mason (no 'direction' arg passed)
+    );
+
+    # Neighbouring-interface map + shortest paths to the root (model
+    # methods; the latter is a Dijkstra and decides the up/down direction
+    # of each edge).
+    my $igraph = Device->get_device_i_graph();
+    my $spp    = Device->shortest_path_parents( $root );
+
+    my $start = Device->retrieve( $id );
+    _topo_add_node( $g, $start, $show_names, $show_vlans, { color => 'red' } );
+
+    my $vlans = {};
+    my $seen  = { NODE => {}, EDGE => {} };
+    $seen->{NODE}{ $start->id } = 1;
+
+    # Mason: when one of the two depths is 0 it used the (unpassed, i.e. 0)
+    # unified $depth for both -> no traversal (single-node graph). Kept as-is.
+    my ( $hopup, $hopdown ) =
+        ( $depth_up && $depth_down ) ? ( $depth_up, $depth_down ) : ( 0, 0 );
+    _topo_dfs( $g, $igraph, $spp, $root, $start,
+               $hopup, $hopdown, 'undef', $seen, $vlans,
+               $show_vlans, $show_names, $specific_vlan );
+
+    # PNG: GraphViz needs a file name, so render into a temp file, read the
+    # bytes back (served as a data: URI — no file left on disk).
+    my ( $fh, $name ) = tempfile( SUFFIX => '.png', UNLINK => 1 );
+    my ( $bytes, $ok );
+    $ok = eval {
+        $g->as_png( $name );
+        open my $rfh, '<', $name or die $!;
+        local $/;
+        $bytes = <$rfh>;
+        close $rfh;
+        1;
+    };
+    close $fh;
+    return ( undef, "Could not render the topology graph: $@" )
+        unless $ok && defined $bytes && length $bytes;
+    return ( $g, $bytes, $vlans );
+}
+
+# One node = one device (label = short name, click -> device page keeping
+# the Topology parameters, the starting device in red).
+sub _topo_add_node {
+    my ( $g, $device, $show_names, $show_vlans, $nodeoptions ) = @_;
+    $nodeoptions ||= {};
+    my $did = eval { $device->id };
+    $g->add_node(
+        $did,
+        label => ( eval { $device->short_name } || '#' . $did ),
+        shape => 'record',
+        URL   => Netdot::Mojo::Registry::set_uri(
+            '/management/device/' . $did
+            . '?view=Topology&toponames=' . $show_names
+            . '&topovlans=' . $show_vlans ),
+        %$nodeoptions,
+    );
+}
+
+# Deterministic color per VLAN (port of Mason's _vlancolor): the low-order
+# bits at the top, so numerically adjacent vids contrast, vid=1 is black.
+sub _vlancolor {
+    my ($vid) = @_;
+    my @b = reverse( split( '', sprintf( '%012b', 4097 - $vid ) ) );
+    return sprintf(
+        '#%02X%02X%02X',
+        oct("0b$b[0]$b[3]$b[6]$b[9]000"),
+        oct("0b$b[1]$b[4]$b[7]$b[10]000"),
+        oct("0b$b[2]$b[5]$b[8]$b[11]000"));
+}
+
+# Depth-first traversal (port of Mason's _dfs): one edge per L2 link,
+# colored per VLAN (dashed when STP-blocking), directed toward the root
+# when the neighbour is closer to it (shortest_path_parents).
+sub _topo_dfs {
+    my ( $g, $igraph, $spp, $root, $device, $hopup, $hopdown, $prev_dir,
+         $seen, $vlans, $show_vlans, $show_names, $specific_vlan ) = @_;
+    return if ( $hopup == 0 && $prev_dir eq 'up' );
+    return if ( $hopdown == 0 && $prev_dir eq 'down' );
+    return unless ( $hopup || $hopdown );
+
+    my $adj = $igraph->{ $device->id };
+    return unless $adj && %$adj;
+
+    my $dir;
+    for my $iid ( sort { $a <=> $b } keys %$adj ) {
+        my $niid     = $adj->{$iid};
+        my $iface    = eval { Netdot::Model::Interface->retrieve( $iid ) };
+        my $neighbor = eval { Netdot::Model::Interface->retrieve( $niid ) };
+        next unless $iface && $neighbor;
+
+        my $name          =
+            ( $show_names ? ( eval { $iface->name } ) : ( eval { $iface->number } ) )
+            || eval { $iface->number };
+        my $neighbor_name =
+            ( $show_names ? ( eval { $neighbor->name } ) : ( eval { $neighbor->number } ) )
+            || eval { $neighbor->number };
+
+        my $nd = eval { $neighbor->device };
+        next unless $nd;
+        my ( $from, $to, $head, $tail, $constraint ) = ( 'from', 'to', 'head', 'tail', 1 );
+
+        if ( exists( $spp->{ $device->id }->{ $nd->id } ) ) {
+            # Neighbour is closer to root
+            $dir = 'up';
+            ( $from, $to, $head, $tail ) = ( 'to', 'from', 'tail', 'head' );
+        }
+        elsif ( exists( $spp->{ $nd->id }->{ $device->id } ) ) {
+            # The opposite
+            $dir = 'down';
+        }
+        else {
+            $dir        = 'level';
+            $constraint = 0;
+        }
+        my $add_node = 0;
+
+        # If we haven't seen this edge before, add it to the graph
+        next if exists $seen->{EDGE}{ $neighbor->id . ' ' . $iface->id };
+        $seen->{EDGE}{ $neighbor->id . ' ' . $iface->id } = 1;
+        $seen->{EDGE}{ $iface->id . ' ' . $neighbor->id } = 1;
+
+        my $cont = 0;
+        my @ifvlans;
+        eval { @ifvlans = $iface->vlans };
+        if ( $show_vlans && @ifvlans ) {
+            for my $vlan (@ifvlans) {
+                my $vid = eval { $vlan->vlan->vid };
+                next unless defined $vid;
+                next
+                    if ( defined $specific_vlan
+                         && $specific_vlan != $vid );
+                my $vlan_id = eval { $vlan->vlan->id };
+                my $neighbor_vlan =
+                    eval { Netdot::Model::InterfaceVlan->search(
+                              interface => $neighbor->id,
+                              vlan      => $vlan_id,
+                          )->first };
+                next
+                    if ( defined $specific_vlan && $specific_vlan != 0
+                         && ( ( $neighbor_vlan
+                                 && eval { $neighbor_vlan->vlan->vid } != $specific_vlan )
+                              || !defined $neighbor_vlan ) );
+
+                my $style = 'solid';
+                my $vname = eval { $vlan->vlan->name } || $vid;
+                if ( !exists $vlans->{$vname} ) {
+                    $vlans->{$vname} =
+                        { color => _vlancolor( $vid ),
+                          vlan  => eval { $vlan->vlan->id } };
+                }
+                my $color = $vlans->{$vname}{color};
+
+                if ( eval { $vlan->stp_state } eq 'blocking'
+                     || ( $neighbor_vlan
+                          && eval { $neighbor_vlan->stp_state } eq 'blocking' ) )
+                {
+                    $style = 'dashed';
+                }
+
+                $g->add_edge(
+                    $from          => $device->id,
+                    $to            => $nd->id,
+                    constraint     => $constraint,
+                    "${tail}URL"   =>
+                        Netdot::Mojo::Registry::set_uri(
+                            '/management/interface/' . $iface->id ),
+                    "${tail}label" =>
+                        ( defined $specific_vlan && $specific_vlan != 0 )
+                        ? $name : $vname,
+                    "${head}URL"   =>
+                        Netdot::Mojo::Registry::set_uri(
+                            '/management/interface/' . $neighbor->id ),
+                    "${head}label" => $neighbor_name,
+                    color         => $color,
+                    style         => $style,
+                );
+                $add_node = 1;
+                $cont     = 1;
+            }
+        }
+        else {
+            if ( !defined $specific_vlan || $specific_vlan == 0 ) {
+                $g->add_edge(
+                    $from          => $device->id,
+                    $to            => $nd->id,
+                    constraint     => $constraint,
+                    "${tail}URL"   =>
+                        Netdot::Mojo::Registry::set_uri(
+                            '/management/interface/' . $iface->id ),
+                    "${tail}label" => $name,
+                    "${head}URL"   =>
+                        Netdot::Mojo::Registry::set_uri(
+                            '/management/interface/' . $neighbor->id ),
+                    "${head}label" => $neighbor_name,
+                    color         => 'black',
+                );
+                $add_node = 1;
+                $cont     = 1;
+            }
+        }
+
+        # Also make sure we haven't seen this node before
+        if ( $add_node == 1 && !exists $seen->{NODE}{ $nd->id } ) {
+            _topo_add_node( $g, $nd, $show_names, $show_vlans );
+            $seen->{NODE}{ $nd->id } = 1;
+        }
+
+        # If we're at our root, we're done...
+        if ( $root == $nd->id ) {
+            $cont = 0;
+        }
+
+        # If we haven't recursed across this edge before, then do so now.
+        if ( $cont == 1 ) {
+            if ( $dir eq 'up' ) {
+                _topo_dfs( $g, $igraph, $spp, $root, $nd,
+                           $hopup - 1, $hopdown, $dir, $seen, $vlans,
+                           $show_vlans, $show_names, $specific_vlan );
+            }
+            elsif ( $dir eq 'down' ) {
+                _topo_dfs( $g, $igraph, $spp, $root, $nd,
+                           $hopup, $hopdown - 1, $dir, $seen, $vlans,
+                           $show_vlans, $show_names, $specific_vlan );
+            }
+            else {
+                _topo_dfs( $g, $igraph, $spp, $root, $nd,
+                           $hopup - 1, $hopdown - 1, $dir, $seen, $vlans,
+                           $show_vlans, $show_names, $specific_vlan );
+            }
+        }
+    }
 }
 
 sub _audit_view {
