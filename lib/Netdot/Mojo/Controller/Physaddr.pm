@@ -6,10 +6,11 @@ use Netdot::Mojo::Registry;
 use Netdot::Mojo::Detail;
 
 # Detail page for a MAC / PhysAddr — port of mac.html: the MAC
-# attributes (address, vendor/OUI, static, first/last seen), the devices and
-# interfaces using the address, the edge port, the last N forwarding-table and
-# ARP entries, and the DHCP scopes. The Custom Attributes section (PhysAddrAttr)
-# is a read-only table + the generic "Add" form (legacy mac.html [add] link).
+# attributes (address, vendor/OUI, static, first/last seen, with the in-place
+# edit form + page-level delete), the devices and interfaces using the
+# address, the edge port, the last N forwarding-table and ARP entries, and the
+# DHCP scopes. The Custom Attributes section (PhysAddrAttr) is a read-only
+# table + the generic "Add" form (legacy mac.html [add] link).
 
 =encoding utf8
 
@@ -36,7 +37,11 @@ Description: Port of mac.html: the MAC attributes (address,
             using the address, the edge port, the last N forwarding-table
             and ARP entries (grouped by timestamp) and the DHCP scopes.
             Custom attributes (PhysAddrAttr) are shown as a table with the
-            generic "Add" form (the legacy [add] link on the section).
+            generic "Add" form (the legacy [add] link on the section). The
+            MAC's own attributes are editable in place (Edit toggle -> the
+            shared _edit_form partial, PATCH /api/physaddr/<id>) and the page
+            offers a Delete button (DELETE /api/physaddr/<id>), both gated on
+            the per-object right (same mechanism as the generic detail page).
 
 =cut
 
@@ -160,6 +165,18 @@ sub show {
         ( grep { $_->{rel} eq 'attributes' }
           @{ Netdot::Mojo::Detail::relation_adds( $o, $c->current_person ) } )[0];
 
+    # In-place edit form + page-level delete (the same generic mechanism as
+    # Show#show / detail.html.ep): the MAC's own editable fields (address,
+    # static) via Detail::build_edit_fields, written through PATCH
+    # /api/physaddr/<id>; delete through DELETE /api/physaddr/<id>, back to the
+    # MAC list.
+    my $can_edit   = $c->perm( 'edit', $o );
+    my $fields     = $can_edit ? Netdot::Mojo::Detail::build_edit_fields( $o, 'PhysAddr' ) : [];
+    my $api_path   = $can_edit ? $c->web_prefix . '/api/physaddr/' . $id : '';
+    my $can_delete = $c->perm( 'delete', $o );
+    my $del_path   = $can_delete ? $c->web_prefix . '/api/physaddr/' . $id : '';
+    my $del_goto   = $can_delete ? Netdot::Mojo::Registry::set_uri( '/management/physaddr' ) : '';
+
     $c->render( template => 'management/mac', status => 200,
         layout     => 'default',
         title      => $o->format_address // "PhysAddr #$id",
@@ -174,6 +191,12 @@ sub show {
         arp_html   => $arp_html,
         attributes => \@attr_rows,
         attr_add   => $attr_add,
+        can_edit   => $can_edit,
+        fields     => $fields,
+        api_path   => $api_path,
+        can_delete => $can_delete,
+        del_path   => $del_path,
+        del_goto   => $del_goto,
     );
 }
 

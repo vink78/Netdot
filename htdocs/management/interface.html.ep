@@ -1,29 +1,57 @@
-<%# Interface detail: read-only port of interface.html. %>
-<% my $title     = $c->stash->{title} // 'Interface'; %>
-<% my $id        = $c->stash->{id} // ''; %>
-<% my $attrs     = $c->stash->{attrs} // []; %>
-<% my $vlans     = $c->stash->{vlans} // []; %>
-<% my $ips       = $c->stash->{ips} // []; %>
-<% my $neighbors = $c->stash->{neighbors} // []; %>
-<% my $fwt_links = $c->stash->{fwt_links} // []; %>
-<% my $arp_links = $c->stash->{arp_links} // []; %>
-<% my $audit     = $c->stash->{audit} // []; %>
+<%# Interface detail: port of interface.html (attributes editable in place + delete). %>
+<% my $title      = $c->stash->{title}     // 'Interface'; %>
+<% my $id         = $c->stash->{id}        // ''; %>
+<% my $attrs      = $c->stash->{attrs}     // []; %>
+<% my $vlans      = $c->stash->{vlans}     // []; %>
+<% my $ips        = $c->stash->{ips}       // []; %>
+<% my $neighbors  = $c->stash->{neighbors} // []; %>
+<% my $fwt_links  = $c->stash->{fwt_links} // []; %>
+<% my $arp_links  = $c->stash->{arp_links} // []; %>
+<% my $audit      = $c->stash->{audit}     // []; %>
+<% my $can_edit   = $c->stash->{can_edit}   // 0; %>
+<% my $fields     = $c->stash->{fields}     // []; %>
+<% my $api_path   = $c->stash->{api_path}   // ''; %>
+<% my $can_delete = $c->stash->{can_delete} // 0; %>
+<% my $del_path   = $c->stash->{del_path}   // ''; %>
+<% my $del_goto   = $c->stash->{del_goto}   // ''; %>
 <h1><%= $title %></h1>
-<p><a href="<%= url_for('interface_list') %>">&laquo; Interfaces</a></p>
+<p>
+  <a href="<%= url_for('interface_list') %>">&laquo; Interfaces</a>
+  % if ( $can_edit && @$fields ) {
+  <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+  % if ( $can_delete ) {
+  <button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" style="margin-left:0.6em">Delete</button>
+  % }
+</p>
 
-<table class="datatable detail">
+% # Read-only attributes table (2 pairs per row, like the generic detail page);
+% # hidden while the Edit form is shown (wired by netdot.js initToggle).
+<table class="datatable detail c2" id="nd-readonly">
   <tbody>
-    % for my $a (@$attrs) {
-    <tr><th><%= $a->[0] %></th><td style="white-space:pre-wrap">
+  % my @list = @$attrs;
+  % for (my $i = 0; $i < @list; $i += 2) {
+  %   my $end = $i + 1; $end = $#list if $end > $#list;
+  %   my @r = @list[$i .. $end];
+  <tr>
+    % for my $a (@r) {
+    <th><%= $a->[0] %></th><td style="white-space:pre-wrap">
       % if ( defined $a->[2] ) {
       <a href="<%= $a->[2] %>"><%= $a->[1] %></a>
       % } else {
       <%= $a->[1] %>
       % }
-    </td></tr>
+    </td>
     % }
+  </tr>
+  % }
   </tbody>
 </table>
+
+% # In-place edit form (hidden until the Edit toggle; wired by netdot.js):
+% # PATCH /api/interface/<id> (same _edit_form partial as the generic detail page).
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
 
 % if (@$vlans) {
 <h3>VLANs</h3>

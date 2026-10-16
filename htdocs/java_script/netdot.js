@@ -588,7 +588,10 @@
     if (cancel) {
       cancel.addEventListener('click', function () {
         if (form)     { form.style.display = 'none'; }
-        if (readonly) { readonly.style.display = 'block'; }
+        // '' (not 'block'): #nd-readonly is a <table> on the detail pages —
+        // an inline display:block on a table breaks its layout; clearing the
+        // style restores the natural display (table / block) for both cases.
+        if (readonly) { readonly.style.display = ''; }
       });
     }
   }

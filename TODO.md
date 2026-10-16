@@ -1120,3 +1120,18 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
     (les endpoints d'action dédiés existent déjà : `add_ip`, `auto_dns`,
     `regen_dns`). Testé : boîte rendue (le compte de test) / absente (guest sans droit)
     / 403 API (guest) / e2e add 2 interfaces + DELETE / set 0|1 vérifié en DB.
+  - **Pages Interface + MAC éditables** (2026-10-16) : le contrôleur dédié se
+    justifie par les timestamps FWT/ARP (liens vers les sous-vues fdb/arp) +
+    l'audit (absents du générique) ; l'écart lecture-seule est comblé en
+    greffant le mécanisme générique — form d'édition en place (partial
+    `_edit_form` + `Detail::build_edit_fields`, `PATCH /api/{interface,
+    physaddr}/<id>`) + bouton Delete (`nd-rec-delete`, `DELETE` idem), gates
+    par objet (`$c->perm edit/delete`). Tableau lecture passé en 2 colonnes
+    (`datatable detail c2`) + `id="nd-readonly"` → le toggle Edit masque le
+    mode lecture (comportement des pages génériques). **Fix JS** : le Cancel
+    d'`initToggle` remettait `display:block` sur `#nd-readonly` — faux pour
+    les pages où c'est un `<table>` (detail, contactlist, zone, interface,
+    mac) : colonnes vides après Cancel ; remplacé par `display:''` (affichage
+    naturel). Testé : boutons+form rendus (le compte de test), form absent/caché
+    (guest), PATCH e2e description interface + static MAC (restaurés),
+    403 guest PATCH/DELETE sur les 2 types, pages 200, daemon clean.

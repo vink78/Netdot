@@ -4,11 +4,13 @@ use Mojo::Base 'Mojolicious::Controller';
 use Mojo::Util  qw(url_escape);
 use Netdot::Model;
 use Netdot::Mojo::Registry;
+use Netdot::Mojo::Detail;
 
-# Detail page for a single interface — read-only port of interface.html: the
-# interface attributes (netdot.meta "all" view), the VLANs, the forwarding-table
-# and ARP entry timestamps (each linking to the FDB/ARP sub-view), the IP
-# addresses, the neighbors, and the audit records.
+# Detail page for a single interface — port of interface.html: the interface
+# attributes (netdot.meta "all" view, with the in-place edit form + page-level
+# delete), the VLANs, the forwarding-table and ARP entry timestamps (each
+# linking to the FDB/ARP sub-view), the IP addresses, the neighbors, and the
+# audit records.
 
 =encoding utf8
 
@@ -31,10 +33,14 @@ Netdot::Mojo::Controller::Interface - Interface detail page (port of interface.h
 
 Arguments:  Controller (param: id)
 Returns:    Renders the management/interface template
-Description: Read-only port of interface.html: the interface attributes
+Description: Port of interface.html: the interface attributes
             (netdot.meta "all" view), the VLANs, the IP addresses, the
             neighbors, the FDB / ARP entry timestamps (each linking to the
-            fdb/arp sub-view) and the audit records.
+            fdb/arp sub-view) and the audit records. The attributes are
+            editable in place (Edit toggle -> the shared _edit_form partial,
+            PATCH /api/interface/<id>) and the page offers a Delete button
+            (DELETE /api/interface/<id>), both gated on the per-object right
+            (same mechanism as the generic detail page).
 
 =cut
 
@@ -82,6 +88,17 @@ sub show {
     # Audit records.
     my @audit;    eval { @audit = $o->get_audit_records( table => 'Interface', id => $id ) };
 
+    # In-place edit form + page-level delete (the same generic mechanism as
+    # Show#show / detail.html.ep): editable fields via
+    # Detail::build_edit_fields, written through PATCH /api/interface/<id>;
+    # delete through DELETE /api/interface/<id>, back to the interface list.
+    my $can_edit   = $c->perm( 'edit', $o );
+    my $fields     = $can_edit ? Netdot::Mojo::Detail::build_edit_fields( $o, 'Interface' ) : [];
+    my $api_path   = $can_edit ? $c->web_prefix . '/api/interface/' . $id : '';
+    my $can_delete = $c->perm( 'delete', $o );
+    my $del_path   = $can_delete ? $c->web_prefix . '/api/interface/' . $id : '';
+    my $del_goto   = $can_delete ? Netdot::Mojo::Registry::set_uri( '/management/interface' ) : '';
+
     my $label = eval { $o->get_label } // '';
     $label = "Interface #$id" unless defined $label && length $label;
 
@@ -97,6 +114,12 @@ sub show {
         fwt_links   => \@fwt_links,
         arp_links   => \@arp_links,
         audit       => \@audit,
+        can_edit    => $can_edit,
+        fields      => $fields,
+        api_path    => $api_path,
+        can_delete  => $can_delete,
+        del_path    => $del_path,
+        del_goto    => $del_goto,
     );
 }
 
