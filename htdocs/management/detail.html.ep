@@ -142,6 +142,21 @@
       % }
       <a href="<%= $dbase . '?csv=' . $rel %>">[csv]</a>
     </p>
+    % # Generic "Add" form of this relation (stashed by Show#show, built by
+    % # Detail::relation_adds): the port of the legacy view.html [add] link on
+    % # the section (edit.html?table=<child>&<fk>=<parent>). The shared
+    % # _edit_form partial in create mode -> POST /api/<table>; the parent FK
+    % # is a hidden pre-filled field; initForms (netdot.js) handles the submit
+    % # and reloads the page on success.
+    % if ( my $ra = ( $c->stash('rel_adds') // {} )->{$rel} ) {
+    <div style="margin-top:0.8em">
+      <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                                can_edit => 1, fields => $ra->{fields},
+                                api_path => $c->web_prefix . '/api/' . $ra->{table},
+                                nd_create => 1, nd_method => 'POST',
+                                nd_label  => 'Add' ) %>
+    </div>
+    % }
     % if ( my $attr_names = $c->stash('attr_names') ) {
     % # DhcpScope only (see Show#show): add a dhcpattr row via the JSON API
     % # (POST /api/dhcpattr {name, scope, value}; wired by netdot.js initAttrAdd).

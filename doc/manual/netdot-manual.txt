@@ -111,7 +111,11 @@ Netdot consists of several components:
     (The original UI was built on HTML::Mason and ran inside
     Apache/mod_perl; that web layer is what 2.0 rewrote.) In addition,
     the application exposes a JSON API (`/api`) used both by the
-    UI itself and by external programs.
+    UI itself and by external programs. Object pages allow editing in
+    place and, when you have the edit right, offer an "Add" form on each
+    related-objects section to create new related objects (for example,
+    adding a VLAN to a group, linking a site to a subnet, or adding a
+    person to a contact role).
 
 4.  Command Line scripts (CLI)
 

@@ -38,7 +38,12 @@ Description: Read-only detail for any registered type: every attribute of
             the netdot.meta "all" view (FK values become links when their
             type has a route), the in-place edit form (written via
             PATCH /api/<table>/<id> where table is the DB table name) and
-            the has_many relation tables (paginated via offset). On person
+            the has_many relation tables (paginated via offset). Editors
+            additionally get, in each addable relation's tab, an in-place
+            "Add" form creating a child row via POST /api/<child table>
+            (the port of the legacy view.html [add] links; see
+            Detail::relation_adds) - the tab stays visible even for an
+            empty relation so its first row can be created. On person
             pages, Admins additionally get a dedicated "Password" box (the
             sensitive password column is excluded from the generic edit
             form): it PATCHes the same endpoint with the new plaintext,
@@ -147,6 +152,40 @@ sub show ($c) {
 
     my $relations = Netdot::Mojo::Detail::build_relations( $obj, $perpage, $offset );
 
+    # Generic relation "Add" forms (editors only): one create form per
+    # addable has_many relation, rendered in the relation's tab (see
+    # detail.html.ep; specs from Detail::relation_adds). Mirrors the legacy
+    # view.html [add] links (edit.html?table=<child>&<fk>=<parent>).
+    my $rel_adds = $can_edit
+        ? Netdot::Mojo::Detail::relation_adds( $obj, $c->current_person )
+        : [];
+
+    # Addable relations keep their tab visible even when empty (legacy showed
+    # the [add] link on empty sections too; without this the relation's first
+    # row could never be created from the page).
+    my %have_rel = map { $_->{csv_rel} => 1 } @$relations;
+    for my $a ( @$rel_adds ) {
+        next if $have_rel{ $a->{rel} };
+        my ( $cols, $show_label ) = Netdot::Mojo::Detail::rel_columns( $a->{related} );
+        push @$relations, {
+            title     => sprintf( '%s (0)', $a->{rel} ),
+            cols      => $show_label
+                            ? [ ucfirst( $a->{related} ), map { $_->[1] } @$cols ]
+                            : [ map { $_->[1] } @$cols ],
+            rows      => [],
+            total     => 0,
+            per       => $perpage,
+            offset    => 0,
+            start     => 0,
+            last_item => 0,
+            csv_rel   => $a->{rel},
+        };
+    }
+    @$relations = sort { $a->{csv_rel} cmp $b->{csv_rel} } @$relations;
+
+    # Relation name -> Add spec (for the form in the relation's tab).
+    my %rel_adds_by_rel = map { $_->{rel} => $_ } @$rel_adds;
+
     # DhcpScope: keep the attributes tab (and its Add form) visible even when
     # the scope has no attributes yet (empty relations are skipped otherwise);
     # legacy showed the [add] link on empty sections too.
@@ -164,6 +203,7 @@ sub show ($c) {
                 csv_rel => 'attributes',
             };
         }
+        @$relations = sort { $a->{csv_rel} cmp $b->{csv_rel} } @$relations;
     }
 
     # Title: prefer the object's own label (built from netdot.meta "label" columns
@@ -187,6 +227,7 @@ sub show ($c) {
         del_goto   => $del_goto,
         setpass_api => $setpass_api,
         attr_names  => $attr_names,
+        rel_adds    => \%rel_adds_by_rel,
     );
 }
 

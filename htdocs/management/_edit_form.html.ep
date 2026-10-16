@@ -1,5 +1,7 @@
 % # Shared in-place edit / create form for read-write detail pages (generic +
-% # dedicated) and the generic list page's "New <type>" create box. Guarded by
+% # dedicated), the generic list page's "New <type>" create box and the generic
+% # detail page's relation "Add" forms (their specs carry a kind='hidden'
+% # parent-FK field, rendered as a hidden input above the table). Guarded by
 % # can_edit + fields (stashed by the controller).
 % #   EDIT (default): hidden until the page header "Edit" toggle (wired by
 % #     netdot.js initToggle), PATCHes $api_path, then reloads.
@@ -14,6 +16,10 @@
 % my $nd_label    = $c->stash('nd_label');
 % if ( $can_edit && @$fields ) {
 %   my @fl     = @$fields;
+%   # hidden fields (relation "Add" forms: the parent FK, fixed to the page's
+%   # object) render before the table; the table shows the rest only.
+%   my @hidden = grep { $_->{kind} eq 'hidden' } @fl;
+%   my @shown  = grep { $_->{kind} ne 'hidden' } @fl;
 %   my $create = $nd_create ? 1 : 0;
 %   my $method = $nd_method || 'PATCH';
 %   my $label  = $nd_label  || 'Save';
@@ -28,11 +34,14 @@
       style="display:none"
 % }
 >
+  % for my $f (@hidden) {
+  <input type="hidden" name="<%= $f->{name} %>" value="<%= $f->{value} %>" data-nd-int>
+  % }
   <table class="datatable detail c2">
     <tbody>
-    % for ( my $i = 0; $i < @fl; $i += 2 ) {
-    %   my $end = $i + 1; $end = $#fl if $end > $#fl;
-    %   my @row = @fl[ $i .. $end ];
+    % for ( my $i = 0; $i < @shown; $i += 2 ) {
+    %   my $end = $i + 1; $end = $#shown if $end > $#shown;
+    %   my @row = @shown[ $i .. $end ];
     <tr>
       % for my $f (@row) {
       <th><%= $f->{tag} %></th>

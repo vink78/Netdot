@@ -85,7 +85,11 @@ standalone multi-worker daemon (Hypnotoad) behind a reverse proxy. (The
 original UI was built on HTML::Mason and ran inside Apache/mod_perl;
 that web layer is what 2.0 rewrote.) In addition, the application
 exposes a JSON API (<code>/api</code>) used both by the UI itself and by
-external programs.</p></li>
+external programs. Object pages allow editing in place and, when you
+have the edit right, offer an “Add” form on each related-objects section
+to create new related objects (for example, adding a VLAN to a group,
+linking a site to a subnet, or adding a person to a contact
+role).</p></li>
 <li><p>Command Line scripts (CLI)</p>
 <p>Certain tasks, like device discovery, can be executed from the
 command line. Therefore, these tasks can be automated by running them

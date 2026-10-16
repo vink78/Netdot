@@ -1013,3 +1013,52 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   liens de l'app utilisent tous la clé typoée (cohérent).
 - **Manuel** : section DHCP mise à jour (l'ajout d'attributs se fait en
   place sur la page du scope, plus de page dédiée) + pdf/html régénérés.
+
+### Vérifié le 2026-10-16 (détail générique : les liens `[add]` du legacy view.html)
+
+- **Port du `[add]` générique** (le legacy `generic/view.html` offrait un
+  `[add]` par section has_many, tous types confondus) : un seul mécanisme
+  générique dans le détail générique, comme en legacy. `Detail.pm#relation_adds`
+  (specs : classe enfant, table API, champs de création de la vue brief avec
+  la FK parent **pré-remplie en champ caché**) ; rendu par le partial
+  `_edit_form` en mode création (`POST /api/<table>`, bouton Add) — **pas de
+  nouveau JS** : `initForms` (netdot.js) auto-binde tous les `form[data-nd-api]`
+  et recharge la page après succès. `Show#show` : specs calculées si
+  `can('edit', $objet)` (mêmes gates que les boîtes « New » : classe enfant,
+  ré-enforcées à l'écriture par `Api.pm#_can_create`).
+- **Tab visible même relation vide** (comme le legacy : le `[add]` existait
+  sur les sections vides ; sans ça le 1er enfant serait incréable) : relation
+  vide synthétique (`total=0`) pour chaque relation addable. Le cas spécial
+  DhcpScope/attributes (commit `fedf26f8`) est conservé tel quel et exclu du
+  générique (180 noms d'options > SELECTMAX + FK `name` → type non enregistré
+  `DhcpAttrName` que `build_create_fields` saute).
+- **Exclusions assumées** (`%noadd`) : `Circuit`/`HorizontalCable`/
+  `BackboneCable` (⛔ câblage → Netbox), `DhcpScopeUse` (⛔ template_edit),
+  `SitePicture`/`FloorPicture` (upload binaire, pas un formulaire générique).
+- **Testé e2e** : vlan→vlangroup (1er vlan d'un groupe **vide**, 9 : formulaire
+  + POST + affichage + DELETE ; gotcha métier : le modèle recalcule le groupe
+  depuis le vid — plage du groupe 9 = 3900-3999, vid 4093 → groupe NULL),
+  entitysite + sitesubnet (select FK → valeur string → modèle OK), dhcscope
+  contained_scopes (group scope sous global 1 ; le modèle refuse un group
+  scope sous non-global : 400 avec son message, comme legacy).
+- **Permissions CLI** (10 cas, `/tmp/rel_adds_can_create.pl`) : User
+  sans grant refusé / Admin OK pour contact, sitesubnet, vlan, entitysite,
+  dhcpscope(container). UI : un User sans view droit a déjà 403 sur la page
+  (comportement existant).
+- **Matrice pages** (200 + formulaires + FK cachée) : person (roles→contact,
+  access_rights→userright), entity (11 relations, câblage exclu), room,
+  product, usertype, contacttype, producttype, vlan (interfaces+subnets),
+  site (7 tabs, pictures exclu), vlangroup (vide+peuplé), dhcscope
+  (contained_scopes + form. spécial attributes inchangé), asn, ipblockstatus,
+  stpinstance, service (tab `Ips` majuscule), availability.
+- **Régressions** : boîtes New (liste person), formulaire edit (person/114
+  PATCH), export CSV (`?csv=products`), pages dédiées (device/2, zone/2,
+  ipblock/19, ipblock/98 template ipaddress, closet/1, contactlist/1) → 200,
+  daemon sans erreur.
+- ⚠️ **Gotcha POD perl** : un `=cut` **orphan** (sans `=head2` actif)
+  **ouvre** une région POD qui avale tout le code suivant jusqu'au prochain
+  `=cut` — un sub écrit après un bloc de commentaires `# =head2…` (style
+  commentaire) a disparu au runtime alors que `perl -c` passait. Les blocs
+  POD de ce repo sont de vrais `=head2 … =cut` (sans `#`).
+- **Manuel** : note courte dans Structure → UI (édition en place + formulaires
+  « Add » par section) ; pdf/html régénérés.

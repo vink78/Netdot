@@ -14,6 +14,7 @@ use warnings;
 
 use Netdot;
 use Netdot::Mojo::Registry;
+use Netdot::Mojo::Permissions;
 
 # Attributes table: every non-sensitive column of the class's "all" view, in
 # meta order, with user-friendly tags. FK values become links when the target
@@ -376,6 +377,80 @@ sub build_create_fields {
         };
     }
     return \@fields;
+}
+
+# Generic "Add" specs for the has_many relations of the generic detail page —
+# the port of the legacy view.html [add] links (one per section:
+# edit.html?table=<child>&<fk>=<parent>): the child's create fields (brief
+# view, same shape as build_create_fields) with the parent FK pre-filled as a
+# hidden field. detail.html.ep renders each spec through the shared _edit_form
+# partial (create mode) which POSTs to /api/<table>; initForms (netdot.js)
+# handles the submit and reloads the page on success.
+=head2 relation_adds - Create-field specs for the relation "Add" forms
+
+Arguments:  object, person (the logged-in Netdot::Model::Person)
+Returns:    [ {rel, related, table, fields}, ... ] sorted by relation name:
+            one spec per relation that can be added to
+Description: Skipped: relations with more than one FK column; child classes
+            never offered as in-page adds (Circuit / HorizontalCable /
+            BackboneCable - deprecated, moved to Netbox; DhcpScopeUse - scope
+            templates, template_edit descoped; DhcpAttr - its option-name FK
+            targets the unregistered DhcpAttrName type, which
+            build_create_fields skips, and the DhcpScope attributes tab has
+            its own dedicated form; picture classes - binary uploads need a
+            file form); and classes the person may not create (class-level
+            'edit', same gate as the list "New <type>" boxes - the API
+            re-enforces it at write time via _can_create).
+
+=cut
+
+sub relation_adds {
+    my ( $obj, $person ) = @_;
+
+    my %linksfrom;
+    eval { %linksfrom = ref($obj)->meta_data->get_links_from };
+
+    # Child classes never offered as in-page adds (see the description above).
+    my %noadd = map { $_ => 1 } qw(
+        Circuit HorizontalCable BackboneCable
+        DhcpScopeUse DhcpAttr
+        SitePicture FloorPicture
+    );
+
+    my @adds;
+    for my $rel ( sort keys %linksfrom ) {
+        my $rtables = $linksfrom{$rel};
+        next unless ref $rtables eq 'HASH';
+        my ($related) = sort keys %$rtables;
+        next unless $related && length $related;
+        my $fk = $rtables->{$related};
+        next unless defined $fk && !ref $fk && length $fk;    # single FK column
+        next if $noadd{$related};
+
+        my $tclass = "Netdot::Model::$related";
+        my $ttable = eval { $tclass->table };
+        next unless $ttable;
+        next unless Netdot::Mojo::Permissions->has_action( $tclass, $person, 'edit' );
+
+        my @fields = @{ build_create_fields($tclass) };
+        # The parent FK is fixed to this object: a hidden pre-filled field.
+        # Replace the column when the brief view lists it, otherwise prepend it.
+        my $seen;
+        for my $f (@fields) {
+            if ( $f->{name} eq $fk ) {
+                $f = { name => $fk, tag => $f->{tag}, kind => 'hidden', value => $obj->id };
+                $seen = 1;
+            }
+        }
+        unshift @fields, { name => $fk, tag => ucfirst($related), kind => 'hidden',
+                           value => $obj->id }
+            unless $seen;
+        push @adds, { rel     => $rel,
+                      related => $related,
+                      table   => $ttable,
+                      fields  => \@fields };
+    }
+    return \@adds;
 }
 
 # has_many relations (like the old Mason view.html "View" section): one table
