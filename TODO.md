@@ -1077,3 +1077,32 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
   `fkSearch`), création d'un attribut via l'id d'option, suppression ;
   régression : page scope 398/1, boîtes New, pages dédiées. Coût assumé :
   nouvelle page liste `/management/dhcpattrname` (+ boîte « New »).
+- **Point 2 — les pages dédiées** (MAC / Device / Contact List) reçoivent le
+  même mécanisme générique (pas de nouveau code de formulaire, réutilisation de
+  `Detail::relation_adds` + le partial `_edit_form`, `POST /api/<table>`,
+  `initForms` sans nouveau JS) :
+  - **MAC** (`mac.html.ep`) : nouvelle section « Custom Attributes » (table
+    read-only + form. Add) — port du lien `[add]` legacy `edit.html?table=PhysAddrAttr&physaddr=<id>`.
+  - **Device** (`device.html.ep`) : form. Add sous la section « Custom
+    Attributes » (view Basics) — port de `edit.html?table=DeviceAttr&device=<id>`.
+  - **Contact List** (`contactlist.html.ep`) : form. Add dans la section
+    « Contacts » (person + contacttype + contactlist caché) — port de
+    `edit.html?table=Contact&contactlist=<id>`.
+  - **Registry** : `physaddrattrname` + `deviceattrname` **enregistrées**
+    (`%TYPES` `nav=>0` + `@ORDER`) — comme `dhcpattrname`, pour que la FK
+    `name` de l'attribut soit rendue (select / search box). Coût assumé : 2
+    pages listes + boîtes « New ».
+  - **API `_create_parent`** : gates parent ajoutés `PhysAddrAttr→(PhysAddr,
+    physaddr)` et `DeviceAttr→(Device, device)` (Contact→ContactList
+    existait) — la création exige le droit d'édition sur le parent (parité
+    legacy + DhcpAttr).
+  - **Permissions `has_action_on`** : mapping parent ajouté
+    `PhysAddrAttr→PhysAddr` et `DeviceAttr→Device` (comme
+    Contact→ContactList) — le form Add s'affiche pour qui peut éditer le
+    parent, pas seulement les Admins ; l'API ré-impose le droit par objet.
+  - **Testé** : e2e création+affichage+DELETE des 3 types (deviceattr
+    device/2, physaddrattr physaddr/11 après création d'un nom d'option,
+    contact contactlist/1) ; CLI `point2_can.pl` (Admin form+API ok / User
+    form caché + API refusé) ; mapping (edit requis, view seul refusé) ;
+    pages 200 (physaddr/11, device/2 Basics+Interfaces, contactlist/1,
+    deviceattrname, physaddrattrname) ; daemon sans erreur.

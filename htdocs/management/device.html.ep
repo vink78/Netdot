@@ -102,6 +102,19 @@
 </div>
 % }
 </div>
+% # Custom-attributes "Add" form (stashed by Device#show, built by
+% # Detail::relation_adds): the port of the legacy device.html [add] link on
+% # the Custom Attributes section (edit.html?table=DeviceAttr&device=<id>).
+% # Custom Attributes is the last Basics section, so this sits directly below it.
+% if ( $c->stash('attr_add') ) {
+<div style="margin-top:0.8em">
+  <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                            can_edit => 1, fields => $c->stash('attr_add')->{fields},
+                            api_path => $c->web_prefix . '/api/' . $c->stash('attr_add')->{table},
+                            nd_create => 1, nd_method => 'POST',
+                            nd_label  => 'Add' ) %>
+</div>
+% }
 <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
                           can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
 % }

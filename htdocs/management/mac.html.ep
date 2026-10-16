@@ -8,6 +8,8 @@
 <% my $edge_html  = $c->stash->{edge_html}; %>
 <% my $fwt_html   = $c->stash->{fwt_html}; %>
 <% my $arp_html   = $c->stash->{arp_html}; %>
+<% my $attributes = $c->stash->{attributes} // []; %>
+<% my $attr_add   = $c->stash->{attr_add}; %>
 <h1><%= $title %></h1>
 
 <h3>MAC Address</h3>
@@ -68,4 +70,29 @@
     % }
   % }
 </table>
+% }
+
+<h3>Custom Attributes</h3>
+% if (@$attributes) {
+<table class="datatable">
+  <thead><tr><th>Name</th><th>Value</th></tr></thead>
+  <tbody>
+  % for my $a (@$attributes) {
+  <tr><td><%= $a->[0] // '' %></td><td><%= $a->[1] // '' %></td></tr>
+  % }
+  </tbody>
+</table>
+% } else {
+<p>No attributes.</p>
+% }
+% # Generic "Add" form (stashed by Physaddr#show, built by Detail::relation_adds):
+% # the port of the legacy mac.html [add] link (edit.html?table=PhysAddrAttr&physaddr=<id>).
+% if ($attr_add) {
+<div style="margin-top:0.8em">
+  <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                            can_edit => 1, fields => $attr_add->{fields},
+                            api_path => $c->web_prefix . '/api/' . $attr_add->{table},
+                            nd_create => 1, nd_method => 'POST',
+                            nd_label  => 'Add' ) %>
+</div>
 % }

@@ -60,9 +60,13 @@ our %TYPES = (
     contacttype     => { class => 'ContactType',     nav => 0 },
     dhcpscopetype   => { class => 'DhcpScopeType',   nav => 0 },
     entitytype      => { class => 'EntityType',      nav => 0 },
-    # DHCP option names: link-only target of the DhcpAttr "name" FK (the scope
-    # attributes "Add" form's search box queries it); no nav entry.
-    dhcpattrname    => { class => 'DhcpAttrName',    nav => 0 },
+    # Option-name dictionaries: link-only targets of the "name" FK of the
+    # custom-attribute classes (DhcpAttr / PhysAddrAttr / DeviceAttr). Registered
+    # so the generic "Add" forms render the name field (select or search box);
+    # no nav entry (reached only from the attributes forms).
+    dhcpattrname        => { class => 'DhcpAttrName',     nav => 0 },
+    physaddrattrname    => { class => 'PhysAddrAttrName', nav => 0 },
+    deviceattrname      => { class => 'DeviceAttrName',   nav => 0 },
     # RR subclasses (related records shown on the host/RR page): reached from the
     # host page, not the top-level nav. Registered so their detail route exists.
     rrns      => { class => 'RRNS',      label => 'Name Server Record',  nav => 0 },
@@ -77,7 +81,8 @@ our @ORDER = qw(
     ipblock device asset interface vlan vlangroup zone site room floor closet person
     rr rrns rrmx rrtxt rrnaptr entity service contactlist physaddr
     product availability ipblockstatus circuit arpcache sitelink fwtable stpinstance
-    horizontalcable backbonecable ipservice dhcscope dhcpattrname producttype asn usertype
+    horizontalcable backbonecable ipservice dhcscope dhcpattrname
+    physaddrattrname deviceattrname producttype asn usertype
     contacttype dhcpscopetype entitytype
 );
 

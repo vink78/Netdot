@@ -78,6 +78,19 @@
   % } else {
   <p>No contacts.</p>
   % }
+  % # Generic "Add" form (stashed by Contactlist#show, built by
+  % # Detail::relation_adds): the port of the legacy [add] link on the Contacts
+  % # section (edit.html?table=Contact&contactlist=<id>). POST /api/contact;
+  % # the parent contactlist is a hidden pre-filled field.
+  % if ( my $ca = $c->stash('contact_add') ) {
+  <div style="margin-top:0.8em">
+    <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                              can_edit => 1, fields => $ca->{fields},
+                              api_path => $c->web_prefix . '/api/' . $ca->{table},
+                              nd_create => 1, nd_method => 'POST',
+                              nd_label  => 'Add' ) %>
+  </div>
+  % }
 </div>
 
 % for my $r (@$relations) {

@@ -203,6 +203,11 @@ sub has_action_on {
     push @types, 'Device'      if $otype eq 'Interface';
     push @types, 'Zone'       if $otype =~ /^RR/;
     push @types, 'ContactList' if $otype eq 'Contact';
+    # Custom attributes ride on their parent's rights (same gate as
+    # Api::_create_parent): a user who may edit the PhysAddr / Device may add
+    # its attributes.
+    push @types, 'PhysAddr'   if $otype eq 'PhysAddrAttr';
+    push @types, 'Device'     if $otype eq 'DeviceAttr';
 
     for my $t (@types) {
         next unless exists $access->{$t};

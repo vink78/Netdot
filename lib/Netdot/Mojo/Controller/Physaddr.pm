@@ -3,11 +3,13 @@ package Netdot::Mojo::Controller::Physaddr;
 use Mojo::Base 'Mojolicious::Controller';
 use Netdot::Model;
 use Netdot::Mojo::Registry;
+use Netdot::Mojo::Detail;
 
-# Detail page for a MAC / PhysAddr — read-only port of mac.html: the MAC
+# Detail page for a MAC / PhysAddr — port of mac.html: the MAC
 # attributes (address, vendor/OUI, static, first/last seen), the devices and
 # interfaces using the address, the edge port, the last N forwarding-table and
-# ARP entries, and the DHCP scopes.
+# ARP entries, and the DHCP scopes. The Custom Attributes section (PhysAddrAttr)
+# is a read-only table + the generic "Add" form (legacy mac.html [add] link).
 
 =encoding utf8
 
@@ -29,10 +31,12 @@ Netdot::Mojo::Controller::Physaddr - MAC / PhysAddr detail page (port of mac.htm
 
 Arguments:  Controller (param: id)
 Returns:    Renders the management/mac template
-Description: Read-only port of mac.html: the MAC attributes (address,
+Description: Port of mac.html: the MAC attributes (address,
             vendor/OUI, static, first/last seen), the devices and interfaces
             using the address, the edge port, the last N forwarding-table
             and ARP entries (grouped by timestamp) and the DHCP scopes.
+            Custom attributes (PhysAddrAttr) are shown as a table with the
+            generic "Add" form (the legacy [add] link on the section).
 
 =cut
 
@@ -139,6 +143,23 @@ sub show {
         $arp_html = '<thead><tr><th>Time Seen</th><th>IP</th><th>Interfaces</th></tr></thead><tbody>' . join('', @rows) . '</tbody>';
     }
 
+    # Custom attributes (PhysAddrAttr): [ name, value ] rows + the generic "Add"
+    # form spec (port of the legacy mac.html [add] link on the Custom Attributes
+    # section). The name FK targets PhysAddrAttrName (a Registry type, so the
+    # generic form renders it as a select / search box).
+    my @attr_rows;
+    my @attrs;
+    eval { @attrs = $o->attributes };
+    for my $a (@attrs) {
+        my ($ntext) = @{ Netdot::Mojo::Registry::link_for( eval { $a->name } ) };
+        $ntext = '' unless defined $ntext;
+        my $val  = eval { $a->value };
+        push @attr_rows, [ $ntext, $val // '' ];
+    }
+    my $attr_add =
+        ( grep { $_->{rel} eq 'attributes' }
+          @{ Netdot::Mojo::Detail::relation_adds( $o, $c->current_person ) } )[0];
+
     $c->render( template => 'management/mac', status => 200,
         layout     => 'default',
         title      => $o->format_address // "PhysAddr #$id",
@@ -151,6 +172,8 @@ sub show {
         edge_html  => $edge_html,
         fwt_html   => $fwt_html,
         arp_html   => $arp_html,
+        attributes => \@attr_rows,
+        attr_add   => $attr_add,
     );
 }
 

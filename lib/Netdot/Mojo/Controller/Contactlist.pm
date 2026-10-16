@@ -7,11 +7,11 @@ use Netdot::Model;
 use Netdot::Mojo::Registry;
 use Netdot::Mojo::Detail;
 
-# Detail page for a Contact List (port of generic/contactlist.html, read-only).
+# Detail page for a Contact List (port of generic/contactlist.html).
 # The "contacts" has_many is rendered as a dedicated section (one row per role:
 # the linked Person + contact type + notify/escalation fields), sorted by the
-# person's label. All other has_many relations are shown as generic tables.
-# Write actions ([new]/[edit]/[delete]) are omitted (edit interface not migrated).
+# person's label, with the generic "Add" form (legacy [add] link). All other
+# has_many relations are shown as generic tables.
 
 =encoding utf8
 
@@ -61,6 +61,15 @@ sub show ($c) {
     my $api_path = $can_edit ? $c->web_prefix . '/api/contactlist/' . $id : '';
     my $contacts = _contacts( $o );
 
+    # Contact "Add" form (port of the legacy contactlist.html [add] link on the
+    # Contacts section): the generic create-field spec for the `contacts`
+    # relation (Detail::relation_adds), rendered through _edit_form
+    # (POST /api/contact). Creating a Contact is gated on the parent ContactList's
+    # edit right (Api::_create_parent), like the legacy [add] link.
+    my $contact_add =
+        ( grep { $_->{rel} eq 'contacts' }
+          @{ Netdot::Mojo::Detail::relation_adds( $o, $c->current_person ) } )[0];
+
     # Generic has_many tables, minus the specially-rendered `contacts` relation.
     my $relations = Netdot::Mojo::Detail::build_relations( $o, $perpage, $offset );
     $relations = [ grep { $_->{csv_rel} ne 'contacts' } @$relations ];
@@ -76,6 +85,7 @@ sub show ($c) {
         fields    => $fields,
         api_path  => $api_path,
         contacts  => $contacts,
+        contact_add => $contact_add,
         relations => $relations,
     );
 }

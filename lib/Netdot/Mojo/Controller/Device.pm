@@ -102,6 +102,13 @@ sub show {
 
     if ($view eq 'Basics') {
         $stash{sections} = _basics($o);
+        # Custom-attributes "Add" form (port of the legacy device.html [add]
+        # link on the Custom Attributes section): the generic create-field spec
+        # for the DeviceAttr relation (Detail::relation_adds), rendered through
+        # the shared _edit_form partial (POST /api/deviceattr).
+        $stash{attr_add} =
+            ( grep { $_->{rel} eq 'attributes' }
+              @{ Netdot::Mojo::Detail::relation_adds( $o, $c->current_person ) } )[0];
         if ($can_edit) {
             $stash{fields}   = Netdot::Mojo::Detail::build_edit_fields( $o, 'Device' );
             $stash{api_path} = $c->web_prefix . '/api/device/' . $id;

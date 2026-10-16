@@ -435,6 +435,10 @@ sub _create_parent {
     # A scope's DHCP option attributes (DhcpAttr) are created via the scope's
     # edit right (the legacy scope.html [add] link checked 'edit' on the scope).
     return ( 'DhcpScope',  'scope' )        if $otype eq 'DhcpAttr';
+    # Custom attributes ride on their parent's edit right (legacy [add] links
+    # checked 'edit' on the PhysAddr / Device), like DhcpAttr above.
+    return ( 'PhysAddr',   'physaddr' )     if $otype eq 'PhysAddrAttr';
+    return ( 'Device',     'device' )       if $otype eq 'DeviceAttr';
     # A base RR owns its zone directly; record sub-types (rrtxt, rrcname, rrns,
     # ...) hang off a parent RR (fk `rr`), whose zone grants the rights.
     return ( 'Zone',        'zone' )        if $otype eq 'RR';
