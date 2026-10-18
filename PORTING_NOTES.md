@@ -958,7 +958,11 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
   Auth section (top): `AUTHORIZATION_METHOD`, `DEFAULT_REMOTE_AUTHED_USER_TYPE`, and the
   `NetdotLDAP*` block (LDAP auth, re-used via `Netdot::Mojo::AuthShim` which emulates
   `$r->dir_config`). Dead keys `DB_NETDOT_HOST` + `INVENTORY_WARNING` removed (0 code refs;
-  the code reads `DB_HOST`).
+  the code reads `DB_HOST`). New key `NetdotLDAPTimeout` (seconds, value 4): the
+  `Net::LDAP` connect/operation timeout (`_connect`, whose own default was 120) — with the
+  LDAP server unreachable and `NetdotLDAPFailToLocal=yes`, the login falls back to the
+  local DB after this delay, so a dead LDAP costs ~4 s on login instead of ~2 min
+  (worst case < 5 s).
   Remote export: single `REMOTE_PLUGIN{PLUGIN}{DIR, SERVER, RELOAD, ENABLE}` (BIND, NAMED,
   RFC952, APACHE, UNILSTAT) replaces the old scattered keys + global `REMOTE_EXEC`;
   `ENABLE` per plugin gates the `scp SERVER:DIR` + `ssh SERVER 'RELOAD'`. Export dirs

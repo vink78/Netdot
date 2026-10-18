@@ -25,6 +25,7 @@ In Apache configuration:
       PerlSetVar NetdotLDAPUserDN "uid=<username>"
       PerlSetVar NetdotLDAPSearchBase "ou=people,dc=domain,dc=local"
       PerlSetVar NetdotLDAPVersion "3"
+      PerlSetVar NetdotLDAPTimeout "4"
       PerlSetVar NetdotLDAPCACert "/usr/local/ssl/certs/cacert.pem"
       PerlSetVar NetdotLDAPFailToLocal "yes"
       PerlSetVar NetdotLDAPProxy "no"
@@ -70,6 +71,12 @@ NetdotLDAPCACert
 
 NetdotLDAPVersion
     Optional.  Defaults to "3".
+
+NetdotLDAPTimeout
+    Optional.  Timeout in seconds for connecting to the LDAP server and for
+    the LDAP operations (Net::LDAP's own default is 120).  When the server is
+    unreachable and NetdotLDAPFailToLocal is "yes", the login falls back to
+    the local (Netdot DB) credentials after this delay.  Defaults to 5.
 
 NetdotLDAPFailToLocal <yes|no>
     If LDAP authentication fails, authenticate against local (Netdot DB) credentials.
@@ -238,6 +245,13 @@ sub _connect {
 
     my $version = $r->dir_config("NetdotLDAPVersion") || 3;
     my %args = (version=>$version, verify=>'none');
+    # Timeout in seconds for the connection and the operations (Net::LDAP's
+    # default is 120): a silent LDAP server must not hold the login for
+    # minutes -- with NetdotLDAPFailToLocal the login then falls back to the
+    # local credentials after this delay. Configurable via NetdotLDAPTimeout.
+    my $timeout = $r->dir_config("NetdotLDAPTimeout");
+    $timeout = 5 unless $timeout && $timeout > 0;
+    $args{timeout} = $timeout + 0;
     my $cafile = $r->dir_config("NetdotLDAPCACert");
     if ( $cafile ){
 	$args{cafile} = $cafile;
