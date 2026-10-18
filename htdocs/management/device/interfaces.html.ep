@@ -1,0 +1,199 @@
+<%# Device Interfaces section (port of the legacy device.html "Interfaces"
+    tab): the interfaces table (VLAN filter, ?editints=1 edit mode — saving
+    goes through the JSON API, netdot.js initIntEdit), and the "Options" box
+    (Manually Add N interfaces / SNMP Updates Overwrite Descriptions).
+    Section data comes from the `sec` render_to_string argument. %>
+<% my $sec      = $sec // {}; %>
+<% my $rows      = $sec->{rows}      // []; %>
+<% my $vids      = $sec->{vids}      // []; %>
+<% my $showvlan  = $sec->{showvlan}  // 'all'; %>
+<% my $show_jack = $sec->{show_jack} // 0; %>
+<% my $show_desc = $sec->{show_desc} // 0; %>
+<% my $sort_base = $sec->{sort_base} // $base; %>
+<% my $editints  = $sec->{editints}  // 0; %>
+<% my $ifsort    = $sec->{ifsort}    // 'number'; %>
+<% my $jack_opts = $sec->{jack_opts} // []; %>
+<% my $jack_kw   = $sec->{jack_kw}   // 0; %>
+<% my $api_base  = $c->web_prefix . '/api'; %>
+<% my $edit_url  = $base . '?view=Interfaces&ifsort=' . $ifsort; %>
+<div style="margin:0.5em 0; font-size:0.9em">
+  <form method="get" action="<%= $base %>" style="display:inline">
+    <input type="hidden" name="view" value="Interfaces">
+    VLAN:
+    <select name="showvlan" onchange="this.form.submit()">
+      <option value="all"<%= $showvlan eq 'all' ? ' selected' : '' %>>all</option>
+      % for my $v (@$vids) {
+      <option value="<%= $v %>"<%= $showvlan eq $v ? ' selected' : '' %>><%= $v %></option>
+      % }
+    </select>
+  </form>
+  &nbsp;&nbsp; Legend:
+  <span style="background-color:#cccccc">manual</span>
+  <span style="background-color:#ff8e8e">removed</span>
+  % if ( $can_edit && !$editints ) {
+  &nbsp;&nbsp;<a class="btn" href="<%= $edit_url %>&amp;editints=1">Edit</a>
+  % }
+</div>
+% if ($editints) {
+% # Mason's ?editints=1: the whole table becomes editable; saving goes through
+% # the JSON API (netdot.js initIntEdit: PATCH /api/interface/<id> per dirty
+% # row, ONE DELETE /api/interface?id=… for the checked rows).
+<form class="nd-if-edit" data-nd-api-base="<%= $api_base %>">
+% }
+% my @cols;
+% if ($editints) {
+%   # Edit mode: [del] + the editable fields only, plain headers (Mason).
+%   @cols = ( [ 'del',    undef,     undef    ],
+%             [ 'number', 'Number',  undef    ],
+%             [ 'name',   'Name',    undef    ],
+%             [ 'jack',   'Jack',    undef    ],
+%             [ 'descr',  'Descr.',  undef    ],
+%             [ 'conn',   'Connected', undef  ] );
+% } else {
+%   @cols = (
+%     [ 'number', 'Number', 'number' ],
+%     [ 'name',   'Name',   'name'   ],
+%     [ 'speed',  'Speed',  'speed'  ],
+%     [ 'vlans',  'VLAN',   'vlan'   ],
+%     [ 'status', 'Status', 'oper_status' ],
+%   );
+%   push @cols, [ 'jack',  'Jack',  'jack'  ] if $show_jack;
+%   push @cols, [ 'descr', 'Descr.','descr' ] if $show_desc;
+%   push @cols, [ 'conn',  'Connected Devices', undef ];
+% }
+<table class="datatable sortable">
+  <thead>
+    <tr>
+    % for my $col (@cols) {
+      % my ($key, $label, $skey) = @$col;
+      % if ($skey) {
+      <th><a href="<%= $sort_base %>&amp;ifsort=<%= $skey %>"><%= $label %></a></th>
+      % } else {
+      <th><%= $label %></th>
+      % }
+    % }
+    </tr>
+  </thead>
+  <tbody>
+    % for my $r (@$rows) {
+    % if ($r->{style}) {
+    <tr data-nd-if="<%= $r->{id} %>" style="<%= $r->{style} %>">
+    % } else {
+    <tr data-nd-if="<%= $r->{id} %>">
+    % }
+      % if ($editints) {
+      % my $edit = $r->{edit} || {};
+      % my $jval = defined $edit->{jack} ? $edit->{jack} : '';
+      <td><input type="checkbox" class="nd-if-del"></td>
+      <td><input type="text" data-nd-f="number" data-nd-orig="<%= $edit->{number} // '' %>" value="<%= $edit->{number} // '' %>" style="width:5em"></td>
+      <td><input type="text" data-nd-f="name" data-nd-orig="<%= $edit->{name} // '' %>" value="<%= $edit->{name} // '' %>" style="width:10em"></td>
+      <td>
+        % if ($jack_kw) {
+        % # Many (or no) closet jacks: keyword search + select (nd-fk-search),
+        % # like the detail edit form's large-FK picker.
+        <span class="nd-fk-search">
+          <input type="text" class="nd-fk-kw" placeholder="Search…" data-nd-target="horizontalcable" data-nd-max="100">
+          <button type="button" class="btn nd-fk-go">List</button>
+          <select class="nd-fk-select" data-nd-f="jack" data-nd-orig="<%= $jval %>">
+            <option value="">-- Search --</option>
+            % if ( defined $edit->{jack} ) {
+            <option value="<%= $jval %>" selected><%= $edit->{jack_label} // '#' . $jval %></option>
+            % }
+            <option value="">[null]</option>
+          </select>
+        </span>
+        % } else {
+        <select data-nd-f="jack" data-nd-orig="<%= $jval %>">
+          <option value="">[null]</option>
+          % for my $jo (@$jack_opts) {
+          <option value="<%= $jo->[0] %>"<%= ( $jval ne '' && $jval eq $jo->[0] ) ? ' selected' : '' %>><%= $jo->[1] %></option>
+          % }
+        </select>
+        % }
+      </td>
+      <td><input type="text" data-nd-f="description" data-nd-orig="<%= $edit->{description} // '' %>" value="<%= $edit->{description} // '' %>"></td>
+      <td>
+        % # Connected Device picker: keyword search over all interfaces
+        % # (?kw= via the generic API) + select; saving sends `neighbor`
+        % # (id or null) through the row's PATCH (initIntEdit).
+        <span class="nd-fk-search">
+          <input type="text" class="nd-fk-kw" placeholder="Search…" data-nd-target="interface" data-nd-max="100">
+          <button type="button" class="btn nd-fk-go">List</button>
+          <select class="nd-fk-select" data-nd-f="neighbor" data-nd-orig="<%= $edit->{neighbor} // '' %>">
+            <option value="">-- Search --</option>
+            % if ( defined $edit->{neighbor} ) {
+            <option value="<%= $edit->{neighbor} %>" selected><%= $edit->{neighbor_label} // '#' . $edit->{neighbor} %></option>
+            % }
+            <option value="">[null]</option>
+          </select>
+        </span>
+      </td>
+      % } else {
+      % for my $col (@cols) {
+      % my $key  = $col->[0];
+      % my $segs = $r->{$key};
+      <td>
+        % if ( ref $segs eq 'HASH' && $segs->{select} ) {
+        <select onchange="location.href=this.value">
+        % for my $oi (0 .. ( @{ $segs->{options} } - 1 )) {
+        % my ($ot, $oh) = @{ $segs->{options}[$oi] };
+        <option value="<%= $oh %>"<%= $oi == 0 ? ' selected' : '' %>><%= $ot %></option>
+        % }
+        </select>
+        % } else {
+        % for my $i (0 .. $#$segs) {
+          % my ($t, $h) = @{ $segs->[$i] };
+          % if ($h) {
+          <a href="<%= $h %>"><%= $t %></a>
+          % } else {
+          <%= $t %>
+          % }
+          % if ($i < $#$segs) {
+          <br>
+          % }
+        % }
+        % }
+      </td>
+      % }
+      % }
+    </tr>
+    % }
+  </tbody>
+</table>
+% if ($editints) {
+  <p style="margin:0.8em 0 0">
+    <button type="button" class="btn nd-if-save">Save</button>
+    <a class="btn" href="<%= $edit_url %>">Cancel</a>
+    &nbsp;&nbsp;<span style="color:#666;font-size:0.85em">Checked rows are deleted; unchanged fields are not sent.</span>
+  </p>
+</form>
+% }
+% # Mason's Interfaces-tab "Options" box (shown when not in edit mode and the
+% # user may edit the device): "Manually Add N interfaces" (POST
+% # /api/device/<id>/add_interfaces) and "SNMP Updates Overwrite Descriptions"
+% # (POST /api/device/<id>/overwrite_if_descr; the "Yes" case confirms in JS).
+% if ( $can_edit && !$editints ) {
+<div class="container" style="margin-top:0.8em">
+  <div class="containerhead">Options</div>
+  <div class="containerbody">
+    <p>
+      <form class="nd-add-interfaces" data-nd-api-base="<%= $api_base %>" data-nd-id="<%= $id %>" style="display:inline">
+        Manually
+        <input type="submit" class="btn" value="Add">
+        <input type="number" name="num" value="1" min="1" step="1" size="3" style="width:4em"> interfaces
+      </form>
+    </p>
+    <p>
+      <form class="nd-dev-act" data-nd-action="overwrite_if_descr" data-nd-api-base="<%= $api_base %>" data-nd-id="<%= $id %>" style="display:inline">
+        SNMP Updates Overwrite Descriptions:
+        <select name="value">
+          <option value="" selected>--Select--</option>
+          <option value="0">No</option>
+          <option value="1">Yes</option>
+        </select>
+        <input type="submit" class="btn" value="Set">
+      </form>
+    </p>
+  </div>
+</div>
+% }

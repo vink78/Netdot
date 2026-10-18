@@ -1074,6 +1074,21 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
     per-connection inactivity timeout (a slow response >128 KiB was truncated at
     exactly 131072 bytes; hypnotoad has no such timeout). **TODO**: cache/async the
     large graphs (see TODO.md).
+  - Done: **All view** (2026-10-18): port of the legacy `device.html` `view=All` —
+    every section on one page (legacy if-block order: Basics, Interfaces, Modules,
+    IP, BGP, STP, Topology, ARP, FWT, Audit, Circuits, Hosted, Rights). The sections
+    were extracted into per-section partials (`management/device/*.html.ep` —
+    basics, interfaces, ip, bgp, rights, topology, generic; generic shared by
+    Hosted/Circuits/STP/Modules/Audit/ARP/FWT), each reading its own data hash (the
+    `sec` `render_to_string` argument = `$stash{sections}{$name}`, built by
+    `Device#_section_data`) instead of the shared stash keys (`rows`/`sort`/
+    `cl_opts`) that would have collided across sections; a single view renders its
+    one partial directly (no wrapper). In All, each section is wrapped in a
+    `.container` with a `containerhead` anchor (`#dev-<section>`); Topology uses
+    its default parameters (depth 1/1 — fast). ARP/FWT only when the device has
+    data (same gate as the tabs), Rights on `access_section`. Verified: the 13
+    single views render byte-identical to before the refactor (HTML diff vs HEAD;
+    only the header timestamp differs).
   - All other write/edit actions are ported (Interfaces 2026-10-13, Neighbor/IP/BGP/
     Access Rights 2026-10-14, see below).
 - Done: **Reports — 10/10** (`Controller/Reports.pm`): device, asset, ip, macs,

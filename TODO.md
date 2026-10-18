@@ -830,7 +830,7 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
    parent → OK ; sous-réseau frère hors grant → refus ; racine non liée → refus ; grant
    ancêtre seul → OK (héritage) ; aucun droit → refus ; racine avec/sans droit de classe ;
    régression zone→RR inchangée.
-6. ⬜ **Perf affichage IP (gros sous-réseaux)** — discussion 2026-10-09, **non engagé** :
+6. ⬜ **Perf affichage IP (gros sous-réseaux)** — discussion 2026-10-09, **non engagé (performance pré-existante)** :
    - **Symptôme** : affichage d'une plage d'IP lent sur de très gros sous-réseaux.
    - **Cause** (`Ipblock::search_like`, `lib/Netdot/Model/Ipblock.pm:269-302`) : sur le range
      `address>=? AND address<=?`, **par ligne** `search(address=>$x)->first` (**N+1**, le vrai
@@ -847,7 +847,9 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
      1. **Sans changer le schéma** : réécrire `search_like` en **une seule requête** (supprimer le
         N+1) + `ORDER BY address` en SQL → plus gros gain, risque faible.
      2. **Optionnel** : colonne `VARBINARY(16)`/`INET` → affichage 100 % natif (`INET6_NTOA`).
-   - **Décision (2026-10-09)** : non engagé pour l'instant.
+   - **Décision (2026-10-18)** : performance **pré-existante** — la lenteur
+     vient de `Ipblock::search_like` (code commun à la couche legacy, pas un
+     effet de bord du portage Mojolicious) — **non améliorée pour l'instant**.
 
 > ✅ **Détails spécialisés tranchés (2026-10-01)** : seuls **3** des 11 types du
 > détail générique avaient une vraie page Mason dédiée (`%VIEWPAGE` dans
@@ -1153,13 +1155,29 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
     conservée dans le form). `inactivity_timeout(900)` sur la vue contre le
     timeout d'inactivité 30 s par connexion de `mojo daemon` (réponse
     lente >128 KiB tronquée à 131072 octets ; hypnotoad n'a pas ce
-    timeout). **TODO perf (non engagé)** : graphs larges (depth ≥ 2 depuis
-    la racine NMS) — à prévoir : cache disque (PNG+cmapx keyés par les
-    paramètres, TTL court, `flock` entre workers hypnotoad) ou génération
-    asynchrone (page immédiate + auto-refresh htmx) ; le tool CLI
-    `bin/build_topo_graph.pl` (depth 99999) reste l'outil « map du
-    réseau » hors ligne.
-  - **Vues device « All »** (non portée) : nécessite d'extraire ~7 sections
-    du template en partials (elles lisent des clés de stash
-    conflictuelles `rows`/`sort`/`cl_opts`) ou de dupliquer le markup ;
-    la vue legacy = toutes les sections sur une seule page. À décider.
+    timeout). **Perf des graphs larges (pré-existante, non améliorée pour
+    l'instant)** : depth ≥ 2 depuis la racine NMS reste lent (cf. ci-dessus,
+    `dot` lui-même) — la lenteur est **pré-existante** : le legacy Mason
+    était lent de la même façon (même note « depths greater than 2 may take
+    a long time to render » dans le form legacy). Si un jour on veut
+    l'améliorer : cache disque (PNG+cmapx keyés par les paramètres, TTL
+    court, `flock` entre workers hypnotoad) ou génération asynchrone (page
+    immédiate + auto-refresh htmx) ; le tool CLI `bin/build_topo_graph.pl`
+    (depth 99999) reste l'outil « map du réseau » hors ligne.
+  - **Vue device « All »** (2026-10-18) : portée — toutes les sections
+    legacy sur une seule page (`?view=All`, ordre des blocs if du
+    `device.html` legacy : Basics, Interfaces, Modules, IP, BGP, STP,
+    Topology, ARP, FWT, Audit, Circuits, Hosted, Rights). Les sections
+    sont extraites en partials `management/device/*.html.ep` (basics,
+    interfaces, ip, bgp, rights, topology, generic — un par section,
+    generic partagé par Hosted/Circuits/STP/Modules/Audit/ARP/FWT),
+    chacune lisant sa propre data via l'argument `sec` de
+    `render_to_string` (`$stash{sections}{$name}`, construit par
+    `Device#_section_data`) au lieu des clés de stash partagées
+    `rows`/`sort`/`cl_opts` qui se seraient écrasées entre sections.
+    Topology dans All = paramètres par défaut (depth 1/1, rapide).
+    ARP/FWT incluses seulement si la device a des données (même gating
+    que les onglets), Rights selon `access_section`. Vérifié : les 13
+    vues unitaires rendent byte-identique à l'avant-refactoro (diff HTML
+    vs HEAD, seul l'horodatage du header diffère) ; `?view=All` = 13
+    sections (12 sans données ARP), non-authentifié → 302.

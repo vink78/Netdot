@@ -14,7 +14,8 @@ use Mojo::Util  qw(b64_encode);
 
 # Device detail page (port of the legacy device.html): Basics, Interfaces,
 # IP, BGP, Hosted, Circuits, STP, Topology, ARP, FWT, Modules, Audit,
-# Rights. Display/validation only: all writes go through the JSON API.
+# Rights, and the All view (every section on one page). Display/validation
+# only: all writes go through the JSON API.
 
 =encoding utf8
 
@@ -68,7 +69,7 @@ sub show {
     my $view = $c->param('view') || 'Basics';
     my %views = map { $_ => 1 }
         qw(Basics Interfaces IP BGP Hosted Circuits STP Topology ARP FWT
-           Modules Audit Rights);
+           Modules Audit Rights All);
     $view = 'Basics' unless $views{$view};
 
     my ($name, $fqdn) = ('', '');
@@ -103,8 +104,6 @@ sub show {
         fqdn     => $fqdn,
         title    => "Device $fqdn",
         can_edit => $can_edit,
-        fields   => [],
-        api_path => '',
         can_delete => $can_delete,
         del_path   => $can_delete ? $c->web_prefix . '/api/device/' . $id : '',
         del_goto   => $can_delete ? Netdot::Mojo::Registry::set_uri( '/management/device' ) : '',
@@ -112,39 +111,65 @@ sub show {
         show_rights  => $show_rights,
         has_arp      => @arp_caches ? 1 : 0,
         has_fwt      => @fwt ? 1 : 0,
-        arp_caches   => \@arp_caches,
-        fwt          => \@fwt,
     );
 
-    if ($view eq 'Basics') {
-        $stash{sections} = _basics($o);
-        # Custom-attributes "Add" form (port of the legacy device.html [add]
-        # link on the Custom Attributes section): the generic create-field spec
-        # for the DeviceAttr relation (Detail::relation_adds), rendered through
-        # the shared _edit_form partial (POST /api/deviceattr).
-        $stash{attr_add} =
-            ( grep { $_->{rel} eq 'attributes' }
-              @{ Netdot::Mojo::Detail::relation_adds( $o, $c->current_person ) } )[0];
-        if ($can_edit) {
-            $stash{fields}   = Netdot::Mojo::Detail::build_edit_fields( $o, 'Device' );
-            $stash{api_path} = $c->web_prefix . '/api/device/' . $id;
-        }
-    } elsif ($view eq 'Interfaces') {
-        my $d = _interfaces($o, $c, $id);
-        @stash{ keys %$d } = values %$d;
-    } elsif ($view eq 'ARP' || $view eq 'FWT') {
-        my $d = _cache_view( $o, $c, $view,
-                             $view eq 'ARP' ? \@arp_caches : \@fwt );
-        @stash{ keys %$d } = values %$d;
-    } elsif ($view eq 'Topology') {
-        my $d = _topology_view($o, $c, $id);
-        @stash{ keys %$d } = values %$d;
-    } else {
-        my $d = _table_view($view, $o, $c, $id);
-        @stash{ keys %$d } = values %$d;
+    # Per-section data (each section's rows/sort/… keys, computed by the
+    # section builder). A single view computes its section only; the All view
+    # (port of the legacy device.html view=All — every section on one page)
+    # computes them all. The data is namespaced under $stash{sections}{$name}
+    # so the sections' conflicting rows/sort/… keys don't collide: the section
+    # partials (management/device/*.html.ep, one per section) read their own
+    # hash via the `sec` render_to_string argument. ARP/FWT are included only
+    # when the
+    # device has data (same gate as the tabs); Rights only for users who may
+    # view the section (same gate as the tab).
+    my @names = $view eq 'All'
+        ? ( 'Basics', 'Interfaces', 'Modules', 'IP', 'BGP', 'STP', 'Topology',
+            ( $stash{has_arp} ? 'ARP' : () ),
+            ( $stash{has_fwt} ? 'FWT' : () ),
+            'Audit', 'Circuits', 'Hosted',
+            ( $show_rights ? 'Rights' : () ) )
+        : ( $view );
+    my %sections;
+    for my $name (@names) {
+        $sections{$name} =
+            _section_data( $name, $o, $c, $id, can_edit => $can_edit,
+                           arp => \@arp_caches, fwt => \@fwt );
     }
+    $stash{sections} = \%sections;
 
     $c->render( template => 'management/device', layout => 'default', %stash );
+}
+
+# Per-section data hash for the device detail page: dispatches to the section
+# builder and (for Basics) bundles the in-place edit form fields + the
+# custom-attributes "Add" form spec (Detail::relation_adds, the port of the
+# legacy device.html [add] link on the Custom Attributes section, rendered
+# through the shared _edit_form partial: POST /api/deviceattr). Returns the
+# hash the section partial reads via its `sec` argument.
+sub _section_data {
+    my ( $name, $o, $c, $id, %a ) = @_;
+    my $d;
+    if ( $name eq 'Basics' ) {
+        $d = { sections => _basics( $o ) };
+        $d->{attr_add} =
+            ( grep { $_->{rel} eq 'attributes' }
+              @{ Netdot::Mojo::Detail::relation_adds( $o, $c->current_person ) } )[0];
+        if ( $a{can_edit} ) {
+            $d->{fields}   = Netdot::Mojo::Detail::build_edit_fields( $o, 'Device' );
+            $d->{api_path} = $c->web_prefix . '/api/device/' . $id;
+        } else {
+            $d->{fields}   = [];
+            $d->{api_path} = '';
+        }
+    }
+    elsif ( $name eq 'Interfaces' ) { $d = _interfaces( $o, $c, $id ); }
+    elsif ( $name eq 'Topology'   ) { $d = _topology_view( $o, $c, $id ); }
+    elsif ( $name eq 'ARP' || $name eq 'FWT' ) {
+        $d = _cache_view( $o, $c, $name, $name eq 'ARP' ? $a{arp} : $a{fwt} );
+    }
+    else { $d = _table_view( $name, $o, $c, $id ); }
+    return $d;
 }
 
 # ---------------------------------------------------------------------------

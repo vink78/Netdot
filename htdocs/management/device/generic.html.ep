@@ -1,0 +1,84 @@
+<%# Generic device table section: Hosted, Circuits, STP, Modules, Audit, ARP
+    and FWT share this markup (the legacy device.html rendered them with the
+    same block). Section data comes from the `sec` render_to_string argument. %>
+<% my $sec          = $sec // {}; %>
+<% my $cols         = $sec->{cols}       // []; %>
+<% my $rows         = $sec->{rows}       // []; %>
+<% my $info         = $sec->{info}       // []; %>
+<% my $sort_base    = $sec->{sort_base}  // $base; %>
+<% my $sort_param   = $sec->{sort_param} // 'sort'; %>
+<% my $empty_msg    = $sec->{empty_msg}  // 'No data.'; %>
+<% my $filter_param = $sec->{filter_param}; %>
+<% my $filter_vids  = $sec->{filter_vids}  // []; %>
+<% my $filter_val   = $sec->{filter_val}   // ''; %>
+% if ($filter_param) {
+<div style="margin:0.5em 0; font-size:0.9em">
+  <form method="get" action="<%= $base %>" style="display:inline">
+    <input type="hidden" name="view" value="<%= $view %>">
+    VLAN:
+    <select name="<%= $filter_param %>" onchange="this.form.submit()">
+      <option value=""<%= $filter_val eq '' ? ' selected' : '' %>>all</option>
+      % for my $v (@$filter_vids) {
+      <option value="<%= $v %>"<%= $filter_val eq $v ? ' selected' : '' %>><%= $v %></option>
+      % }
+    </select>
+  </form>
+</div>
+% }
+
+% if (@$info) {
+<p style="font-size:0.9em">
+  % for my $i (0 .. $#$info) {
+    % my ($l, $t, $h) = @{ $info->[$i] };
+    <b><%= $l %>:</b>
+    % if ($h) {
+    <a href="<%= $h %>"><%= $t %></a>
+    % } else {
+    <%= $t // '' %>
+    % }
+    % if ($i < $#$info) {
+    &nbsp;&nbsp;&nbsp;
+    % }
+  % }
+</p>
+% }
+
+% if (!@$rows) {
+<p style="color:#666"><i><%= $empty_msg %></i></p>
+% } else {
+<table class="datatable sortable">
+  <thead>
+    <tr>
+    % for my $col (@$cols) {
+      % my ($label, $skey) = @$col;
+      % if ($skey) {
+      <th><a href="<%= $sort_base %>&amp;<%= $sort_param %>=<%= $skey %>"><%= $label %></a></th>
+      % } else {
+      <th><%= $label %></th>
+      % }
+    % }
+    </tr>
+  </thead>
+  <tbody>
+    % for my $row (@$rows) {
+    <tr>
+      % for my $cell (@$row) {
+      <td>
+        % for my $i (0 .. $#$cell) {
+          % my ($t, $h) = @{ $cell->[$i] };
+          % if ($h) {
+          <a href="<%= $h %>"><%= $t %></a>
+          % } else {
+          <%= $t // '' %>
+          % }
+          % if ($i < $#$cell) {
+          ,
+          % }
+        % }
+      </td>
+      % }
+    </tr>
+    % }
+  </tbody>
+</table>
+% }
