@@ -23,7 +23,6 @@ Arguments:
 # same idea as apt, but refers to the module name in the rpm repository.
 
 my @DEPS = (
-    {apt=>'apache2', rpm=>'httpd'},
     # --- Mojolicious web app (new web layer) ---
     {cpan=>'Mojolicious', apt=>'libmojolicious-perl', rpm=>'perl-Mojolicious'},
     {cpan=>'Crypt::URandom', apt=>'libcrypt-urandom-perl', rpm=>'perl-Crypt-URandom'},
@@ -187,16 +186,6 @@ if ( $action eq 'test' ){
 	# Try to install as little as possible
 	$program .= ' --no-install-recommends';
 
-	# libcrypt-cast5-perl is a requisite of libapache2-sitecontrol-perl
-	# but it's architecture dependent, so we had to build specific packages
-	# for these versions
-	if ( $debian_version =~ /(wheezy|squeeze)/ ){
-	    # Tell APT to pull the specific package
-	    &cmd("$program -t $1 libcrypt-cast5-perl");
-	}else{
-	    # Package will come from Unstable. Might fail.
-	    push (@DEPS, {apt=>'libcrypt-cast5-perl'});
-	}
     }
     
     if ( $action eq 'apt-install' || $action eq 'rpm-install' ){

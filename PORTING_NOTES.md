@@ -422,6 +422,19 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
    both fixes in place every post 200s.
 
 ## Mason → Mojolicious reference
+**The legacy web layer was removed (2026-10-18, port complete).** Gone from the
+tree: all Mason templates (`htdocs/**/*.mhtml`, `*.html`, `dhandler`/`autohandler`),
+the legacy REST endpoints (`htdocs/rest/`), the Apache/Mason-only modules
+(`Netdot::Mason`, `Netdot::REST`, `Netdot::Krb5`, `Netdot::Radius`,
+`Netdot::SiteControlLoginWrapper`, `Netdot::IPVisual`, `jsrsServer`), `t/REST.t`,
+`import/update_dev_rest.pl`, and `patches/` (Apache-era packaging). `htdocs/` now
+holds only the new templates (`.ep`) + static assets (css/js/img) + the
+`img/graphs/` cache (ipblock-tree / schema / topology PNGs, regenerated at
+runtime, owned by the service user). `etc/netdot_apache.conf` is **kept** — it is
+the version-agnostic reverse-proxy deployment option, not legacy mod_perl.
+**`Netdot::UI` is kept**: the new controllers still call its graph builders
+(ipblock tree, RRD, device topology) and shared helpers. Historical porting
+pointers below (the legacy files they name are in the git history):
 - Generic view of a record: `htdocs/generic/view.html?table=X&id=Y`.
 - Port a type: take the Mason page (`htdocs/management/*.mhtml`) and its
   helpers, adapt to a dedicated controller + `.ep`.

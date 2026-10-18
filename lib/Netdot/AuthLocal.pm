@@ -33,7 +33,7 @@ Apache2::SiteControl
   Returns:
     True or false
   Examples:
-    if ( Netdot::Radius::check_credentials($r, $user, $pass) {...}
+    if ( Netdot::AuthLocal::check_credentials($r, $user, $pass) {...}
 
 =cut
 
