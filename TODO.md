@@ -1135,3 +1135,31 @@ Objectif = vues lecture seule. Pages de création/édition/suppression **non por
     naturel). Testé : boutons+form rendus (le compte de test), form absent/caché
     (guest), PATCH e2e description interface + static MAC (restaurés),
     403 guest PATCH/DELETE sur les 2 types, pages 200, daemon clean.
+  - **Vues device ARP / FWT / Topology** (2026-10-16) : portées depuis
+    `device.html` legacy. ARP/FWT = onglets conditionnels (données
+    présentes), lignes Tstamp vers les pages détail génériques
+    `arpcache`/`fwtable`. Topology = port de
+    `Netdot::UI::build_device_topology_graph` dans le contrôleur (GraphViz
+    dot, couleurs par VLAN / dashed si STP blocking, cmapx cliquable, PNG
+    généré à la volée dans `File::Temp` embarqué en `data:` URI — pas de
+    fichier sur disque comme les `img/graphs/` de Mason). Racine par défaut
+    = `NMS_DEVICE` du config (= `ulsw.localdomain`, le core — device 3) comme
+    legacy. **Perf** : le DFS tournait sur des accès DB par arête
+    (retrieve Interface + search InterfaceVlan par VLAN) = plusieurs
+    minutes sur un gros réseau ; remplacé par un pré-fetch en bloc
+    (1 requête par table). Résultat : depth 1 < 1 s ; depth 2 depuis le
+    core (tout le réseau) ≈ 15 s sans vlans / ≈ 3 min avec vlans — c'est
+    `dot` lui-même (idempotent legacy, même note « depths greater than 2 »
+    conservée dans le form). `inactivity_timeout(900)` sur la vue contre le
+    timeout d'inactivité 30 s par connexion de `mojo daemon` (réponse
+    lente >128 KiB tronquée à 131072 octets ; hypnotoad n'a pas ce
+    timeout). **TODO perf (non engagé)** : graphs larges (depth ≥ 2 depuis
+    la racine NMS) — à prévoir : cache disque (PNG+cmapx keyés par les
+    paramètres, TTL court, `flock` entre workers hypnotoad) ou génération
+    asynchrone (page immédiate + auto-refresh htmx) ; le tool CLI
+    `bin/build_topo_graph.pl` (depth 99999) reste l'outil « map du
+    réseau » hors ligne.
+  - **Vues device « All »** (non portée) : nécessite d'extraire ~7 sections
+    du template en partials (elles lisent des clés de stash
+    conflictuelles `rows`/`sort`/`cl_opts`) ou de dupliquer le markup ;
+    la vue legacy = toutes les sections sur une seule page. À décider.

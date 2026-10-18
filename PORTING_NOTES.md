@@ -1052,9 +1052,30 @@ becomes a **string** → `return 0` (a silent deny). Same shape for `user_type`,
      (`my @l; eval { @l = $o->m };`).
   - **Basics edit form** now via the shared `_edit_form.html.ep` partial (scalar + FK
     fields → JSON API PATCH; fields computed only on the Basics view so the other tabs
-    stay cheap). Deferred (Device): **Topology (graph) only** — the other
-    write/edit actions are ported (Interfaces 2026-10-13, Neighbor/IP/BGP/Access
-    Rights 2026-10-14, see below).
+    stay cheap).
+  - Done: **ARP / FWT** (2026-10-16): tabs shown only when the device has data
+    (`arp_caches` / `forwarding_tables`); the Tstamp row links to the generic
+    `arpcache` / `fwtable` detail pages (legacy all-view sort: tstamp, device).
+  - Done: **Topology** (2026-10-16): port of `Netdot::UI::build_device_topology_graph`
+    into the controller (`_topology_graph` / `_topo_bulk_data` / `_topo_dfs` /
+    `_vlancolor`): GraphViz dot, per-VLAN colored edges (dashed when STP-blocking),
+    clickable cmapx map (GraphViz hard-codes the map name to `test`), PNG rendered
+    on the fly into `File::Temp` and embedded as a `data:` URI (no file on disk,
+    unlike Mason's `img/graphs/`). Root defaults to the config `NMS_DEVICE`
+    (legacy parity; empty name = the device itself). **Perf**: the traversal runs
+    on a bulk pre-fetch (one query per table — `interface` number/name/device in
+    chunked `IN()`, `interfacevlan`+`vlan` join, device→RR labels) instead of the
+    legacy per-edge DB pattern (per-edge `Interface->retrieve` + per-VLAN
+    `InterfaceVlan->search`), which took minutes on a large network. After: depth 1
+    < 1 s; depth 2 from the NMS root (core = the whole network) ≈ 15 s no vlans /
+    ≈ 3 min with vlans — that is `dot` itself, same as legacy. The form keeps the
+    legacy note ("depths greater than 2 may take a long time to render").
+    `inactivity_timeout(900)` guards the slow renders against `mojo daemon`'s 30 s
+    per-connection inactivity timeout (a slow response >128 KiB was truncated at
+    exactly 131072 bytes; hypnotoad has no such timeout). **TODO**: cache/async the
+    large graphs (see TODO.md).
+  - All other write/edit actions are ported (Interfaces 2026-10-13, Neighbor/IP/BGP/
+    Access Rights 2026-10-14, see below).
 - Done: **Reports — 10/10** (`Controller/Reports.pm`): device, asset, ip, macs,
   topology, pollstats, database, custom (hinfo/usedby), ipbat, security.
   Gated by `access_section` (Admin+Operator). Generic FK-cell linking

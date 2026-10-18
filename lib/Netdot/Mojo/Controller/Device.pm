@@ -1166,6 +1166,11 @@ sub _cache_view {
 sub _topology_view {
     my ( $o, $c, $id ) = @_;
 
+    # The graph render (dot) can take minutes on a deep/large topology; the
+    # server's default 30 s per-connection inactivity timeout would truncate
+    # such a slow, large response (first 128 KiB of socket buffer only).
+    $c->inactivity_timeout(900);
+
     # Form parameters (Mason's change_topo_view_form, same names).
     my $p_int = sub {
         my $v = $c->param( shift );
@@ -1292,20 +1297,30 @@ sub _topology_graph {
     my $igraph = Device->get_device_i_graph();
     my $spp    = Device->shortest_path_parents( $root );
 
-    my $start = Device->retrieve( $id );
-    _topo_add_node( $g, $start, $show_names, $show_vlans, { color => 'red' } );
+    # Bulk-load everything the traversal needs (one query per table) so the
+    # DFS never hits the DB per edge — on a large network that N+1 pattern
+    # (per-edge interface retrieve + per-VLAN interfacevlan search) is what
+    # made the legacy inline render take minutes.
+    my $B = _topo_bulk_data( $igraph );
+
+    # The start device's label (RR name); it is not in the bulk data when the
+    # device has no L2 link at all -> one fallback lookup.
+    my $start_label = $B->{devlabel}{ $id }
+        // eval { Device->retrieve( $id )->short_name };
+    _topo_add_node( $g, $id, $start_label, $show_names, $show_vlans,
+                    { color => 'red' } );
 
     my $vlans = {};
     my $seen  = { NODE => {}, EDGE => {} };
-    $seen->{NODE}{ $start->id } = 1;
+    $seen->{NODE}{ $id } = 1;
 
     # Mason: when one of the two depths is 0 it used the (unpassed, i.e. 0)
     # unified $depth for both -> no traversal (single-node graph). Kept as-is.
     my ( $hopup, $hopdown ) =
         ( $depth_up && $depth_down ) ? ( $depth_up, $depth_down ) : ( 0, 0 );
-    _topo_dfs( $g, $igraph, $spp, $root, $start,
+    _topo_dfs( $g, $igraph, $spp, $root, $id,
                $hopup, $hopdown, 'undef', $seen, $vlans,
-               $show_vlans, $show_names, $specific_vlan );
+               $show_vlans, $show_names, $specific_vlan, $B );
 
     # PNG: GraphViz needs a file name, so render into a temp file, read the
     # bytes back (served as a data: URI — no file left on disk).
@@ -1325,15 +1340,88 @@ sub _topology_graph {
     return ( $g, $bytes, $vlans );
 }
 
+# Bulk pre-fetch for the traversal: interface (number/name/device),
+# interface VLANs (vid/name/stp_state) and device labels (RR name) — one
+# query per table (the interfacevlan/vlan pair in a single join). Only the
+# interfaces and devices present in the L2 graph are indexed. Returns:
+#   ifaces   : iface id  => { number, name, device }
+#   ifvlans  : iface id  => { vid => { vlan, name, stp } }
+#   devlabel : device id => RR name (undef when the device has no RR — the
+#              legacy short_name() dies there; we degrade to '#<id>' instead)
+sub _topo_bulk_data {
+    my ($igraph) = @_;
+
+    my ( %iids, %devids );
+    for my $did ( keys %$igraph ) {
+        $devids{ $did } = 1;
+        for my $iid ( keys %{ $igraph->{ $did } } ) {
+            $iids{ $iid } = 1;
+            $iids{ $igraph->{ $did }{ $iid } } = 1;
+        }
+    }
+
+    my $dbh = Device->db_Main;
+    my ( %ifaces, %ifvlans, %devlabel );
+
+    # Interface number/name/device, in chunks (placeholder-bound IN lists).
+    {
+        my @ids = sort { $a <=> $b } keys %iids;
+        for ( my $i = 0; $i < @ids; $i += 1000 ) {
+            my @chunk = @ids[ $i .. ( $i + 999 <= $#ids ? $i + 999 : $#ids ) ];
+            my $sth = $dbh->prepare(
+                "SELECT id, number, name, device FROM interface WHERE id IN ("
+                . join( ',', ('?') x @chunk ) . ")" );
+            $sth->execute(@chunk);
+            while ( my ( $iid, $num, $nm, $dev ) = $sth->fetchrow_array ) {
+                $ifaces{ $iid } = { number => $num, name => $nm,
+                                    device => $dev };
+            }
+        }
+    }
+
+    # Interface VLANs: one join over the whole (small) interfacevlan table,
+    # indexed only for the interfaces in the graph.
+    {
+        my $sth = $dbh->prepare(
+            "SELECT iv.interface, v.vid, v.name, iv.stp_state, v.id
+             FROM   interfacevlan iv JOIN vlan v ON iv.vlan = v.id" );
+        $sth->execute;
+        while ( my ( $iid, $vid, $vname, $stp, $vlan_id )
+               = $sth->fetchrow_array )
+        {
+            next unless $iids{ $iid };
+            $ifvlans{ $iid }{ $vid } = { vlan => $vlan_id, name => $vname,
+                                         stp => $stp };
+        }
+    }
+
+    # Device label = RR name (device.name is the FK into rr.id).
+    {
+        my @ids = sort { $a <=> $b } keys %devids;
+        for ( my $i = 0; $i < @ids; $i += 1000 ) {
+            my @chunk = @ids[ $i .. ( $i + 999 <= $#ids ? $i + 999 : $#ids ) ];
+            my $sth = $dbh->prepare(
+                "SELECT d.id, r.name
+                 FROM   device d LEFT JOIN rr r ON d.name = r.id
+                 WHERE  d.id IN (" . join( ',', ('?') x @chunk ) . ")" );
+            $sth->execute(@chunk);
+            while ( my ( $did, $rname ) = $sth->fetchrow_array ) {
+                $devlabel{ $did } = $rname;
+            }
+        }
+    }
+
+    return { ifaces => \%ifaces, ifvlans => \%ifvlans, devlabel => \%devlabel };
+}
+
 # One node = one device (label = short name, click -> device page keeping
 # the Topology parameters, the starting device in red).
 sub _topo_add_node {
-    my ( $g, $device, $show_names, $show_vlans, $nodeoptions ) = @_;
+    my ( $g, $did, $label, $show_names, $show_vlans, $nodeoptions ) = @_;
     $nodeoptions ||= {};
-    my $did = eval { $device->id };
     $g->add_node(
         $did,
-        label => ( eval { $device->short_name } || '#' . $did ),
+        label => ( $label || '#' . $did ),
         shape => 'record',
         URL   => Netdot::Mojo::Registry::set_uri(
             '/management/device/' . $did
@@ -1358,40 +1446,41 @@ sub _vlancolor {
 # Depth-first traversal (port of Mason's _dfs): one edge per L2 link,
 # colored per VLAN (dashed when STP-blocking), directed toward the root
 # when the neighbour is closer to it (shortest_path_parents).
+# Runs entirely on the bulk data ($B) — no DB access per edge.
 sub _topo_dfs {
-    my ( $g, $igraph, $spp, $root, $device, $hopup, $hopdown, $prev_dir,
-         $seen, $vlans, $show_vlans, $show_names, $specific_vlan ) = @_;
+    my ( $g, $igraph, $spp, $root, $device_id, $hopup, $hopdown, $prev_dir,
+         $seen, $vlans, $show_vlans, $show_names, $specific_vlan, $B ) = @_;
     return if ( $hopup == 0 && $prev_dir eq 'up' );
     return if ( $hopdown == 0 && $prev_dir eq 'down' );
     return unless ( $hopup || $hopdown );
 
-    my $adj = $igraph->{ $device->id };
+    my $adj = $igraph->{ $device_id };
     return unless $adj && %$adj;
+
+    my ( $if, $ifv, $dl ) = ( $B->{ifaces}, $B->{ifvlans}, $B->{devlabel} );
 
     my $dir;
     for my $iid ( sort { $a <=> $b } keys %$adj ) {
-        my $niid     = $adj->{$iid};
-        my $iface    = eval { Netdot::Model::Interface->retrieve( $iid ) };
-        my $neighbor = eval { Netdot::Model::Interface->retrieve( $niid ) };
-        next unless $iface && $neighbor;
+        my $niid = $adj->{$iid};
+        my $mi   = $if->{ $iid };
+        my $ni   = $if->{ $niid };
+        next unless $mi && $ni;
 
         my $name          =
-            ( $show_names ? ( eval { $iface->name } ) : ( eval { $iface->number } ) )
-            || eval { $iface->number };
+            ( $show_names ? $mi->{name} : $mi->{number} ) || $mi->{number};
         my $neighbor_name =
-            ( $show_names ? ( eval { $neighbor->name } ) : ( eval { $neighbor->number } ) )
-            || eval { $neighbor->number };
+            ( $show_names ? $ni->{name} : $ni->{number} ) || $ni->{number};
 
-        my $nd = eval { $neighbor->device };
-        next unless $nd;
+        my $nd = $ni->{device};
+        next unless defined $nd;
         my ( $from, $to, $head, $tail, $constraint ) = ( 'from', 'to', 'head', 'tail', 1 );
 
-        if ( exists( $spp->{ $device->id }->{ $nd->id } ) ) {
+        if ( exists( $spp->{ $device_id }{ $nd } ) ) {
             # Neighbour is closer to root
             $dir = 'up';
             ( $from, $to, $head, $tail ) = ( 'to', 'from', 'tail', 'head' );
         }
-        elsif ( exists( $spp->{ $nd->id }->{ $device->id } ) ) {
+        elsif ( exists( $spp->{ $nd }{ $device_id } ) ) {
             # The opposite
             $dir = 'down';
         }
@@ -1402,61 +1491,53 @@ sub _topo_dfs {
         my $add_node = 0;
 
         # If we haven't seen this edge before, add it to the graph
-        next if exists $seen->{EDGE}{ $neighbor->id . ' ' . $iface->id };
-        $seen->{EDGE}{ $neighbor->id . ' ' . $iface->id } = 1;
-        $seen->{EDGE}{ $iface->id . ' ' . $neighbor->id } = 1;
+        next if exists $seen->{EDGE}{ $niid . ' ' . $iid };
+        $seen->{EDGE}{ $niid . ' ' . $iid } = 1;
+        $seen->{EDGE}{ $iid . ' ' . $niid } = 1;
 
-        my $cont = 0;
-        my @ifvlans;
-        eval { @ifvlans = $iface->vlans };
-        if ( $show_vlans && @ifvlans ) {
-            for my $vlan (@ifvlans) {
-                my $vid = eval { $vlan->vlan->vid };
-                next unless defined $vid;
-                next
-                    if ( defined $specific_vlan
-                         && $specific_vlan != $vid );
-                my $vlan_id = eval { $vlan->vlan->id };
-                my $neighbor_vlan =
-                    eval { Netdot::Model::InterfaceVlan->search(
-                              interface => $neighbor->id,
-                              vlan      => $vlan_id,
-                          )->first };
-                next
-                    if ( defined $specific_vlan && $specific_vlan != 0
-                         && ( ( $neighbor_vlan
-                                 && eval { $neighbor_vlan->vlan->vid } != $specific_vlan )
-                              || !defined $neighbor_vlan ) );
+        my $cont    = 0;
+        my $myvlans = $ifv->{ $iid };
+        my $nvlans  = $ifv->{ $niid };
+        if ( $show_vlans && $myvlans && %$myvlans ) {
+            for my $vid ( sort { $a <=> $b } keys %$myvlans ) {
+                next if ( defined $specific_vlan && $specific_vlan != $vid );
+                my $mv = $myvlans->{ $vid };
+                my $nv = $nvlans ? $nvlans->{ $vid } : undef;
+                # Legacy searched the neighbour's row for the SAME vlan
+                # object; a hit therefore always carries the same vid, so
+                # "does the neighbour carry this vid?" is the equivalent
+                # membership test.
+                next if ( defined $specific_vlan && $specific_vlan != 0
+                           && !$nv );
+
+                my $vname = $mv->{name} || $vid;
+                if ( !exists $vlans->{ $vname } ) {
+                    $vlans->{ $vname } =
+                        { color => _vlancolor( $vid ),
+                          vlan  => $mv->{vlan} };
+                }
+                my $color = $vlans->{ $vname }{color};
 
                 my $style = 'solid';
-                my $vname = eval { $vlan->vlan->name } || $vid;
-                if ( !exists $vlans->{$vname} ) {
-                    $vlans->{$vname} =
-                        { color => _vlancolor( $vid ),
-                          vlan  => eval { $vlan->vlan->id } };
-                }
-                my $color = $vlans->{$vname}{color};
-
-                if ( eval { $vlan->stp_state } eq 'blocking'
-                     || ( $neighbor_vlan
-                          && eval { $neighbor_vlan->stp_state } eq 'blocking' ) )
+                if ( ( $mv->{stp} // '' ) eq 'blocking'
+                     || ( $nv && ( $nv->{stp} // '' ) eq 'blocking' ) )
                 {
                     $style = 'dashed';
                 }
 
                 $g->add_edge(
-                    $from          => $device->id,
-                    $to            => $nd->id,
+                    $from          => $device_id,
+                    $to            => $nd,
                     constraint     => $constraint,
                     "${tail}URL"   =>
                         Netdot::Mojo::Registry::set_uri(
-                            '/management/interface/' . $iface->id ),
+                            '/management/interface/' . $iid ),
                     "${tail}label" =>
                         ( defined $specific_vlan && $specific_vlan != 0 )
                         ? $name : $vname,
                     "${head}URL"   =>
                         Netdot::Mojo::Registry::set_uri(
-                            '/management/interface/' . $neighbor->id ),
+                            '/management/interface/' . $niid ),
                     "${head}label" => $neighbor_name,
                     color         => $color,
                     style         => $style,
@@ -1468,16 +1549,16 @@ sub _topo_dfs {
         else {
             if ( !defined $specific_vlan || $specific_vlan == 0 ) {
                 $g->add_edge(
-                    $from          => $device->id,
-                    $to            => $nd->id,
+                    $from          => $device_id,
+                    $to            => $nd,
                     constraint     => $constraint,
                     "${tail}URL"   =>
                         Netdot::Mojo::Registry::set_uri(
-                            '/management/interface/' . $iface->id ),
+                            '/management/interface/' . $iid ),
                     "${tail}label" => $name,
                     "${head}URL"   =>
                         Netdot::Mojo::Registry::set_uri(
-                            '/management/interface/' . $neighbor->id ),
+                            '/management/interface/' . $niid ),
                     "${head}label" => $neighbor_name,
                     color         => 'black',
                 );
@@ -1487,13 +1568,13 @@ sub _topo_dfs {
         }
 
         # Also make sure we haven't seen this node before
-        if ( $add_node == 1 && !exists $seen->{NODE}{ $nd->id } ) {
-            _topo_add_node( $g, $nd, $show_names, $show_vlans );
-            $seen->{NODE}{ $nd->id } = 1;
+        if ( $add_node == 1 && !exists $seen->{NODE}{ $nd } ) {
+            _topo_add_node( $g, $nd, $dl->{ $nd }, $show_names, $show_vlans );
+            $seen->{NODE}{ $nd } = 1;
         }
 
         # If we're at our root, we're done...
-        if ( $root == $nd->id ) {
+        if ( $root == $nd ) {
             $cont = 0;
         }
 
@@ -1502,17 +1583,17 @@ sub _topo_dfs {
             if ( $dir eq 'up' ) {
                 _topo_dfs( $g, $igraph, $spp, $root, $nd,
                            $hopup - 1, $hopdown, $dir, $seen, $vlans,
-                           $show_vlans, $show_names, $specific_vlan );
+                           $show_vlans, $show_names, $specific_vlan, $B );
             }
             elsif ( $dir eq 'down' ) {
                 _topo_dfs( $g, $igraph, $spp, $root, $nd,
                            $hopup, $hopdown - 1, $dir, $seen, $vlans,
-                           $show_vlans, $show_names, $specific_vlan );
+                           $show_vlans, $show_names, $specific_vlan, $B );
             }
             else {
                 _topo_dfs( $g, $igraph, $spp, $root, $nd,
                            $hopup - 1, $hopdown - 1, $dir, $seen, $vlans,
-                           $show_vlans, $show_names, $specific_vlan );
+                           $show_vlans, $show_names, $specific_vlan, $B );
             }
         }
     }
