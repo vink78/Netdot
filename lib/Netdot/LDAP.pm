@@ -9,7 +9,7 @@ use Netdot::Model;
 
 =head1 NAME
 
-Netdot::LDAP - LDAP authentication module for Netdot via Apache2::SiteControl
+Netdot::LDAP - LDAP authentication module for Netdot
 
 =head1 SYNOPSIS
 
@@ -489,7 +489,7 @@ sub _upsert_person_from_ldap {
 
 =head1 SEE ALSO
 
-Apache2::SiteControl
+Netdot::AuthLocal
 
 =head1 AUTHORS
 

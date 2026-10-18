@@ -446,12 +446,17 @@ pointers below (the legacy files they name are in the git history):
 - **Tabbed detail pages (`.tabcard`)** flatten inner `.container`s (`.tabcard .container`
   — no card-in-card); a section opts back into the boxed look with `.container.boxed`
   (Device Basics: General / Location / Management).
-- **Permission / rights-inheritance (original, still in the tree)**: the logic lives in
-  `lib/Netdot/ObjectAccessRule.pm` (`denies()` — per-object rule + inheritance), composed by
-  `lib/Netdot/NetdotPermissionFactory.pm` (`GrantAllRule` default-allow + `SectionAccessRule`
-  + `ObjectAccessRule`), with base rights from `lib/Netdot/Model/Person.pm`
-  `get_allowed_objects` (tables `accessright`/`groupright`/`userright` via contact lists).
-  `lib/Netdot/Mojo/Permissions.pm` is a direct port of this.
+- **Permission / rights-inheritance**: the original rule-based manager
+  (`Netdot::NetdotPermissionFactory` + `SectionAccessRule` + `ObjectAccessRule`,
+  Apache2::SiteControl-based) was removed with the legacy layer — `lib/Netdot/Mojo/Permissions.pm`
+  is a standalone port (GrantAll default-allow + section rule + per-object rule), with base
+  rights from `lib/Netdot/Model/Person.pm` `get_allowed_objects` (tables
+  `accessright`/`groupright`/`userright` via contact lists). `Netdot::UI` kept only its
+  graph builders / shared helpers: its legacy `use` of `Apache::Session` /
+  `Apache2::SiteControl` and the dead session/user subs were removed, so the app no
+  longer needs those CPAN modules installed (verified via `%INC`). `Netdot::UI::form_to_db`
+  (legacy form processor) and its helpers went too — the new app writes via the JSON API;
+  `t/UI.t` now builds its test object through the model.
 
 ## Key files
 - `lib/Netdot/Mojo/Controller/Ipblock.pm` — block detail (show + helpers

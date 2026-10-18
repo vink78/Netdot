@@ -6,21 +6,15 @@ use Netdot::Model;
 
 =head1 NAME
 
-Netdot::AuthLocal - Local authentication module for Netdot via Apache2::SiteControl
+Netdot::AuthLocal - Local (database) authentication module for Netdot
 
 =head1 SYNOPSIS
 
-In Apache configuration:
-    
-=over 4
-
-   PerlSetVar SiteControlMethod Netdot::AuthLocal
-    
-=back
+    if ( Netdot::AuthLocal::check_credentials($r, $user, $pass) { ... }
 
 =head1 SEE ALSO
 
-Apache2::SiteControl
+Netdot::LDAP
 
 =cut
 
