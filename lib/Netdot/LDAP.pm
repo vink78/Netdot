@@ -13,39 +13,39 @@ Netdot::LDAP - LDAP authentication module for Netdot
 
 =head1 SYNOPSIS
 
-In Apache configuration:
-    
+In etc/Site.conf:
+
 =over 4
 
-   PerlSetVar SiteControlMethod Netdot::LDAP
+    NetdotLDAPServer      => 'ldaps://server.local.domain:636',
+    NetdotLDAPServer2     => 'ldaps://server2.local.domain:636',    # optional
+    NetdotLDAPUserDN      => 'uid=<username>',
+    NetdotLDAPSearchBase  => 'ou=people,dc=domain,dc=local',        # optional
+    NetdotLDAPVersion     => 3,
+    NetdotLDAPTimeout     => 4,
+    NetdotLDAPCACert      => '/usr/local/ssl/certs/cacert.pem',     # optional
+    NetdotLDAPFailToLocal => 'yes',
+    NetdotLDAPProxy       => 'no',
+    # Change these to the DN and password of an LDAP user Netdot can use for its search:
+    NetdotLDAPProxyUser   => 'cn=ProxyNetdot,ou=infr,ou=domain,o=local',
+    NetdotLDAPProxyPass   => 'ProxyNetdot_password',
 
-   <Location /netdot/NetdotLogin>
-      PerlSetVar NetdotLDAPServer  "ldaps://server.local.domain:636"
-      PerlSetVar NetdotLDAPServer2 "ldaps://server2.local.domain:636"
-      PerlSetVar NetdotLDAPUserDN "uid=<username>"
-      PerlSetVar NetdotLDAPSearchBase "ou=people,dc=domain,dc=local"
-      PerlSetVar NetdotLDAPVersion "3"
-      PerlSetVar NetdotLDAPTimeout "4"
-      PerlSetVar NetdotLDAPCACert "/usr/local/ssl/certs/cacert.pem"
-      PerlSetVar NetdotLDAPFailToLocal "yes"
-      PerlSetVar NetdotLDAPProxy "no"
-      PerlSetVar NetdotLDAPProxySearchBaseDN "o=local"
-      #Change this to the full path dn and password of the ldap user netdot can use for its search
-      PerlSetVar NetdotLDAPProxyUser "cn=ProxyNetdot,ou=infr,ou=domain,o=local"
-      PerlSetVar NetdotLDAPProxyPass "ProxyNetdot_password"
-   </Location>
-    
 =back
+
+Called by the web login with a request shim (see Netdot::Mojo::AuthShim):
+
+    my $shim = Netdot::Mojo::AuthShim->new( app => $c->app );
+    Netdot::LDAP::check_credentials( $shim, $user, $pass );
 
 =head1 DESCRIPTION
 
 
-Netdot::LDAP uses Net::LDAPS to do the actual authentication of login attempts 
-for the SiteControl system.  It performs user authentication against an LDAP 
-server over TLS by attempting to bind directly with the username and password 
-as entered by the Netdot user.
+Netdot::LDAP uses Net::LDAP to do the actual authentication of login
+attempts for the Netdot web app.  It performs user authentication against
+an LDAP server over TLS by attempting to bind directly with the username
+and password as entered by the Netdot user.
     
-The following variables can be set in httpd.conf:
+The following variables can be set in etc/Site.conf:
 
 NetdotLDAPServer
     e.g. ldaps://server.local.domain:[port]
@@ -103,13 +103,15 @@ NetdotLDAPProxyPass
 =head2 check_credentials
     
   Arguments:
-    Apache Request Object
+    Request object (an object providing dir_config / log_error / warn;
+    Netdot::Mojo::AuthShim in the web app)
     Username
     Password
   Returns:
     True or false
   Examples:
-    if ( Netdot::LDAP::check_credentials($r, $user, $pass) {...}
+    my $shim = Netdot::Mojo::AuthShim->new( app => $c->app );
+    if ( Netdot::LDAP::check_credentials( $shim, $user, $pass ) ) {...}
 
 =cut
 

@@ -92,7 +92,7 @@ sub new {
     - linkPage:       Make this text a link
     - returnValOnly:  Return only the form field and no label as a string
     - shortFieldName: Whether to set the input tag name as the column name or
-                      the format used by form_to_db()
+                      the disambiguated table__id__column form (several objects per form)
     - adv_search:     uses radio button groups for true/false/unset instead of
                       checkboxes which only have true/false
     - no_help         Do not show [?] help link
@@ -298,7 +298,7 @@ sub help_link {
                      the user the option of refining their results. Defaults to
                      DEFAULT_SELECTMAX in configuration files.
    - shortFieldName: Whether to set the input tag name as the column name or
-                     the format used by form_to_db()
+                     the disambiguated table__id__column form (several objects per form)
   Returns:
     If returnAsVar, returns variable containing HTML code.  Otherwise, prints HTML code to STDOUT
     or False if failure
@@ -514,7 +514,7 @@ sub select_multiple {
 	$self->throw_fatal("Must provide join table name");
     }
  
-    # See UI::form_to_db()
+    # Disambiguated form field name (table__id__column style)
     my $select_name;
     if ( $action eq "delete" ){
 	$select_name  =  $join_table . "__LIST__DELETE";
@@ -569,7 +569,7 @@ sub select_multiple {
    - edit:           True if editing, false otherwise.
    - returnAsVar:    Whether to return output as a variable or STDOUT
    - shortFieldName: Whether to set the input tag name as the column name or
-                     the format used by form_to_db()
+                     the disambiguated table__id__column form (several objects per form)
    - adv_search:     If this is 1 then we provide a third, default radio button
                      with value unset
   Returns:
@@ -630,7 +630,7 @@ sub radio_group_boolean{
    - edit:           True if editing, false otherwise.
    - returnAsVar:    Whether to return output as a variable or STDOUT
    - shortFieldName: Whether to set the input tag name as the column name or
-                     the format used by form_to_db()
+                     the disambiguated table__id__column form (several objects per form)
 
   Examples:
     
@@ -692,7 +692,7 @@ the value from the DB (if any).
                      (requires that column value be defined)
    - returnAsVar:    default false, true if the sub should return the string instead of outputting
    - shortFieldName: Whether to set the input tag name as the column name or
-                     the format used by form_to_db()
+                     the disambiguated table__id__column form (several objects per form)
   Returns:
     If returnAsVar, returns variable containing HTML code.  Otherwise, prints HTML code to STDOUT
     or False if failure    
@@ -800,7 +800,7 @@ sub text_field($@){
                      (requires that column value be defined)
    - returnAsVar:    default false, true if the sub should return the string instead of outputting
    - shortFieldName: Whether to set the input tag name as the column name or
-                     the format used by form_to_db()
+                     the disambiguated table__id__column form (several objects per form)
   Returns:
     If returnAsVar, returns variable containing HTML code.  Otherwise, prints HTML code to STDOUT
     or False if failure    
@@ -861,7 +861,7 @@ sub date_field($@){
                        would be to include style="width: 150px;" and the like.
     - returnAsVar:     Default false, true if the sub should return the string instead of outputting
     - shortFieldName:  Whether to set the input tag name as the column name or
-                       the format used by form_to_db()
+                       the disambiguated table__id__column form (several objects per form)
   Returns:
     If returnAsVar, returns variable containing HTML code.  Otherwise, prints HTML code to STDOUT
     or False if failure    

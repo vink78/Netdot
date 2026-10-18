@@ -202,7 +202,8 @@ sub build_spec {
                 'JSON API for Netdot (port of the legacy `/rest` interface).',
                 'Every Netdot table is exposed as a resource:',
                 '',
-                '  GET    /api/{table}            list all, or search (?column=value)',
+                '  GET    /api/{table}            list all, or search (?column=value,',
+                '                                        or fuzzy name search ?search=term)',
                 '  GET    /api/{table}/{id}       single object (depth, linked_from options)',
                 '  GET    /api/{table}/meta_data  class metadata',
                 '  POST   /api/{table}            create (body: field values, FK fields as id)',
@@ -364,6 +365,17 @@ sub _list_search_params {
         schema      => { type => 'string' },
         description => 'Any non-FK column can also be used as a ?column=value filter (e.g. ?name=foo&site=2).',
     };
+    # Fuzzy name search (tables with a name column): the model's search_like.
+    if ( eval { $t->get_column('name') } ) {
+        push @params, {
+            name        => 'search',
+            in          => 'query',
+            required    => 0,
+            schema      => { type => 'string' },
+            description => 'Fuzzy search on the name column (wildcard semantics; for rr a full FQDN is accepted, '
+                         . 'e.g. ?search=www.localdomain). An optional &zone=<id> narrows it to one zone.',
+        };
+    }
     # Pagination.
     push @params, {
         name        => 'limit',

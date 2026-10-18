@@ -18,7 +18,8 @@ use Netdot::Util::Log;
 # JSON only. OpenAPI spec at /api/openapi.yaml, Swagger UI at /api/docs.
 #
 # Resources:
-#   GET    /api/{table}            list all (or search with ?col=val)
+#   GET    /api/{table}            list all (or search with ?col=val, or a
+#                                  fuzzy name search with ?search=term)
 #   GET    /api/{table}/{id}       single object (depth, linked_from options)
 #   GET    /api/{table}/meta_data  class metadata
 #   POST   /api/{table}            create        (body: {col:val, fk: <id>})
@@ -382,6 +383,50 @@ sub generic {
             $limit  = 50   if $limit  < 1;
             $limit  = 1000 if $limit  > 1000;
             $offset = 0    if $offset < 0;
+
+            # Fuzzy name search (?search=<term>): the model's search_like
+            # (wildcard semantics). For RR it understands full FQDN names, the
+            # same as the management search page /management/rr/search; an
+            # optional &zone=<id> narrows a name search to one zone. The
+            # matches are filtered by view rights in memory (search_like takes
+            # no permission predicate, unlike search_page's where=).
+            if ( defined $args->{search} && length $args->{search} ) {
+                my %fsargs = ( name => $args->{search} );
+                $fsargs{zone} = $args->{zone}
+                    if defined $args->{zone} && $args->{zone} =~ /^\d+$/;
+                my @objs = eval { $class->search_like( %fsargs ) };
+                _err( 400, "Search failed: $@" ) if $@;
+                if ( Netdot::Mojo::Permissions->user_type( $p ) eq 'User' ) {
+                    my $access = Netdot::Mojo::Permissions->allowed_objects( $class, $p );
+                    @objs = grep { Netdot::Mojo::Permissions->can( $class, $p, 'view', $_, $access ) } @objs;
+                }
+                my $count = scalar @objs;
+                my @page   = ();
+                if ( $offset < $count ) {
+                    my $last = $offset + $limit;
+                    $last = $count if $last > $count;
+                    @page = @objs[ $offset .. $last - 1 ];
+                }
+                my @results;
+                for my $o (@page) {
+                    # Safety net: skip anything the filter above let through
+                    # that the fine-grained rule does not actually allow viewing.
+                    next unless Netdot::Mojo::Permissions->can( $p, 'view', $o );
+                    push @results, Netdot::Mojo::Api::get( $o, $p, undef, obj => $o, depth => $depth );
+                }
+                my $next = ( $offset + $limit < $count )
+                    ? _page_url( $class, \%fsargs, $limit, $offset + $limit )
+                    : undef;
+                my $prev = $offset > 0
+                    ? _page_url( $class, \%fsargs, $limit, $offset - $limit )
+                    : undef;
+                return $c->render( json => {
+                    count    => $count,
+                    next     => $next,
+                    previous => $prev,
+                    results  => \@results,
+                }, status => 200 );
+            }
 
             my $sargs = _search_args( $args );
             # Permission filter at the query level (fast count + paging): a User

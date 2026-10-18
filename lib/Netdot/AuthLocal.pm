@@ -21,13 +21,15 @@ Netdot::LDAP
 =head2 check_credentials
 
   Arguments:
-    Apache Request Object
+    Request object (an object providing dir_config / log_error / warn;
+    Netdot::Mojo::AuthShim in the web app)
     Username
     Password
   Returns:
     True or false
   Examples:
-    if ( Netdot::AuthLocal::check_credentials($r, $user, $pass) {...}
+    my $shim = Netdot::Mojo::AuthShim->new( app => $c->app );
+    if ( Netdot::AuthLocal::check_credentials( $shim, $user, $pass ) ) {...}
 
 =cut
 

@@ -3889,7 +3889,8 @@ info:
     JSON API for Netdot (port of the legacy `/rest` interface).
     Every Netdot table is exposed as a resource:
 
-      GET    /api/{table}            list all, or search (?column=value)
+      GET    /api/{table}            list all, or search (?column=value,
+                                            or fuzzy name search ?search=term)
       GET    /api/{table}/{id}       single object (depth, linked_from options)
       GET    /api/{table}/meta_data  class metadata
       POST   /api/{table}            create (body: field values, FK fields as id)
@@ -5526,6 +5527,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -5781,6 +5790,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -6305,6 +6322,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -6559,6 +6584,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -7076,6 +7109,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -7331,6 +7372,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -7594,6 +7643,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -8375,6 +8432,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -8629,6 +8694,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -8889,6 +8962,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -9143,6 +9224,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -9533,6 +9622,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -9787,6 +9884,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -10318,6 +10423,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -10609,6 +10722,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -10863,6 +10984,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -11124,6 +11253,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -11378,6 +11515,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -11900,6 +12045,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -12686,6 +12839,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -12940,6 +13101,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -15254,6 +15423,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -16084,6 +16261,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -16338,6 +16523,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -16596,6 +16789,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -17381,6 +17582,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -18436,6 +18645,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -18691,6 +18908,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -18959,6 +19184,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -19213,6 +19446,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -19507,6 +19748,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -19766,6 +20015,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -20300,6 +20557,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -20554,6 +20819,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -23471,6 +23744,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -23986,6 +24267,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -24249,6 +24538,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -24502,6 +24799,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -25808,6 +26113,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -26592,6 +26905,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -26849,6 +27170,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -27102,6 +27431,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string
@@ -27362,6 +27699,14 @@ paths:
         required: 0
         schema:
           type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
+        required: 0
+        schema:
+          type: string
       - description: Maximum results per page (default 50, max 1000).
         in: query
         name: limit
@@ -27615,6 +27960,14 @@ paths:
           (e.g. ?name=foo&site=2).
         in: query
         name: column
+        required: 0
+        schema:
+          type: string
+      - description: Fuzzy search on the name column (wildcard semantics; for rr a
+          full FQDN is accepted, e.g. ?search=www.localdomain). An optional &zone=<id>
+          narrows it to one zone.
+        in: query
+        name: search
         required: 0
         schema:
           type: string

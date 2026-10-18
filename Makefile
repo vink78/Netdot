@@ -55,8 +55,8 @@ XMOD ?= 0744
 # which makes them available in children makefiles
 export
 
-# If mason ever decides to use different directories in its data_dir there will
-# be trouble.
+# Fixed list of the installed directories (the app expects them at runtime,
+# e.g. tmp/ for sessions, var/ for exports).
 DIR = bin doc htdocs tmp lib etc var import export
 
 .PHONY: bin doc htdocs lib etc var upgrade
