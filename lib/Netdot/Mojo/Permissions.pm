@@ -1,18 +1,19 @@
 package Netdot::Mojo::Permissions;
 
-# Permission layer for the Mojolicious app.
+# Permission layer for the Mojolicious app — standalone port of the legacy
+# mod_perl rule-based permission manager (the original Apache-based modules
+# are no longer in the tree; see PORTING_NOTES).
 #
-# Port of the Apache/mod_perl rule-based manager (Netdot::NetdotPermissionFactory
-# + Apache2::SiteControl::PermissionManager), which combined three rules:
-#   GrantAllRule        -> grants everything (default allow)
-#   SectionAccessRule   -> denies UI sections for non-Admin / non-Operator
-#   ObjectAccessRule    -> denies object access based on user type + allowed objects
+# can($person, $action, $resource) applies the checks in order (first denial
+# wins):
+#   section check    -> denies UI sections for non-Admin / non-Operator
+#   per-object check -> denies object access based on user type + allowed
+#                       objects (conservative: on error, deny)
+#   default          -> allow
 #
-# The original per-request "user" was an Apache2::SiteControl::User wrapper that
-# carried two attributes (USER_TYPE, ALLOWED_OBJECTS) plus a username.  Here the
-# equivalent is a Netdot::Model::Person object:
-#   USER_TYPE        -> Person->user_type->name
-#   ALLOWED_OBJECTS  -> Person->get_allowed_objects()
+# The per-request "user" is a Netdot::Model::Person object:
+#   user type        -> Person->user_type->name
+#   allowed objects  -> Person->get_allowed_objects()
 #
 # can($person, $action, $resource) returns 1 if allowed, 0 otherwise.
 #   $person   : Netdot::Model::Person (undef -> deny everything)
@@ -41,13 +42,12 @@ sub _log () {
 
 Netdot::Mojo::Permissions - Permission layer for the Mojolicious app
 
-    Port of the Apache/mod_perl rule-based manager
-    (Netdot::NetdotPermissionFactory + Apache2::SiteControl::PermissionManager),
-    combining the SectionAccessRule, the ObjectAccessRule and the GrantAllRule
-    default (see the header comment at the top of the file). The original
-    per-request user was an Apache2::SiteControl::User wrapper; here the
-    equivalent is a Netdot::Model::Person object (user type from
-    Person->user_type, allowed objects from Person->get_allowed_objects()).
+    Standalone port of the legacy mod_perl rule-based permission manager.
+    can() applies, in order: the section check (denies UI/admin sections for
+    non-Admin / non-Operator), the per-object check (user type + allowed
+    objects; on error, deny), then a default allow. The per-request user is a
+    Netdot::Model::Person object (user type from Person->user_type, allowed
+    objects from Person->get_allowed_objects()).
 
 =head1 SYNOPSIS
 
@@ -256,11 +256,10 @@ Arguments:  Person, action ('view' | 'edit' | 'delete' | 'choose_ip' |
             model object, or a section name string for section actions),
             optional precomputed allowed_objects() hashref
 Returns:    1 if allowed, 0 otherwise
-Description: Port of the Apache/mod_perl rule-based manager, combining three
-            rules: SectionAccessRule (denies UI sections for non-Admin /
-            non-Operator), ObjectAccessRule (denies object access based on
-            user type + allowed objects; on error, deny: conservative
-            default), and the GrantAllRule default (allow). allowed_objects
+Description: Applies, in order: the section check (denies UI sections for
+            non-Admin / non-Operator), the per-object check (denies object
+            access based on user type + allowed objects; on error, deny:
+            conservative default), then the default allow. allowed_objects
             is resolved lazily so Admins and section checks avoid the DB
             query.
 
@@ -275,40 +274,42 @@ sub can {
 
     my $username = _username($person);
 
-    # SectionAccessRule
+    # Section check (UI sections / admin section)
     return 0 if _denies_section( $type, $username, $action, $resource );
 
-    # ALLOWED_OBJECTS is only consulted by the per-object rule (User/Operator);
+    # allowed_objects is only consulted by the per-object check (User/Operator);
     # resolve it lazily so Admins and section checks avoid the DB query.
     $access = allowed_objects( $class, $person ) if $type ne 'Admin' && !defined $access;
 
-    # ObjectAccessRule (on error, deny: conservative default)
+    # Per-object check (on error, deny: conservative default)
     my $denied = eval { _denies_object( $type, $username, $action, $resource, $access ) };
     $denied = 1 if $@;
     return 0 if $denied;
 
-    # GrantAllRule default
+    # Default: allow
     return 1;
 }
 
 ##################################################################
-# SectionAccessRule (lib/Netdot/SectionAccessRule.pm)
+# Section check: denies UI sections for non-Admin/non-Operator and the
+# admin section for non-Admin. Returns 1 = deny, 0 = do not deny.
 ##################################################################
 sub _denies_section {
     my ( $type, $username, $action, $resource ) = @_;
     if ( $action eq 'access_section' && $type ne 'Admin' && $type ne 'Operator' ) {
-        _log->debug("SectionAccessRule: denying access_section for $username ($type)");
+        _log->debug("Permissions: denying access_section for $username ($type)");
         return 1;
     }
     if ( $action eq 'access_admin_section' && $type ne 'Admin' ) {
-        _log->debug("SectionAccessRule: denying access_admin_section for $username ($type)");
+        _log->debug("Permissions: denying access_admin_section for $username ($type)");
         return 1;
     }
     return 0;
 }
 
 ##################################################################
-# ObjectAccessRule (lib/Netdot/ObjectAccessRule.pm)
+# Per-object check: user type + allowed objects, with per-type rules
+# (device->interface, zone->rr, ipblock ancestor inheritance, ...).
 # Returns 1 = deny, 0 = do not deny.
 ##################################################################
 sub _denies_object {
@@ -322,12 +323,12 @@ sub _denies_object {
 
     my $otype = $object->short_class();
     if ( !$otype ) {
-        _log->debug("ObjectAccessRule: object not valid");
+        _log->debug("Permissions: object not valid");
         return 1;
     }
 
     my $oid = $object->id;
-    _log->debug("ObjectAccessRule: '$action' $otype id $oid for $username ($type)");
+    _log->debug("Permissions: '$action' $otype id $oid for $username ($type)");
 
     # Only User / Operator reach this point (Admin already returned above).
     return 1 unless $type eq 'User' || $type eq 'Operator';
@@ -336,7 +337,7 @@ sub _denies_object {
     return 0 if ( $type eq 'Operator' && $action eq 'view' );
 
     if ( !defined $access || ref $access ne 'HASH' ) {
-        _log->debug("ObjectAccessRule: $username: no ALLOWED_OBJECTS. Denying.");
+        _log->debug("Permissions: $username: no allowed objects. Denying.");
         return 1;
     }
 
@@ -458,7 +459,7 @@ sub _denies_object {
         # Users cannot edit or delete RRs for Devices or Device IPs
         if ( $action ne 'view' ) {
             if ( $rr->devices ) {
-                _log->debug("ObjectAccessRule: ".$rr->get_label." linked to a Device. Denying.");
+                _log->debug("Permissions: ".$rr->get_label." linked to a Device. Denying.");
                 return 1;
             }
             foreach my $arecord ( $rr->a_records ) {
@@ -508,7 +509,7 @@ sub _denies_object {
         }
     }
 
-    _log->debug("ObjectAccessRule: no matching criteria. Denying.");
+    _log->debug("Permissions: no matching criteria. Denying.");
     return 1;
 }
 
@@ -518,13 +519,13 @@ sub _denies_object {
 sub _deny_action_access {
     my ( $action, $access ) = @_;
     if ( exists $access->{none} ) {
-        _log->debug("ObjectAccessRule: access explicitly denied for this object");
+        _log->debug("Permissions: access explicitly denied for this object");
         return 1;
     }
     if ( exists $access->{$action} ) {
         return 0;   # do not deny
     }
-    _log->debug("ObjectAccessRule: no access for $action. Denying.");
+    _log->debug("Permissions: no access for $action. Denying.");
     return 1;
 }
 
@@ -535,14 +536,14 @@ sub _deny_action_access {
 sub _deny_ip_access {
     my ( $action, $access, $ipblock, $is_rr ) = @_;
     if ( $action ne 'view' && ( $ipblock->interface || $ipblock->snmp_devices ) ) {
-        _log->debug("ObjectAccessRule: ".$ipblock->get_label." linked to Device. Denying.");
+        _log->debug("Permissions: ".$ipblock->get_label." linked to Device. Denying.");
         return 1;
     }
 
     if ( $ipblock->status ) {
         my $status = $ipblock->status->name;
         if ( $status eq 'Dynamic' || $status eq 'Reserved' ) {
-            _log->debug("ObjectAccessRule: ".$ipblock->get_label." is Dynamic/Reserved. Denying.");
+            _log->debug("Permissions: ".$ipblock->get_label." is Dynamic/Reserved. Denying.");
             return 1;
         }
     }
@@ -558,7 +559,7 @@ sub _deny_ip_access {
         }
     }
 
-    _log->debug("ObjectAccessRule: ".$ipblock->get_label." not within allowed block. Denying.");
+    _log->debug("Permissions: ".$ipblock->get_label." not within allowed block. Denying.");
     return $deny;
 }
 
