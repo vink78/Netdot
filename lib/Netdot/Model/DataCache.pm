@@ -1,7 +1,7 @@
 package Netdot::Model::DataCache;
 
 use base 'Netdot::Model';
-use APR::Base64;
+use MIME::Base64;
 use warnings;
 use strict;
 
@@ -35,7 +35,9 @@ sub _encode_bindata{
     my $self = shift;
     return 1 unless ( $self->config->get('DB_TYPE') eq 'Pg' );
     my $data = ($self->_attrs('data'))[0];
-    my $encoded = APR::Base64::encode($data);
+    # encode_base64 appends a trailing newline by default: pass '' to keep
+    # the stored format byte-identical to the previous (APR::Base64) output.
+    my $encoded = MIME::Base64::encode_base64( $data, '' );
     $self->_attribute_store( data => $encoded );
     return 1;
 }
@@ -54,7 +56,7 @@ sub _decode_bindata{
 	$logger->error("DataCache::_decode_bindata: No data available from DataCache id $id");
 	return 1;
     }
-    my $decoded = APR::Base64::decode($encoded);
+    my $decoded = MIME::Base64::decode_base64($encoded);
     unless ( $decoded ){
 	$logger->error("DataCache::_decode_bindata: Problem decoding bindata for DataCache id $id");
 	return 1;

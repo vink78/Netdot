@@ -4,6 +4,7 @@ use base 'Netdot::Model';
 use warnings;
 use strict;
 use Math::BigInt;
+use MIME::Base64;
 use NetAddr::IP qw(:lower);
 use Net::Patricia 1.19_01;
 use Storable qw(nfreeze thaw);
@@ -3623,7 +3624,9 @@ sub _tree_save {
     unless ( $cache = DataCache->find_or_create({name=>$name}) ){
 	$class->throw_fatal("Could not find or create cache entry for IP tree: $name");
     }
-    $frozen= APR::Base64::encode($frozen);
+    # encode_base64 appends a trailing newline by default: pass '' to keep
+    # the stored format byte-identical to the previous (APR::Base64) output.
+    $frozen= MIME::Base64::encode_base64( $frozen, '' );
     $cache->update({data=>$frozen, tstamp=>time});
     $logger->debug("Ipblock::_tree_save: Saved $name");
     return 1;
@@ -3658,7 +3661,7 @@ sub _tree_get {
     for ( 1..2 ){
 	my $cache = DataCache->search(name=>$name)->first;
 	if ( defined $cache && (time - $cache->tstamp) < $TTL ){ 
-	    my $data = APR::Base64::decode($cache->data); 
+	    my $data = MIME::Base64::decode_base64($cache->data); 
 	    $tree = thaw $data;
 	    $logger->debug("Ipblock::_tree_get: $name thawed from cache");
 	    my $tree_class = ref($tree);
