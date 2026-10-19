@@ -401,6 +401,24 @@ sub startup ($self) {
         # reads it; the old Apache layer provided it). Covers both the HTML app
         # and the JSON API, which both authenticate via the session.
         $ENV{REMOTE_USER} = $c->session('username') if $c->session('username');
+        # Per-request permission snapshot: serve user_type / allowed_objects
+        # from the session data stamped at login (no DB) for the rest of the
+        # request. Rights changes therefore apply at the next login (the
+        # session idle expiration bounds the window).
+        if ( my $p = $c->current_person ) {
+            my $role   = $c->session('role');
+            my $perm   = $c->session('perm');
+            unless ( defined $role && ref $perm eq 'HASH' ) {
+                # Session created before the snapshot existed: build it once
+                # from the DB (the next login stamps it in the session).
+                $role   = Netdot::Mojo::Permissions->user_type( $p ) // '';
+                $perm   = Netdot::Mojo::Permissions->allowed_objects( $p );
+            }
+            Netdot::Mojo::Permissions->set_request( $p->id, $role, $perm );
+        }
+        else {
+            Netdot::Mojo::Permissions->clear_request();
+        }
         # The JSON API handles auth itself (JSON 401) rather than the HTML login
         # redirect.
         return if $path =~ m{^\Q$base\E/api(?:/|$)};

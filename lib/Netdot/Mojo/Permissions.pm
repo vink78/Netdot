@@ -11,7 +11,10 @@ package Netdot::Mojo::Permissions;
 #                       objects (conservative: on error, deny)
 #   default          -> allow
 #
-# The per-request "user" is a Netdot::Model::Person object:
+# The per-request "user" is a Netdot::Model::Person object. The user type and
+# the allowed objects are served from the per-request snapshot (set_request,
+# installed by the web layer from the login-time session data) when it
+# matches the person, and resolved from the DB otherwise:
 #   user type        -> Person->user_type->name
 #   allowed objects  -> Person->get_allowed_objects()
 #
@@ -19,7 +22,7 @@ package Netdot::Mojo::Permissions;
 #   $person   : Netdot::Model::Person (undef -> deny everything)
 #   $action   : 'view' | 'edit' | 'delete' | 'choose_ip' | 'access_section' | 'access_admin_section'
 #   $resource : a Netdot model object, or a section name string for section actions
-#   $access   : optional precomputed allowed_objects() hashref (cached per request by the $c->can helper)
+#   $access   : optional precomputed allowed_objects() hashref
 
 use strict;
 use warnings;
@@ -31,6 +34,15 @@ sub _log () {
     $logger //= Netdot->log->get_logger('Netdot::Mojo::Permissions');
     return $logger;
 }
+
+# Per-request permission snapshot: [ person_id, user_type, allowed_objects ].
+# Set once per request by the web layer (Netdot::Mojo before_dispatch, from
+# the login-time session data — see Netdot::Mojo::Controller::Auth).
+# Mojolicious processes one request at a time per (worker) process, so the
+# package slot is request-safe; the person_id guard makes a stale value from
+# a previous request inert. user_type() / allowed_objects() serve it instead
+# of the DB when it matches the person being checked.
+our @REQ;
 
 ##################################################################
 # Public helpers
@@ -61,18 +73,52 @@ Netdot::Mojo::Permissions - Permission layer for the Mojolicious app
 
 =cut
 
+# Install the per-request permission snapshot (person id + user type +
+# allowed-objects hashref). Called once per request by the web layer
+# (Netdot::Mojo before_dispatch) from the session data stamped at login, so
+# user_type() and allowed_objects() serve it instead of the DB.
+=head2 set_request - Install the per-request permission snapshot
+
+Arguments:  person_id (int), user_type (string), allowed_objects hashref
+Returns:    Nothing
+
+=cut
+
+sub set_request {
+    my ( $class, $person_id, $type, $access ) = @_;
+    @REQ = ( $person_id, $type, ref $access eq 'HASH' ? $access : {} );
+    return;
+}
+
+# Drop the per-request snapshot (no logged-in user for this request).
+=head2 clear_request - Drop the per-request permission snapshot
+
+Arguments:  (none)
+Returns:    Nothing
+
+=cut
+
+sub clear_request {
+    @REQ = ();
+    return;
+}
+
 # User type of a Person ('Admin' | 'Operator' | 'User' | '' if unset).
 =head2 user_type - User type of a Person
 
 Arguments:  Person (undef is fine)
 Returns:    The user type name ('Admin' | 'Operator' | 'User'), or '' when
             unset / no person
+Description: Serves the per-request snapshot (set_request) when it matches
+             the person; otherwise resolves from the DB.
 
 =cut
 
 sub user_type {
     my ($class, $person) = @_;
     return '' unless $person && ref $person;
+    my $id = eval { $person->id };
+    return $REQ[1] // '' if @REQ && defined $id && $REQ[0] == $id;
     my $ut = eval { $person->user_type };
     return '' unless $ut;
     my $name = eval { $ut->name };
@@ -86,12 +132,16 @@ sub user_type {
 Arguments:  Person (undef is fine)
 Returns:    C<< { ObjectClass => { object_id => { view=>1, edit=>1, ... } } } >>
             (from Person->get_allowed_objects); an empty hashref on error
+Description: Serves the per-request snapshot (set_request) when it matches
+             the person; otherwise resolves from the DB.
 
 =cut
 
 sub allowed_objects {
     my ($class, $person) = @_;
     return {} unless $person && ref $person;
+    my $id = eval { $person->id };
+    return $REQ[2] // {} if @REQ && defined $id && $REQ[0] == $id;
     my $ao = eval { $person->get_allowed_objects };
     return ( defined $ao && ref $ao eq 'HASH' ) ? $ao : {};
 }

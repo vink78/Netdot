@@ -3,6 +3,8 @@ package Netdot::Mojo::Controller::Auth;
 use Mojo::Base 'Mojolicious::Controller', -signatures;
 
 use Netdot;
+use Netdot::Model;
+use Netdot::Mojo::Permissions;
 use Netdot::OAuth;
 use Netdot::Mojo::AuthShim;
 
@@ -64,7 +66,7 @@ sub login_form ($c) {
 =head2 login_submit - Authenticate and start a web session
 
 Arguments:  Controller (params: username, password)
-Returns:    Nothing; on success sets the session (username, login_time) and
+Returns:    Nothing; on success starts the web session (_start_session) and
             redirects to home, on failure re-renders the login page with an
             error message
 Description: Tries Netdot::LDAP::check_credentials (which itself falls back to
@@ -74,6 +76,26 @@ Description: Tries Netdot::LDAP::check_credentials (which itself falls back to
             the client IP (X-Forwarded-For honored only from trusted proxies).
 
 =cut
+
+# Start a web session for a logged-in user: username + login_time, plus a
+# snapshot of the account's permissions (user type + allowed objects). The
+# snapshot is served by Netdot::Mojo::Permissions for the whole session
+# (instead of the DB on every request): rights changes therefore apply at
+# the next login, bounded by the session idle expiration.
+sub _start_session ($c, $user) {
+    my $p    = eval { Person->search( username => $user )->first };
+    my $role = Netdot::Mojo::Permissions->user_type( $p ) // '';
+    # Admins are unrestricted: nothing to cache at object level.
+    my $perm = $role eq 'Admin'
+        ? {}
+        : Netdot::Mojo::Permissions->allowed_objects( $p );
+    $c->session(
+        username   => $user,
+        login_time => time,
+        role       => $role,
+        perm       => $perm,
+    );
+}
 
 sub login_submit ($c) {
     my $user = $c->param('username') // '';
@@ -101,7 +123,7 @@ sub login_submit ($c) {
     $c->app->log->info( "LOGIN $ip user=$user " . ( $ok ? 'success' : 'FAILED' ) );
 
     if ($ok) {
-        $c->session( username => $user, login_time => time );
+        _start_session( $c, $user );
         $c->redirect_to( $c->url_for('home') );
     }
     else {
@@ -157,7 +179,7 @@ sub oauth_login ($c) {
 sub _oauth_success ($c, $username) {
     my $ip = $c->client_ip;
     $c->app->log->info( "LOGIN $ip user=$username success (oauth)" );
-    $c->session( username => $username, login_time => time );
+    _start_session( $c, $username );
     $c->redirect_to( $c->url_for('home') );
 }
 
