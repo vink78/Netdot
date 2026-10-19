@@ -64,6 +64,16 @@ my @DEPS = (
     {cpan=>'XML::Simple', apt=>'libxml-simple-perl', rpm=>'perl-XML-Simple'},
     {apt=>'snmp'},
     {apt=> 'git', rpm=>'git'},   # fetches the netdisco MIBs (see apt-install)
+    # --- runtime deps not provided by the packages above (audited against
+    #     the `use` statements in lib/); listed explicitly so testdeps /
+    #     apt-install cover them even when apt would only pull them in
+    #     transitively. ---
+    {cpan=>'Exception::Class', apt=>'libexception-class-perl', rpm=>'perl-Exception-Class'},
+    {cpan=>'LWP::UserAgent', apt=>'libwww-perl', rpm=>'perl-libwww-perl'},
+    {cpan=>'XML::LibXML', apt=>'libxml-libxml-perl', rpm=>'perl-XML-LibXML'},
+    {cpan=>'AnyEvent', apt=>'libanyevent-perl', rpm=>'perl-AnyEvent'},
+    {cpan=>'Coro', apt=>'libcoro-perl', rpm=>'perl-Coro'},
+    {cpan=>'Date::Parse', apt=>'libtimedate-perl', rpm=>'perl-TimeDate'},
     ) ;
 
 if ( $action eq 'test' ){

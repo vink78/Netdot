@@ -4,11 +4,16 @@ use base 'Netdot::Exporter';
 use warnings;
 use strict;
 use Data::Dumper;
-use List::MoreUtils qw(uniq);
 
 my $logger = Netdot->log->get_logger('Netdot::Exporter');
 
 my $dbh = Netdot::Model->db_Main();
+
+# uniq() without List::MoreUtils (first-occurrence order, same as the module).
+sub _uniq {
+    my %seen;
+    return grep { !$seen{$_}++ } @_;
+}
 
 =head1 NAME
 
@@ -269,8 +274,8 @@ sub print_domain {
 	print $out "zone \"$domain\" in {\n";
 	print $out "\ttype master;\n";
 	print $out "\tfile \"netdot/zone/$domain\";\n";
-	print $out "\tallow-transfer { ".join('; ', uniq @ns)."};\n";
-	print $out "\talso-notify { ".join('; ', uniq @ns)."};\n";
+	print $out "\tallow-transfer { ".join('; ', _uniq @ns)."};\n";
+	print $out "\talso-notify { ".join('; ', _uniq @ns)."};\n";
 	if ($dnssec eq 'inline') {
 	    print $out "\n\t# look for dnssec keys here:\n";
 	    print $out "\tkey-directory \"/var/named/netdot/keys\";\n\n";
@@ -285,14 +290,14 @@ sub print_domain {
 	print $out "zone \"$domain\" in {\n";
 	print $out "\ttype slave;\n";
 	print $out "\tfile \"slaves/$domain\";\n";
-	print $out "\tallow-transfer { ".join('; ', uniq @ns)."};\n";
+	print $out "\tallow-transfer { ".join('; ', _uniq @ns)."};\n";
 	print $out "\tmasters { " . $self->{NAMED_IP_MASTER} . "; };\n";
 	print $out "};\n";
     } elsif ($type eq 'forward') {
 # Forward
 	print $out "zone \"$domain\" in {\n";
 	print $out "\ttype forward;\n";
-	print $out "\tforwarders { ".join('; ', uniq @ns)."};\n";
+	print $out "\tforwarders { ".join('; ', _uniq @ns)."};\n";
 	print $out "};\n";
     }
 }
