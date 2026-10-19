@@ -104,16 +104,33 @@ sub redirect_uri ($c) {
 Arguments:  Controller
 Returns:    Nothing (302)
 Description: Generates a random `state` (Crypt::URandom) stored in the
-             session (oauth_state) and lets the plugin build the authorize
-             URL (client id, scope, redirect URI) and redirect.
+             session (oauth_state) and redirects to the authorize URL built
+             from the provider's authorization_endpoint (client id, scope,
+             redirect URI, response_type=code — see the code comment).
 
 =cut
 
 sub initiate ($c) {
     my $state = unpack 'H*', Crypt::URandom::urandom(24);
     $c->session( oauth_state => $state );
-    $c->oauth2->get_token_p(
-        'netdot' => { state => $state, redirect_uri => redirect_uri( $c ) } );
+    # Build the authorize URL explicitly: the plugin only appends
+    # response_type=code for its bundled providers (baked into their
+    # hard-coded authorize_url). For well-known-discovered providers
+    # (Entra ID) authorize_url is the bare authorization_endpoint, so the
+    # redirect would be missing response_type and the provider rejects it
+    # (Microsoft: AADSTS900144). The plugin's authorize_query hook cannot
+    # be used: Mojo::URL->query(STRING) REPLACES the whole query, dropping
+    # the client_id / redirect_uri / state the plugin appended.
+    my $p   = $c->oauth2->providers->{netdot};
+    my $url = Mojo::URL->new( $p->{authorize_url} );
+    $url->query(
+        client_id     => $p->{key},
+        redirect_uri  => redirect_uri( $c ),
+        response_type => 'code',
+        scope         => $p->{scope} || 'openid',
+        state         => $state,
+    );
+    $c->redirect_to( $url->to_string );
 }
 
 =head2 handle_callback - Process the provider's redirect (code + state)
