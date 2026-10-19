@@ -3,7 +3,7 @@ include $(SRCROOT)/etc/utility-Makefile
 #
 # makefile for htdocs
 
-NDIR =  advanced css help img img/graphs java_script layouts management reports search
+NDIR =  advanced css help img img/graphs java_script layouts management management/device reports search
 
 FILES := `find . -name "*" | egrep ".*(\.ep|\.css|\.png|\.gif|\.js|\.ico)$$" | sed -e 's/\.\///'`
 
