@@ -479,9 +479,13 @@ sub startup ($self) {
                 next;
             }
 
-            # Advanced: changelog (audit log). Single item, all users.
+            # Advanced: changelog (audit log) + the Swagger UI of the API.
+            # Single section, all users.
             if ( $key eq 'generic' ) {
-                my @items = ( { label => 'Changelog', url => $base . '/changelog' } );
+                my @items = (
+                    { label => 'Changelog',   url => $base . '/changelog' },
+                    { label => 'API (Swagger)', url => $base . '/api/docs' },
+                );
                 push @sections, { key => $key, title => $meta->{title}, url => $items[0]{url}, items => \@items };
                 next;
             }
