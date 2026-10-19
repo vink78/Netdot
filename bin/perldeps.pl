@@ -28,7 +28,7 @@ my @DEPS = (
     {cpan=>'Crypt::URandom', apt=>'libcrypt-urandom-perl', rpm=>'perl-Crypt-URandom'},
     {cpan=>'JSON', apt=>'libjson-perl', rpm=>'perl-JSON-PP'},
     {cpan=>'Net::LDAP', apt=>'libnet-ldap-perl', rpm=>'perl-Net-LDAP'},
-    {cpan=>'YAML::XS', apt=>'libyaml-xs-perl', rpm=>'perl-YAML-XS'},
+    {cpan=>'YAML::XS', apt=>'libyaml-libyaml-perl', rpm=>'perl-YAML-XS'},
     {apt=> 'rrdtool', rpm=>'rrdtool'},
     {cpan=>'RRDs' , apt=>'librrds-perl', rpm=>'rrdtool-perl'},
     {cpan=>'GraphViz', apt=> 'graphviz libgraphviz-perl', 
@@ -63,6 +63,7 @@ my @DEPS = (
     {cpan=>'Socket6', apt=> 'libsocket6-perl', rpm=>'perl-Socket6'},
     {cpan=>'XML::Simple', apt=>'libxml-simple-perl', rpm=>'perl-XML-Simple'},
     {apt=>'snmp'},
+    {apt=> 'git', rpm=>'git'},   # fetches the netdisco MIBs (see apt-install)
     ) ;
 
 if ( $action eq 'test' ){
@@ -82,7 +83,7 @@ if ( $action eq 'test' ){
     my $ans = <STDIN>;
     chomp($ans);
     if ( $ans =~ /mysql/i ){
-	push (@DEPS, {apt=>'mysql-server', rpm=>'mysql-server'});
+	push (@DEPS, {apt=>'mariadb-server', rpm=>'mysql-server'});
 	push (@DEPS, {cpan=>'DBD::mysql', apt=> 'libdbd-mysql-perl', rpm=>'perl-DBD-MySQL'});
 
     }elsif ( $ans =~ /pg/i ){
@@ -136,52 +137,7 @@ if ( $action eq 'test' ){
 	    }
 	}
     }elsif ( $action eq 'apt-install' ){
-	my $distro; # Can be Debian or Ubuntu
-	my $debian_version; # Both Debian and Ubuntu have names for their versions
-	print "\nWe need to add a temporary repository of Netdot dependencies ".
-	    "until all packages are in Debian/Ubuntu official repositories.\n";
-	print "Would you like to continue? [y/n] ";
-	my $ans = <STDIN>;
-	if ( $ans =~ /(Y|y)/ ){
-	    my $apt_src_dir = '/etc/apt/sources.list.d';
-	    $distro = `lsb_release -d`;
-	    if ( $distro =~ /(debian)/io ){
-		if ( $distro =~ /(squeeze)/io ){
-		    $debian_version = lc($1);
-		}
-		$distro = 'debian';
-	    }elsif ( $distro =~ /(ubuntu)/io ){
-		$distro = 'ubuntu';
-		$debian_version = `cat /etc/debian_version`;
-		if ( $debian_version =~ /(wheezy)/io ){
-		    $debian_version = lc($1);
-		}
-	    }
-	    if ( -d $apt_src_dir ){
-		my $file = "$apt_src_dir/netdot.apt.nsrc.org.list";
-		open(FILE, ">$file")
-		    or die "Cannot open $file for writing";
-		my $str = "\n## Added by Netdot install\n".
-		    "deb http://netdot.apt.nsrc.org/ unstable/\n".
-		    "deb-src http://netdot.apt.nsrc.org/ unstable/\n\n";
-		if ( $debian_version =~ /(wheezy|squeeze)/ ){
-                    my $target = $1;	
-		    $str .= "\n".
-			"deb http://netdot.apt.nsrc.org/ $target/\n".
-			"deb-src http://netdot.apt.nsrc.org/ $target/\n\n";
-		}
-		print FILE $str;
-		close(FILE);
-	    }else{
-		die "Cannot find APT sources directory\n";
-	    }
-	    print "Updating package indexes from sources\n";
-	    &cmd('apt-get update');
-	}
-
-	# The packages in our temporary repository will fail authentication
-	# unless we use --force-yes
-	$program = 'apt-get -y --force-yes install';
+	$program = 'apt-get -y install';
 	
 	# Try to install as little as possible
 	$program .= ' --no-install-recommends';
@@ -215,33 +171,38 @@ if ( $action eq 'test' ){
 
     if ( $action eq 'apt-install' ){
 	# Automate this part for the user too
-	print "\nWe will install the MIB files now. Continue? [y/n] ";
+	print "\nWe will install the SNMP MIB files now. Continue? [y/n] ";
 	my $ans = <STDIN>;
 	if ( $ans =~ /(Y|y)/ ){
-	    print "Downloading necessary SNMP MIB files. This may take a few minutes.\n";
-	    &cmd('rm -fr /tmp/netdisco-mibs');
-	    &cmd('/usr/sbin/netdisco-mibs-download');
-	    print "\nInstalling SNMP MIB files\n";
-	    &cmd('LANG=C /usr/sbin/netdisco-mibs-install');
-	    print "\nA new /etc/snmp/snmp.conf needs to be installed to point to the newly ".
-		"installed MIB files.\n";
-	    print "The current file will be backed up. Continue? [y/n] ";
+	    # Clone the netdisco MIB collection (replaces the retired
+	    # netdisco-mibs-installer download/install scripts).
+	    print "Downloading the netdisco MIB files. This may take a few minutes.\n";
+	    &cmd('rm -rf /tmp/netdisco-mibs');
+	    &cmd('git clone --depth 1 https://github.com/netdisco/netdisco-mibs /tmp/netdisco-mibs');
+	    # Install every MIB directory (not package-managed, hence /usr/local).
+	    # All vendor folders are copied so that adding a new vendor to the
+	    # repo needs no installer change. Netdot reads them from
+	    # SNMP_MIBS_PATH (default.conf).
+	    print "\nInstalling SNMP MIB files to /usr/local/netdisco/mibs\n";
+	    &cmd('mkdir -p /usr/local/netdisco/mibs');
+	    opendir(my $dh, '/tmp/netdisco-mibs')
+		or die "Cannot read /tmp/netdisco-mibs\n";
+	    my @mibdirs = grep { -d "/tmp/netdisco-mibs/$_" && $_ !~ /^\./ }
+		readdir($dh);
+	    closedir($dh);
+	    for my $v (@mibdirs) {
+		&cmd("cp -r /tmp/netdisco-mibs/$v /usr/local/netdisco/mibs/");
+	    }
+	    print "\nA new /etc/snmp/snmp.conf will be installed to point to the ".
+		"newly installed MIB files. The current file will be backed up. ".
+		"Continue? [y/n] ";
 	    $ans = <STDIN>;
 	    if ( $ans =~ /(Y|y)/ ){
-		# We'll use the snmp.conf provided with netdisco-mibs. But it refers to
-		# a different directory than the one used by netdisco-mibs-installer, so
-		# we'll create a symlink
-		unless ( -d '/usr/local/netdisco' ){
-		    # Create directory for link
-		    mkdir('/usr/local/netdisco');
-		}
-		unless ( -l '/usr/local/netdisco/mibs' ){
-		    &cmd('ln -s /usr/share/netdisco/mibs /usr/local/netdisco/mibs');
-		}
 		&cmd('mv -f /etc/snmp/snmp.conf /etc/snmp/snmp.conf.netdot_install');
-		&cmd('cp /usr/share/doc/netdisco-mibs-installer/contrib/snmp.conf /etc/snmp/snmp.conf');
+		&cmd('cp /tmp/netdisco-mibs/EXTRAS/contrib/snmp.conf /etc/snmp/snmp.conf');
 		print("\nDone with snmp.conf\n");
 	    }
+	    &cmd('rm -rf /tmp/netdisco-mibs');
 	}
     }
 
