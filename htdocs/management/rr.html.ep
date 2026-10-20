@@ -1,0 +1,209 @@
+%# Detail page for a DNS resource record (read-only port of host.html).
+% my $rr       = $c->stash->{rr};
+% my $rr_attrs = $c->stash->{rr_attrs} // [];
+% my $sections = $c->stash->{sections} // [];
+% my $can_edit   = $c->stash->{can_edit};
+% my $can_delete = $c->stash->{can_delete};
+% my $fields     = $c->stash->{fields}   // [];
+% my $api_path   = $c->stash->{api_path} // '';
+
+<p>
+  <a href="<%= $c->web_prefix %>/management/rr">&laquo; All DNS Records</a>
+  % if ( $can_edit && @$fields ) {
+  <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+  % if ( $can_delete ) {
+  <button type="button" class="btn nd-rec-delete" data-nd-del="<%= $c->stash->{del_path} %>" data-nd-goto="<%= $c->stash->{del_goto} %>" style="margin-left:0.6em">Delete</button>
+  % }
+</p>
+
+%# The record's own attributes: "General" look (datatable.detail c2, 2 pairs/row).
+% if ($rr_attrs && @$rr_attrs) {
+%   my $N    = 2;
+%   my @list = @$rr_attrs;
+<div class="container" id="nd-readonly">
+  <div class="containerhead">DNS Record: <strong><%= $rr->get_label %></strong></div>
+  <div class="containerbody flat">
+    <table class="datatable detail c2">
+      <tbody>
+      % for (my $i = 0; $i < @list; $i += $N) {
+      %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
+      %   my @r   = @list[$i .. $end];
+      <tr>
+        % for my $row (@r) {
+        <th><%= $row->[0] %></th>
+        <td><%== $row->[1] %></td>
+        % }
+      </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
+% }
+
+%# One container per record type; each record is a small field table.
+% for my $s (0 .. $#$sections) {
+    % my $sec = $sections->[$s];
+    <div class="container">
+      <div class="containerhead"><%= $sec->{title} %></div>
+      % if ( $sec->{warn} ) {
+      <p class="nd-sec-warn" style="margin:0.3em 0 0.6em;color:#a33;font-size:0.85em"><%= $sec->{warn} %></p>
+      % }
+      <div class="containerbody">
+      % for my $r (0 .. $#{ $sec->{records} }) {
+          % my $rec   = $sec->{records}->[$r];
+          % my @flds  = @{ $rec->{fields} };
+          % my $editable = 0;
+          % for my $f (@flds) { $editable = 1 if defined $f->{name}; last if $editable; }
+          % $editable = 0 unless $can_edit;
+          <div class="nd-rec" style="margin-bottom:0.6em">
+            <div class="nd-rec-ro">
+              <table class="datatable detail">
+                <tbody>
+                % for my $f (@flds) {
+                    <tr>
+                        <th><%= $f->{tag} %></th>
+                        <td><%== $f->{ro} %></td>
+                    </tr>
+                % }
+                </tbody>
+              </table>
+               % if ($editable) {
+               <div style="margin-top:0.4em">
+               <button type="button" class="btn nd-rec-toggle">Edit</button>
+               <button type="button" class="btn nd-rec-delete"
+                       data-nd-del="<%= $c->web_prefix %>/api/<%= $rec->{type} %>/<%= $rec->{id} %>"
+                       style="margin-left:0.4em">Delete</button>
+               </div>
+               % }
+             </div>
+            % if ($editable) {
+            <form class="nd-rec-form"
+                  data-nd-api="<%= $c->web_prefix %>/api/<%= $rec->{type} %>/<%= $rec->{id} %>"
+                  data-nd-method="PATCH" style="display:none">
+              <table class="datatable detail">
+                <tbody>
+                % for my $f (@flds) {
+                  <tr>
+                    <th><%= $f->{tag} %></th>
+                    <td>
+                      % if ( defined $f->{name} ) {
+                        % if ( $f->{kind} eq 'number' ) {
+                      <input type="number" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+                        % } elsif ( $f->{kind} eq 'textarea' ) {
+                      <textarea name="<%= $f->{name} %>" rows="2"><%= $f->{value} %></textarea>
+                        % } elsif ( $f->{kind} eq 'select' ) {
+                      <select name="<%= $f->{name} %>">
+                        % for my $opt ( @{ $f->{options} } ) {
+                        <option value="<%= $opt->[0] %>"<%= ($opt->[0] eq ($f->{value} // '')) ? ' selected' : '' %>><%= $opt->[1] %></option>
+                        % }
+                      </select>
+                        % } else {
+                      <input type="text" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+                        % }
+                      % } else {
+                      <%== $f->{ro} %>
+                      % }
+                    </td>
+                  </tr>
+                % }
+                </tbody>
+              </table>
+              <p style="margin-top:0.4em">
+                <button type="submit" class="btn">Save</button>
+                <button type="button" class="btn nd-rec-cancel" style="margin-left:0.5em">Cancel</button>
+              </p>
+             </form>
+            % }
+          </div>
+      % }
+      </div>
+    </div>
+% }
+
+% my $add_types = $c->stash->{add_types} // [];
+% if ( $can_edit && @$add_types ) {
+<div class="container">
+  <div class="containerhead">Add a record</div>
+  <div class="containerbody">
+    <p style="margin-bottom:0.5em">
+      Type:
+      <select id="nd-add-type" class="nd-add-select">
+        <option value="">-- Choose a record type --</option>
+        % for my $t ( @$add_types ) {
+        <option value="<%= $t->{type} %>"><%= $t->{label} %></option>
+        % }
+      </select>
+    </p>
+    % for my $t ( @$add_types ) {
+    <form class="nd-rec-form nd-add-form" data-nd-type="<%= $t->{type} %>"
+          data-nd-api="<%= $c->web_prefix %>/api/<%= $t->{type} %>"
+          data-nd-method="POST" style="display:none;margin-top:0.5em">
+      <table class="datatable detail">
+        <tbody>
+        % for my $h ( sort keys %{ $t->{add}{hidden} } ) {
+        <tr><td colspan="2"><input type="hidden" name="<%= $h %>" value="<%= $t->{add}{hidden}{$h} %>"></td></tr>
+        % }
+        % for my $f ( @{ $t->{add}{fields} } ) {
+          <tr>
+            <th><%= $f->{tag} %></th>
+            <td>
+              % if ( $f->{kind} eq 'number' ) {
+              <input type="number" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+              % } elsif ( $f->{kind} eq 'textarea' ) {
+              <textarea name="<%= $f->{name} %>" rows="2"><%= $f->{value} %></textarea>
+              % } elsif ( $f->{kind} eq 'select' ) {
+              <select name="<%= $f->{name} %>">
+                % for my $opt ( @{ $f->{options} } ) {
+                <option value="<%= $opt->[0] %>"><%= $opt->[1] %></option>
+                % }
+              </select>
+              % } else {
+              <input type="text" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+              % }
+            </td>
+          </tr>
+        % }
+        </tbody>
+      </table>
+      <p style="margin-top:0.4em">
+        <button type="submit" class="btn">Add</button>
+        <button type="button" class="btn nd-add-cancel" style="margin-left:0.5em">Cancel</button>
+      </p>
+    </form>
+    % }
+  </div>
+</div>
+% }
+
+% my $alias_ttl = eval { $rr->zone->default_ttl };
+% if ( $can_edit ) {
+<div class="container">
+  <div class="containerhead">Add an alias (CNAME)</div>
+  <div class="containerbody">
+    <p style="margin:0 0 0.5em;color:#555;font-size:0.9em">
+      Creates a new name that points to this record. The name may belong to any zone
+      you have rights to (a short name stays in this zone).
+    </p>
+    <form data-nd-api="<%= $c->web_prefix %>/api/rr/<%= $rr->id %>/alias"
+          data-nd-method="POST">
+      <table class="datatable detail">
+        <tbody>
+          <tr>
+            <th>Alias name</th>
+            <td><input type="text" name="name" placeholder="e.g. www" required></td>
+          </tr>
+          <tr>
+            <th>TTL</th>
+            <td><input type="number" name="ttl" value="<%= defined $alias_ttl ? $alias_ttl : '' %>"></td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="margin-top:0.5em"><button type="submit" class="btn">Add alias</button></p>
+    </form>
+  </div>
+</div>
+% }

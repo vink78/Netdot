@@ -1,0 +1,257 @@
+<h1><%= ucfirst($type) %> <small>(<%= $total %> total)</small></h1>
+
+% if (my $msg = $c->param('msg')) {
+<p style="color:#006600"><%= $msg %></p>
+% }
+
+% my $coltags    = $c->stash('coltags') // {};
+% my $search_url = $c->stash('search_url');
+% my $zones      = $c->stash('zones') // [];
+% my $s_title    = $c->stash('search_title') // 'Search';
+% my $s_ph       = $c->stash('search_placeholder') // 'Search...';
+% my $q          = $c->param('search')  // '';
+% my $zsel       = $c->param('zone_id') // '';
+% my $new_obj = $c->stash('new_obj');
+% my $new_rr  = $c->stash('new_rr');
+<div class="cardrow" style="margin-bottom:1em; align-items:flex-start">
+% if ($search_url) {
+  <div class="container">
+    <div class="containerhead"><%= $s_title %></div>
+    <div class="containerbody" style="padding:0.6em">
+      <form method="get" action="<%= $search_url %>">
+        <p>
+          <label><%= $s_ph %>:</label>
+          <input type="text" name="search" class="longtxt" value="<%= $q %>">
+        </p>
+        % if (@$zones) {
+        <p>
+          <label>Names within:</label>
+          <select name="zone_id">
+            <option value="0">All Zones</option>
+            % for my $z (@$zones) {
+            <option value="<%= $z->id %>" <%= $z->id eq $zsel ? 'selected' : '' %>><%= $z->get_label %></option>
+            % }
+          </select>
+        </p>
+        % }
+        <input type="submit" value="Find" class="btn">
+      </form>
+    </div>
+  </div>
+% }
+% my $ndm = $c->stash('new_device_manual');
+% if ( $new_obj || $ndm ) {
+% # Create box (right of the search). Generic types: "New <type>" — the
+% # class's brief-view fields (key fields only), the model's insert() fills
+% # the rest. For device there is NO generic create form: only the two
+% # dedicated boxes (Discover / Add manually) — creation goes through
+% # POST /api/device, the generic insert is intentionally unreachable.
+  <div class="container">
+    <div class="containerhead">New <%= $new_obj ? $new_obj->{label} : 'Device' %></div>
+    <div class="containerbody" style="padding:0.6em">
+      % if ($new_obj) {
+      <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                                can_edit => 1, fields => $new_obj->{fields},
+                                api_path => $new_obj->{api},
+                                nd_create => 1, nd_method => 'POST',
+                                nd_redirect => $new_obj->{goto}, nd_label => 'Create' ) %>
+      % }
+      % if ($ndm) {
+      % # Two distinct boxes, as in the legacy device_tasks.html (view=new):
+      % # "Discover Device" (name/IP + SNMP version; v3 fields shown when
+      % # version=3 -> the wizard step 1, then review + guesses, then
+      % # Device->discover) and "Add Device manually" (name/IP only ->
+      % # POST /api/device {discover: false, host} -> Device->manual_add),
+      % # both admin-only. (No <hr> above: for device the generic create
+      % # form is not rendered, so there is nothing to separate from.)
+      <p style="margin:0.2em 0; font-weight:600">Discover Device</p>
+      <form method="post" action="<%= $ndm->{discover} %>">
+        <input type="hidden" name="action" value="discover">
+        <p style="margin:0.3em 0">
+          <label>Name/IP:</label>
+          <input type="text" name="host" class="longtxt" required>
+        </p>
+        <p style="margin:0.3em 0">
+          <label>SNMP Version:</label>
+          <select name="version" id="nd-snmp-version"
+                  onChange="showSnmpV3Args('nd-snmp-version','nd-snmp-v3','nd-snmp-v2')">
+            % for my $v ( 1, 2, 3 ) {
+            <option value="<%= $v %>" <%= $ndm->{defver} == $v ? 'selected' : '' %>><%= $v %></option>
+            % }
+          </select>
+        </p>
+        % # v3 security args (shown only when version=3, as in Mason); the
+        % # fields are pre-filled from the DEFAULT_SNMP_* config values.
+        % # (Code block, not <%= %>: the style value must NOT be HTML-escaped,
+        % # otherwise the attribute becomes style=&quot;display:none&quot; and
+        % # the div stays visible.)
+        <div id="nd-snmp-v3"<% if ( $ndm->{defver} != 3 ) { %> style="display:none"<% } %>>
+          <p style="margin:0.3em 0">
+            <label>Sec Name:</label>
+            <input type="text" name="sec_name" class="txt" size="16" value="<%= $ndm->{v3}{sec_name} %>">
+          </p>
+          <p style="margin:0.3em 0">
+            <label>Sec Level:</label>
+            <select name="sec_level">
+              % for my $sl ( 'noAuthNoPriv', 'authNoPriv', 'authPriv' ) {
+              <option value="<%= $sl %>" <%= $ndm->{v3}{sec_level} eq $sl ? 'selected' : '' %>><%= $sl %></option>
+              % }
+            </select>
+            <label style="margin-left:1em">Auth Proto:</label>
+            <select name="auth_proto">
+              % for my $ap ( 'MD5', 'SHA' ) {
+              <option value="<%= $ap %>" <%= $ndm->{v3}{auth_proto} eq $ap ? 'selected' : '' %>><%= $ap %></option>
+              % }
+            </select>
+          </p>
+          <p style="margin:0.3em 0">
+            <label>Auth Pass:</label>
+            <input type="password" name="auth_pass" class="txt" size="16" value="<%= $ndm->{v3}{auth_pass} %>">
+            <label style="margin-left:1em">Priv Proto:</label>
+            <select name="priv_proto">
+              % for my $pp ( 'DES', 'AES' ) {
+              <option value="<%= $pp %>" <%= $ndm->{v3}{priv_proto} eq $pp ? 'selected' : '' %>><%= $pp %></option>
+              % }
+            </select>
+          </p>
+          <p style="margin:0.3em 0">
+            <label>Priv Pass:</label>
+            <input type="password" name="priv_pass" class="txt" size="16" value="<%= $ndm->{v3}{priv_pass} %>">
+          </p>
+        </div>
+        % # v1/v2 community (hidden in v3 mode, still posted — the wizard
+        % # ignores it when version=3, as in Mason).
+        <div id="nd-snmp-v2"<% if ( $ndm->{defver} == 3 ) { %> style="display:none"<% } %>>
+          <p style="margin:0.3em 0">
+            <label>Community:</label>
+            <select name="comstr" id="comstr" onChange="otherOption('comstr','back','other_comstr');">
+              % for my $cm ( @{ $ndm->{comms} } ) {
+              <option value="<%= $cm %>"><%= $cm %></option>
+              % }
+              <option value="Other">Other</option>
+            </select>
+            <input type="button" style="visibility:hidden" name="back" id="back" value="<" onClick="backSelectOpt('comstr','back','other_comstr');">
+            <input type="text" style="visibility:hidden" name="other_comstr" id="other_comstr" value="Other" size="14" onFocus="if( this.value == 'Other' ){this.value = '';} return true;">
+          </p>
+        </div>
+        <p style="margin:0.3em 0"><input type="submit" value="Discover" class="btn"></p>
+      </form>
+      <p style="margin:0.2em 0; font-size:0.85em">Imports the device's interfaces, IPs and subnets (SNMP).</p>
+      <hr style="margin:0.9em 0">
+      <p style="margin:0.2em 0; font-weight:600">Add Device manually</p>
+      <form data-nd-api="<%= $ndm->{api} %>" data-nd-method="POST" data-nd-redirect="<%= $ndm->{goto} %>">
+        <input type="hidden" name="discover" value="false">
+        <p style="margin:0.3em 0">
+          <label>Name or IP:</label>
+          <input type="text" name="host" class="longtxt" required>
+          <input type="submit" value="Add" class="btn">
+        </p>
+      </form>
+      <p style="margin:0.3em 0 0; font-size:0.85em">Resolves the host and creates a monitored device with an interface, its /32 (or /128) address block and its SNMP target — ready for SNMP polling.</p>
+      % }
+    </div>
+  </div>
+% }
+% if ($new_rr) {
+  <div class="container">
+    <div class="containerhead">New name</div>
+    <div class="containerbody" style="padding:0.6em">
+      <form data-nd-api="<%= $new_rr->{api} %>" data-nd-method="POST" data-nd-redirect="<%= $new_rr->{goto} %>">
+        <p>
+          <label>Name:</label>
+          <input type="text" name="name" class="longtxt" required>
+        </p>
+        <p>
+          <label>Zone:</label>
+          <select name="zone" required>
+            % for my $z (@{ $new_rr->{zones} }) {
+            <option value="<%= $z->id %>" <%= $z->id eq $new_rr->{def_id} ? 'selected' : '' %>><%= $z->name %></option>
+            % }
+          </select>
+          <input type="submit" value="Create" class="btn">
+        </p>
+      </form>
+      <p style="margin:0.5em 0 0; font-size:0.9em">Creates the name (without records) in the selected zone; its records (A/AAAA, TXT, …) can then be added on its page.</p>
+    </div>
+  </div>
+% }
+</div>
+
+% my $can_delete = $c->stash('can_delete');
+% my $bulk       = $c->stash('bulk');    # { type, fields } when bulk edit is allowed
+% my $can_check  = $can_delete || $bulk; # row checkboxes when either batch op is allowed
+% if (@$rows) {
+    <table class="datatable sortable">
+      <thead>
+        <tr>
+           % for my $col (@$cols) {
+           <th><%= $coltags->{$col} // $col %></th>
+           % }
+% if ($can_check) {
+          <th style="text-align:center; width:2em"><input type="checkbox" class="nd-batch-select-all" title="Select all shown"></th>
+% }
+        </tr>
+      </thead>
+      <tbody>
+        % for my $row (@$rows) {
+        % my $first = $cols->[0];
+        % my $label = $row->{$first};
+        % $label = $row->{id} if !defined $label || $label eq '';
+        <tr>
+          <td><a href="<%= url_for( $type . '_show', id => $row->{id} ) %>"><%= $label %></a></td>
+           % for my $col ( @{$cols}[1..$#$cols] ) {
+           <td><%= b( $row->{$col} // '' ) %></td>
+           % }
+% if ($can_check) {
+          <td style="text-align:center"><input type="checkbox" class="nd-batch-check" name="<%= $type %>__<%= $row->{id} %>"></td>
+% }
+        </tr>
+        % }
+      </tbody>
+    </table>
+% if ($can_check) {
+    % # Batch delete + bulk edit: delete goes straight to DELETE
+    % # /api/<type>?id=1,2,3 (initBatchDelete); bulk edit opens a field-picker
+    % # popup then navigates to the dedicated page /management/bulk_edit
+    % # (initBulkEdit), which saves via POST /api/<type>/batch. The
+    % # server-side browse#delete route is gone.
+    <p>
+      % if ($can_delete) {
+      <button type="button" class="btn nd-batch-delete" data-nd-api="<%= $c->web_prefix %>/api/<%= $type %>" style="margin-top:0.5em">Delete</button>
+      % }
+      % if ($bulk) {
+      <button type="button" class="btn nd-bulk-edit" style="margin-top:0.5em">Bulk edit</button>
+      % }
+      <span class="nd-batch-count" style="margin-left:0.6em; font-size:0.9em"></span>
+    </p>
+% }
+% if ($bulk) {
+% # Picker popup data (initBulkEdit): the type, the dedicated page URL and the
+% # editable fields (name + tag). The values are read on the page itself.
+% use JSON;
+% my $bjs = JSON->new->canonical->encode( { type => $bulk->{type}, url => url_for('bulk_edit')->to_string, fields => $bulk->{fields} } );
+% $bjs =~ s{<}{\\u003c}g;   # keep a tag from breaking out of the <script> tag
+<script>
+  window.ND_BULK = <%== $bjs %>;
+</script>
+% }
+
+  % if ($total > $per) {
+  % # Preserve the current query (search / filters) across pagination.
+  % my %pq = %{ $c->req->params->to_hash }; delete $pq{offset};
+  % my $ppath = $c->req->url->path;
+  % my $qstr  = sub { my %h = ( %pq, offset => $_[0] );
+  %              return '?' . join( '&', map { $_ . '=' . Mojo::Util::url_escape( $h{$_} // '' ) } sort keys %h ); };
+  <p>Results: [<%= $start %>-<%= $last_item %>] of <%= $total %>
+    % if ($offset > 0) {
+    <a href="<%= $ppath %><%= $qstr->( $offset - $per ) %>">[&laquo;]</a>
+    % }
+    % if ($last_item < $total) {
+    <a href="<%= $ppath %><%= $qstr->( $last_item ) %>">[&raquo;]</a>
+    % }
+  </p>
+  % }
+  <p><a href="<%= url_for( $type . '_csv' ) %>">[csv]</a></p>
+% } else {
+  <p>No <%= $type %>.</p>
+% }

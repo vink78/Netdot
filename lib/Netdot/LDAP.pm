@@ -4,45 +4,48 @@ use warnings;
 use Net::LDAP;
 use Net::LDAP::Constant qw(LDAP_EXTENSION_START_TLS);
 use Netdot::AuthLocal;
+use Netdot;
+use Netdot::Model;
 
 =head1 NAME
 
-Netdot::LDAP - LDAP authentication module for Netdot via Apache2::SiteControl
+Netdot::LDAP - LDAP authentication module for Netdot
 
 =head1 SYNOPSIS
 
-In Apache configuration:
-    
+In etc/Site.conf:
+
 =over 4
 
-   PerlSetVar SiteControlMethod Netdot::LDAP
+    NetdotLDAPServer      => 'ldaps://server.local.domain:636',
+    NetdotLDAPServer2     => 'ldaps://server2.local.domain:636',    # optional
+    NetdotLDAPUserDN      => 'uid=<username>',
+    NetdotLDAPSearchBase  => 'ou=people,dc=domain,dc=local',        # optional
+    NetdotLDAPVersion     => 3,
+    NetdotLDAPTimeout     => 4,
+    NetdotLDAPCACert      => '/usr/local/ssl/certs/cacert.pem',     # optional
+    NetdotLDAPFailToLocal => 'yes',
+    NetdotLDAPProxy       => 'no',
+    # Change these to the DN and password of an LDAP user Netdot can use for its search:
+    NetdotLDAPProxyUser   => 'cn=ProxyNetdot,ou=infr,ou=domain,o=local',
+    NetdotLDAPProxyPass   => 'ProxyNetdot_password',
 
-   <Location /netdot/NetdotLogin>
-      PerlSetVar NetdotLDAPServer  "ldaps://server.local.domain:636"
-      PerlSetVar NetdotLDAPServer2 "ldaps://server2.local.domain:636"
-      PerlSetVar NetdotLDAPUserDN "uid=<username>"
-      PerlSetVar NetdotLDAPSearchBase "ou=people,dc=domain,dc=local"
-      PerlSetVar NetdotLDAPVersion "3"
-      PerlSetVar NetdotLDAPCACert "/usr/local/ssl/certs/cacert.pem"
-      PerlSetVar NetdotLDAPFailToLocal "yes"
-      PerlSetVar NetdotLDAPProxy "no"
-      PerlSetVar NetdotLDAPProxySearchBaseDN "o=local"
-      #Change this to the full path dn and password of the ldap user netdot can use for its search
-      PerlSetVar NetdotLDAPProxyUser "cn=ProxyNetdot,ou=infr,ou=domain,o=local"
-      PerlSetVar NetdotLDAPProxyPass "ProxyNetdot_password"
-   </Location>
-    
 =back
+
+Called by the web login with a request shim (see Netdot::Mojo::AuthShim):
+
+    my $shim = Netdot::Mojo::AuthShim->new( app => $c->app );
+    Netdot::LDAP::check_credentials( $shim, $user, $pass );
 
 =head1 DESCRIPTION
 
 
-Netdot::LDAP uses Net::LDAPS to do the actual authentication of login attempts 
-for the SiteControl system.  It performs user authentication against an LDAP 
-server over TLS by attempting to bind directly with the username and password 
-as entered by the Netdot user.
+Netdot::LDAP uses Net::LDAP to do the actual authentication of login
+attempts for the Netdot web app.  It performs user authentication against
+an LDAP server over TLS by attempting to bind directly with the username
+and password as entered by the Netdot user.
     
-The following variables can be set in httpd.conf:
+The following variables can be set in etc/Site.conf:
 
 NetdotLDAPServer
     e.g. ldaps://server.local.domain:[port]
@@ -69,6 +72,12 @@ NetdotLDAPCACert
 NetdotLDAPVersion
     Optional.  Defaults to "3".
 
+NetdotLDAPTimeout
+    Optional.  Timeout in seconds for connecting to the LDAP server and for
+    the LDAP operations (Net::LDAP's own default is 120).  When the server is
+    unreachable and NetdotLDAPFailToLocal is "yes", the login falls back to
+    the local (Netdot DB) credentials after this delay.  Defaults to 5.
+
 NetdotLDAPFailToLocal <yes|no>
     If LDAP authentication fails, authenticate against local (Netdot DB) credentials.
     
@@ -94,13 +103,15 @@ NetdotLDAPProxyPass
 =head2 check_credentials
     
   Arguments:
-    Apache Request Object
+    Request object (an object providing dir_config / log_error / warn;
+    Netdot::Mojo::AuthShim in the web app)
     Username
     Password
   Returns:
     True or false
   Examples:
-    if ( Netdot::LDAP::check_credentials($r, $user, $pass) {...}
+    my $shim = Netdot::Mojo::AuthShim->new( app => $c->app );
+    if ( Netdot::LDAP::check_credentials( $shim, $user, $pass ) ) {...}
 
 =cut
 
@@ -197,6 +208,11 @@ sub check_credentials {
 	    return 0;
 	}
     }else{
+	# Authentication OK. Auto-populate the Person from the LDAP entry
+	# (givenName/sn/mail/telephoneNumber -> firstname/lastname/email/office),
+	# per the NetdotLDAPAttrMap config. Best-effort: any failure here is
+	# swallowed so it never blocks a successful login.
+	eval { _upsert_person_from_ldap( $r, $ldap, $username, $user_dn ) };
 	return 1;
     }
 }
@@ -231,6 +247,13 @@ sub _connect {
 
     my $version = $r->dir_config("NetdotLDAPVersion") || 3;
     my %args = (version=>$version, verify=>'none');
+    # Timeout in seconds for the connection and the operations (Net::LDAP's
+    # default is 120): a silent LDAP server must not hold the login for
+    # minutes -- with NetdotLDAPFailToLocal the login then falls back to the
+    # local credentials after this delay. Configurable via NetdotLDAPTimeout.
+    my $timeout = $r->dir_config("NetdotLDAPTimeout");
+    $timeout = 5 unless $timeout && $timeout > 0;
+    $args{timeout} = $timeout + 0;
     my $cafile = $r->dir_config("NetdotLDAPCACert");
     if ( $cafile ){
 	$args{cafile} = $cafile;
@@ -251,13 +274,294 @@ sub _connect {
 }
 
 
-#Be sure to return 1
+############################################################################
+
+=head2 _ldap_attr_map - Configured LDAP-attribute -> Person-column map
+
+Reads the "NetdotLDAPAttrMap" config item -- a hash of LDAP attribute => Person
+column, e.g.:
+
+    NetdotLDAPAttrMap => { 'givenName' => 'firstname', 'sn' => 'lastname',
+                           'mail' => 'email', 'telephoneNumber' => 'office' }
+
+Returns a list of [ldap_attr, person_field] pairs. A Person-column value is only
+trusted if it is a real column of the Person table. Falls back to the default map
+when the key is absent.
+
+=cut
+
+sub _ldap_attr_map {
+    my ($r) = @_;
+    my $map = eval { $r->dir_config('NetdotLDAPAttrMap') };
+    $map = { 'givenName' => 'firstname', 'sn' => 'lastname', 'mail' => 'email',
+             'telephoneNumber' => 'office' }
+        unless ref $map eq 'HASH';
+    my %valid;
+    eval { %valid = map { $_ => 1 } Person->columns };
+    my @pairs;
+    for my $ldap_attr ( sort keys %$map ) {
+        my $pcol = $map->{$ldap_attr};
+        next unless defined $pcol && length $pcol;
+        push @pairs, [ $ldap_attr, $pcol ] if $valid{$pcol};
+    }
+    return @pairs;
+}
+
+############################################################################
+
+=head2 uid_from_email - Resolve the LDAP uid from an email address
+
+Arguments:  Apache request object (or Netdot::Mojo::AuthShim), email address
+Returns:    The LDAP uid (string) or 0
+Description: For the OAuth (OpenID Connect) login flow (NetdotOAuthEmailToLDAP):
+             the provider's id_token carries the user's email (UPN /
+             preferred_username or email claim), while the Netdot username is
+             the LDAP uid. Connects to the configured LDAP server, binds the
+             attribute-reader account (NetdotLDAPAttrReaderDN/Pass, the same
+             account as the attribute auto-fill; anonymous otherwise) and
+             searches NetdotLDAPSearchBase with (mail=<email>) for the uid.
+             Fails closed: an email that does not look like one (also rejects
+             LDAP filter metacharacters), a bind/search error, or an ambiguous
+             (multiple) answer all yield 0.
+
+=cut
+
+sub uid_from_email {
+    my ( $r, $email ) = @_;
+    # A plain local@domain shape only: this also rejects the LDAP filter
+    # metacharacters (* \ ( )) that would alter the search filter.
+    return 0 unless defined $email && $email =~ /\A[A-Za-z0-9._%+-]+\@[A-Za-z0-9.-]+\z/;
+
+    my $ldap = _connect( $r ) or return 0;
+
+    # Read-only search: use the attribute-reader account when configured
+    # (same policy as _upsert_person_from_ldap), anonymous otherwise.
+    my $reader_dn = $r->dir_config( 'NetdotLDAPAttrReaderDN' );
+    my $reader_pw = $r->dir_config( 'NetdotLDAPAttrReaderPass' );
+    if ( defined $reader_dn && length $reader_dn
+         && defined $reader_pw && length $reader_pw ) {
+        my $rb = eval { $ldap->bind( $reader_dn, password => $reader_pw ) };
+        unless ( $rb && ! $rb->code ) {
+            $r->log_error( "netdot-auth LDAP: uid_from_email: reader bind failed for $reader_dn: ",
+                           ( $rb ? $rb->code . " (" . $rb->error . ")" : $@ // "no result" ) );
+            return 0;
+        }
+    }
+
+    my $res = eval {
+        $ldap->search(
+            base   => ( $r->dir_config( 'NetdotLDAPSearchBase' ) // '' ),
+            scope  => 'subtree',
+            filter => "(mail=$email)",
+            attrs  => [ 'uid' ],
+        );
+    };
+    if ( my $e = $@ ) {
+        $r->log_error( "netdot-auth LDAP: uid_from_email: search error for $email: $e" );
+        return 0;
+    }
+    unless ( $res && $res->code() == 0 ) {
+        $r->log_error( "netdot-auth LDAP: uid_from_email: search failed for $email: ",
+                       ( $res ? $res->code() . " (" . $res->error() . ")" : "no result" ) );
+        return 0;
+    }
+    my @uids = map { my @v = $_->get_value( 'uid' ); @v ? $v[0] : '' } $res->entries;
+    @uids = grep { length } @uids;
+    return 0 unless @uids;
+    return $uids[0] if @uids == 1;
+    $r->log_error( "netdot-auth LDAP: uid_from_email: AMBIGUOUS (",
+                   join( ', ', @uids ), ") for mail=$email" );
+    return 0;
+}
+
+############################################################################
+
+=head2 attrs_from_email - Mapped Person attributes from the LDAP entry of an email
+
+Arguments:  Apache request object (or Netdot::Mojo::AuthShim), email address
+Returns:    A hashref of Person-column => value (the _ldap_attr_map columns
+            present in the entry) or 0
+Description: Sibling of uid_from_email for the OAuth (EmailToLDAP) flow: the
+             provider's id_token carries no reliable name/phone claims, so the
+             Person auto-fill reads the mapped attributes (givenName/sn/mail/
+             telephoneNumber by default) from the directory instead. Same
+             connect/bind/search policy as uid_from_email (reader account,
+             NetdotLDAPSearchBase, mail=<email>), requesting the mapped
+             attributes. Fails closed like uid_from_email: a bad email shape,
+             a bind/search error, or an ambiguous (multiple) answer yield 0.
+
+=cut
+
+sub attrs_from_email {
+    my ( $r, $email ) = @_;
+    # Same shape check as uid_from_email (also rejects filter metacharacters).
+    return 0 unless defined $email && $email =~ /\A[A-Za-z0-9._%+-]+\@[A-Za-z0-9.-]+\z/;
+
+    my @pairs = _ldap_attr_map( $r );
+    return 0 unless @pairs;
+
+    my $ldap = _connect( $r ) or return 0;
+
+    # Same read-only reader policy as uid_from_email.
+    my $reader_dn = $r->dir_config( 'NetdotLDAPAttrReaderDN' );
+    my $reader_pw = $r->dir_config( 'NetdotLDAPAttrReaderPass' );
+    if ( defined $reader_dn && length $reader_dn
+         && defined $reader_pw && length $reader_pw ) {
+        my $rb = eval { $ldap->bind( $reader_dn, password => $reader_pw ) };
+        unless ( $rb && ! $rb->code ) {
+            $r->log_error( "netdot-auth LDAP: attrs_from_email: reader bind failed for $reader_dn: ",
+                           ( $rb ? $rb->code . " (" . $rb->error . ")" : $@ // "no result" ) );
+            return 0;
+        }
+    }
+
+    my $res = eval {
+        $ldap->search(
+            base   => ( $r->dir_config( 'NetdotLDAPSearchBase' ) // '' ),
+            scope  => 'subtree',
+            filter => "(mail=$email)",
+            attrs  => [ map { $_->[0] } @pairs ],
+        );
+    };
+    if ( my $e = $@ ) {
+        $r->log_error( "netdot-auth LDAP: attrs_from_email: search error for $email: $e" );
+        return 0;
+    }
+    unless ( $res && $res->code() == 0 && $res->count() == 1 ) {
+        $r->log_error( "netdot-auth LDAP: attrs_from_email: search failed or ambiguous for $email: ",
+                       ( $res ? $res->code() . " (" . $res->error() . ")" : "no result" ) );
+        return 0;
+    }
+
+    # First value per mapped attribute (multi-valued -> comma-joined, like
+    # _upsert_person_from_ldap).
+    my $entry = $res->entry(0);
+    my %out;
+    for my $p (@pairs) {
+        my @vals = $entry->get_value( $p->[0] );
+        $out{ $p->[1] } = join( ', ', @vals ) if @vals;
+    }
+    return { %out };
+}
+
+############################################################################
+
+=head2 _upsert_person_from_ldap - Fill Person fields from the LDAP entry
+
+After a successful LDAP bind, read the mapped attributes from the user's LDAP
+entry and apply them to the Person matching $username. The Person is created
+(if absent) with only its username, then the mapped values are filled in --
+ONLY into empty columns (existing values are never overwritten). Any failure
+returns 0 and is ignored by the caller, so it cannot break login.
+
+=cut
+
+sub _upsert_person_from_ldap {
+    my ( $r, $ldap, $username, $user_dn ) = @_;
+    my @pairs = _ldap_attr_map( $r );
+    $r->log_error( "netdot-auth LDAP: no attr map configured, skip auto-fill" ) unless @pairs;
+    return 0 unless @pairs;
+    my %col2attr = map { $_->[1] => $_->[0] } @pairs;
+
+    # Conservative mode: look up the Person FIRST and skip the LDAP fetch
+    # entirely when every mapped field is already set (no point hitting LDAP).
+    my $person = eval { Person->search( username => $username )->first };
+    my $is_new = 0;
+    unless ( $person ) {
+        # Person->insert requires lastname (Person.pm); seed it with the username
+        # (legacy get_user_person behaviour) -- sn overwrites it below if present.
+        $person = eval { Person->insert( { username => $username, lastname => $username } ) };
+        $is_new = 1 if $person;
+        return 0 unless $person;
+    }
+
+    # Mapped Person columns still needing a value: all of them for a brand-new
+    # Person, otherwise only the ones left empty (never overwrite existing data).
+    my %need = $is_new ? ( map { $_->[1] => 1 } @pairs ) : ();
+    unless ( $is_new ) {
+        for my $p (@pairs) {
+            my $cur = eval { $person-> $p->[1] };
+            $need{ $p->[1] } = 1 if !defined $cur || $cur eq '';
+        }
+    }
+    unless ( %need ) {
+        $r->log_error( "netdot-auth LDAP: all mapped Person fields already set for $username; skipping LDAP fetch" );
+        return 1;
+    }
+
+    # The user's own bound connection cannot read its own attributes (self-bind
+    # ACLs), so fetch via a dedicated reader account when configured.
+    my $reader_dn = $r->dir_config( 'NetdotLDAPAttrReaderDN' );
+    my $reader_pw = $r->dir_config( 'NetdotLDAPAttrReaderPass' );
+    my $reader;
+    if ( defined $reader_dn && length $reader_dn && defined $reader_pw && length $reader_pw ) {
+        $reader = _connect( $r );
+        my $rb  = $reader && eval { $reader->bind( $reader_dn, password => $reader_pw ) };
+        unless ( $reader && $rb && ! $rb->code ) {
+            $r->log_error( "netdot-auth LDAP: attr-reader bind failed for $reader_dn: ",
+                           ( $rb ? $rb->code . " (" . $rb->error . ")" : "no connection" ) );
+            return 0;
+        }
+    }
+    my $conn = $reader // $ldap;
+
+    my $res = eval {
+        $conn->search(
+            base    => $user_dn,
+            scope   => 'subtree',
+            filter  => '(objectClass=*)',
+            attrs   => [ map { $_->[0] } @pairs ],
+        );
+    };
+    if ( my $e = $@ ) {
+        $r->log_error( "netdot-auth LDAP: attr fetch error for $username: $e" );
+        return 0;
+    }
+    unless ( $res && $res->code() == 0 && $res->count() == 1 ) {
+        $r->log_error( "netdot-auth LDAP: attr search returned ",
+                       ( $res ? $res->code() . " (" . $res->error() . ")" : "no result" ),
+                       " for $username; skip auto-fill" );
+        return 0;
+    }
+
+    # Net::LDAP::Entry: ->attributes returns attribute NAMES (list context);
+    # ->get_value($name) returns that attribute's values.
+    my %attrs;
+    my $entry = $res->entry(0);
+    for my $key ( $entry->attributes ) {
+        my @vals = $entry->get_value( $key );
+        $attrs{ lc $key } = join( ', ', @vals );
+    }
+
+    # Fill only the columns still empty (conservative) with the LDAP value.
+    my %upd;
+    for my $col ( keys %need ) {
+        my $val = $attrs{ lc $col2attr{$col} };
+        $upd{$col} = $val if defined $val && length $val;
+    }
+    if ( !%upd ) {
+        $r->log_error( "netdot-auth LDAP: no LDAP value for the empty Person field(s) ",
+                       join( ',', keys %need ), " of $username" );
+        return 0;
+    }
+
+    eval { $person->update( \%upd ) };
+    if ( my $e = $@ ) {
+        $r->log_error( "netdot-auth LDAP: update FAILED for $username: $e" );
+        return 0;
+    }
+    $r->log_error( "netdot-auth LDAP: filled Person field(s) ",
+                   join( ',', keys %upd ), " for $username" );
+    return 1;
+}
+
+# Make sure to return 1
 1;
 
 
 =head1 SEE ALSO
 
-Apache2::SiteControl
+Netdot::AuthLocal
 
 =head1 AUTHORS
 

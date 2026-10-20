@@ -7,7 +7,7 @@
 PANDOC_OPTIONS=--number-sections --toc
 PANDOC=/usr/bin/pandoc
 
-SOURCES=netdot-manual.txt netdot-manual-es.txt
+SOURCES=netdot-manual.txt
 
 PDFS=$(SOURCES:.txt=.pdf)
 HTMLS=$(SOURCES:.txt=.html)

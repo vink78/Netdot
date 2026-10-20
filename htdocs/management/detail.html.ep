@@ -1,0 +1,164 @@
+<h1><%= $title %></h1>
+
+% my $can_delete = $c->stash('can_delete');
+% my $del_path   = $c->stash('del_path') // '';
+% my $del_goto   = $c->stash('del_goto') // '';
+<p>
+  <a href="<%= url_for( $type . '_list' ) %>">&laquo; <%= ucfirst($type) %></a>
+  % if ( $can_edit && @$fields ) {
+  <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+  % if ( $c->stash('setpass_api') ) {
+  % # Person pages, Admins only: dedicated password box (see initSetPassword).
+  <button type="button" class="btn" id="nd-setpass-toggle" style="margin-left:0.6em">Password</button>
+  % }
+  % if ( $can_delete ) {
+  <button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" style="margin-left:0.6em">Delete</button>
+  % }
+</p>
+
+% if (@$attrs) {
+%   # Fields table: Device-Basics "General" look (datatable.detail, 2 label/value
+%   # pairs per row), no section header. Chunk the flat attr list into rows of 2.
+%   my $N    = 2;
+%   my @list = @$attrs;
+  <table class="datatable detail c2" id="nd-readonly">
+    <tbody>
+    % for (my $i = 0; $i < @list; $i += $N) {
+    %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
+    %   my @r   = @list[$i .. $end];
+    <tr>
+      % for my $a (@r) {
+      %   my ( $tag, $text, $href ) = @$a;
+      <th><%= $tag %></th>
+      <td>
+        % if ( defined $href ) {
+        <a href="<%= $href %>"><%= $text %></a>
+        % } else {
+        <%= $text // '' %>
+        % }
+      </td>
+      % }
+    </tr>
+    % }
+    </tbody>
+  </table>
+% } else {
+  <p>No attribute.</p>
+% }
+
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
+
+% # Person pages (Admins): dedicated password box. The generic edit form excludes
+% # the sensitive `password` column, so the new password goes through its own
+% # small form (wired by netdot.js initSetPassword, skipped by the generic
+% # form handler): new + repeat fields, checked client-side, PATCHes the same
+% # API endpoint with {password} — the model's trigger hashes it server-side.
+% my $setpass_api = $c->stash('setpass_api');
+% if ($setpass_api) {
+<form id="nd-setpass" class="nd-setpass" data-nd-api="<%= $setpass_api %>" style="display:none; margin-top:0.8em">
+  <table class="datatable detail c2">
+    <tbody>
+    <tr>
+      <th>New password</th>
+      <td><input type="password" name="password" autocomplete="new-password"></td>
+    </tr>
+    <tr>
+      <th>Repeat new password</th>
+      <td><input type="password" name="password_repeat" autocomplete="new-password"></td>
+    </tr>
+    </tbody>
+  </table>
+  <p style="margin-top:0.8em">
+    <button type="submit" class="btn">Set password</button>
+    <button type="button" class="btn" id="nd-setpass-cancel" style="margin-left:0.6em">Cancel</button>
+  </p>
+</form>
+% }
+
+% my $relations = $c->stash->{relations} // [];
+% my $dbase     = $c->set_uri( "/management/$type/$id" );
+% my $active    = $c->param('rel');
+% my $multi     = scalar(@$relations) > 1;
+% if (@$relations) {
+<div class="tabcard">
+% if ($multi) {
+%   # Default to the first relation unless ?rel= names a valid one.
+%   $active = $relations->[0]->{csv_rel}
+%         unless defined $active && grep { $_->{csv_rel} eq $active } @$relations;
+<div class="tabbar">
+   % for my $r (@$relations) {
+    <a class="tab<%= $active eq $r->{csv_rel} ? ' active' : '' %>"
+       hx-boost="false" data-rel="<%= $r->{csv_rel} %>"
+       href="<%= $dbase . '?rel=' . $r->{csv_rel} %>"><%= $r->{title} %></a>
+   % }
+</div>
+% }
+<div class="tabcard-body">
+% for my $r (@$relations) {
+  % my $rel   = $r->{csv_rel};
+  % my $rlink = sub { my $off = shift; return $dbase . '?rel=' . $rel . ( ( defined $off && $off > 0 ) ? '&offset=' . $off : '' ); };
+  <div class="tab-pane" data-rel="<%= $rel %>"<%= ($multi && $active ne $rel) ? ' hidden' : '' %>>
+    % if ( $r->{total} ) {
+    <table class="datatable">
+      <thead>
+        <tr>
+        % for my $h ( @{ $r->{cols} } ) {
+        <th><%= $h %></th>
+        % }
+        </tr>
+      </thead>
+      <tbody>
+        % for my $row ( @{ $r->{rows} } ) {
+        <tr>
+          % for my $cell ( @$row ) {
+          % my ($t, $h) = @$cell;
+          <td>
+            % if ($h) {
+            <a href="<%= $h %>"><%= $t %></a>
+            % } else {
+            <%= $t // '' %>
+            % }
+          </td>
+          % }
+        </tr>
+        % }
+      </tbody>
+    </table>
+    % } else {
+    <p>No attribute.</p>
+    % }
+    <p style="font-size:0.85em; margin:0.3em 0 0 0">
+      % if ( $r->{total} > $r->{per} ) {
+      Results: [<%= $r->{start} %>-<%= $r->{last_item} %>] of <%= $r->{total} %>&nbsp;
+      % if ( $r->{offset} > 0 ) {
+      <a href="<%= $r->{offset} >= $r->{per} ? $rlink->( $r->{offset} - $r->{per} ) : $rlink->() %>">&laquo;</a>&nbsp;
+      % }
+      % if ( $r->{offset} + $r->{per} < $r->{total} ) {
+      <a href="<%= $rlink->( $r->{offset} + $r->{per} ) %>">&raquo;</a>
+      % }
+      &nbsp;
+      % }
+      <a href="<%= $dbase . '?csv=' . $rel %>">[csv]</a>
+    </p>
+    % # Generic "Add" form of this relation (stashed by Show#show, built by
+    % # Detail::relation_adds): the port of the legacy view.html [add] link on
+    % # the section (edit.html?table=<child>&<fk>=<parent>). The shared
+    % # _edit_form partial in create mode -> POST /api/<table>; the parent FK
+    % # is a hidden pre-filled field; initForms (netdot.js) handles the submit
+    % # and reloads the page on success.
+    % if ( my $ra = ( $c->stash('rel_adds') // {} )->{$rel} ) {
+    <div style="margin-top:0.8em">
+      <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                                can_edit => 1, fields => $ra->{fields},
+                                api_path => $c->web_prefix . '/api/' . $ra->{table},
+                                nd_create => 1, nd_method => 'POST',
+                                nd_label  => 'Add' ) %>
+    </div>
+    % }
+  </div>
+% }
+</div>
+</div>
+% }

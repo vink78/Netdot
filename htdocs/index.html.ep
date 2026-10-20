@@ -1,0 +1,27 @@
+<h1>Netdot <small>(Mojolicious)</small></h1>
+
+<form action="<%= $c->web_prefix %>/search" method="get" style="margin:1em 0">
+  <input type="text" name="q" size="50" placeholder="Search: IP, MAC, or hostname" />
+  <input type="submit" value="Search" />
+</form>
+
+% my $nav = $c->stash('nav') // [];
+% if (@$nav) {
+  <div class="menuwrap">
+    % for my $sec (@$nav) {
+    <div class="container">
+      <div class="containerhead"><%= $sec->{title} %></div>
+      <div class="containerbody">
+        <ul class="menu">
+          % for my $it (@{ $sec->{items} }) {
+          <li><a href="<%= $it->{url} %>"><%= $it->{label} %></a></li>
+          % }
+        </ul>
+      </div>
+    </div>
+    % }
+  </div>
+% } else {
+  <p>You have no access to any object type.</p>
+% }
+<p class="muted">Click any id to see all its attributes (related objects are linked). Objects can be created, edited and deleted in place — changes are saved via the API and logged in the Changelog.</p>

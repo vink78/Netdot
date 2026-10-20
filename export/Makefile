@@ -3,7 +3,10 @@ include $(SRCROOT)/etc/utility-Makefile
 #
 # makefile for export/
 #
-NDIR = docs nagios sysmon rancid cacti ethers smokeping bind named dhcpd rfc952 unilstat apache git git/zone pb
+NDIR = docs nagios sysmon rancid cacti ethers smokeping bind named dhcpd rfc952 unilstat apache git git/zone pb \
+	pb/group_vars/all rancid/clearpass rancid/routers rancid/switches \
+	smokeping/AccessPoint smokeping/Clearpass smokeping/Firewall smokeping/Loadbalancer smokeping/Router \
+	smokeping/Server smokeping/Switch smokeping/VPN smokeping/WirelessController
 
 FILES := `find . -type f |egrep -v '\.svn|Makefile' |sed -e 's/\.\///'`
 

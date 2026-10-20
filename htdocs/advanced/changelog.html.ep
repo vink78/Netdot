@@ -1,0 +1,78 @@
+<h1>Changelog <small>(<%= $total // 0 %> total)</small></h1>
+
+<div class="container" style="margin-bottom:1em">
+  <div class="containerhead">Search</div>
+  <div class="containerbody" style="padding:0.6em">
+    <form method="get" action="<%= $c->web_prefix %>/changelog">
+      <p>
+        <label>Label:</label>
+        <input type="text" name="search" class="longtxt" value="<%= $c->stash('search') // '' %>">
+        <label>Operation:</label>
+        <select name="operation">
+          <option value="">All</option>
+        % for my $op (qw(insert update delete)) {
+          <option value="<%= $op %>" <%= ($c->stash('operation') // '') eq $op ? 'selected' : '' %>><%= $op %></option>
+        % }
+        </select>
+        <input type="submit" value="Find" class="btn">
+      </p>
+    </form>
+  </div>
+</div>
+
+% my $rows  = $c->stash('rows') // [];
+% my $per   = $c->stash('per')   // 50;
+% my $total = $c->stash('total') // 0;
+% my $offset = $c->stash('offset') // 0;
+% my $start = $c->stash('start') // 0;
+% my $last  = $c->stash('last_item') // 0;
+
+% if (@$rows) {
+<div class="container">
+  <div class="containerbody">
+    <table class="datatable sortable">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Table</th>
+          <th>Label</th>
+          <th>Operation</th>
+          <th>Fields</th>
+          <th>Values</th>
+        </tr>
+      </thead>
+      <tbody>
+      % for my $r (@$rows) {
+        <tr>
+          <td><%= $r->{tstamp} // '' %></td>
+          <td><%= $r->{username} // '' %></td>
+          <td><%= $r->{tablename} // '' %></td>
+          <td><%= $r->{label} // '' %></td>
+          <td><%= $r->{operation} // '' %></td>
+          <td><%= $r->{fields} // '' %></td>
+          <td><%= $r->{vals} // '' %></td>
+        </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+
+  % if ($total > $per) {
+  <p>Results: [<%= $start %>-<%= $last %>] of <%= $total %>
+    % if ($offset > 0) {
+    <a href="?offset=<%= $offset - $per %>&search=<%= $c->stash('search') // '' %>&operation=<%= $c->stash('operation') // '' %>">[&laquo;]</a>
+    % }
+    % if ($last < $total) {
+    <a href="?offset=<%= $last %>&search=<%= $c->stash('search') // '' %>&operation=<%= $c->stash('operation') // '' %>">[&raquo;]</a>
+    % }
+  </p>
+  % }
+
+% } else {
+<div class="container">
+  <div class="containerhead">Changelog</div>
+  <div class="containerbody"><p>No audit records found.</p></div>
+</div>
+% }

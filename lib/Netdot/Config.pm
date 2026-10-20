@@ -8,7 +8,7 @@ my %config;
 my $default_config_dir = "<<Make:PREFIX>>/etc";
 my $alt_config_dir     = catpath( ( splitpath( rel2abs $0 ) )[ 0, 1 ], '' ) . "../etc";
 
-#Be sure to return 1
+# Make sure to return 1
 1;
 
 =head1 NAME

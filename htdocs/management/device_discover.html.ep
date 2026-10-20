@@ -1,0 +1,255 @@
+% # Device SNMP discovery wizard (port of the legacy device_tasks.html "Discover
+% # Device" + updatedevice.html) — admin only (Mason: access_admin_section).
+% # Display / validation only: all DB writes go through the API (POST
+% # /api/device {discover: true, ...} or /api/device/<id>/update); the confirm
+% # forms (class nd-disc-run) call the API via netdot.js (initDiscRun) and
+% # render the captured model log + link to the device page client-side.
+% # Three renders of this template:
+% #   mode=form    step 1: host + SNMP credentials — re-rendered with the
+% #                error when the SNMP query fails (fields echoed)
+% #   mode=review  step 2: review the SNMP info — Owner / Used by / Site /
+% #                Contacts (+ add_subnets / subs_inherit for routers;
+% #                pretend dry-run for existing devices)
+% #   mode=repoll  the direct re-poll page (/management/device/<id>/update)
+% my $mode   = $c->stash('mode');
+% my $error  = $c->stash('error') // '';
+% my $action = $c->url_for('device_discover')->to_string;
+
+% if ( $mode eq 'form' ) {
+% my $echo = $c->stash('echo') // {};
+% my $v3   = $c->stash('v3def') // {};
+% my $curver  = $echo->{version} // $c->stash('defver');
+% my $curcomm = $echo->{comstr} // ( @{ $c->stash('comms') }[0] );
+<h1>Device discovery</h1>
+<p style="margin-top:0"><a href="<%= $c->url_for('device_list') %>">[back]</a> — SNMP query a device and import its interfaces, IPs and subnets.</p>
+<div class="container">
+  <div class="containerhead">Discover Device</div>
+  <div class="containerbody" style="padding:0.6em">
+    % if ($error) {
+    <p style="color:#cc0000"><%= $error %></p>
+    % }
+    <form method="post" action="<%= $action %>">
+      <input type="hidden" name="action" value="discover">
+      <p>
+        <label>Name/IP:</label>
+        <input type="text" name="host" class="longtxt" value="<%= $echo->{host} // '' %>" required>
+      </p>
+      <p>
+        <label>SNMP Version:</label>
+        <select name="version" id="disc-version">
+          % for my $v ( 1, 2, 3 ) {
+          <option value="<%= $v %>" <%= ( $curver == $v ) ? 'selected' : '' %>><%= $v %></option>
+          % }
+        </select>
+      </p>
+      % # v1/v2 credentials: community (config list + "Other")
+      <div id="v2args">
+        <p>
+          <label>SNMP Community:</label>
+          <select name="comstr" id="disc-comstr">
+            % for my $cm ( @{ $c->stash('comms') } ) {
+            <option value="<%= $cm %>" <%= $curcomm eq $cm ? 'selected' : '' %>><%= $cm %></option>
+            % }
+            <option value="Other" <%= $curcomm eq 'Other' ? 'selected' : '' %> >Other</option>
+          </select>
+          <input type="text" name="other_comstr" class="txt" size="14"
+                 value="<%= $echo->{other_comstr} // '' %>"
+                 placeholder="<Other community>">
+        </p>
+      </div>
+      % # v3 credentials (hidden unless version 3)
+      <div id="v3args" style="display:none">
+        <p>
+          <label>Sec Name:</label>
+          <input type="text" name="sec_name" class="txt" value="<%= $echo->{sec_name} // $v3->{sec_name} %>">
+        </p>
+        <p>
+          <label>Sec Level:</label>
+          <select name="sec_level">
+            % for my $sl ( qw(noAuthNoPriv authNoPriv authPriv) ) {
+            <option value="<%= $sl %>" <%= ( $echo->{sec_level} // $v3->{sec_level} ) eq $sl ? 'selected' : '' %>><%= $sl %></option>
+            % }
+          </select>
+        </p>
+        <p>
+          <label>Auth Proto:</label>
+          <select name="auth_proto">
+            % for my $ap ( qw(MD5 SHA) ) {
+            <option value="<%= $ap %>" <%= ( $echo->{auth_proto} // $v3->{auth_proto} ) eq $ap ? 'selected' : '' %>><%= $ap %></option>
+            % }
+          </select>
+          <label style="margin-left:1em">Auth Pass:</label>
+          <input type="password" name="auth_pass" class="txt" value="<%= $echo->{auth_pass} // $v3->{auth_pass} %>">
+        </p>
+        <p>
+          <label>Priv Proto:</label>
+          <select name="priv_proto">
+            % for my $pp ( qw(DES AES) ) {
+            <option value="<%= $pp %>" <%= ( $echo->{priv_proto} // $v3->{priv_proto} ) eq $pp ? 'selected' : '' %>><%= $pp %></option>
+            % }
+          </select>
+          <label style="margin-left:1em">Priv Pass:</label>
+          <input type="password" name="priv_pass" class="txt" value="<%= $echo->{priv_pass} // $v3->{priv_pass} %>">
+        </p>
+      </div>
+      <p><input type="submit" value="Discover" class="btn"></p>
+    </form>
+    <script>
+      // Toggle the v2 (community) / v3 (security) credential fields (port of
+      // the legacy showSnmpV3Args).
+      (function () {
+        var sel = document.getElementById('disc-version');
+        function show() {
+          var v3 = sel.value == '3';
+          document.getElementById('v3args').style.display = v3 ? 'block' : 'none';
+          document.getElementById('v2args').style.display = v3 ? 'none' : 'block';
+        }
+        sel.addEventListener('change', show);
+        show();
+      })();
+    </script>
+  </div>
+</div>
+
+% } elsif ( $mode eq 'review' ) {
+% my $q     = $c->stash('query') // {};
+% my $host  = $c->stash('host');
+<h1>Device discovery</h1>
+<p style="margin-top:0">Review the SNMP info for <b><%= $host %></b>, then confirm.</p>
+<div class="container">
+  <div class="containerhead">Device: <strong><%= $host %></strong></div>
+  <div class="containerbody" style="padding:0.6em">
+    % if ($error) {
+    <p style="color:#cc0000"><%= $error %></p>
+    % }
+    % # Confirm -> the API (all DB writes go through the API): a new device is
+    % # created via POST /api/device {discover: true, name, ...}; an existing
+    % # one is re-polled via POST /api/device/<id>/update (stored credentials).
+    % # The query args are echoed so the API re-runs the same SNMP query.
+    % my $isexisting = $c->stash('is_existing');
+    % my $exid = $c->stash('ex_id') // $c->stash('device') // '';
+    % my $ver  = $q->{version} // 2;
+    % my $comm = ( ( $q->{comstr} // '' ) eq 'Other' ) ? ( $q->{other_comstr} // '' ) : ( $q->{comstr} // '' );
+    % my $apiurl = $isexisting ? ( $c->web_prefix . '/api/device/' . $exid . '/update' ) : ( $c->web_prefix . '/api/device' );
+    <form class="nd-disc-run" data-nd-api="<%= $apiurl %>" data-nd-method="POST"
+          data-nd-dev-url="<%= $c->web_prefix %>/management/device/">
+      % unless ( $isexisting ) {
+      <input type="hidden" name="discover" value="true">
+      <input type="hidden" name="name" value="<%= $host %>">
+      <input type="hidden" name="snmp_version" value="<%= $ver %>">
+      <% if ( $ver != 3 && length $comm ) { %>
+      <input type="hidden" name="community" value="<%= $comm %>">
+      <% } %>
+      % }
+      % # v3 credentials are re-sent to the API with the same field names
+      % # (empty values are omitted — the API falls back to DEFAULT_SNMP_*
+      % # config). v1/v2 send only the resolved `community`.
+      % if ( $ver == 3 ) {
+      %   for my $k ( qw(sec_name sec_level auth_proto auth_pass priv_proto priv_pass) ) {
+      %     next unless defined $q->{$k} && length $q->{$k};
+      <input type="hidden" name="<%= $k %>" value="<%= $q->{$k} %>">
+      %   }
+      % }
+      <table class="datatable">
+        <tr>
+          <th>Description</th>
+          <td><%= $c->stash('sysdescription') %></td>
+        </tr>
+        % unless ( $c->stash('is_existing') ) {
+        <tr>
+          <th>Owner:</th>
+          <td>
+            <select name="owner">
+              <option value="">-- Select --</option>
+              % for my $e ( @{ $c->stash('entities') } ) {
+              <option value="<%= $e->id %>" <%= $c->stash('sel_owner') eq $e->id ? 'selected' : '' %>><%= $e->name %></option>
+              % }
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <th>Used by:</th>
+          <td>
+            <select name="used_by">
+              <option value="">-- Select --</option>
+              % for my $e ( @{ $c->stash('entities') } ) {
+              <option value="<%= $e->id %>" <%= $c->stash('sel_used') eq $e->id ? 'selected' : '' %>><%= $e->name %></option>
+              % }
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <th>Site:</th>
+          <td>
+            <select name="site">
+              <option value="">-- Select --</option>
+              % for my $s ( @{ $c->stash('sites') } ) {
+              <option value="<%= $s->id %>" <%= $c->stash('sel_site') eq $s->id ? 'selected' : '' %>><%= $s->name %></option>
+              % }
+            </select>
+          </td>
+        </tr>
+        <tr>
+          <th>Contacts:</th>
+          <td>
+            <select name="contacts" size="6" multiple>
+              % for my $cl ( @{ $c->stash('contactlists') } ) {
+              <option value="<%= $cl->id %>" <%= $c->stash('sel_cl') eq $cl->id ? 'selected' : '' %>><%= $cl->name %></option>
+              % }
+            </select> (select all that apply)
+          </td>
+        </tr>
+        % if ( $c->stash('ipforwarding') ) {
+        <tr>
+          <th>Add new Subnets (if any)?:</th>
+          <td><input type="checkbox" name="add_subnets" value="1" <%= $c->stash('def_addsubnets') ? 'checked' : '' %>></td>
+        </tr>
+        <tr>
+          <th>Should new subnets inherit device owner/user?:</th>
+          <td><input type="checkbox" name="subs_inherit" value="1" <%= $c->stash('def_subsinherit') ? 'checked' : '' %>></td>
+        </tr>
+        % }
+        % } else {
+        % # Existing device: only the dry-run choice (Mason).
+        <tr>
+          <th>Dry Run?:</th>
+          <td><input type="checkbox" name="pretend" value="1"> (show operations and roll back DB changes)</td>
+        </tr>
+        % }
+      </table>
+      <p style="margin:0.8em 0 0">
+        <input type="submit" value="<%= $isexisting ? 'Update' : 'Discover' %>" class="btn">
+        <a class="btn" href="<%= $c->url_for('device_list') %>">Cancel</a>
+      </p>
+    </form>
+    <div class="nd-disc-result" style="display:none"></div>
+  </div>
+</div>
+
+% } else {
+% # mode=repoll — direct re-poll page (/management/device/<id>/update):
+% # display only; the actual re-poll is POST /api/device/<id>/update (all DB
+% # writes go through the API). netdot.js (initDiscRun) renders the result
+% # (captured model log + link to the device page) from the API response.
+% my $dev  = $c->stash('dev');
+% my $id   = $dev->id;
+% my $fqdn = $dev->fqdn // $id;
+<h1>SNMP update: <strong><%= $fqdn %></strong></h1>
+<p style="margin-top:0"><a href="<%= $c->url_for('device_show', id => $id) %>">[back]</a></p>
+<div class="container">
+  <div class="containerhead">Re-poll <strong><%= $fqdn %></strong> (stored SNMP credentials)</div>
+  <div class="containerbody" style="padding:0.6em">
+    <form class="nd-disc-run" data-nd-api="<%= $c->web_prefix . '/api/device/' . $id . '/update' %>" data-nd-method="POST"
+          data-nd-dev-url="<%= $c->web_prefix %>/management/device/">
+      <p>
+        <label>Dry Run?:</label>
+        <input type="checkbox" name="pretend" value="1"> (show operations and roll back DB changes)
+      </p>
+      <p style="margin:0.8em 0 0">
+        <input type="submit" value="Update" class="btn">
+      </p>
+    </form>
+    <div class="nd-disc-result" style="display:none"></div>
+  </div>
+</div>
+% }

@@ -55,13 +55,13 @@ XMOD ?= 0744
 # which makes them available in children makefiles
 export
 
-# If mason ever decides to use different directories in its data_dir there will
-# be trouble.
-DIR = bin doc htdocs tmp tmp/sessions /tmp/sessions/locks lib etc var import export
+# Fixed list of the installed directories (the app expects them at runtime,
+# e.g. tmp/ for sessions, var/ for exports).
+DIR = api bin doc htdocs tmp lib etc var import export
 
-.PHONY: bin doc htdocs lib etc var upgrade
+.PHONY: api bin doc htdocs lib etc var upgrade
 
-install: dir doc htdocs lib var bin etc _import _export
+install: dir api doc htdocs lib var bin etc _import _export
 	@echo
 	@echo "Netdot is installed. "
 	@echo "Please read the available documentation before proceeding."
@@ -109,6 +109,9 @@ lib:
 	cd $@ ; $(MAKE) all DIR=$@
 
 var:
+	cd $@ ; $(MAKE) all DIR=$@
+
+api:
 	cd $@ ; $(MAKE) all DIR=$@
 
 bin:

@@ -1,0 +1,78 @@
+<%# Device Basics section (port of the legacy device.html "Basics"): the
+    attribute sections (netdot.meta "all" view + custom attributes), the
+    in-place edit form (PATCH /api/device/<id>, hidden under the Edit toggle)
+    and the custom-attributes "Add" form. Section data comes from the `sec`
+    render_to_string argument ($stash{sections}{Basics}); view-independent
+    keys (can_edit) are stash keys. %>
+<% my $sec      = $sec // {}; %>
+<% my $sections = $sec->{sections} // []; %>
+<% my $fields   = $sec->{fields}   // []; %>
+<% my $api_path = $sec->{api_path} // ''; %>
+<% my $attr_add = $sec->{attr_add}; %>
+% if ( $can_edit && @$fields ) {
+<button type="button" class="btn" id="nd-edit-toggle" style="margin:0 0 0.5em 0">Edit</button>
+% }
+<div id="nd-readonly">
+% for my $s (@$sections) {
+% my $rows = $s->{rows};
+% next unless @$rows;
+<div class="container boxed">
+  <div class="containerhead"><%= $s->{title} %></div>
+  <div class="containerbody flat">
+    <table class="datatable detail c<%= $s->{cols} %>">
+      <tbody>
+      % for my $row (@$rows) {
+      <tr>
+        % for my $cell (@$row) {
+          % my ( $tag, $text, $href ) = @$cell;
+          % my $wide = ( !defined $tag || $tag eq '' );
+          % if ($wide) {
+          <td colspan="2">
+          % } else {
+          <th><%= $tag %></th>
+          <td>
+          % }
+            % if ( ref $text eq 'ARRAY' ) {
+            % for my $li (0 .. $#$text) {
+            % my $l = $text->[$li];
+            % if ($li > 0) {
+            ,
+            % }
+            % if ( $l->[1] ) {
+            <a href="<%= $l->[1] %>"><%= $l->[0] %></a>
+            % } else {
+            <%= $l->[0] %>
+            % }
+            % }
+            % } else {
+            % if ( defined $href ) {
+            <a href="<%= $href %>"><%= $text // '' %></a>
+            % } else {
+            <%= $text // '' %>
+            % }
+            % }
+          </td>
+        % }
+      </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+% }
+</div>
+% # Custom-attributes "Add" form (built by Detail::relation_adds, bundled per
+% # section by Device#_section_data): the port of the legacy device.html [add]
+% # link on the Custom Attributes section (edit.html?table=DeviceAttr&device=<id>).
+% # Custom Attributes is the last Basics section, so this sits directly below it.
+% if ( $attr_add ) {
+<div style="margin-top:0.8em">
+  <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                            can_edit => 1, fields => $attr_add->{fields},
+                            api_path => $c->web_prefix . '/api/' . $attr_add->{table},
+                            nd_create => 1, nd_method => 'POST',
+                            nd_label  => 'Add' ) %>
+</div>
+% }
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>

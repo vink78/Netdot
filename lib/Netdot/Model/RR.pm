@@ -670,8 +670,9 @@ sub sub_records {
 
     my @records;
 
-    foreach my $m ( qw/a_records txt_records hinfo_records cnames ns_records 
-                     mx_records ptr_records naptr_records srv_records ds_records/ ){
+    foreach my $m ( qw/a_records txt_records hinfo_records cnames ns_records
+                      mx_records ptr_records naptr_records srv_records ds_records
+                      attributes/ ){
 	push @records, $self->$m;
     }
 
@@ -816,6 +817,6 @@ Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 =cut
 
-#Be sure to return 1
+# Make sure to return 1
 1;
 

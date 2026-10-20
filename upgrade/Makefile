@@ -12,7 +12,7 @@ all: db tasks
 	@echo "  * Check the file upgrade/error.log and correct any errors before continuing"
 	@echo "  * After making sure that errors have been corrected, you may:"
 	@echo "    'make install'"
-	@echo "  * Stop and start Apache"
+	@echo "  * Stop and start the Netdot web server (hypnotoad)"
 	@echo 
 
 db:

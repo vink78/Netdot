@@ -4,6 +4,7 @@ use base 'Netdot::Model';
 use warnings;
 use strict;
 use Math::BigInt;
+use MIME::Base64;
 use NetAddr::IP qw(:lower);
 use Net::Patricia 1.19_01;
 use Storable qw(nfreeze thaw);
@@ -120,6 +121,27 @@ sub int2ip {
 
 =cut
 
+# Normalize an Ipblock 'address' (search) value to the integer stored in the
+# numeric address column, for IPv4 AND IPv6. Accepts a dotted/hex address, a
+# CIDR "addr/prefix" (the prefix is also returned), or an already-numeric
+# value (returned unchanged). Mirrors the conversion insert() applies so that
+# search() finds exactly what insert() stores. Returns ($address, $prefix).
+sub _normalize_search_address {
+    my ($class, $address, $prefix) = @_;
+    return ($address, $prefix) unless defined $address;
+    return ($address, $prefix) if $address =~ /^-?\d+$/;   # already numeric
+    if ( $address =~ /.+\/\d+$/ ){
+        my ($a, $p) = split /\//, $address;                # CIDR
+        return ($class->ip2int($a), $p);
+    }
+    if ( $address =~ /\D/ ){                               # dotted / hex
+        $class->throw_user(sprintf("Address %s does not match valid IP v4/v6 formats", $address))
+            unless $class->matches_ip($address);
+        return ($class->ip2int($address), $prefix);
+    }
+    return ($address, $prefix);
+}
+
 sub search {
     my ($class, @args) = @_;
     $class->isa_class_method('search');
@@ -130,25 +152,26 @@ sub search {
     my $opts = @args % 2 ? pop @args : {}; 
     my %args = @args;
    
+    # find_or_create() and Class::DBI callers pass the search fields as a
+    # single hashref, which the "@args % 2 ? pop" above lands in $opts (not
+    # %args). Normalize its address there too, or a dotted/hex address is
+    # coerced by MySQL and the search misses (find_or_create then re-inserts
+    # -> duplicate key).
+    if ( ref($opts) eq 'HASH' && defined $opts->{address} && !defined $args{address} ){
+        ($opts->{address}, $opts->{prefix}) =
+            $class->_normalize_search_address( $opts->{address}, $opts->{prefix} );
+        $opts->{status} = $class->_get_status_id($opts->{status})
+            if defined $opts->{status};
+    }
+
     if ( defined $args{status} ){
 	my $statusid = $class->_get_status_id($args{status});
 	$args{status} = $statusid;
     }
     if ( defined $args{address} ){
-	if ( $args{address} =~ /.+\/\d+$/ ){
-	    # Address is in CIDR format
-	    my ($address, $prefix) = split /\//, $args{address};
-	    $args{address} = $class->ip2int($address);
-	    $args{prefix}  = $prefix;
-	}elsif ( $args{address} =~ /\D/ ){
-	    # Address contains non-digits
-	    if ( $class->matches_ip($args{address}) ){
-		# Ony convert to integer if address matches valid IP formats
-		$args{address} = $class->ip2int($args{address});
-	    }else{
-		$class->throw_user(sprintf("Address %s does not match valid IP v4/v6 formats", $args{address}));
-	    }
-	}
+	($args{address}, my $cidr_prefix) =
+	    $class->_normalize_search_address( $args{address}, $args{prefix} );
+	$args{prefix} = $cidr_prefix if defined $cidr_prefix;
 	if ( $class->config->get('DB_TYPE') eq 'mysql' ){
 	    # Deal with mysql bug 
 	    # http://bugs.mysql.com/bug.php?id=60213
@@ -1613,11 +1636,22 @@ sub update {
     $argv->{status} ||= $self->status;
     $argv->{prefix} = $self->prefix unless defined $argv->{prefix};
 
-    if ( defined $argv->{address} && defined $argv->{prefix} ){
-	my $ip = $class->_prevalidate($argv->{address}, $argv->{prefix});
+    if ( defined $argv->{address} ){
+	my $addr_in = $argv->{address};
+	my $ip      = $class->_prevalidate($addr_in, $argv->{prefix});
+	# The IP version is an identity field: it follows the address and cannot
+	# change in place (a v4<->v6 change is a delete + recreate, not a reblock).
+	$self->throw_user("Cannot change IP version of block ".$self->get_label)
+	    if ( $ip->version != $self->version );
+	# Normalize to the canonical integer/masklen/version (as insert does), so
+	# a dotted address passed by the API is stored correctly; the reblock
+	# (full tree rebuild below) is triggered by the numeric comparison.
+	$argv->{address} = $ip->addr;
+	$argv->{prefix}  = $ip->masklen;
+	$argv->{version} = $ip->version;
 	if ( my $tmp = $class->search(address => $ip->addr,
 				      prefix  => $ip->masklen)->first ){
-	    $self->throw_user("Block ".$argv->{address}."/".$argv->{prefix}." already exists in db")
+	    $self->throw_user("Block $addr_in/$argv->{prefix} already exists in db")
 		if ( $tmp->id != $self->id );
 	}
     }
@@ -3303,7 +3337,15 @@ sub _update_tree{
     $logger->debug('Ipblock::_update_tree: Updating tree for '. $self->get_label);
 
     if ( $self->is_address ){
-        # Search the tree.  
+        # The block moved (address/prefix changed): the saved tree still holds
+        # the old entry, so rebuild it (same as the non-address path below).
+        if ( $argv{changed} ){
+            $logger->debug("Ipblock::_update_tree: ". $self->get_label .
+                   " changed address and/or prefix. Rebuilding.");
+            $class->build_tree($version);
+            return 1;
+        }
+        # Search the tree.
         my $n = $class->_tree_find(
 	    address => $self->address,
 	    prefix  => $self->prefix,
@@ -3582,7 +3624,9 @@ sub _tree_save {
     unless ( $cache = DataCache->find_or_create({name=>$name}) ){
 	$class->throw_fatal("Could not find or create cache entry for IP tree: $name");
     }
-    $frozen= APR::Base64::encode($frozen);
+    # encode_base64 appends a trailing newline by default: pass '' to keep
+    # the stored format byte-identical to the previous (APR::Base64) output.
+    $frozen= MIME::Base64::encode_base64( $frozen, '' );
     $cache->update({data=>$frozen, tstamp=>time});
     $logger->debug("Ipblock::_tree_save: Saved $name");
     return 1;
@@ -3617,7 +3661,7 @@ sub _tree_get {
     for ( 1..2 ){
 	my $cache = DataCache->search(name=>$name)->first;
 	if ( defined $cache && (time - $cache->tstamp) < $TTL ){ 
-	    my $data = APR::Base64::decode($cache->data); 
+	    my $data = MIME::Base64::decode_base64($cache->data); 
 	    $tree = thaw $data;
 	    $logger->debug("Ipblock::_tree_get: $name thawed from cache");
 	    my $tree_class = ref($tree);

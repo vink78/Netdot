@@ -1,0 +1,70 @@
+<h1>VLANs</h1>
+
+% my $gcols = $c->stash('gcols') // [];
+% my $grows = $c->stash('grows') // [];
+% my $vcols = $c->stash('vcols') // [];
+% my $vrows = $c->stash('vrows') // [];
+
+% # --- VLAN Groups ---
+<div class="container">
+  <div class="containerhead">VLAN Groups:</div>
+  <div class="containerbody">
+  % if (@$grows) {
+    <table class="datatable sortable">
+      <thead>
+        <tr>
+          % for my $col (@$gcols) {
+          <th><%= Netdot::Mojo::Registry::column_tag( 'VlanGroup', $col ) %></th>
+          % }
+        </tr>
+      </thead>
+      <tbody>
+        % for my $row (@$grows) {
+        % my $label = $row->{ $gcols->[0] };
+        % $label = $row->{id} if !defined $label || $label eq '';
+        <tr>
+          <td><a href="<%= Netdot::Mojo::Registry::set_uri( '/management/vlangroup/' . $row->{id} ) %>"><%= $label %></a></td>
+          % for my $col ( @{$gcols}[1..$#$gcols] ) {
+          <td><%= b( $row->{$col} // '' ) %></td>
+          % }
+        </tr>
+        % }
+      </tbody>
+    </table>
+  % } else {
+    <p>No VLAN Groups Defined</p>
+  % }
+  </div>
+</div>
+
+% # --- Ungrouped VLANs ---
+<div class="container">
+  <div class="containerhead">Ungrouped VLANs:</div>
+  <div class="containerbody">
+  % if (@$vrows) {
+    <table class="datatable sortable">
+      <thead>
+        <tr>
+          % for my $col (@$vcols) {
+          <th><%= Netdot::Mojo::Registry::column_tag( 'Vlan', $col ) %></th>
+          % }
+        </tr>
+      </thead>
+      <tbody>
+        % for my $row (@$vrows) {
+        % my $label = $row->{ $vcols->[0] };
+        % $label = $row->{id} if !defined $label || $label eq '';
+        <tr>
+          <td><a href="<%= Netdot::Mojo::Registry::set_uri( '/management/vlan/' . $row->{id} ) %>"><%= $label %></a></td>
+          % for my $col ( @{$vcols}[1..$#$vcols] ) {
+          <td><%= b( $row->{$col} // '' ) %></td>
+          % }
+        </tr>
+        % }
+      </tbody>
+    </table>
+  % } else {
+    <p>No ungrouped VLANs.</p>
+  % }
+  </div>
+</div>

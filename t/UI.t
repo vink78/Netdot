@@ -7,13 +7,9 @@ BEGIN { use_ok('Netdot::UI'); }
 my $ui = Netdot::UI->new();
 my ($table, $col, $value) = ('Device', 'os', 'blah');
 
-my %info = $ui->form_to_db($table . '__NEW1__name' => 'test');
-isa_ok(\%info, 'HASH');
-my $id = (keys %{$info{$table}{id}})[0];
-my $o = $table->retrieve($id);
+my $o = $table->insert({ name => 'test' });
 isa_ok($o, 'Netdot::Model::Device');
-
-$ui->form_to_db($table . '__' . $id . '__os' => $value);
+$o->update({ os => $value });
 
 my %tmp = $ui->form_field(object=>$o, column=>$col, edit=>1 );
 is($tmp{label}, "<a class=\"hand\" onClick=\"window.open('descr.html?table=Device&col=os&showheader=0', 'Help', 'width=600,height=200');\">OS</a>:", "form_field");
@@ -52,7 +48,5 @@ is($fs, '1 MB', 'format_size');
 my $r = $ui->select_query(table=>'EntityType', terms=>['Department']);
 is((values %$r)[0]->name, 'Department', 'select_query');
 
-undef %info;
-%info = $ui->form_to_db($table . '__' . $id . '__DELETE' => 'null');
-is($info{$table}{id}{$id}{action}, 'DELETED', 'form_to_db');
+$o->delete;
 

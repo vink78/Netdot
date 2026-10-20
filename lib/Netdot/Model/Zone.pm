@@ -193,7 +193,7 @@ sub insert {
 	    );
 
 	# Copy values from template zone
-	foreach my $field ( qw(mname rname refresh retry expire minimum default_ttl include) ){
+	foreach my $field ( qw(mname rname refresh retry expire minimum default_ttl include dnssec) ){
 	    $state{$field} = $tzone->$field;
 	}
 	$newzone = $class->SUPER::insert( \%state );
@@ -227,6 +227,7 @@ sub insert {
 	    active      => $argv->{active}      || 1,
 	    export_file => $argv->{export_file} || $argv->{name},
 	    default_ttl => $argv->{default_ttl} || $class->config->get('ZONE_DEFAULT_TTL'),
+	    dnssec      => $argv->{dnssec}      || 0,
 	    );
 
 	$newzone = $class->SUPER::insert( \%state );
@@ -499,7 +500,7 @@ sub get_all_records {
     my $order_by = ($self->is_dot_arpa)? 'pip.address,rr.name' : 'rr.name';
     my $q = "SELECT   rr.name, zone.name, aip.version, aip.address, rrtxt.txtdata, rrhinfo.cpu, rrhinfo.os,
                       rrptr.ptrdname, rrns.nsdname, rrmx.preference, rrmx.exchange, rrcname.cname, rrloc.id, 
-                      rrsrv.id, rrnaptr.id, rrds.algorithm, rrds.key_tag, rrds.digest_type, rrds.digest, rr.active,
+                      rrsrv.id, rrnaptr.id, rrattr.id, rrds.algorithm, rrds.key_tag, rrds.digest_type, rrds.digest, rr.active,
                       rraddr.ttl, rrtxt.ttl, rrhinfo.ttl, rrns.ttl, rrds.ttl, rrmx.ttl, rrcname.ttl, rrptr.ttl
              FROM     zone, rr
                       LEFT OUTER JOIN (ipblock aip CROSS JOIN rraddr) ON (rr.id=rraddr.rr AND aip.id=rraddr.ipblock)
@@ -512,8 +513,9 @@ sub get_all_records {
                       LEFT OUTER JOIN rrcname ON rr.id=rrcname.rr
                       LEFT OUTER JOIN rrnaptr ON rr.id=rrnaptr.rr
                       LEFT OUTER JOIN rrsrv   ON rr.id=rrsrv.rr
-                      LEFT OUTER JOIN rrloc   ON rr.id=rrloc.rr
-             WHERE    rr.zone=zone.id AND zone.id=$id
+                       LEFT OUTER JOIN rrloc   ON rr.id=rrloc.rr
+                       LEFT OUTER JOIN rrattr  ON rr.id=rrattr.rr
+              WHERE    rr.zone=zone.id AND zone.id=$id
 	     ORDER BY $order_by";
 
     my $results = $dbh->selectall_arrayref($q);
@@ -521,7 +523,7 @@ sub get_all_records {
     my $count = 0;
     foreach my $r ( @$results ){
 	my ( $name, $zone, $ipversion, $ip, $txtdata, $cpu, $os, 
-	     $ptrdname, $nsdname, $mxpref, $exchange, $cname, $rrlocid, $rrsrvid, $rrnaptrid, 
+	     $ptrdname, $nsdname, $mxpref, $exchange, $cname, $rrlocid, $rrsrvid, $rrnaptrid, $rrattrid,
 	     $dsalgorithm, $dskeytag, $dsdigesttype, $dsdigest, $active,
              $rraddrttl, $rrtxtttl, $rrhinfottl, $rrnsttl, $rrdsttl, $rrmxttl, $rrcnamettl, $rrptrttl ) = @$r;
 
@@ -552,7 +554,8 @@ sub get_all_records {
 	$rec{$name}{HINFO}{"\"$cpu\" \"$os\""} = $rrhinfottl if ($cpu && $os);
 	$rec{$name}{LOC}{id}{$rrlocid}         = $rrlocid    if ($rrlocid);
 	$rec{$name}{SRV}{id}{$rrsrvid}         = $rrsrvid    if ($rrsrvid);
-	$rec{$name}{NAPTR}{id}{$rrnaptrid}     = $rrnaptrid  if ($rrnaptrid);
+	$rec{$name}{NAPTR}{id}{$rrnaptrid}         = $rrnaptrid   if ($rrnaptrid);
+	$rec{$name}{RRATTR}{id}{$rrattrid}         = $rrattrid    if ($rrattrid);
 
     }
 
@@ -1107,6 +1110,6 @@ Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 =cut
 
-#Be sure to return 1
+# Make sure to return 1
 1;
 

@@ -4,11 +4,16 @@ use base 'Netdot::Exporter';
 use warnings;
 use strict;
 use Data::Dumper;
-use List::MoreUtils qw(uniq);
 
 my $logger = Netdot->log->get_logger('Netdot::Exporter');
 
 my $dbh = Netdot::Model->db_Main();
+
+# uniq() without List::MoreUtils (first-occurrence order, same as the module).
+sub _uniq {
+    my %seen;
+    return grep { !$seen{$_}++ } @_;
+}
 
 =head1 NAME
 
@@ -37,26 +42,23 @@ sub new{
     my ($class, %argv) = @_;
     my $self = {};
 
-    my $dir = Netdot->config->get('NAMED_DIR')
+    my $dirs = Netdot->config->get('NAMED_DIR')
         || $self->throw_user('Netdot::Exporter::NAMED: NAMED_DIR not defined');
+    my $dir = $dirs->[0];
 
     $self->{NAMED_IP_MASTER} = Netdot->config->get('NAMED_IP_MASTER')
 	|| $class->throw_user("Netdot::Exporter::NAMED: NAMED_IP_MASTER not defined");
 
-    $self->{NAMED_REMOTE_DIR} = Netdot->config->get('NAMED_REMOTE_DIR')
-	|| $class->throw_user("Netdot::Exporter::NAMED: NAMED_REMOTE_DIR not defined");
-
-    $self->{BIND_SSH_SERVER} = Netdot->config->get('BIND_SSH_SERVER')
-	|| $class->throw_user("Netdot::Exporter::NAMED: BIND_SSH_SERVER not defined");
+    # Per-plugin remote export: REMOTE_PLUGIN{NAMED} = { DIR, SERVER, RELOAD, ENABLE }.
+    $self->{REMOTE} = (Netdot->config->get('REMOTE_PLUGIN') || {})->{NAMED} || {};
+    $logger->warn('REMOTE_PLUGIN{NAMED} ENABLE=1 but DIR/SERVER not set; skipping remote export')
+        if ($self->{REMOTE}{ENABLE} && (!$self->{REMOTE}{DIR} || !$self->{REMOTE}{SERVER}));
 
     $self->{DEFAULT_DNSDOMAIN} = Netdot->config->get('DEFAULT_DNSDOMAIN')
 	|| $class->throw_user("Netdot::Exporter::NAMED: DEFAULT_DNSDOMAIN not defined");
 
-    $self->{gitdir} = Netdot->config->get('Git_NAMED_DIR')
-	|| $self->throw_user('Git_NAMED_DIR not defined in config file!');
-
-    # Execute remote command only there REMOTE_EXEC == 1
-    $self->{remoteexec} = Netdot->config->get('REMOTE_EXEC') || 0;
+    # Output dirs: [0]=primary (written above), [1..]=copies (e.g. git staging).
+    $self->{dirs} = $dirs;
 
     # Open output file for writing
     $self->{master}  = "$dir/named.master.conf";
@@ -89,9 +91,9 @@ sub generate_configs {
 	# GET Zones
 	my %zone_info;
 	my %master_info;
-	my $zoneq = $dbh->selectall_arrayref("SELECT id, name, mname, info FROM zone WHERE active=1 ORDER BY name");
+	my $zoneq = $dbh->selectall_arrayref("SELECT id, name, mname, info, dnssec FROM zone WHERE active=1 ORDER BY name");
 	foreach my $row ( @$zoneq ) {
-		my ($id, $name, $master, $info) = @$row;
+		my ($id, $name, $master, $info, $dnssec) = @$row;
 
 		$zone_info{$name}{id}     = $id;
 		$zone_info{$name}{master} = $master;
@@ -99,11 +101,12 @@ sub generate_configs {
 		$zone_info{$name}{dnssec} = '';
 		$zone_info{$name}{hidden} = '';
 
+		# DNSSEC: proper `zone.dnssec` flag. Inline signing is the only
+		# mode the NAMED exporter supports, so a set flag => 'inline'.
+		$zone_info{$name}{dnssec} = 'inline' if $dnssec;
+
 		if (defined $info && $info ne '') {
 		    foreach (split /\n/, $info) {
-			if (/^DNSSEC: (.*)$/) {
-			    $zone_info{$name}{dnssec} = lc($1);
-			}
 			if (/^HIDDEN: (.*)$/) {
 			    $zone_info{$name}{hidden} = lc($1);
 			}
@@ -177,9 +180,11 @@ sub generate_configs {
 
 		$logger->info("Netdot::Exporter::NAMED: Configuration written to file: ".$file);
 		close($self->{out});
-		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR})
-		    if ($self->{remoteexec} == 1);
-		system ('/bin/cp '.$file.' '.$self->{gitdir}.'/');
+		system ("/usr/bin/scp $file ".$self->{REMOTE}{SERVER}.":".$self->{REMOTE}{DIR})
+		    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{DIR});
+		my @copies = @{ $self->{dirs} };
+		shift @copies;
+		system ('/bin/cp '.$file.' '.$_.'/') for @copies;
 	}
 
 	# Slave Master File
@@ -214,9 +219,21 @@ sub generate_configs {
 		$logger->info("Netdot::Exporter::NAMED: Configuration written to file: ".$file);
 		close($self->{out});
 
-		system ("/usr/bin/scp $file ".$self->{BIND_SSH_SERVER}.":".$self->{NAMED_REMOTE_DIR})
-		    if ($self->{remoteexec} == 1);
-		system ("/bin/cp $file ".$self->{gitdir}.'/');
+		system ("/usr/bin/scp $file ".$self->{REMOTE}{SERVER}.":".$self->{REMOTE}{DIR})
+		    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{DIR});
+		my @copies = @{ $self->{dirs} };
+		shift @copies;
+		system ("/bin/cp $file ".$_.'/') for @copies;
+	}
+
+	# Reload (once, after all files written) — empty RELOAD = no reload.
+	if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{RELOAD}) {
+	    open (FOO, "/usr/bin/ssh $self->{REMOTE}{SERVER} '$self->{REMOTE}{RELOAD}' |");
+	    while (<FOO>) {
+		chomp;
+		$logger->info( $_ );
+	    }
+	    close (FOO);
 	}
 }
 
@@ -257,8 +274,8 @@ sub print_domain {
 	print $out "zone \"$domain\" in {\n";
 	print $out "\ttype master;\n";
 	print $out "\tfile \"netdot/zone/$domain\";\n";
-	print $out "\tallow-transfer { ".join('; ', uniq @ns)."};\n";
-	print $out "\talso-notify { ".join('; ', uniq @ns)."};\n";
+	print $out "\tallow-transfer { ".join('; ', _uniq @ns)."};\n";
+	print $out "\talso-notify { ".join('; ', _uniq @ns)."};\n";
 	if ($dnssec eq 'inline') {
 	    print $out "\n\t# look for dnssec keys here:\n";
 	    print $out "\tkey-directory \"/var/named/netdot/keys\";\n\n";
@@ -273,14 +290,14 @@ sub print_domain {
 	print $out "zone \"$domain\" in {\n";
 	print $out "\ttype slave;\n";
 	print $out "\tfile \"slaves/$domain\";\n";
-	print $out "\tallow-transfer { ".join('; ', uniq @ns)."};\n";
+	print $out "\tallow-transfer { ".join('; ', _uniq @ns)."};\n";
 	print $out "\tmasters { " . $self->{NAMED_IP_MASTER} . "; };\n";
 	print $out "};\n";
     } elsif ($type eq 'forward') {
 # Forward
 	print $out "zone \"$domain\" in {\n";
 	print $out "\ttype forward;\n";
-	print $out "\tforwarders { ".join('; ', uniq @ns)."};\n";
+	print $out "\tforwarders { ".join('; ', _uniq @ns)."};\n";
 	print $out "};\n";
     }
 }
@@ -309,5 +326,5 @@ along with this program; if not, write to the Free Software Foundation,
 
       =cut
 
-#Be sure to return 1
+# Make sure to return 1
       1;

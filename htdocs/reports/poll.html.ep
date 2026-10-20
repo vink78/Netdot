@@ -1,0 +1,28 @@
+% use Mojo::ByteStream qw(b);
+<h1><%= $title %></h1>
+<p>Aggregated over time from the polling RRD database
+   (<a href="<%= $c->web_prefix %>/reports/pollstats">back to polling stats</a>).</p>
+
+% if ($rrd_avail) {
+%   my $cards = $cards // [];
+%   for my $card (@$cards) {
+<div class="container">
+  <div class="containerhead"><%= $card->{label} %></div>
+  <div class="containerbody">
+    % if ($card->{ok}) {
+    <img src="<%= $c->web_prefix %>/img/graphs/<%= $card->{img} %>" alt="poll stats" style="max-width:100%">
+    % } else {
+    <p>RRD graph could not be generated (<%= $card->{label} %>)</p>
+    % }
+  </div>
+</div>
+% }
+% } else {
+<div class="container">
+  <div class="containerbody">
+    <p>Polling statistics are not available: the RRD file
+       <code><%= $rrd_file %></code> does not exist.
+       It is written by the Netdot pollers (ARP/FWT) once polling has run.</p>
+  </div>
+</div>
+% }

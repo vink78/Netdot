@@ -6,34 +6,30 @@ use Netdot::Model;
 
 =head1 NAME
 
-Netdot::AuthLocal - Local authentication module for Netdot via Apache2::SiteControl
+Netdot::AuthLocal - Local (database) authentication module for Netdot
 
 =head1 SYNOPSIS
 
-In Apache configuration:
-    
-=over 4
-
-   PerlSetVar SiteControlMethod Netdot::AuthLocal
-    
-=back
+    if ( Netdot::AuthLocal::check_credentials($r, $user, $pass) { ... }
 
 =head1 SEE ALSO
 
-Apache2::SiteControl
+Netdot::LDAP
 
 =cut
 
 =head2 check_credentials
 
   Arguments:
-    Apache Request Object
+    Request object (an object providing dir_config / log_error / warn;
+    Netdot::Mojo::AuthShim in the web app)
     Username
     Password
   Returns:
     True or false
   Examples:
-    if ( Netdot::Radius::check_credentials($r, $user, $pass) {...}
+    my $shim = Netdot::Mojo::AuthShim->new( app => $c->app );
+    if ( Netdot::AuthLocal::check_credentials( $shim, $user, $pass ) ) {...}
 
 =cut
 
@@ -59,7 +55,7 @@ sub check_credentials {
     return 1;
 }
 
-#Be sure to return 1
+# Make sure to return 1
 1;
 
 __END__

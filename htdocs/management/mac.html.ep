@@ -1,0 +1,128 @@
+<%# MAC (PhysAddr) detail: port of mac.html (MAC attributes editable in place + delete). %>
+<% my $title      = $c->stash->{title} // 'MAC'; %>
+<% my $limit      = $c->stash->{limit} // 10; %>
+<% my $addr_rows  = $c->stash->{addr_rows}  // []; %>
+<% my $devices    = $c->stash->{devices}    // []; %>
+<% my $interfaces = $c->stash->{interfaces} // []; %>
+<% my $scopes     = $c->stash->{scopes}     // []; %>
+<% my $edge_html  = $c->stash->{edge_html}; %>
+<% my $fwt_html   = $c->stash->{fwt_html}; %>
+<% my $arp_html   = $c->stash->{arp_html}; %>
+<% my $attributes = $c->stash->{attributes} // []; %>
+<% my $attr_add   = $c->stash->{attr_add}; %>
+<% my $can_edit   = $c->stash->{can_edit}   // 0; %>
+<% my $fields     = $c->stash->{fields}     // []; %>
+<% my $api_path   = $c->stash->{api_path}   // ''; %>
+<% my $can_delete = $c->stash->{can_delete} // 0; %>
+<% my $del_path   = $c->stash->{del_path}   // ''; %>
+<% my $del_goto   = $c->stash->{del_goto}   // ''; %>
+<h1><%= $title %></h1>
+<p>
+  <a href="<%= url_for('physaddr_list') %>">&laquo; MAC Addresses</a>
+  % if ( $can_edit && @$fields ) {
+  <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+  % if ( $can_delete ) {
+  <button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" style="margin-left:0.6em">Delete</button>
+  % }
+</p>
+
+<h3>MAC Address</h3>
+% # Read-only MAC attributes table (2 pairs per row, like the generic detail
+% # page); hidden while the Edit form is shown (wired by netdot.js initToggle).
+% # Cells may carry raw HTML (the vendor OUI link) -> < % == %.
+<table class="datatable detail c2" id="nd-readonly">
+  <tbody>
+  % my @list = @$addr_rows;
+  % for (my $i = 0; $i < @list; $i += 2) {
+  %   my $end = $i + 1; $end = $#list if $end > $#list;
+  %   my @r = @list[$i .. $end];
+  <tr>
+    % for my $a (@r) {
+    <th><%= $a->[0] %></th><td><%== $a->[1] %></td>
+    % }
+  </tr>
+  % }
+  </tbody>
+</table>
+
+% # In-place edit form (hidden until the Edit toggle; wired by netdot.js):
+% # PATCH /api/physaddr/<id> (same _edit_form partial as the generic detail page).
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
+
+% if (@$devices) {
+<h3>Devices using this address</h3>
+<table class="datatable">
+  % for my $d (@$devices) {
+    % my $l = Netdot::Mojo::Registry::link_for($d);
+    % if ($l) {
+  <tr><td><a href="<%= $l->[1] %>"><%= $l->[0] %></a></td></tr>
+    % }
+  % }
+</table>
+% }
+
+% if (@$interfaces) {
+<h3>Interfaces using this address</h3>
+<table class="datatable">
+  % for my $i (@$interfaces) {
+    % my $l = Netdot::Mojo::Registry::link_for($i);
+    % if ($l) {
+  <tr><td><a href="<%= $l->[1] %>"><%= $l->[0] %></a></td></tr>
+    % }
+  % }
+</table>
+% }
+
+% if ($edge_html) {
+<h3>Edge Port</h3>
+<table class="datatable"><thead><tr><th>Interface</th><th>Room</th><th>Jack</th><th>Description</th></tr></thead><tbody><%== $edge_html %></tbody></table>
+% }
+
+% if ($fwt_html) {
+<h3>Last <%= $limit %> forwarding table entries</h3>
+<table class="datatable"><%== $fwt_html %></table>
+% }
+
+% if ($arp_html) {
+<h3>Last <%= $limit %> ARP entries</h3>
+<table class="datatable"><%== $arp_html %></table>
+% }
+
+% if (@$scopes) {
+<h3>DHCP Scopes</h3>
+<table class="datatable">
+  % for my $s (@$scopes) {
+    % my $l = Netdot::Mojo::Registry::link_for($s);
+    % if ($l) {
+  <tr><td><a href="<%= $l->[1] %>"><%= $l->[0] %></a></td></tr>
+    % }
+  % }
+</table>
+% }
+
+<h3>Custom Attributes</h3>
+% if (@$attributes) {
+<table class="datatable">
+  <thead><tr><th>Name</th><th>Value</th></tr></thead>
+  <tbody>
+  % for my $a (@$attributes) {
+  <tr><td><%= $a->[0] // '' %></td><td><%= $a->[1] // '' %></td></tr>
+  % }
+  </tbody>
+</table>
+% } else {
+<p>No attributes.</p>
+% }
+% # Generic "Add" form (stashed by Physaddr#show, built by Detail::relation_adds):
+% # the port of the legacy mac.html [add] link (edit.html?table=PhysAddrAttr&physaddr=<id>).
+% if ($attr_add) {
+<div style="margin-top:0.8em">
+  <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                            can_edit => 1, fields => $attr_add->{fields},
+                            api_path => $c->web_prefix . '/api/' . $attr_add->{table},
+                            nd_create => 1, nd_method => 'POST',
+                            nd_label  => 'Add' ) %>
+</div>
+% }

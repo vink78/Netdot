@@ -1,0 +1,163 @@
+% my $left       = $c->stash('left')       // [];
+% my $right      = $c->stash('right')      // [];
+% my $info       = $c->stash('info')       // '';
+% my $devices    = $c->stash('devices')    // [];
+% my $backbones  = $c->stash('backbones')  // [];
+% my $horizontal = $c->stash('horizontal') // [];
+% my $pictures   = $c->stash('pictures')   // [];
+
+<p>
+  <a href="<%= url_for('closet_list') %>">&laquo; Closet</a>
+  % if ( $can_edit && @$fields ) {
+  <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+</p>
+
+% if ( defined $left && @$left || defined $right && @$right ) {
+%   # Fields: "General" look (datatable.detail c2, 2 pairs/row). Merge left+right.
+%   my @list = ( @{ $left // [] }, @{ $right // [] } );
+%   my $N    = 2;
+<div class="container" id="nd-readonly">
+  <div class="containerhead"><%= $title %></div>
+  <div class="containerbody flat">
+    <table class="datatable detail c2">
+      <tbody>
+      % for (my $i = 0; $i < @list; $i += $N) {
+      %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
+      %   my @r   = @list[$i .. $end];
+      <tr>
+        % for my $a (@r) {
+        <th><%= $a->[0] %></th>
+        <td>
+          % if ( defined $a->[2] && length $a->[2] ) {
+          <a href="<%= $a->[2] %>"><%= $a->[1] %></a>
+          % } else {
+          <%= $a->[1] // '' %>
+          % }
+        </td>
+        % }
+      </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+% }
+
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
+
+% if ( defined $info && length $info ) {
+<div class="container">
+  <div class="containerhead">Info</div>
+  <div class="containerbody"><pre style="white-space:pre-wrap; margin:0"><%= $info %></pre></div>
+</div>
+% }
+
+% if (@$devices) {
+<div class="container">
+  <div class="containerhead">Device List (<%= scalar @$devices %>)</div>
+  <div class="containerbody">
+    <table class="datatable">
+      <thead><tr><th>Device</th><th>IPv4</th><th>IPv6</th></tr></thead>
+      <tbody>
+      % for my $row (@$devices) {
+      <tr>
+        % for my $cell (@$row) {
+        % my ($t, $h) = @$cell;
+        <td>
+          % if ($h) {
+          <a href="<%= $h %>"><%= $t %></a>
+          % } else {
+          <%= $t // '' %>
+          % }
+        </td>
+        % }
+      </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+% }
+
+% if (@$backbones) {
+<div class="container">
+  <div class="containerhead">Backbone Cable (<%= scalar @$backbones %>)</div>
+  <div class="containerbody">
+    <table class="datatable">
+      <thead><tr><th>Name</th><th>Type</th><th>Start Closet</th><th>End Closet</th><th>Owner</th></tr></thead>
+      <tbody>
+      % for my $row (@$backbones) {
+      <tr>
+        % for my $cell (@$row) {
+        % my ($t, $h) = @$cell;
+        <td>
+          % if ($h) {
+          <a href="<%= $h %>"><%= $t %></a>
+          % } else {
+          <%= $t // '' %>
+          % }
+        </td>
+        % }
+      </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+% }
+
+% if (@$horizontal) {
+<div class="container">
+  <div class="containerhead">Horizontal Cable (<%= scalar @$horizontal %>)</div>
+  <div class="containerbody">
+    <table class="datatable">
+      <thead><tr><th>Jack ID</th><th>Type</th><th>Room</th></tr></thead>
+      <tbody>
+      % for my $row (@$horizontal) {
+      <tr>
+        % for my $cell (@$row) {
+        % my ($t, $h) = @$cell;
+        <td>
+          % if ($h) {
+          <a href="<%= $h %>"><%= $t %></a>
+          % } else {
+          <%= $t // '' %>
+          % }
+        </td>
+        % }
+      </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+% }
+
+% if (@$pictures) {
+<div class="container">
+  <div class="containerhead">Pictures (<%= scalar @$pictures %>)</div>
+  <div class="containerbody">
+    <table class="datatable">
+      <thead><tr><th>File Name</th><th>Size</th><th>File Type</th><th>Comments</th></tr></thead>
+      <tbody>
+      % for my $row (@$pictures) {
+      <tr>
+        % for my $cell (@$row) {
+        % my ($t, $h) = @$cell;
+        <td>
+          % if ($h) {
+          <a href="<%= $h %>" target="_blank"><%= $t %></a>
+          % } else {
+          <%= $t // '' %>
+          % }
+        </td>
+        % }
+      </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+% }

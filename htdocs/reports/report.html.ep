@@ -1,0 +1,23 @@
+% use Mojo::ByteStream qw(b);
+% if ($title) {
+<h1><%= $title %></h1>
+% }
+% if ($desc) {
+<p class="reportdesc"><%= $desc %></p>
+% }
+% if (defined $form_html) {
+<div class="container">
+  <div class="containerhead">Options</div>
+  <div class="containerbody" style="padding:0.6em"><%= b($form_html) %>
+    % if (my $cu = $c->stash('csv_url')) {
+    &nbsp; <a href="<%= $cu %>" hx-boost="false">[csv]</a>
+    % }
+  </div>
+</div>
+% } else {
+%   if (my $cu = $c->stash('csv_url')) {
+<p><a href="<%= $cu %>" hx-boost="false">[csv]</a></p>
+%   }
+% }
+<%= $c->render_to_string( template => 'reports/data_table', layout => 0,
+                          headers => $headers, rows => $rows, sortable => $sortable ) %>

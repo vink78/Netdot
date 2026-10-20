@@ -1,0 +1,16 @@
+<h1>Database Schema (GraphViz)</h1>
+
+% if (my $err = $c->stash('error')) {
+<div class="container">
+  <div class="containerhead">Error</div>
+  <div class="containerbody"><p><%= $err %></p></div>
+</div>
+% } elsif (my $img = $c->stash('img')) {
+<div class="container">
+  <div class="containerhead">Netdot Schema</div>
+  <div class="containerbody">
+    <p><a href="<%= $c->web_prefix %>/help/database">View as HTML table &larr;</a></p>
+    <p><a href="<%= $img %>"><img src="<%= $img %>" alt="Database Relationships" style="max-width:100%"></a></p>
+  </div>
+</div>
+% }

@@ -3,7 +3,7 @@ package Netdot::Model::Picture;
 use base 'Netdot::Model';
 use warnings;
 use strict;
-use APR::Base64;
+use MIME::Base64;
 
 =head1 NAME
 

@@ -214,16 +214,19 @@ sub search_like {
 	return $class->search_by_type($argv{producttype});
 
     }elsif ( exists $argv{product} ){
-	my $dbh = $class->db_Main;
-	my $p_bind = defined($argv{product})? "= $argv{product}" : 'IS NULL';
-	my $crit;
-	if ( exists $argv{site} ){
-	    my $s_bind = defined($argv{site})? "= ".$dbh->quote($argv{site}) : 'IS NULL';
-	    $crit = " AND d.site $s_bind";
-	}elsif ( exists $argv{os} ){
-	    my $o_bind = defined($argv{os})? "= ".$dbh->quote($argv{os}) : 'IS NULL';
-	    $crit = " AND d.os $o_bind";
-	}
+        my $dbh = $class->db_Main;
+        my $p_bind = defined($argv{product})? "= $argv{product}" : 'IS NULL';
+        # site and/or os may each narrow the product match (all keys combine).
+        my @crit;
+        if ( exists $argv{site} ){
+            my $s_bind = defined($argv{site})? "= ".$dbh->quote($argv{site}) : 'IS NULL';
+            push @crit, "d.site $s_bind";
+        }
+        if ( exists $argv{os} ){
+            my $o_bind = defined($argv{os})? "= ".$dbh->quote($argv{os}) : 'IS NULL';
+            push @crit, "d.os $o_bind";
+        }
+        my $crit = @crit ? " AND " . join( " AND ", @crit ) : '';
 	my @objs;
 	my $rows = Netdot::Model->raw_sql("
         SELECT d.id
@@ -516,12 +519,25 @@ sub manual_add {
     # We will try to get both the IP and the name
     my ($ip, $name) = Netdot->dns->resolve_any($argv{host});
     $name ||= $ip;
+    # A device with this name already exists: clear error instead of a
+    # duplicate-key crash on the ipblock insert below. (The name is the RR's,
+    # and device.name is its integer id, so the lookup goes through the RR.)
+    if ( my $rr = RR->search(name=>$name)->first ){
+	my $ex = Device->search(name=>$rr)->first;
+	if ($ex){
+	    $class->throw_fatal("Model::Device::manual_add: Device " .
+				($ex->fqdn || $name) . " already exists");
+	}
+    }
     my $dev = Device->insert({name=>$name, monitored=>1, snmp_managed=>0, 
 			      canautoupdate=>0, auto_dns=>0});
     my $ints = $dev->add_interfaces(1);
     my $int = $ints->[0];
     if ( $ip ){
 	my $prefix = Ipblock->matches_v4($ip) ? 32 : 128;
+	# Ipblock->search normalizes a dotted/hex address to the integer in
+	# the numeric address column (v4 and v6), so find_or_create finds the
+	# existing block instead of re-inserting it (duplicate key).
 	my $ipb = Ipblock->find_or_create({address=>$ip, prefix=>$prefix});
 	$ipb->update({status=>"Static", interface=>$int, monitored=>1});
 	$dev->update({snmp_target=>$ipb});
@@ -3204,10 +3220,10 @@ sub ints_by_number {
     my @ifs = $self->interfaces();
 
     my ($nondigit, $letters);
-    for ( @ifs ) { 
-	if ($_->number =~ /\D/){ 
+    for my $if ( @ifs ) { 
+	if ($if->number =~ /\D/){ 
 	    $nondigit = 1;  
-	    if ($_->number =~ /[A-Za-z]/){ 
+	    if ($if->number =~ /[A-Za-z]/){ 
 		$letters = 1;  
 	    }
 	}
@@ -6052,10 +6068,10 @@ sub _update_interfaces {
     # Get old IPs (if any)
     my %old_ips;
     if ( my $devips = $self->get_ips ){
-	foreach ( @$devips ){
+	foreach my $devip ( @$devips ){
 	    # Use decimal address in the index to avoid ambiguities with notation
-	    my $numip = $_->address_numeric;
-	    $old_ips{$numip} = $_;
+	    my $numip = $devip->address_numeric;
+	    $old_ips{$numip} = $devip;
 	}
     }
         
@@ -6631,5 +6647,5 @@ Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 =cut
 
-#Be sure to return 1
+# Make sure to return 1
 1;

@@ -1,0 +1,21 @@
+<%# FDB (MACs seen on an interface at a timestamp): read-only port of i_fdb.html. %>
+<% my $title  = $c->stash->{title}  // 'FDB'; %>
+<% my $id     = $c->stash->{id}     // ''; %>
+<% my $tstamp = $c->stash->{tstamp} // ''; %>
+<% my $label  = $c->stash->{label}  // ''; %>
+<% my $macs   = $c->stash->{macs}   // []; %>
+<h1><%= $title %></h1>
+<p><a href="<%= url_for('interface_show', id => $id) %>">&laquo; <%= $label %></a></p>
+<p>MACs seen in <a href="<%= url_for('interface_show', id => $id) %>"><%= $label %></a> at <em><%= $tstamp %></em></p>
+% if (@$macs) {
+<table class="datatable"><tbody>
+  % for my $m (@$macs) {
+    % my $l = Netdot::Mojo::Registry::link_for($m);
+    % if ($l) {
+  <tr><td><a href="<%= $l->[1] %>"><%= $l->[0] %></a></td></tr>
+    % }
+  % }
+</tbody></table>
+% } else {
+<p>No MACs seen at this timestamp.</p>
+% }

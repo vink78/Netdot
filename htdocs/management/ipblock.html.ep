@@ -1,0 +1,652 @@
+%# Pull every variable from the stash with defaults (safe if a controller omits a key).
+% my $viewtype   = $c->stash->{viewtype}   // 'block';
+% my $title      = $c->stash->{title}      // 'Ipblock';
+% my $current    = $c->stash->{current};
+% my $blocks     = $c->stash->{blocks}     // [];
+% my $breadcrumb = $c->stash->{breadcrumb} // [];
+% my $devs       = $c->stash->{devs};   # hashref: address_numeric => device_id (address view)
+% my $dns_name   = $c->stash->{dns_name} // {};  # hashref: ipblock_id => "fqdn1, fqdn2" (address list)
+% my $view       = $c->stash->{view}       // 'Children';
+% my $tabs       = $c->stash->{tabs};      # arrayref of [key, label] (block detail only)
+% my $viewformat = $c->stash->{viewformat} // 'list';
+% my $modes      = $c->stash->{modes}      // [ 'list' ];
+% my $tree_html  = $c->stash->{tree_html};
+% my $grid       = $c->stash->{grid};   # arrayref of rows of HTML cells (subnet block view)
+% my $cgrid      = $c->stash->{container_grid};  # HTML string (container usage visualization)
+% my $block_attrs = $c->stash->{block_attrs};    # arrayref of [label, value_html] (block detail only)
+% my $can_edit   = $c->stash->{can_edit};   # in-place edit (block detail only)
+% my $fields     = $c->stash->{fields}   // [];  # edit form fields (block detail only)
+% use JSON;
+% my $json = JSON->new->canonical;
+% my $api_path   = $c->stash->{api_path} // '';  # JSON API PATCH path
+% my $can_delete = $c->stash->{can_delete};      # page-level delete (block detail only)
+% my $del_path   = $c->stash->{del_path} // '';  # JSON API DELETE path
+% my $del_goto   = $c->stash->{del_goto} // '';  # where to go after the delete
+% my $nd_children= $c->stash->{nd_children} // 0; # direct children count (offers the "delete children" choice)
+% my $is_addr    = ( $viewtype eq 'address' );
+%# Section-tab data (block detail).
+% my $sites      = $c->stash->{sites}    // [];
+% my $fzones     = $c->stash->{fzones}   // [];
+% my $rzones     = $c->stash->{rzones}   // [];
+% my $dhcp       = $c->stash->{dhcp}     // [];
+% my $attributes = $c->stash->{attributes} // [];
+% my $comments   = $c->stash->{comments};
+% my $audit      = $c->stash->{audit}    // [];
+% my $attr_names   = $c->stash->{attr_names};    # [[id,name]...] for "Add attribute"
+% my $dhcp_globals = $c->stash->{dhcp_globals};  # [[id,name]...] global scopes for "Enable DHCP"
+% my $dhcp_router  = $c->stash->{dhcp_router} // '';  # pre-fill "option routers"
+% my $site_list    = $c->stash->{site_list};     # [[id,name]...] for "Add site"
+% my $fzone_options = $c->stash->{fzone_options}; # [[id,name]...] for "Add forward zone"
+% my $rzone_names  = $c->stash->{rzone_names};   # [name]... for "Add reverse zone"
+% my $can_rights     = $c->stash->{can_rights};      # may view/manage access rights (Admin/Operator)
+% my $can_rights_edit = $c->stash->{can_rights_edit}; # may grant/revoke (Admin only)
+% my $rights       = $c->stash->{rights}       // [];  # [{type,name,subject_html,access,access_name,del_subject}...]
+% my $right_users  = $c->stash->{right_users};   # [[id,label]...] for the "Add rights" form
+% my $right_groups = $c->stash->{right_groups};  # [[id,label]...] for the "Add rights" form
+% my $entities     = $c->stash->{entities}      // [];  # [[id,name]...] for the range form
+% my $range_fzones = $c->stash->{range_fzones}  // [];  # [[id,name]...] for the range form
+% my $fzone_default = $c->stash->{fzone_default};        # pre-select fzone
+% my $range_first  = $c->stash->{range_first}  // '';   # default start IP
+% my $range_last   = $c->stash->{range_last}   // '';   # default end IP
+% my $range_dns_prefix = $c->stash->{range_dns_prefix} // '';
+% my $range_dns_suffix = $c->stash->{range_dns_suffix} // '';
+% my $statuses     = $c->stash->{statuses}     // [];  # [[id,name]...] for batch edit
+%# Children (list/grid/tree) show on the roots page (no current) or on Children/All.
+% my $show_children = $current ? ( $view eq 'Children' || $view eq 'All' ) : 1;
+% my $rootversion = $c->stash->{rootversion} // 'all';
+% my $show_util   = $c->stash->{show_util} ? 1 : 0;
+% my $can_create  = $c->stash->{can_create};   # "New Ipblock" box (roots view only)
+%# Utilization column: always on a block's Children view; on the roots list it is
+%# toggled by show_util (the "Show Utilization" checkbox).
+% my $util = $is_addr ? 0 : ( $current ? 1 : $show_util );
+% my @hdrs = $is_addr ? ( 'Address', 'Name', 'Device', 'Status', 'Owner', 'Used by', 'Description', 'Last Seen' ) : ( 'Address/Prefix', 'Status', ( $util ? ('Utilization') : () ), 'Owner', 'Used by', 'Description' );
+%# Breadcrumb: Roots > a > b > (current, bold). Only when viewing a block.
+% if ($current) {
+    <div class="breadcrumb" style="margin:0 0 1em 0; font-size:0.95em">
+    % for my $i (0 .. $#$breadcrumb) {
+        % my $cr = $breadcrumb->[$i];
+        <a href="<%= $c->set_uri( $cr->{id} ? "/management/ipblock/$cr->{id}" : '/management/ipblock' ) %>"><%= $cr->{label} %></a>
+        % if ($i < $#$breadcrumb) {
+            <span style="color:#999"> » </span>
+        % }
+    % }
+    <span style="color:#999"> » </span><strong><%= $current->get_label %></strong>
+    </div>
+% }
+%# Title: shown on the list/roots view. On a block's detail view the block
+%# label is used as the field card's header instead (see below).
+% unless ($current) {
+<h1><%= $title %></h1>
+% }
+
+%# Search box (Address Space) — shown on the list/roots view only.
+% unless ($current) {
+<div style="margin:0 0 1em 0; font-size:0.9em">
+  <form method="get" action="<%= url_for('ipblock_list') %>" style="display:inline">
+    Version:
+    <select name="rootversion" onchange="this.form.submit()">
+      <option value="4"   <%= $rootversion eq '4'   ? 'selected' : '' %>>IPv4</option>
+      <option value="6"   <%= $rootversion eq '6'   ? 'selected' : '' %>>IPv6</option>
+      <option value="all" <%= $rootversion eq 'all' ? 'selected' : '' %>>All</option>
+    </select>
+    &nbsp;&nbsp;
+    <input type="checkbox" name="show_ch_util" value="1" onchange="this.form.submit()" <%= $show_util ? 'checked' : '' %>>
+    <input type="hidden" name="show_ch_util" value="0">
+    <label>Show Utilization</label>
+  </form>
+</div>
+<div class="cardrow" style="margin-bottom:1em; align-items:flex-start">
+<div class="container">
+  <div class="containerhead">Search Address Space</div>
+  <div class="containerbody" style="padding:0.6em">
+    <form method="get" action="<%= url_for('ipblock_search') %>">
+      <p>
+        <label>IP[/prefix]:</label>
+        <input type="text" name="search_address" class="longtxt">
+        <input type="submit" value="Search" class="btn">
+      </p>
+    </form>
+    <form method="get" action="<%= url_for('ipblock_search') %>">
+      <p>
+        <label>IP regex:</label>
+        <input type="text" name="search_regex" class="longtxt">
+        <input type="submit" value="Search" class="btn">
+      </p>
+    </form>
+    <form method="get" action="<%= url_for('ipblock_search') %>">
+      <p>
+        <label>Keywords:</label>
+        <input type="text" name="search_other" class="longtxt">
+        <input type="submit" value="Search" class="btn">
+      </p>
+    </form>
+  </div>
+</div>
+% if ($can_create) {
+<div class="container">
+  <div class="containerhead">New Ipblock</div>
+  <div class="containerbody" style="padding:0.6em">
+    <form data-nd-api="<%= $c->web_prefix %>/api/ipblock" data-nd-method="POST" data-nd-redirect="<%= $c->web_prefix %>/management/ipblock/">
+      <p>
+        <label>IP/prefix:</label>
+        <input type="text" name="address" class="longtxt" required placeholder="10.0.0.0/24">
+      </p>
+      <p>
+        <label>Status:</label>
+        <select name="status" required>
+          <option value="Container">Container</option>
+          <option value="Subnet">Subnet</option>
+          <option value="Static">Static</option>
+          <option value="Reserved">Reserved</option>
+        </select>
+        <input type="submit" value="Create" class="btn">
+      </p>
+    </form>
+    <p style="margin:0.5em 0 0; font-size:0.9em">Creates a new block or address. If it fits within an existing block, the tree attaches it as a child automatically.</p>
+  </div>
+</div>
+% }
+</div>
+% }
+
+%# The block's own attribute table (Address, Status, First/Last Seen, RIR/ASN,
+%# Owner/Used by, Netmask/Broadcast, Usable, Utilization/Space Allocated).
+% if ($current && $block_attrs && @$block_attrs) {
+%   # Fields: "General" look (datatable.detail c2, 2 pairs/row); the block label
+%   # is the card header. Values are pre-rendered HTML -> emitted unescaped.
+%   my $N    = 2;
+%   my @list = @$block_attrs;
+% if ( $can_edit && @$fields ) {
+<button type="button" class="btn" id="nd-edit-toggle" style="margin:0 0 0.5em 0">Edit</button>
+% }
+% if ( $can_delete ) {
+<button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" data-nd-ipblock="1" data-nd-children="<%= $nd_children %>" style="margin:0 0 0.5em 0.6em">Delete</button>
+% }
+<div class="container" id="nd-readonly">
+  <div class="containerhead"><%= $title %></div>
+  <div class="containerbody flat">
+    <table class="datatable detail c2">
+      <tbody>
+      % for (my $i = 0; $i < @list; $i += $N) {
+      %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
+      %   my @r   = @list[$i .. $end];
+      <tr>
+        % for my $row (@r) {
+        <th><%= $row->[0] %></th>
+        <td><%== $row->[1] %></td>
+        % }
+      </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
+% }
+<div class="tabcard">
+%# Section tab bar (block detail only).
+% if ($current && $tabs) {
+  <div class="tabbar">
+  % for my $t (@$tabs) {
+    <a class="tab<%= $view eq $t->[0] ? ' active' : '' %>" href="<%= $c->web_prefix %>/management/ipblock/<%= $current->id %>?view=<%= $t->[0] %>"><%= $t->[1] %></a>
+  % }
+  </div>
+% }
+<div class="tabcard-body">
+% if ($show_children) {
+%# View-format toggle (list / block / tree) — on the Children/All view.
+% if ($current && @$modes > 1) {
+  <div class="tabbar tabbar-sm">
+  % for my $m (@$modes) {
+    <a class="tab<%= $viewformat eq $m ? ' active' : '' %>" href="<%= $c->web_prefix %>/management/ipblock/<%= $current->id %>?view_format=<%= $m %>"><%= $m eq 'list' ? 'List' : $m eq 'block' ? 'Block' : 'Tree' %> View</a>
+  % }
+  % if ($can_edit && $current->status && $current->status->name eq 'Subnet') {
+    <button type="button" class="btn btn-sm" id="nd-range-btn"
+            data-nd-range-id="<%= $current->id %>"
+            data-nd-range-first="<%= $range_first // '' %>"
+            data-nd-range-last="<%= $range_last // '' %>"
+            data-nd-range-api="<%= $c->web_prefix %>/api/ipblock/<%= $current->id %>/range"
+            style="margin-left:0.6em">Range</button>
+    <span style="margin-left:0.6em; font-size:0.85em; color:#666">Click Range to select a range of IPs on the grid (click or drag), then choose options and create.</span>
+  % }
+  % if ($can_edit && $viewformat eq 'list' && @$blocks > 0) {
+    <button type="button" class="btn btn-sm" id="nd-edit-children-btn" style="margin-left:0.6em">Edit</button>
+    <button type="button" class="btn btn-sm" id="nd-batch-btn" style="margin-left:0.3em">Batch</button>
+  % }
+  </div>
+% }
+% if ($can_edit && $current && $viewformat eq 'list' && @$blocks > 0) {
+  <script>
+    window.ND_BATCH_DATA = {
+      statuses: <%== $json->encode($statuses // []) %>,
+      entities: <%== $json->encode($entities // []) %>
+    };
+  </script>
+% }
+%# Children: address grid (subnet), container grid, tree graph, or the table.
+% if ($grid) {
+    <div style="margin:0.5em 0; font-size:0.85em">
+    Legend:
+    <span class="ipaddr_available">Available</span>
+    <span class="ipaddr_discovered">Discovered</span>
+    <span class="ipaddr_dynamic">Dynamic</span>
+    <span class="ipaddr_static">Static</span>
+    <span class="ipaddr_reserved">Reserved</span>
+    </div>
+    <table class="ipgrid" style="border-collapse:collapse">
+    % for my $row (@$grid) {
+        <tr>
+        % for my $cell (@$row) {
+            <td style="padding:0 2px; text-align:center"><%== $cell %></td>
+        % }
+        </tr>
+    % }
+    </table>
+% } elsif ($cgrid) {
+    <div style="margin:0.5em 0; font-size:0.85em">
+    Legend:
+    <span class="ipaddr_available">Available</span>
+    <span class="ipaddr_container">Container</span>
+    <span class="ipaddr_static">Static</span>
+    <span class="ipaddr_reserved">Reserved</span>
+    </div>
+    <%== $cgrid %>
+% } elsif ($viewformat eq 'tree' && $tree_html) {
+    <div style="margin:1em 0"><%== $tree_html %></div>
+% } else {
+%# The blocks to list (roots on the top page, children/descendants on a block page).
+<table class="datatable">
+    <thead>
+        <tr>
+        % for my $h (@hdrs) {
+            <th><%= $h %></th>
+        % }
+        </tr>
+    </thead>
+    <tbody>
+    % for my $o (@$blocks) {
+        <tr data-nd-id="<%= $o->id %>">
+        % if ($is_addr) {
+            <td><a href="<%= $c->web_prefix %>/management/ipblock/<%= $o->id %>"><%= $o->address %></a></td>
+            <td><%== $dns_name->{ $o->id } // '' %></td>
+            % my $did = $devs ? ( $devs->{ $o->address_numeric } // undef ) : undef;
+            <td>
+            % if ( my $dev = $did ? Device->retrieve( $did ) : undef ) {
+                <a href="<%= $c->web_prefix %>/management/device/<%= $dev->id %>"><%= $dev->fqdn %></a>
+            % }
+            </td>
+            <td data-nd-st="<%= Netdot::Mojo::Registry::format_value( $o->status ) %>" data-nd-stid="<%= eval { $o->status->id } // '' %>"><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
+            <td data-nd-own="<%= eval { (eval { $o->owner })->id } // '' %>"><%== Netdot::Mojo::Registry::link_html( eval { $o->owner } ) %></td>
+            <td data-nd-ub="<%= eval { (eval { $o->used_by })->id } // '' %>"><%== Netdot::Mojo::Registry::link_html( eval { $o->used_by } ) %></td>
+            <td data-nd-desc="<%= $o->description // '' %>"><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
+            <td><%= Netdot::Mojo::Registry::format_value( $o->last_seen ) %></td>
+        % } else {
+            <td><a href="<%= $c->web_prefix %>/management/ipblock/<%= $o->id %>"><%= $o->get_label %></a></td>
+            % my $st   = eval { $o->status->get_label } // '';
+            % my $stid = eval { $o->status->id } // '';
+            <td data-nd-st="<%= $st %>" data-nd-stid="<%= $stid %>"><%= Netdot::Mojo::Registry::format_value( $o->status ) %></td>
+            % if ($util) {
+            <td>
+            % if ( $st eq 'Subnet' && $o->num_addr ) {
+                <b><%= int( $o->num_children * 1000 / $o->num_addr ) / 10 %>%</b>
+            % } elsif ( $st eq 'Container' && $o->num_addr ) {
+                <b><%= int( $o->address_usage * 1000 / $o->num_addr ) / 10 %>%</b> / <b><%= int( $o->subnet_usage * 1000 / $o->num_addr ) / 10 %>%</b>
+            % }
+            </td>
+            % }
+            <td data-nd-own="<%= eval { (eval { $o->owner })->id } // '' %>"><%== Netdot::Mojo::Registry::link_html( eval { $o->owner } ) %></td>
+            <td data-nd-ub="<%= eval { (eval { $o->used_by })->id } // '' %>"><%== Netdot::Mojo::Registry::link_html( eval { $o->used_by } ) %></td>
+            <td data-nd-desc="<%= $o->description // '' %>"><%= Netdot::Mojo::Registry::format_value( $o->description ) %></td>
+        % }
+        </tr>
+    % }
+    </tbody>
+</table>
+% unless (@$blocks) {
+    <p style="color:#888">No blocks.</p>
+% }
+% }
+% }
+
+% if ($current && $can_edit && $current->status && $current->status->name eq 'Subnet') {
+    <script>
+      window.ND_RANGE_DATA = {
+        entities: <%== $json->encode($entities // []) %>,
+        fzones: <%== $json->encode($range_fzones // []) %>,
+        fzoneDefault: <%== $json->encode($fzone_default // '') %>,
+        dnsPrefix: <%== $json->encode($range_dns_prefix) %>,
+        dnsSuffix: <%== $json->encode($range_dns_suffix) %>
+      };
+    </script>
+% }
+
+%# ---- Section-tab body (block detail) ----
+% if ($current) {
+% if ( $view eq 'Sites' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerhead">Sites</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$sites) {
+            <table class="datatable" style="width:100%"><tbody>
+            % for my $s (@$sites) {
+                <tr>
+                    <td><%== $s->{html} %></td>
+% if ($can_edit) {
+                    <td style="width:60px"><button type="button" class="btn btn-sm nd-sec-del" data-nd-api="<%= $c->web_prefix %>/api/sitesubnet/<%= $s->{id} %>">Remove</button></td>
+% }
+                </tr>
+            % }
+            </tbody></table>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        % if ( $can_edit && ref $site_list && @$site_list ) {
+        %# Add site (POST /api/sitesubnet {site, subnet}): flat fields -> initForms.
+        <form data-nd-api="<%= $c->web_prefix %>/api/sitesubnet" data-nd-method="POST" style="margin-top:0.6em">
+        <input type="hidden" name="subnet" value="<%= $current->id %>" data-nd-int>
+        <table class="datatable detail" style="width:100%">
+            <tbody>
+            <tr><th>Site</th><td>
+                <select name="site" data-nd-int required>
+                    <option value="">--SELECT--</option>
+                    % for my $s (@$site_list) {
+                    <option value="<%= $s->[0] %>"><%= $s->[1] %></option>
+                    % }
+                </select>
+            </td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:0.4em"><button type="submit" class="btn">Add</button></p>
+        </form>
+        % }
+        </div>
+    </div>
+% }
+% if ( $view eq 'Zones' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerhead">Forward DNS Zones</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$fzones) {
+            <table class="datatable" style="width:100%"><tbody>
+            % for my $z (@$fzones) {
+                <tr>
+                    <td><%== $z->{html} %></td>
+% if ($can_edit && $z->{direct}) {
+                    <td style="width:60px"><button type="button" class="btn btn-sm nd-sec-del" data-nd-api="<%= $c->web_prefix %>/api/subnetzone/<%= $z->{id} %>">Remove</button></td>
+% }
+                </tr>
+            % }
+            </tbody></table>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        % if ( $can_edit && ref $fzone_options && @$fzone_options ) {
+        %# Link an existing forward zone (POST /api/subnetzone {subnet, zone}).
+        <form data-nd-api="<%= $c->web_prefix %>/api/subnetzone" data-nd-method="POST" style="margin-top:0.6em">
+        <input type="hidden" name="subnet" value="<%= $current->id %>" data-nd-int>
+        <table class="datatable detail" style="width:100%">
+            <tbody>
+            <tr><th>Zone</th><td>
+                <select name="zone" data-nd-int required>
+                    <option value="">--SELECT--</option>
+                    % for my $z (@$fzone_options) {
+                    <option value="<%= $z->[0] %>"><%= $z->[1] %></option>
+                    % }
+                </select>
+            </td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:0.4em"><button type="submit" class="btn">Add</button></p>
+        </form>
+        % }
+        </div>
+    </div>
+    <div class="container">
+        <div class="containerhead">Reverse DNS Zones</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$rzones) {
+            <table class="datatable" style="width:100%"><tbody>
+            % for my $z (@$rzones) {
+                <tr><td><%== $z %></td></tr>
+            % }
+            </tbody></table>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        % if ( $can_edit && ref $rzone_names && @$rzone_names ) {
+        %# Create a reverse (arpa) zone (POST /api/zone {name}).
+        <form data-nd-api="<%= $c->web_prefix %>/api/zone" data-nd-method="POST" style="margin-top:0.6em">
+        <table class="datatable detail" style="width:100%">
+            <tbody>
+            <tr><th>New zone name</th><td>
+                <select name="name" required>
+                    <option value="">--SELECT--</option>
+                    % for my $n (@$rzone_names) {
+                    <option value="<%= $n %>"><%= $n %></option>
+                    % }
+                </select>
+            </td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:0.4em"><button type="submit" class="btn">Create</button></p>
+        </form>
+        % }
+        </div>
+    </div>
+% }
+% if ( $view eq 'DHCP' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerhead">DHCP Scope</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$dhcp) {
+            <table class="datatable" style="width:100%">
+                <thead><tr><th>Type</th><th>Name</th><th>Ethernet</th><th>DUID</th><th>Active?</th>
+% if ($can_edit) {
+<th></th>
+% }
+                </tr></thead>
+                <tbody>
+                % for my $r (@$dhcp) {
+                    <tr>
+                        <td><%= $r->{type} %></td>
+                        <td><%== $r->{name_html} %></td>
+                        <td><%== $r->{ethernet_html} %></td>
+                        <td><%= $r->{duid} %></td>
+                        <td><%= $r->{active} ? 'Yes' : 'No' %></td>
+% if ($can_edit) {
+                        <td><button type="button" class="btn btn-sm nd-sec-del" data-nd-api="<%= $c->web_prefix %>/api/dhcpscope/<%= $r->{id} %>">Remove</button></td>
+% }
+                    </tr>
+                % }
+                </tbody>
+            </table>
+        % } elsif ( $can_edit && ref $dhcp_globals && @$dhcp_globals ) {
+        %# Enable DHCP (legacy ip.html ENABLE_DHCP): create a type=subnet scope under
+        %# a global scope. option_routers goes into the scope's attributes (nested),
+        %# handled by initDhcpEnable (not the flat collect).
+        <form class="nd-dhcp-enable" data-nd-api="<%= $c->web_prefix %>/api/dhcpscope" data-nd-method="POST">
+        <input type="hidden" name="type" value="subnet">
+        <input type="hidden" name="ipblock" value="<%= $current->id %>" data-nd-int>
+        <table class="datatable detail" style="width:100%">
+            <tbody>
+            <tr><th>Global scope</th><td>
+                <select name="container" data-nd-int required>
+                    <option value="">--SELECT--</option>
+                    % for my $g (@$dhcp_globals) {
+                    <option value="<%= $g->[0] %>"><%= $g->[1] %></option>
+                    % }
+                </select>
+            </td></tr>
+            <tr><th>Option routers</th><td>
+                <input type="text" name="option_routers" value="<%= $dhcp_router %>">
+            </td></tr>
+            <tr><th>Active?</th><td>
+                <input type="checkbox" name="active" checked>
+            </td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:0.4em"><button type="submit" class="btn">Enable DHCP</button></p>
+        </form>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        </div>
+    </div>
+% }
+% if ( $view eq 'Attributes' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerhead">Custom Attributes</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$attributes) {
+            <table class="datatable" style="width:100%">
+                <thead><tr><th>Name</th><th>Value</th>
+% if ($can_edit) {
+<th></th>
+% }
+                </tr></thead>
+                <tbody>
+                % for my $r (@$attributes) {
+                    <tr>
+                        <td><%= $r->{name} %></td>
+                        <td><%= $r->{value} %></td>
+% if ($can_edit) {
+                        <td><button type="button" class="btn btn-sm nd-sec-del" data-nd-api="<%= $c->web_prefix %>/api/ipblockattr/<%= $r->{id} %>">Remove</button></td>
+% }
+                    </tr>
+                % }
+                </tbody>
+            </table>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        % if ( $can_edit && ref $attr_names && @$attr_names ) {
+        %# Add attribute (POST /api/ipblockattr, name = IpblockAttrName id): flat
+        %# fields, so the generic initForms/collect handles it (no nested attributes).
+        <form data-nd-api="<%= $c->web_prefix %>/api/ipblockattr" data-nd-method="POST" style="margin-top:0.6em">
+        <input type="hidden" name="ipblock" value="<%= $current->id %>" data-nd-int>
+        <table class="datatable detail" style="width:100%">
+            <tbody>
+            <tr><th>Attribute</th><td>
+                <select name="name" data-nd-int required>
+                    <option value="">--SELECT--</option>
+                    % for my $a (@$attr_names) {
+                    <option value="<%= $a->[0] %>"><%= $a->[1] %></option>
+                    % }
+                </select>
+            </td></tr>
+            <tr><th>Value</th><td><input type="text" name="value"></td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:0.4em"><button type="submit" class="btn">Add</button></p>
+        </form>
+        % }
+        </div>
+    </div>
+% }
+% if ( $view eq 'Comments' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerhead">Comments</div>
+        <div class="containerbody" style="padding:0.6em">
+            <pre style="white-space:pre-wrap; margin:0"><%= $comments %></pre>
+        </div>
+    </div>
+% }
+% if ( $view eq 'Audit' || $view eq 'All' ) {
+    <div class="container">
+        <div class="containerhead">Audit Records</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if (@$audit) {
+            <table class="datatable" style="width:100%">
+                <thead><tr><th>Timestamp</th><th>Username</th><th>Table</th><th>Label</th><th>Operation</th></tr></thead>
+                <tbody>
+                % for my $r (@$audit) {
+                    <tr>
+                        <td><%= $r->{tstamp} %></td>
+                        <td><%= $r->{username} %></td>
+                        <td><%= $r->{tablename} %></td>
+                        <td><%= $r->{label} %></td>
+                        <td><%= $r->{operation} %></td>
+                    </tr>
+                % }
+                </tbody>
+            </table>
+        % } else {
+            <p style="color:#888">None.</p>
+        % }
+        </div>
+    </div>
+% }
+% if ( ( $view eq 'Rights' || $view eq 'All' ) && $can_rights ) {
+    <div class="container">
+        <div class="containerhead">Access Rights</div>
+        <div class="containerbody" style="padding:0.6em">
+        % if ( @$rights ) {
+            <table class="datatable" style="width:100%">
+                <thead>
+                <tr><th>Type</th><th>Subject</th><th>Right</th>
+                % if ($can_rights_edit) {
+                <th></th>
+                % }
+                </tr>
+                </thead>
+                <tbody>
+                % for my $r (@$rights) {
+                    <tr>
+                        <td><%= $r->{type} eq 'user' ? 'User' : 'Group' %></td>
+                        <td><%== $r->{subject_html} %></td>
+                        <td><%= $r->{access_name} %></td>
+% if ($can_rights_edit) {
+                        <td>
+                            <button type="button" class="btn btn-sm nd-rights-del"
+                                    data-nd-api="<%= $c->web_prefix %>/api/<%= $r->{right_table} %>/<%= $r->{right_id} %>">Remove</button>
+                        </td>
+% }
+                    </tr>
+                % }
+                </tbody>
+            </table>
+        % } else {
+            <p style="color:#888">No access rights for this block.</p>
+        % }
+% if ($can_rights_edit) {
+        <form class="nd-rights-add" data-nd-api="<%= $c->web_prefix %>/api/accessright"
+              data-nd-object-class="Ipblock" data-nd-object-id="<%= $current->id %>" style="margin-top:0.6em">
+        <table class="datatable detail" style="width:100%">
+            <tbody>
+            <tr><th>Subject</th><td>
+                <select name="subject" required>
+                    <option value="">--SELECT--</option>
+                    % if ( ref $right_users && @$right_users ) {
+                    <optgroup label="Users">
+                    % for my $u (@$right_users) {
+                    <option value="user:<%= $u->[0] %>"><%= $u->[1] %></option>
+                    % }
+                    </optgroup>
+                    % }
+                    % if ( ref $right_groups && @$right_groups ) {
+                    <optgroup label="Groups">
+                    % for my $g (@$right_groups) {
+                    <option value="group:<%= $g->[0] %>"><%= $g->[1] %></option>
+                    % }
+                    </optgroup>
+                    % }
+                </select>
+            </td></tr>
+            <tr><th>Right</th><td>
+                <label><input type="checkbox" name="access" value="view"> View</label>
+                <label><input type="checkbox" name="access" value="edit"> Edit</label>
+                <label><input type="checkbox" name="access" value="delete"> Delete</label>
+                <label><input type="checkbox" name="access" value="choose_ip"> Choose IP</label>
+            </td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top:0.4em"><button type="submit" class="btn">Add rights</button></p>
+        </form>
+% }
+        </div>
+    </div>
+% }
+</div>
+</div>
+% }

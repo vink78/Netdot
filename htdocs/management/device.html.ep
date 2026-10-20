@@ -1,0 +1,100 @@
+<%# Device detail: port of the legacy device.html (all views, incl. All). %>
+<% my $id     = $c->stash->{id} // ''; %>
+<% my $view   = $c->stash->{view} // 'Basics'; %>
+<% my $fqdn   = $c->stash->{fqdn} // ''; %>
+<% my $title  = $c->stash->{title} // 'Device'; %>
+<% my $base   = $c->set_uri( "/management/device/$id" ); %>
+<% my $can_delete = $c->stash('can_delete'); %>
+<% my $del_path   = $c->stash('del_path') // ''; %>
+<% my $del_goto   = $c->stash('del_goto') // ''; %>
+<% my $can_discover = $c->stash('can_discover'); %>
+
+<h1><%= $title %></h1>
+<p>
+  <b><%= $fqdn %></b>
+  <a href="http://<%= $fqdn %>" target="_blank">[HTTP]</a>
+  <a href="https://<%= $fqdn %>" target="_blank">[HTTPS]</a>
+  <a href="<%= $base %>">[refresh]</a>
+  % if ( $can_delete ) {
+  <button type="button" class="btn nd-rec-delete" data-nd-del="<%= $del_path %>" data-nd-goto="<%= $del_goto %>" data-nd-device="1" style="margin-left:1.2em">Delete</button>
+  % }
+  % if ( $can_discover ) {
+  % # SNMP re-poll of this device (stored credentials, admin only).
+  <a class="btn" href="<%= $c->url_for( 'device_update', id => $id )->to_string %>" style="margin-left:1.2em">SNMP update</a>
+  % }
+</p>
+
+% my @tabs = (
+%   [ 'Basics',     'Basics' ],
+%   [ 'Interfaces', 'Interfaces' ],
+%   [ 'IP',         'IP' ],
+%   [ 'BGP',        'BGP' ],
+%   [ 'Hosted',     'Hosted' ],
+%   [ 'Circuits',   'Circuits' ],
+%   [ 'STP',        'STP' ],
+%   [ 'Topology',   'Topology' ],
+% );
+% # ARP / FWT tabs: only when the device has data (Mason: conditional).
+% push @tabs, [ 'ARP', 'ARP' ] if $c->stash->{has_arp};
+% push @tabs, [ 'FWT', 'FWT' ] if $c->stash->{has_fwt};
+% push @tabs, [ 'Modules', 'Modules' ];
+% push @tabs, [ 'Audit',   'Audit'   ];
+% # Access Rights tab: only for users who may view the section (Mason:
+% # access_section 'device.html:edit_rights' => Admin/Operator).
+% push @tabs, [ 'Rights', 'Access Rights' ] if $c->stash->{show_rights};
+<div class="tabcard">
+<div class="tabbar">
+% for my $i (0 .. $#tabs) {
+    % my $t = $tabs[$i];
+    <a class="tab<%= $view eq $t->[0] ? ' active' : '' %>"
+       hx-boost="false"
+       href="<%= $base %>?view=<%= $t->[0] %>"><%= $t->[1] %></a>
+% }
+</div>
+<div class="tabcard-body">
+% # Sections render through per-section partials (management/device/*.html.ep,
+% # one per section). Each partial reads its own data hash (the `sec`
+% # render_to_string argument = $stash{sections}{$name}) instead of the shared
+% # stash keys (rows/sort/…)
+% # a single view used, so the All view (port of the legacy device.html
+% # view=All — every section on one page) can render every section at once
+% # without the sections' conflicting keys colliding. View-independent keys
+% # (id, view, can_edit) are stash keys; `base` is passed explicitly.
+% my %PARTIAL = (
+%   Basics     => 'basics',
+%   Interfaces => 'interfaces',
+%   IP         => 'ip',
+%   BGP        => 'bgp',
+%   Rights     => 'rights',
+%   Topology   => 'topology',
+%   Hosted     => 'generic',
+%   Circuits   => 'generic',
+%   STP        => 'generic',
+%   Modules    => 'generic',
+%   Audit      => 'generic',
+%   ARP        => 'generic',
+%   FWT        => 'generic',
+% );
+% # All view: the legacy section order (the device.html if-block order).
+% my @ORDER = ( 'Basics', 'Interfaces', 'Modules', 'IP', 'BGP', 'STP',
+%               'Topology', 'ARP', 'FWT', 'Audit', 'Circuits', 'Hosted',
+%               'Rights' );
+% my %HEADING = ( Rights => 'Access Rights' );
+% my $sections_data = $c->stash->{sections} // {};
+% for my $name (@ORDER) {
+%   my $d = $sections_data->{$name};
+%   next unless $d;
+  % if ( $view eq 'All' ) {
+  <div class="container" id="dev-<%= lc $name %>" style="margin-top:1em">
+    <div class="containerhead"><a href="#dev-<%= lc $name %>"><%= $HEADING{$name} // $name %></a></div>
+    <div class="containerbody">
+  % }
+  <%= $c->render_to_string( template => 'management/device/' . $PARTIAL{$name},
+                            layout => 0, sec => $d, base => $base ) %>
+  % if ( $view eq 'All' ) {
+    </div>
+  </div>
+  % }
+% }
+</div>
+</div>

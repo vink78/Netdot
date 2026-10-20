@@ -1,0 +1,33 @@
+% use Mojo::ByteStream qw(b);
+% my $headers = $headers // [];
+% my $rows    = $rows    // [];
+% if ($title) {
+<h1><%= $title %></h1>
+% }
+% if ($desc) {
+<p class="reportdesc"><%= $desc %></p>
+% }
+% if (@$rows) {
+<div class="tablescroll">
+<table class="datatable sortable">
+  <thead>
+    <tr>
+    % for my $h (@$headers) {
+    <th><%= b($h) %></th>
+    % }
+    </tr>
+  </thead>
+  <tbody>
+  % for my $row (@$rows) {
+  <tr>
+    % for my $cell (@$row) {
+    <td><%= b($cell // '') %></td>
+    % }
+  </tr>
+  % }
+  </tbody>
+</table>
+</div>
+% } else {
+<p>No data.</p>
+% }

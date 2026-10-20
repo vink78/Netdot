@@ -5328,6 +5328,140 @@ $meta = {
       ]
     }
   },
+  RRAttr => {
+    table_db_name => 'rrattr',
+    columns => {
+      id => {
+        default => '',
+        description => '',
+        length => '',
+        nullable => 0,
+        tag => undef,
+        type => 'bigint'
+      },
+      name => {
+        default => '',
+        description => 'Name of this attribute (DNS record type, e.g. CAA, HTTPS, SSHFP)',
+        length => '',
+        linksto => {
+          cascade => 'Delete',
+          method => 'attributes',
+          table => 'RRAttrName'
+        },
+        nullable => 0,
+        tag => 'Name',
+        type => 'bigint'
+      },
+      rr => {
+        default => '',
+        description => 'Resource record to which this attribute is assigned',
+        length => '',
+        linksto => {
+          cascade => 'Delete',
+          method => 'attributes',
+          table => 'RR'
+        },
+        nullable => 0,
+        tag => 'Resource Record',
+        type => 'bigint'
+      },
+      ttl => {
+        default => '',
+        description => 'Record TTL',
+        length => '32',
+        nullable => 1,
+        tag => 'TTL',
+        type => 'varchar'
+      },
+      value => {
+        default => '',
+        description => 'Raw value for this attribute (may contain spaces and quotes)',
+        length => '255',
+        nullable => 0,
+        tag => 'Value',
+        type => 'varchar'
+      }
+    },
+    description => 'A DNS resource record attribute holding a modern record type (CAA, HTTPS, SSHFP, ...) as a raw value',
+    has_history => 0,
+    index => [
+      [
+        'rr'
+      ],
+    ],
+    isjoin => '0',
+    label => [
+      'name',
+      'value',
+      'rr',
+    ],
+    primary_key => 'id',
+    unique => [],
+    views => {
+      all => [
+        'name',
+        'value',
+        'rr',
+        'ttl'
+      ],
+      brief => [
+        'name',
+        'value',
+        'rr'
+      ]
+    }
+  },
+  RRAttrName => {
+    table_db_name => 'rrattrname',
+    columns => {
+      id => {
+        default => '',
+        description => '',
+        length => '',
+        nullable => 0,
+        tag => undef,
+        type => 'bigint'
+      },
+      info => {
+        default => '',
+        description => '',
+        length => '',
+        nullable => 1,
+        tag => 'Comments',
+        type => 'text'
+      },
+      name => {
+        default => '',
+        description => '',
+        length => '128',
+        nullable => 0,
+        tag => 'Name',
+        type => 'varchar'
+      }
+    },
+    description => 'A DNS resource record attribute name (record type)',
+    has_history => 0,
+    index => [],
+    isjoin => '0',
+    label => [
+      'name'
+    ],
+    primary_key => 'id',
+    unique => [
+      [
+        'name'
+      ]
+    ],
+    views => {
+      all => [
+        'name',
+        'info'
+      ],
+      brief => [
+        'name'
+      ]
+    }
+  },
   IpblockStatus => {
     table_db_name => 'ipblockstatus',
     columns => {
@@ -8505,6 +8639,14 @@ $meta = {
         tag => 'Default TTL',
         type => 'integer'
       },
+      dnssec => {
+        default => \"FALSE",
+        description => 'Sign this zone with DNSSEC (inline signing) when generating the NAMED config',
+        length => '',
+        nullable => 0,
+        tag => 'DNSSEC?',
+        type => 'bool'
+      },
       expire => {
         default => '',
         description => 'A 32 bit time value that specifies the upper limit on the time interval that can elapse before the zone is no longer authoritative.',
@@ -8627,6 +8769,7 @@ $meta = {
         'minimum',
         'contactlist',
         'active',
+        'dnssec',
         'export_file',
         'default_ttl',
         'include',

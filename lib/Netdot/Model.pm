@@ -37,6 +37,16 @@ my %EXCLUDE_AUDIT_COL = (
     );
 
 BEGIN {
+    # Disable the Class::DBI object identity index (%Live_Objects). When
+    # enabled, every search/retrieve returns the still-live object for a given
+    # primary key and discards the freshly fetched DB rows. In a long-running
+    # single-process server an object kept referenced across requests (e.g. an
+    # interface with a neighbor link) then keeps serving its stale in-memory
+    # column values until the process restarts. mod_perl never showed it
+    # because worker recycling + per-request teardown collect those objects.
+    # Netdot never relies on object identity (ids everywhere, no same_object).
+    $Class::DBI::Weaken_Is_Available = 0;
+
     my $db_type  = __PACKAGE__->config->get('DB_TYPE');
     my $database = __PACKAGE__->config->get('DB_DATABASE');
     my $host     = __PACKAGE__->config->get('DB_HOST');
@@ -48,6 +58,12 @@ BEGIN {
     $defaults{user}        = __PACKAGE__->config->get('DB_NETDOT_USER');
     $defaults{password}    = __PACKAGE__->config->get('DB_NETDOT_PASS');
     $defaults{dbi_options} = {};
+    # InactiveDestroy: a pre-fork server (hypnotoad) forks workers that inherit
+    # the manager's DB handle; when a worker recycles/exits, DESTROY must only
+    # detach (not disconnect) the shared socket, or it would break the manager's
+    # connection. Ima::DBI already re-opens a per-worker connection on fork
+    # (fork-aware), this just guards the inherited handle on exit.
+    $defaults{dbi_options}->{InactiveDestroy} = 1;
     if ($db_type eq "mysql") {
         $defaults{dbi_options}->{AutoCommit} = 1;
         $defaults{dbi_options}->{mysql_enable_utf8} = 1;
@@ -147,10 +163,13 @@ BEGIN {
 		next if exists $EXCLUDE_AUDIT_COL{$col};
 		if ( defined $self->$col ){ 
 		    push @fields, $col;
-		    if ( $self->$col && blessed($self->$col) ){
-			push @values, $self->$col->get_label();
+		    my $val = $self->$col;
+		    # Blessed JSON booleans (JSON::PP::Boolean / Mojo::JSON::Boolean)
+		    # come from the JSON API; only real Netdot objects carry a label.
+		    if ( $val && blessed( $val ) && $val->can("get_label") ){
+			push @values, $val->get_label();
 		    }else{
-			push @values, $self->$col;
+			push @values, $val;
 		    }
 		} 
 	    }
@@ -165,10 +184,13 @@ BEGIN {
 		my @values;
 		foreach my $col ( @$changed_columns ){
 		    next if exists $EXCLUDE_AUDIT_COL{$col};
-		    if ( $self->$col && blessed($self->$col) ){
-			push @values, $self->$col->get_label();
+		    my $val = $self->$col;
+		    # Blessed JSON booleans (JSON::PP::Boolean / Mojo::JSON::Boolean)
+		    # come from the JSON API; only real Netdot objects carry a label.
+		    if ( $val && blessed( $val ) && $val->can("get_label") ){
+			push @values, $val->get_label();
 		    }else{
-			push @values, $self->$col;
+			push @values, $val;
 		    }
 		}
 		$data{vals} = join ',', map { "'$_'" } @values;
@@ -414,10 +436,14 @@ sub insert {
 	# Try to make it less frightening for the user
 	# This object seems to include a stack trace
 	# in the message itself. We try to remove it
-	# in several ways.
+	# in several ways. Not every exception type (e.g. Mojo::Exception,
+	# Class::DBI::Exception) exposes show_trace/error, so fall back to
+	# ->message and finally stringify.
 	if ( ref($e) =~ /Exception/ ){
-	    $e->show_trace(0);
-	    $error = $e->error;
+	    eval { $e->show_trace(0) };
+	    $error = ( eval { $e->error } )
+	         // ( eval { $e->message } )
+	         // "$e";
 	    $error =~ s/Stack:.*//sg;
 	}else{
 	    $error = $e;
@@ -661,6 +687,173 @@ sub raw_sql {
     	return;
     }
     return \%result;
+}
+
+############################################################################
+
+=head2 search_count - Number of rows matching a plain column search
+
+    Arguments:
+        column => value pairs, e.g. site => 1, name => 'foo'
+    Returns:
+        Integer count of matching rows (before any LIMIT/OFFSET).
+    Example:
+        my $n = Device->search_count( site => 1 );
+
+    Only plain column=value criteria are supported (simpler than Class::DBI's
+    ->search) so it can be paired with search_page(). Values are bound (not
+    interpolated) and column names are validated against the table.
+
+=cut
+
+sub search_count {
+    my ( $class, %args ) = @_;
+    my $frag = delete $args{where};              # trusted permission fragment (or undef)
+    my $like = delete $args{like};               # [ col, q ] free-text
+    delete $args{order_by};                      # irrelevant to a count
+    return 0 if defined $frag && $frag eq '0';   # nothing viewable
+    my ( $where, $binds ) = _pagination_where( $class, %args );
+    ( $where, $binds ) = _list_add_like( $class, $where, $binds, $like );
+    $where = _combine_where( $where, $frag );
+    my ($n) = $class->db_Main()->selectrow_array(
+        "SELECT COUNT(*) FROM " . $class->table . $where,
+        {},
+        @$binds
+    );
+    return defined $n ? 0 + $n : 0;
+}
+
+############################################################################
+
+=head2 search_page - One page of objects matching a plain column search
+
+    Arguments:
+        column => value pairs, plus:
+          limit    => int    (default 50, max 1000; 0 = all rows, e.g. CSV)
+          offset   => int    (default 0)
+          order_by => column (default primary key). If the column is a
+                             relationship, order by the related object's first
+                             label (LEFT JOIN) -- see _order_clause.
+          like     => [ col, q ]  free-text LIKE %q% on $col (bound)
+          where    => frag   trusted permission predicate (or undef)
+    Returns:
+        List of blessed objects, ordered by order_by (default primary key).
+    Example:
+        my @devs = Device->search_page( site => 1, limit => 50, offset => 0 );
+
+=cut
+
+sub search_page {
+    my ( $class, %all ) = @_;
+    my $limit    = defined $all{limit}    ? int( $all{limit}    ) : 50;
+    my $offset   = defined $all{offset}   ? int( $all{offset}   ) : 0;
+    my $frag     = delete $all{where};
+    my $order_by = delete $all{order_by};
+    my $like     = delete $all{like};
+    delete @all{ qw(limit offset) };
+    $limit  = 50   if $limit  < 0;
+    $limit  = 1000 if $limit  > 1000;
+    $offset = 0    if $offset < 0;
+    return () if defined $frag && $frag eq '0';   # nothing viewable
+
+    my ( $where, $binds ) = _pagination_where( $class, %all );
+    ( $where, $binds )   = _list_add_like( $class, $where, $binds, $like );
+    $where = _combine_where( $where, $frag );
+
+    my ( $from, $order, $is_fk ) = _order_clause( $class, $order_by );
+    my $table = $class->table;
+    my $pk    = $class->primary_column;
+    my $lim   = $limit > 0 ? " LIMIT ? OFFSET ?" : "";
+    my @tail  = $limit > 0 ? ( $limit, $offset ) : ();
+    my $sel;
+    if ( $is_fk ) {    # wrap the WHERE in a subquery: bare cols would be ambiguous
+        my $sub  = $where eq '' ? "SELECT id FROM $table" : "SELECT id FROM $table $where";
+        my $pred = $where eq '' ? "" : " WHERE d.id IN ( $sub )";
+        $sel = "SELECT d.id FROM $from$pred ORDER BY $order$lim";
+    } else {
+        $sel = "SELECT $pk FROM $from $where ORDER BY $order$lim";
+    }
+    my @ids = map { $_->[0] } @{ $class->db_Main()->selectall_arrayref( $sel, {}, @$binds, @tail ) };
+    return map { $class->retrieve( $_ ) } @ids;
+}
+
+# Combine the column WHERE (from _pagination_where, '' or ' WHERE ...') with a
+# trusted permission fragment ($frag: undef = none, or an AND-able predicate).
+# The fragment is built by Netdot::Mojo::Permissions::viewable_predicate (integer
+# IN lists only) -- never from user input.
+sub _combine_where {
+    my ( $where, $frag ) = @_;
+    return $where unless defined $frag && $frag ne '';
+    return $where eq '' ? " WHERE $frag" : "$where AND $frag";
+}
+
+# Build a validated WHERE clause + bound values from column=>value args.
+# Column names are checked against the table's real columns (so no SQL
+# injection via the name); values are bound, never interpolated.
+sub _pagination_where {
+    my ( $class, %args ) = @_;
+    my %cols = map { $_ => 1 } $class->columns;
+    my ( @w, @b );
+    for my $k ( sort keys %args ) {
+        my $v = $args{$k};
+        next unless defined $v && !ref $v;
+        die "Unknown search column: $k" unless $cols{$k};
+        push @w, $k . " = ?";
+        push @b,  $v;
+    }
+    my $where = @w ? " WHERE " . join( " AND ", @w ) : "";
+    return ( $where, \@b );
+}
+
+# Add a free-text LIKE %q% on a validated column to a WHERE clause. $like is
+# [ $col, $q ]; $q is bound (never interpolated). Returns ($where, $binds).
+# If the column is a RELATIONSHIP (an FK, e.g. device.name -> rr), the LIKE is
+# applied to the related object's first label column (via an IN subquery on the
+# related PK) rather than the raw FK value -- so a device free-text search
+# matches the device's DNS name (rr.name), not the numeric FK.
+sub _list_add_like {
+    my ( $class, $where, $binds, $like ) = @_;
+    return ( $where, $binds ) unless $like && defined $like->[1] && length $like->[1];
+    my $col = $like->[0];
+    $col = $class->primary_column unless grep { $_ eq $col } $class->columns;
+    # Relationship column? Search the related object's label instead of the FK.
+    my $links = eval { $class->meta_data->get_column( $col )->links_to };
+    if ( $links && $links =~ /^[A-Za-z_][A-Za-z0-9_]*$/ ) {
+        my $reltab = $links->table;
+        my @lbl;  @lbl = eval { $links->meta_data->get_labels };
+        my $relcol = ( grep { /^[A-Za-z_][A-Za-z0-9_]*$/ } @lbl )[0] // 'id';
+        my $pred   = "$col IN (SELECT id FROM $reltab WHERE $reltab.$relcol LIKE ?)";
+        $where = $where eq '' ? " WHERE $pred" : "$where AND $pred";
+        push @$binds, "%$like->[1]%";
+        return ( $where, $binds );
+    }
+    $where = $where eq '' ? " WHERE $col LIKE ?" : "$where AND $col LIKE ?";
+    push @$binds, "%$like->[1]%";
+    return ( $where, $binds );
+}
+
+# FROM (with a LEFT JOIN when the order column is a relationship) + ORDER BY for
+# the list/CSV views. The order column is validated against the table's real
+# columns. If it is a relationship, order by the related object's first label
+# (e.g. device.name -> rr.name) and flag $is_fk so the caller wraps the WHERE in
+# a subquery (its bare column names would otherwise be ambiguous across the
+# JOIN). Returns ( $from, $order, $is_fk ).
+sub _order_clause {
+    my ( $class, $order_col ) = @_;
+    my $table = $class->table;
+    my $pk    = $class->primary_column;
+    my $oc    = $order_col // $pk;
+    $oc = $pk unless $oc =~ /^[A-Za-z_][A-Za-z0-9_]*$/;
+    $oc = $pk unless grep { $_ eq $oc } $class->columns;
+    my $links = eval { $class->meta_data->get_column( $oc )->links_to };
+    if ( $links && $links =~ /^[A-Za-z_][A-Za-z0-9_]*$/ ) {
+        my $reltab = $links->table;
+        my @lbl;  @lbl = eval { $links->meta_data->get_labels };
+        my $relcol = ( grep { /^[A-Za-z_][A-Za-z0-9_]*$/ } @lbl )[0] // 'id';
+        return ( "$table d LEFT JOIN $reltab ON d.$oc = $reltab.id",
+                 "$reltab.$relcol ASC, d.$pk", 1 );
+    }
+    return ( $table, "$oc ASC, $pk", 0 );
 }
 
 ############################################################################
@@ -998,6 +1191,64 @@ sub get_label {
     }
     # Only want non empty fields
     return join "$delim", grep {$_ ne ""} @ret ;
+}
+
+
+=head2 get_ref_field_spec - Spec of the columns that make up this object's reference
+
+    Single source of truth for the columns used to identify / label an object.
+    Consumed by both get_hashref (runtime value) and the OpenAPI generator
+    (documentation), so a class that customises its reference fields overrides
+    this one method and both stay in sync. Base implementation: the metadata
+    "label" columns (get_labels). A label column that is itself a foreign key
+    reports is_fk => 1 (its value is the related object's label, one level deep).
+
+    Returns a list of specs: ( { name, is_fk, sql_type }, ... )
+
+=cut
+
+sub get_ref_field_spec {
+    my ($class) = @_;
+    # NB: no "|| ()" -- that would force get_labels() into scalar context and
+    # yield the label COUNT (e.g. 1) instead of the column list, exactly like
+    # get_label() relies on the plain list assignment.
+    my @lbls = $class->meta_data->get_labels();
+    my @spec;
+    for my $c ( grep { defined && length } @lbls ) {
+        my $mcol = $class->meta_data->get_column($c) or next;
+        push @spec, {
+            name     => $c,
+            is_fk    => $mcol->links_to() ? 1 : 0,
+            sql_type => lc( eval { $mcol->sql_type } // '' ),
+        };
+    }
+    return @spec;
+}
+
+
+=head2 get_hashref - The object's label as a hashref (not a joined string)
+
+    Mirrors get_label() but returns {field => value} instead of one joined string.
+    Iterates get_ref_field_spec(): a plain field -> its value; a field that is a
+    foreign key -> the related object's get_label() (one level only, mirroring
+    get_label, so there is no unbounded recursion / infinite loop).
+
+=cut
+
+sub get_hashref {
+    my ($self) = @_;
+    $self->isa_object_method('get_hashref');
+    my $class = ref($self) || $self;
+    my %ret;
+    for my $f ( $class->get_ref_field_spec() ) {
+        my $c   = $f->{name};
+        my $val = $self->$c;
+        next unless defined $val;
+        $val = $val->get_label if $f->{is_fk} && blessed($val);
+        next if !ref($val) && $val eq '';
+        $ret{$c} = $val;
+    }
+    return \%ret;
 }
 
 

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" hx-boost>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="<%= $c->web_prefix %>/css/style.css" type="text/css">
+  <link rel="stylesheet" href="<%= $c->web_prefix %>/css/datechooser.css" type="text/css">
+  <link rel="shortcut icon" href="<%= $c->web_prefix %>/img/favicon.ico" type="image/x-icon">
+  <title>Netdot: <%= $c->stash('title') // 'Netdot' %></title>
+  <script src="<%= $c->web_prefix %>/java_script/dynamic_list.js"></script>
+  <script src="<%= $c->web_prefix %>/java_script/select.js"></script>
+  <script src="<%= $c->web_prefix %>/java_script/jsrsClient.js"></script>
+  <script src="<%= $c->web_prefix %>/java_script/toggle.js"></script>
+  <script src="<%= $c->web_prefix %>/java_script/datechooser.js"></script>
+   <script src="<%= $c->web_prefix %>/java_script/tablesort.js"></script>
+   <script src="<%= $c->web_prefix %>/java_script/tabs.js"></script>
+   <script src="<%= $c->web_prefix %>/java_script/htmx.min.js"></script>
+   <script src="<%= $c->web_prefix %>/java_script/netdot.js"></script>
+  <script>
+    /* htmx: opt-out non-navigable links/forms (images, downloads, login/logout) for safe degradation. */
+    htmx.onLoad(function(body){
+      body.querySelectorAll('a').forEach(function(a){
+        var href = a.getAttribute('href') || '';
+        var bad = !href || a.hasAttribute('download') || a.target ||
+          /\.(png|gif|jpe?g|svg|pdf|zip|csv|tar|gz|ico)$/i.test(href) ||
+          /(^|\/)(login|logout)$/i.test(href);
+        if (bad) { a.setAttribute('hx-boost', 'false'); }
+      });
+      body.querySelectorAll('form').forEach(function(f){
+        if (/login/i.test(f.getAttribute('action') || '')) { f.setAttribute('hx-boost', 'false'); }
+      });
+    });
+  </script>
+</head>
+<body>
+  <header id="header">
+    <a class="brand" href="<%= url_for('home') %>"><img src="<%= $c->web_prefix %>/img/title.png" alt="Netdot: Network Documentation Tool"></a>
+    <span class="headright">
+      <span class="hdr-time"><%= scalar localtime %></span>
+      % if (my $u = $c->session('username')) {
+      <span class="hdr-user"><%= $u %></span>
+      <a class="hdr-btn" href="<%= url_for('logout') %>">log out</a>
+      % } elsif ( ! $c->stash('is_login') ) {
+      <a class="hdr-btn" href="<%= url_for('login') %>">log in</a>
+      % }
+    </span>
+  </header>
+  % unless ( $c->stash('hide_nav') ) {
+  % my $nav   = $c->stash('nav') // [];
+  % my $cur   = $c->req->url->path;
+  % my $base  = $c->web_prefix // '';
+  % my $home_active = ( $cur eq $base || $cur eq "$base/" || ( $base eq '' && $cur eq '/' ) );
+  <nav id="navbar">
+    <ul id="navigation">
+      <li class="<%= $home_active ? 'active' : '' %>"><a href="<%= url_for('home') %>">Home</a></li>
+      % for my $sec (@$nav) {
+      % my $sec_active = 0;
+      % for my $it (@{ $sec->{items} }) { $sec_active = 1 if index( $cur, $it->{url} ) == 0; }
+      <li class="navsec<%= $sec_active ? ' active' : '' %>">
+        <a href="<%= $sec->{url} %>"><%= $sec->{title} %></a>
+        <ul class="navsubmenu">
+          % for my $it (@{ $sec->{items} }) {
+          % my $it_active = index( $cur, $it->{url} ) == 0;
+          <li class="<%= $it_active ? 'active' : '' %>"><a href="<%= $it->{url} %>"><%= $it->{label} %></a></li>
+          % }
+        </ul>
+      </li>
+      % }
+    </ul>
+  </nav>
+  % }
+  <div id="content">
+    % if (my $m = $c->flash('nd_msg')) {
+    <div class="nd-flash nd-flash-<%= $c->flash('nd_msg_type') // 'ok' %>"><%== $m %></div>
+    % }
+    <%= content %>
+  </div>
+  <!--
+      Copyright (C) 2026 Vincent Magnin
+      This program is free software; you can redistribute it and/or modify
+      it under the terms of the GNU General Public License as published by
+      the Free Software Foundation; either version 2 of the License, or
+      (at your option) any later version.
+  -->
+  <footer id="footer">
+    <p>&copy; GPL &middot; <a href="<%= $c->nd_git_url %>">Netdot: NETwork DOcumentation Tool</a> v<%= $c->nd_version %></p>
+  </footer>
+</body>
+</html>

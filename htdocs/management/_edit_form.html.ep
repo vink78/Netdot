@@ -1,0 +1,98 @@
+% # Shared in-place edit / create form for read-write detail pages (generic +
+% # dedicated), the generic list page's "New <type>" create box and the generic
+% # detail page's relation "Add" forms (their specs carry a kind='hidden'
+% # parent-FK field, rendered as a hidden input above the table). Guarded by
+% # can_edit + fields (stashed by the controller).
+% #   EDIT (default): hidden until the page header "Edit" toggle (wired by
+% #     netdot.js initToggle), PATCHes $api_path, then reloads.
+% #   CREATE (nd_create=1): always visible, POSTs to $api_path, then redirects
+% #     to $nd_redirect + <new id> (netdot.js initForms' data-nd-redirect).
+% # Create-mode knobs (stashed only by the generic list page's "New <type>" box).
+% # Read via $c->stash so the partial stays valid when rendered without them
+% # (detail pages): a bare stash var would fail the template's `use strict`.
+% my $nd_create   = $c->stash('nd_create');
+% my $nd_method   = $c->stash('nd_method');
+% my $nd_redirect = $c->stash('nd_redirect');
+% my $nd_label    = $c->stash('nd_label');
+% if ( $can_edit && @$fields ) {
+%   my @fl     = @$fields;
+%   # hidden fields (relation "Add" forms: the parent FK, fixed to the page's
+%   # object) render before the table; the table shows the rest only.
+%   my @hidden = grep { $_->{kind} eq 'hidden' } @fl;
+%   my @shown  = grep { $_->{kind} ne 'hidden' } @fl;
+%   my $create = $nd_create ? 1 : 0;
+%   my $method = $nd_method || 'PATCH';
+%   my $label  = $nd_label  || 'Save';
+<form id="<%= $create ? 'nd-create' : 'nd-edit' %>"
+      data-nd-api="<%= $api_path %>"
+      data-nd-method="<%= $method %>"
+% if ( $create && $nd_redirect ) {
+      data-nd-redirect="<%= $nd_redirect %>"
+% }
+      data-nd-api-base="<%= $c->web_prefix %>/api"
+% unless ($create) {
+      style="display:none"
+% }
+>
+  % for my $f (@hidden) {
+  <input type="hidden" name="<%= $f->{name} %>" value="<%= $f->{value} %>" data-nd-int>
+  % }
+  <table class="datatable detail c2">
+    <tbody>
+    % for ( my $i = 0; $i < @shown; $i += 2 ) {
+    %   my $end = $i + 1; $end = $#shown if $end > $#shown;
+    %   my @row = @shown[ $i .. $end ];
+    <tr>
+      % for my $f (@row) {
+      <th><%= $f->{tag} %></th>
+      <td>
+        % if ( $f->{kind} eq 'checkbox' ) {
+        <input type="checkbox" name="<%= $f->{name} %>"<%= $f->{value} ? ' checked' : '' %>>
+        % } elsif ( $f->{kind} eq 'textarea' ) {
+        <textarea name="<%= $f->{name} %>" rows="3"><%= $f->{value} %></textarea>
+        % } elsif ( $f->{kind} eq 'number' ) {
+        <input type="number" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+        % } elsif ( $f->{kind} eq 'date' ) {
+        <input type="date" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+        % } elsif ( $f->{kind} eq 'fk' ) {
+        %   if ( $f->{options} ) {
+        %     # Small target table: plain <select> of all options (server-filled).
+        <select name="<%= $f->{name} %>" class="nd-fk-select">
+          <option value="">-- Select --</option>
+          % for my $op ( @{ $f->{options} } ) {
+          <option value="<%= $op->{id} %>"<%= ( $f->{cur_id} && $f->{cur_id} == $op->{id} ) ? ' selected' : '' %>><%= $op->{label} %></option>
+          % }
+          <option value="">[null]</option>
+        </select>
+        %   } else {
+        %     # Large target (RR/Ipblock): keyword search box + <select> filled on
+        %     # search via the API (never dumps 100K+ options).
+        <span class="nd-fk-search">
+          <input type="text" class="nd-fk-kw" placeholder="Search…" data-nd-target="<%= $f->{target} %>" data-nd-max="<%= $f->{max} %>">
+          <button type="button" class="btn nd-fk-go">List</button>
+          <select name="<%= $f->{name} %>" class="nd-fk-select">
+            <option value="">-- Search --</option>
+            % if ( $f->{cur_id} ) {
+            <option value="<%= $f->{cur_id} %>" selected><%= $f->{cur_label} %></option>
+            % }
+            <option value="">[null]</option>
+          </select>
+        </span>
+        %   }
+        % } else {
+        <input type="text" name="<%= $f->{name} %>" value="<%= $f->{value} %>">
+        % }
+      </td>
+      % }
+    </tr>
+    % }
+    </tbody>
+  </table>
+  <p style="margin-top:0.8em">
+    <button type="submit" class="btn"><%= $label %></button>
+% unless ($create) {
+    <button type="button" class="btn" id="nd-edit-cancel" style="margin-left:0.6em">Cancel</button>
+% }
+  </p>
+</form>
+% }

@@ -1,0 +1,81 @@
+<%# Device Access Rights section (same mechanism as the Ipblock Rights
+    section): display, per-row remove (DELETE /api/userright|groupright/<id>),
+    and the "Add rights" form (POST /api/accessright). Visible to
+    access_section, writable by Admin (netdot.js initRights). Section data
+    comes from the `sec` render_to_string argument. %>
+<% my $sec      = $sec // {}; %>
+<% my $can_rights      = $sec->{can_rights}      // 0; %>
+<% my $can_rights_edit = $sec->{can_rights_edit} // 0; %>
+<% my $rights          = $sec->{rights}          // []; %>
+<% my $right_users     = $sec->{right_users}; %>
+<% my $right_groups    = $sec->{right_groups}; %>
+% if ($can_rights) {
+<div class="container">
+  <div class="containerhead">Access Rights</div>
+  <div class="containerbody" style="padding:0.6em">
+  % if ( @$rights ) {
+    <table class="datatable" style="width:100%">
+      <thead>
+      <tr><th>Type</th><th>Subject</th><th>Right</th>
+      % if ($can_rights_edit) {
+      <th></th>
+      % }
+      </tr>
+      </thead>
+      <tbody>
+      % for my $r (@$rights) {
+          <tr>
+              <td><%= $r->{type} eq 'user' ? 'User' : 'Group' %></td>
+              <td><%== $r->{subject_html} %></td>
+              <td><%= $r->{access_name} %></td>
+% if ($can_rights_edit) {
+              <td>
+                  <button type="button" class="btn btn-sm nd-rights-del"
+                          data-nd-api="<%= $c->web_prefix %>/api/<%= $r->{right_table} %>/<%= $r->{right_id} %>">Remove</button>
+              </td>
+% }
+          </tr>
+      % }
+      </tbody>
+    </table>
+  % } else {
+      <p style="color:#888"><i>No access rights for this device.</i></p>
+  % }
+% if ($can_rights_edit) {
+    <form class="nd-rights-add" data-nd-api="<%= $c->web_prefix %>/api/accessright"
+          data-nd-object-class="Device" data-nd-object-id="<%= $id %>" style="margin-top:0.6em">
+    <table class="datatable detail" style="width:100%">
+        <tbody>
+        <tr><th>Subject</th><td>
+            <select name="subject" required>
+                <option value="">--SELECT--</option>
+                % if ( ref $right_users && @$right_users ) {
+                <optgroup label="Users">
+                % for my $u (@$right_users) {
+                <option value="user:<%= $u->[0] %>"><%= $u->[1] %></option>
+                % }
+                </optgroup>
+                % }
+                % if ( ref $right_groups && @$right_groups ) {
+                <optgroup label="Groups">
+                % for my $g (@$right_groups) {
+                <option value="group:<%= $g->[0] %>"><%= $g->[1] %></option>
+                % }
+                </optgroup>
+                % }
+            </select>
+        </td></tr>
+        <tr><th>Right</th><td>
+            <label><input type="checkbox" name="access" value="view"> View</label>
+            <label><input type="checkbox" name="access" value="edit"> Edit</label>
+            <label><input type="checkbox" name="access" value="delete"> Delete</label>
+            <label><input type="checkbox" name="access" value="choose_ip"> Choose IP</label>
+        </td></tr>
+        </tbody>
+    </table>
+    <p style="margin-top:0.4em"><button type="submit" class="btn">Add rights</button></p>
+    </form>
+% }
+  </div>
+</div>
+% }

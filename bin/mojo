@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use FindBin;
+use lib "$FindBin::Bin/../lib";
+
+use Netdot::Mojo;
+
+# Entry point for both a server (hypnotoad/daemon/morbo) and a direct run.
+# A server loads this file with `do` (Mojo::Server::load_app) in a sandbox and
+# expects the last expression to BE the app object: in that environment
+# MOJO_APP_LOADER is set, so Mojolicious::Commands::run returns the app
+# instead of starting a server -> ->start evaluates to the app object there.
+# Run directly (no loader), ->start dispatches the command from @ARGV
+# (e.g. `bin/mojo daemon -l ...`).
+# (->start as a class method is broken in v9.39: lazy attrs accessed on the
+# class string.) Keeping the instance in a lexical keeps it alive for the
+# whole direct-run process (Mojolicious::Command holds it only as a weak ref).
+# The last expression must be the CALL, not the bare $app: the top level of a
+# file `do`'d inside a string eval is always in void context (wantarray), so
+# a bare private variable as last expression warns "Useless use of private
+# variable in void context" even though do still captures its value.
+my $app = Netdot::Mojo->new;
+$app->start;

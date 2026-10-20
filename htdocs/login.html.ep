@@ -1,0 +1,28 @@
+<div class="loginbox">
+  <div class="container">
+    <div class="containerhead">Log in to Netdot</div>
+    <div class="containerbody">
+% if ( defined( my $err = $c->stash('error') ) ) {
+      <p class="error"><%= $err %></p>
+% }
+      <p class="loginhint">Enter your login and password to authenticate.</p>
+      <form method="post" action="<%= $c->web_prefix %>/login">
+        <label class="field">
+          <span>Username</span>
+          <input type="text" name="username" value="<%= $username // '' %>" autofocus autocomplete="username">
+        </label>
+        <label class="field">
+          <span>Password</span>
+          <input type="password" name="password" autocomplete="current-password">
+        </label>
+        <button type="submit" class="btn">Log in</button>
+      </form>
+% if ( defined( my $oauth = $c->stash('oauth') ) ) {
+      % # OAuth2 / OpenID Connect (e.g. Microsoft Entra ID), enabled in the
+      % # config (NetdotOAuthEnabled): the button starts the flow (auth#oauth_login).
+      <hr style="margin:14px 0 10px 0">
+      <a class="btn" href="<%= $oauth->{url} %>"><%= $oauth->{label} %></a>
+% }
+    </div>
+  </div>
+</div>

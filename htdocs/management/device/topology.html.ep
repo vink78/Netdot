@@ -1,0 +1,80 @@
+<%# Device Topology section (port of the legacy device.html "Topology"
+    section): a GraphViz graph of the L2 links around this device. The form is
+    a plain GET (view=Topology + the parameters); the PNG is generated on the
+    fly and embedded as a data: URI, with the GraphViz image map (clickable
+    nodes/edges) and the per-VLAN colour legend. Section data comes from the
+    `sec` render_to_string argument. %>
+<% my $sec      = $sec // {}; %>
+<% my $depth_up   = $sec->{topo_depth_up}   // 1; %>
+<% my $depth_down = $sec->{topo_depth_down} // 1; %>
+<% my $tvlans     = $sec->{topo_vlans}      // 0; %>
+<% my $tnames     = $sec->{topo_names}      // 0; %>
+<% my $tminlen    = $sec->{topo_minlen}     // 1; %>
+<% my $troot      = $sec->{topo_root}       // ''; %>
+<% my $tsvid      = $sec->{topo_svid}       // 0; %>
+<% my $vopts      = $sec->{topo_vlan_opts}  // []; %>
+<% my $terror     = $sec->{topo_error}      // ''; %>
+<% my $timg       = $sec->{topo_img}        // ''; %>
+<% my $tmap       = $sec->{topo_map}        // ''; %>
+<% my $tlegend    = $sec->{topo_legend}     // []; %>
+<div class="container">
+  <div class="containerhead">Topology - Layer 2</div>
+  <div class="containerbody">
+  <p><strong>Note</strong>: depths greater than 2 may take a long time to render.</p>
+  <form method="get" action="<%= $base %>" style="font-size:0.9em">
+    <input type="hidden" name="view" value="Topology">
+    <table>
+      <tr>
+        <th>Show Vlans?</th>
+        <th>Show this Vlan only?</th>
+        <th>Show Interface Names?</th>
+        <th>Line length</th>
+        <th>Depth up</th>
+        <th>Depth down</th>
+        <th>Reference Point</th>
+        <th>&nbsp;</th>
+      </tr>
+      <tr>
+        <td><input type="checkbox" name="topovlans" value="1"<%= $tvlans ? ' checked' : '' %>
+               onchange="if(!this.checked){this.form.specific_vlan.value=0;}"></td>
+        <td>
+          <select name="specific_vlan"
+                  onchange="if(this.value!=0){this.form.topovlans.checked=true;}">
+            <option value=""<%= $tsvid ? '' : ' selected' %>>--Select--</option>
+            % for my $v (@$vopts) {
+            <option value="<%= $v %>"<%= $tsvid == $v ? ' selected' : '' %>><%= $v %></option>
+            % }
+          </select>
+        </td>
+        <td><input type="checkbox" name="toponames" value="1"<%= $tnames ? ' checked' : '' %></td>
+        <td>
+          <select name="topominlen">
+            % for my $m (1 .. 3) {
+            <option value="<%= $m %>"<%= $tminlen == $m ? ' selected' : '' %>><%= $m %></option>
+            % }
+          </select>
+        </td>
+        <td><input type="text" name="topodepth_up" size="2" value="<%= $depth_up %>"></td>
+        <td><input type="text" name="topodepth_down" size="2" value="<%= $depth_down %>"></td>
+        <td><input type="text" name="toporoot" size="20" value="<%= $troot %>"></td>
+        <td><input type="submit" value="Change View"></td>
+      </tr>
+    </table>
+  </form>
+  % if ($terror) {
+  <p style="color:#c00"><%= $terror %></p>
+  % }
+  % if ($timg) {
+  <center>
+    <img src="<%= $timg %>" usemap="#test" border="0">
+    <%== $tmap %>
+    % if (@$tlegend) {
+    <br><b>List of vlans and their colors:</b><br>
+    % for my $l (@$tlegend) {
+    <a href="<%= $l->[2] %>"><span style="color:<%= $l->[1] %>"><b><%= $l->[0] %></b></span></a>
+    % }
+    % }
+  </center>
+  % }
+  </div>
+</div>

@@ -1,0 +1,26 @@
+<h1>Help</h1>
+
+% if (my $err = $c->stash('error')) {
+<div class="container">
+  <div class="containerhead">Error</div>
+  <div class="containerbody"><p><%= $err %></p></div>
+</div>
+% }
+
+<div class="container">
+  <div class="containerhead">Documentation</div>
+  <div class="containerbody">
+    <p>
+      <a href="<%= $c->web_prefix %>/help/manual">User Manual</a><br>
+      Netdot user manual (pandoc-generated HTML).
+    </p>
+    <p>
+      <a href="<%= $c->web_prefix %>/help/database">Database Schema (HTML)</a><br>
+      Database relationships rendered as an HTML table.
+    </p>
+    <p>
+      <a href="<%= $c->web_prefix %>/help/database/graph">Database Schema (GraphViz)</a><br>
+      Database relationships rendered as a GraphViz graph.
+    </p>
+  </div>
+</div>

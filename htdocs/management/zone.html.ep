@@ -1,0 +1,213 @@
+% my $attrs     = $c->stash('attrs')     // [];
+% my $count     = $c->stash('count');
+% my $apex      = $c->stash('apex');
+% my $relations = $c->stash('relations') // [];
+% my $pending   = $c->stash('pending')   // [];
+% my $recent    = $c->stash('recent')    // [];
+% my $can_import = $c->stash('can_import');
+% my $import_api = $c->stash('import_api');
+% my $dbase     = $c->set_uri( "/management/zone/" . ($c->stash('id') // '') );
+
+<h1><%= $title %></h1>
+
+<p>
+  <a href="<%= url_for('zone_list') %>">&laquo; Zone</a>
+  % if ( $can_edit && @$fields ) {
+  <button type="button" class="btn" id="nd-edit-toggle" style="margin-left:1.2em">Edit</button>
+  % }
+</p>
+
+% if (@$attrs) {
+%   # Fields: Device-Basics "General" look (datatable.detail, 2 pairs/row), no header.
+%   my $N    = 2;
+%   my @list = @$attrs;
+  <table class="datatable detail c2" id="nd-readonly">
+    <tbody>
+    % for (my $i = 0; $i < @list; $i += $N) {
+    %   my $end = $i + $N - 1; $end = $#list if $end > $#list;
+    %   my @r   = @list[$i .. $end];
+    <tr>
+      % for my $a (@r) {
+      %   my ( $tag, $text, $href ) = @$a;
+      <th><%= $tag %></th>
+      <td>
+        % if ( defined $href ) {
+        <a href="<%= $href %>"><%= $text %></a>
+        % } else {
+        <%= $text // '' %>
+        % }
+      </td>
+      % }
+    </tr>
+    % }
+    </tbody>
+  </table>
+% }
+
+<%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                          can_edit => $can_edit, fields => $fields, api_path => $api_path ) %>
+
+% if ($count && @{ $count->{rows} }) {
+<div style="margin:1.2em 0 0.5em 0">
+  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Record Count</h2>
+  <table class="datatable">
+    <thead>
+      <tr>
+        % for my $r (@{ $count->{rows} }) {
+        <th><%= $r->[0] %></th>
+        % }
+        <th><b>TOTAL</b></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        % for my $r (@{ $count->{rows} }) {
+        <td><%= $r->[1] %></td>
+        % }
+        <td><b><%= $count->{total} %></b></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+% }
+
+% if ($apex) {
+% my $apex_href = $c->set_uri( "/management/rr/" . $apex->{id} );
+<div style="margin:1.2em 0 0.5em 0">
+  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">
+    Apex Record (<a href="<%= $apex_href %>">@</a>)
+  </h2>
+  % if ( @{ $apex->{a} } ) {
+  <h3 style="font-size:0.95em">Address Records (A)</h3>
+  <table class="datatable"><tbody>
+    % for my $r ( @{ $apex->{a} } ) {
+    <tr>
+      % if ($r->[1]) {
+      <td><a href="<%= $r->[1] %>"><%= $r->[0] %></a></td>
+      % } else {
+      <td><%= $r->[0] %></td>
+      % }
+    </tr>
+    % }
+  </tbody></table>
+  % }
+  % if ( @{ $apex->{ns} } ) {
+  <h3 style="font-size:0.95em">Name Servers (NS)</h3>
+  <table class="datatable"><tbody>
+    % for my $r ( @{ $apex->{ns} } ) {
+    <tr><td><%= $r->[0] %></td></tr>
+    % }
+  </tbody></table>
+  % }
+  % if ( @{ $apex->{mx} } ) {
+  <h3 style="font-size:0.95em">Mail Exchangers (MX)</h3>
+  <table class="datatable"><tbody>
+    % for my $r ( @{ $apex->{mx} } ) {
+    <tr><td><%= $r->[0] %></td></tr>
+    % }
+  </tbody></table>
+  % }
+</div>
+% }
+
+% for my $r (@$relations) {
+<div style="margin:1.2em 0 0.5em 0">
+  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px"><%= $r->{title} %></h2>
+  <table class="datatable">
+    <thead>
+      <tr>
+      % for my $h ( @{ $r->{cols} } ) {
+      <th><%= $h %></th>
+      % }
+      </tr>
+    </thead>
+    <tbody>
+      % for my $row ( @{ $r->{rows} } ) {
+      <tr>
+        % for my $cell ( @$row ) {
+        % my ($t, $h) = @$cell;
+        <td>
+          % if ($h) {
+          <a href="<%= $h %>"><%= $t %></a>
+          % } else {
+          <%= $t // '' %>
+          % }
+        </td>
+        % }
+      </tr>
+      % }
+    </tbody>
+  </table>
+  <p style="font-size:0.85em; margin:0.3em 0 0 0">
+    % if ( $r->{total} > $r->{per} ) {
+    Results: [<%= $r->{start} %>-<%= $r->{last_item} %>] of <%= $r->{total} %>&nbsp;
+    % if ( $r->{offset} > 0 ) {
+    <a href="<%= $r->{offset} >= $r->{per} ? ( $dbase . '?offset=' . ( $r->{offset} - $r->{per} ) ) : $dbase %>">&laquo;</a>&nbsp;
+    % }
+    % if ( $r->{offset} + $r->{per} < $r->{total} ) {
+    <a href="<%= $dbase . '?offset=' . ( $r->{offset} + $r->{per} ) %>">&raquo;</a>
+    % }
+    &nbsp;
+    % }
+    <a href="<%= $dbase . '?csv=' . $r->{csv_rel} %>">[csv]</a>
+  </p>
+</div>
+% }
+
+% if (@$pending) {
+<div style="margin:1.2em 0 0.5em 0">
+  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Pending Changes</h2>
+  <table class="datatable">
+    <thead><tr><th>Timestamp</th><th>Scope</th></tr></thead>
+    <tbody>
+      % for my $r (@$pending) {
+      <tr>
+        <td><%= $r->[0] %></td>
+        <td><%== $r->[1] %></td>
+      </tr>
+      % }
+    </tbody>
+  </table>
+</div>
+% }
+
+% if (@$recent) {
+<div style="margin:1.2em 0 0.5em 0">
+  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Recent Changes</h2>
+  <table class="datatable">
+    <thead><tr><th>Timestamp</th><th>Pending</th><th>Scope</th></tr></thead>
+    <tbody>
+      % for my $r (@$recent) {
+      <tr>
+        <td><%= $r->[0] %></td>
+        <td><%= $r->[1] %></td>
+        <td><%== $r->[2] %></td>
+      </tr>
+      % }
+    </tbody>
+  </table>
+</div>
+% }
+
+% if ($can_import) {
+% # Bulk import (legacy view=bulk_import): BIND-format zone data pasted below,
+% # created in the zone via POST /api/zone/:id/import (Admin-only).
+<div style="margin:1.2em 0 0.5em 0">
+  <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Import</h2>
+  <p><button type="button" class="btn" id="nd-import-toggle">Import</button></p>
+  <form id="nd-import" class="nd-import" data-nd-api="<%= $import_api %>" style="display:none">
+    <p style="font-size:0.85em; margin:0">Copy zone data here (BIND format).</p>
+    <textarea name="text" rows="20" cols="80" style="width:100%; box-sizing:border-box; font-family:monospace"></textarea>
+    <p>
+      <label><input type="checkbox" name="overwrite"> Overwrite existing records of same name</label>
+    </p>
+    <p>
+      <label><input type="checkbox" name="update_ptrs"> Update PTRs</label>
+    </p>
+    <p>
+      <button type="submit" class="btn">Import</button>
+      <button type="button" class="btn" id="nd-import-cancel" style="margin-left:0.6em">Cancel</button>
+    </p>
+  </form>
+</div>
+% }

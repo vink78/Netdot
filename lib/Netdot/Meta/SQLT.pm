@@ -62,6 +62,11 @@ sub sql_schema {
 	# Bug in SQLT
 	# https://rt.cpan.org/Public/Bug/Display.html?id=58420
 	$output =~ s/serial NOT NULL/bigserial NOT NULL/smg;
+    } elsif ( $type eq 'MySQL' ){
+	# MySQL rejects a string default on a BOOL (TINYINT(1)) column under
+	# STRICT_TRANS_TABLES; emit numeric 0/1 instead of 'false'/'true'.
+	$output =~ s/DEFAULT 'false'/DEFAULT 0/g;
+	$output =~ s/DEFAULT 'true'/DEFAULT 1/g;
     }
     return $output;
 }
@@ -169,8 +174,15 @@ sub _parser{
 			      is_nullable       => $mcol->is_nullable
 			      );
 	    
-	    $field_args{default_value} = $mcol->default 
-		if ( (defined $mcol->default) && ($mcol->default ne '') );
+	    # Bool columns store their default as a reference to a scalar
+	    # ("TRUE"/"FALSE"); dereference it so the schema shows the value
+	    # (lower-cased) instead of the stringified reference.
+	    my $def = $mcol->default;
+	    if ( defined $def ) {
+		$def = $$def if ref $def eq 'SCALAR';
+		$def = lc($def) if defined $def && $def =~ /^(true|false)$/i;
+		$field_args{default_value} = $def if defined $def && length $def;
+	    }
 
 	    if ( $mcol->name eq 'id' ){
 		$field_args{is_auto_increment} = 1;
@@ -237,7 +249,7 @@ Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 =cut
 
-#Be sure to return 1
+# Make sure to return 1
 1;
 
 

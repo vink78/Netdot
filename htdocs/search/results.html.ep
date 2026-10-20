@@ -1,0 +1,47 @@
+% my $title      = $c->stash('title')      // 'Search';
+% my $search     = $c->stash('search')     // '';
+% my $headers    = $c->stash('headers')    // [];
+% my $rows       = $c->stash('rows')       // [];
+% my $search_url = $c->stash('search_url') // '/search';
+
+<h1><%= $title %></h1>
+
+% if (@$rows) {
+<div class="container">
+  <div class="containerhead">Query <em><%= $search %></em> returned: <%= scalar(@$rows) %> matches</div>
+  <div class="containerbody">
+    <table class="datatable sortable">
+      <thead>
+        <tr>
+          <th>Name</th>
+        % for my $h (@$headers) {
+          <th><%= $h %></th>
+        % }
+        </tr>
+      </thead>
+      <tbody>
+      % for my $r (@$rows) {
+        <tr>
+          <td><a href="<%= $r->{href} %>"><%= $r->{label} %></a></td>
+          % for my $v (@{ $r->{cells} }) {
+            <td><%= $v // '' %></td>
+          % }
+        </tr>
+      % }
+      </tbody>
+    </table>
+  </div>
+</div>
+% } else {
+<div class="container">
+  <div class="containerhead"><em><%= $search %></em> not found</div>
+  <div class="containerbody"><p>No matching DNS records.</p></div>
+</div>
+% }
+
+<p style="margin-top:1em">
+  <form action="<%= $c->web_prefix %>/search" method="get" style="display:inline">
+    <input type="text" name="q" value="<%= $search %>" size="40" />
+    <input type="submit" value="Search" />
+  </form>
+</p>

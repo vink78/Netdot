@@ -24,7 +24,7 @@ my %SPEED_MAP = ('1536000'     => 'T1',
 		 '622080000'   => 'OC-12',
     );
 
-#Be sure to return 1
+# Make sure to return 1
 1;
 
 =head1 NAME
@@ -855,6 +855,58 @@ sub get_label{
     my $name = $self->name || $self->number;
     my $label = sprintf("%s [%s]", $self->device->get_label, $name);
     return $label;
+}
+
+=head2 fdb_tstamps - Get the last N forwarding-table (FDB) timestamps for this interface
+
+  Arguments:
+    limit  - Return N last timestamps (default: 10)
+  Returns:
+    List of tstamp strings, newest first.
+
+=cut
+
+sub fdb_tstamps {
+    my ($self, $limit) = @_;
+    $self->isa_object_method('fdb_tstamps');
+    $limit = $self->config->get('SHOW_LAST_N_FTE') || 10
+        unless defined $limit && $limit > 0;
+    $limit = int($limit);
+    my $id  = $self->id;
+    my $dbh = $self->db_Main();
+    my $q   = "SELECT ft.tstamp
+               FROM   interface i, fwtable ft, fwtableentry fte
+               WHERE  fte.interface=i.id AND fte.fwtable=ft.id AND i.id=$id
+               GROUP BY ft.tstamp
+               ORDER BY ft.tstamp DESC
+               LIMIT $limit";
+    return map { $_->[0] } @{ $dbh->selectall_arrayref($q) };
+}
+
+=head2 arp_tstamps - Get the last N ARP timestamps for this interface
+
+  Arguments:
+    limit  - Return N last timestamps (default: 10)
+  Returns:
+    List of tstamp strings, newest first.
+
+=cut
+
+sub arp_tstamps {
+    my ($self, $limit) = @_;
+    $self->isa_object_method('arp_tstamps');
+    $limit = $self->config->get('SHOW_LAST_N_ARP') || 10
+        unless defined $limit && $limit > 0;
+    $limit = int($limit);
+    my $id  = $self->id;
+    my $dbh = $self->db_Main();
+    my $q   = "SELECT arp.tstamp
+               FROM   interface i, arpcache arp, arpcacheentry arpe
+               WHERE  arpe.interface=i.id AND arpe.arpcache=arp.id AND i.id=$id
+               GROUP BY arp.tstamp
+               ORDER BY arp.tstamp DESC
+               LIMIT $limit";
+    return map { $_->[0] } @{ $dbh->selectall_arrayref($q) };
 }
 
 =head1 AUTHOR

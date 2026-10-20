@@ -48,6 +48,56 @@ sub get_classes{
     return %CLASSES;
 }
 
+=head2 insert - Grant a set of rights to a subject, or insert a plain row
+
+  Extends the model insert to support granting a list of rights to a user or
+  group on an object in one call (this is what the API uses). When `rights`
+  (an arrayref of access values) is present, the record set is built instead of
+  a single row: for each valid right an AccessRight row (object_class, object_id,
+  access) is created or reused, then the matching join row is added — userright
+  (subject is a Person) or groupright (subject is a ContactList). Without
+  `rights`, it falls back to a plain column insert (SUPER::insert).
+
+  Args:
+    object_class : the target class (Ipblock | Zone | Device | ContactList)
+    object_id    : the target object's id
+    subject_type : 'user' (Person) or 'group' (ContactList)
+    subject_id   : the subject's id
+    rights       : arrayref of access values (view|edit|delete|choose_ip|none)
+
+=cut
+
+sub insert {
+    my ( $class, $argv ) = @_;
+    my ( $oclass, $oid, $stype, $sid, $rights ) =
+        @{ $argv }{qw(object_class object_id subject_type subject_id rights)};
+    if ( defined $rights ) {
+        my @r = ( ref $rights eq 'ARRAY' ? @$rights : ($rights) );
+        $class->throw_user( "Unknown object class" )
+            unless $oclass && $CLASSES{ $oclass };
+        $stype = lc( $stype // '' );
+        my $subject = $stype eq 'user'
+            ? Person->retrieve( int( $sid ) )
+            : ContactList->retrieve( int( $sid ) );
+        $class->throw_user( "Unknown subject" ) unless $subject;
+        my $last;
+        for my $acc (@r) {
+            next unless defined $acc && $acc =~ /^(view|edit|delete|choose_ip|none)$/;
+            my @ex = AccessRight->search( object_class => $oclass, object_id => $oid, access => $acc );
+            my $ar = @ex ? $ex[0] : $class->SUPER::insert(
+                { object_class => $oclass, object_id => $oid, access => $acc }
+            );
+            $stype eq 'user'
+                ? UserRight->insert(  { person      => $subject->id, accessright => $ar->id } )
+                : GroupRight->insert( { contactlist => $subject->id, accessright => $ar->id } );
+            $last = $ar;
+        }
+        $class->throw_user( "No valid rights selected" ) unless $last;
+        return $last;
+    }
+    return $class->SUPER::insert( $argv );
+}
+
 
 =head1 INSTANCE METHODS
 =cut

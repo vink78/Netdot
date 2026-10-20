@@ -1,0 +1,217 @@
+<%# Device BGP section (port of the legacy device.html "BGP" section): the
+    "Device BGP Info" attribute box (bgpid + local AS number, ?editdevbgp=1 ->
+    PATCH /api/device/<id> + /api/asn/<id>, netdot.js initBgpInfo) and the BGP
+    Peers table (?editbgp=1 per-peer remote IP / monitored / contact list ->
+    PATCH /api/bgppeering/<id> + row delete; ?addpeer=1 -> POST
+    /api/bgppeering). Section data comes from the `sec` render_to_string
+    argument. %>
+<% my $sec      = $sec // {}; %>
+<% my $rows       = $sec->{rows}       // []; %>
+<% my $sort_base  = $sec->{sort_base}  // $base; %>
+<% my $sort       = $sec->{sort}       // 'ip'; %>
+<% my $can_edit   = $sec->{can_edit}   // 0; %>
+<% my $editbgp    = $sec->{editbgp}    // 0; %>
+<% my $editdevbgp = $sec->{editdevbgp} // 0; %>
+<% my $bgpid      = $sec->{bgpid}      // ''; %>
+<% my $localas    = $sec->{localas}; %>
+<% my $cl_opts    = $sec->{cl_opts}    // []; %>
+<% my $empty_msg  = $sec->{empty_msg}  // 'No data.'; %>
+<% my $api_base   = $c->web_prefix . '/api'; %>
+<% my $bgp_url    = $base . '?view=BGP&peersort=' . $sort; %>
+<div class="container">
+  <div class="containerhead">Device BGP Info</div>
+  <div class="containerbody">
+  % if ($editdevbgp) {
+  % # Mason's ?editdevbgp=1: bgpid (PATCH /api/device/<id>) and the local AS
+  % # number (PATCH /api/asn/<id>: the number column of the linked ASN object,
+  % # exactly as Mason). netdot.js initBgpInfo sends one PATCH per changed field.
+  <form class="nd-bgp-info" data-nd-api-base="<%= $api_base %>" data-nd-id="<%= $id %>"
+        data-nd-asn-id="<%= $localas ? $localas->{id} : '' %>">
+    <table class="datatable detail">
+      <tbody>
+      <tr><th>BGP ID</th><td><input type="text" name="bgpid" value="<%= $bgpid %>" data-nd-orig="<%= $bgpid %>" style="width:15em"></td></tr>
+      % if ($localas) {
+      <tr><th>Local AS</th><td><input type="text" name="localas" value="<%= $localas->{number} %>" data-nd-orig="<%= $localas->{number} %>" style="width:12em"></td></tr>
+      % } else {
+      <tr><th>Local AS</th><td>n/a</td></tr>
+      % }
+      </tbody>
+    </table>
+    <p style="margin:0.8em 0 0">
+      <button type="submit" class="btn">Save</button>
+      <a class="btn" href="<%= $bgp_url %>">Cancel</a>
+    </p>
+  </form>
+  % } else {
+    <p style="font-size:0.9em">
+      % if (length $bgpid) {
+      <b>BGP ID:</b> <%= $bgpid %>&nbsp;&nbsp;&nbsp;
+      % }
+      % if ($localas) {
+      <b>Local AS:</b>
+      % if ($localas->{href}) {
+      <a href="<%= $localas->{href} %>"><%= $localas->{number} %></a>
+      % } else {
+      <%= $localas->{number} %>
+      % }
+      % } else {
+      <b>Local AS:</b> n/a
+      % }
+    </p>
+    % if ($can_edit) {
+    <div style="margin:0.5em 0; font-size:0.9em">
+      <a class="btn" href="<%= $bgp_url %>&amp;editdevbgp=1">Edit</a>
+    </div>
+    % }
+  % }
+  </div>
+</div>
+
+% # BGP Peers (Mason shows the box when peers exist; the [Add] button needs it
+% # also when the list is empty). Edit mode: per-peer remote IP / monitored /
+% # contact list (PATCH /api/bgppeering/<id>) + row delete; add mode: POST
+% # /api/bgppeering (Mason: peers come from the SNMP poll, manual add on top).
+% my $npeers   = scalar grep { ref($_) eq 'HASH' && !defined $_->{section} } @$rows;
+% my $addpeer  = $sec->{addpeer}  // 0;
+% my $ent_opts = $sec->{ent_opts} // [];
+<div class="container">
+  <div class="containerhead">BGP Peers</div>
+  <div class="containerbody">
+  % if ($can_edit && !$editbgp && !$addpeer) {
+  <div style="margin:0.5em 0; font-size:0.9em">
+    % if ($npeers) {
+    <a class="btn" href="<%= $bgp_url %>&amp;editbgp=1">Edit</a>
+    % }
+    <a class="btn" href="<%= $bgp_url %>&amp;addpeer=1">Add</a>
+  </div>
+  % }
+  % if ($addpeer) {
+  <form class="nd-bgp-add" data-nd-api-base="<%= $api_base %>" data-nd-device-id="<%= $id %>"
+        style="margin-bottom:1em">
+    <table class="datatable detail">
+      <tbody>
+      <tr><th>Remote IP</th><td><input type="text" name="bgppeeraddr" required style="width:14em"></td></tr>
+      <tr><th>ID</th><td><input type="text" name="bgppeerid" required style="width:14em"></td></tr>
+      <tr><th>Entity</th><td>
+        <select name="entity">
+          <option value="">[null]</option>
+          % for my $eo (@$ent_opts) {
+          <option value="<%= $eo->[0] %>"><%= $eo->[1] %></option>
+          % }
+        </select>
+      </td></tr>
+      <tr><th>State</th><td><input type="text" name="state" style="width:14em"></td></tr>
+      <tr><th>Monitored?</th><td><label><input type="checkbox" name="monitored" value="1">yes</label></td></tr>
+      <tr><th>Contact List</th><td>
+        <select name="contactlist">
+          <option value="">[null]</option>
+          % for my $co (@$cl_opts) {
+          <option value="<%= $co->[0] %>"><%= $co->[1] %></option>
+          % }
+        </select>
+      </td></tr>
+      </tbody>
+    </table>
+    <p style="margin:0.8em 0 0">
+      <button type="submit" class="btn">Add</button>
+      <a class="btn" href="<%= $bgp_url %>">Cancel</a>
+    </p>
+  </form>
+  % }
+  % if ($npeers) {
+  % if ($editbgp) {
+  <form class="nd-if-edit" data-nd-table="bgppeering" data-nd-api-base="<%= $api_base %>">
+  % }
+  <table class="datatable">
+    <thead>
+    <tr>
+      % if ($editbgp) {
+      <th></th>
+      <th>Remote IP</th><th>ID</th><th>Entity</th><th>AS Name</th><th>AS Number</th><th>State</th><th>Monitored?</th><th>Contact List</th>
+      % } else {
+      <th><a href="<%= $sort_base %>&amp;peersort=ip">Remote IP</a></th>
+      <th><a href="<%= $sort_base %>&amp;peersort=id">ID</a></th>
+      <th><a href="<%= $sort_base %>&amp;peersort=entity">Entity</a></th>
+      <th><a href="<%= $sort_base %>&amp;peersort=asname">AS Name</a></th>
+      <th><a href="<%= $sort_base %>&amp;peersort=asnumber">AS Number</a></th>
+      <th><a href="<%= $sort_base %>&amp;peersort=state">State</a></th>
+      <th>Monitored?</th><th>Contact List</th>
+      % }
+    </tr>
+    </thead>
+    <tbody>
+    % for my $row (@$rows) {
+      % if (ref $row eq 'HASH' && defined $row->{section}) {
+      % if ($row->{section}) {
+    <tr><td colspan="<%= $editbgp ? 9 : 8 %>"><strong><%= $row->{section} %></strong></td></tr>
+      % } else {
+    <tr><td colspan="<%= $editbgp ? 9 : 8 %>">&nbsp;</td></tr>
+      % }
+      % } else {
+      <tr data-nd-if="<%= $row->{id} %>">
+        % if ($editbgp) {
+        <td><input type="checkbox" class="nd-if-del" data-nd-del="bgppeering"></td>
+        <td><input type="text" name="bgppeeraddr" value="<%= $row->{addr}[0] %>" data-nd-f="bgppeeraddr" data-nd-orig="<%= $row->{addr}[0] %>" style="width:14em"></td>
+        % } else {
+        <td>
+          % if ($row->{addr}[1]) {
+          <a href="<%= $row->{addr}[1] %>"><%= $row->{addr}[0] %></a>
+          % } else {
+          <%= $row->{addr}[0] %>
+          % }
+        </td>
+        % }
+        <td><%= $row->{pid} %></td>
+        <td>
+          % if ($row->{entity}[1]) {
+          <a href="<%= $row->{entity}[1] %>"><%= $row->{entity}[0] %></a>
+          % } else {
+          <%= $row->{entity}[0] %>
+          % }
+        </td>
+        <td><%= $row->{asname} %></td>
+        <td>
+          % if ($row->{asn}[1]) {
+          <a target="_blank" href="<%= $row->{asn}[1] %>"><%= $row->{asn}[0] %></a>
+          % } else {
+          <%= $row->{asn}[0] %>
+          % }
+        </td>
+        <td><%= $row->{state} %></td>
+        % if ($editbgp) {
+        <td><input type="checkbox" data-nd-f="monitored" data-nd-orig="<%= $row->{monitored} %>"<%= $row->{monitored} ? ' checked' : '' %></td>
+        <td>
+          % my $clval = defined $row->{contactlist}[0] ? $row->{contactlist}[0] : '';
+          <select data-nd-f="contactlist" data-nd-orig="<%= $clval %>">
+            <option value="">[null]</option>
+            % for my $co (@$cl_opts) {
+            <option value="<%= $co->[0] %>"<%= ( $clval ne '' && $clval eq $co->[0] ) ? ' selected' : '' %>><%= $co->[1] %></option>
+            % }
+          </select>
+        </td>
+        % } else {
+        <td><%= $row->{monitored} ? 'yes' : 'no' %></td>
+        <td>
+          % if ($row->{contactlist}[2]) {
+          <a href="<%= $row->{contactlist}[2] %>"><%= $row->{contactlist}[1] %></a>
+          % }
+        </td>
+        % }
+      </tr>
+      % }
+    % }
+    </tbody>
+  </table>
+  % if ($editbgp) {
+    <p style="margin:0.8em 0 0">
+      <button type="button" class="btn nd-if-save">Save</button>
+      <a class="btn" href="<%= $bgp_url %>">Cancel</a>
+      &nbsp;&nbsp;<span style="color:#666;font-size:0.85em">Unchanged fields are not sent.</span>
+    </p>
+  </form>
+  % }
+  % } else {
+  <p style="color:#666"><i><%= $empty_msg %></i></p>
+  % }
+  </div>
+</div>

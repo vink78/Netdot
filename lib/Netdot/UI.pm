@@ -3,10 +3,7 @@ package Netdot::UI;
 use lib "<<Make:LIB>>";
 use base qw( Netdot );
 use Netdot::Model;
-use Apache::Session::File;
-use Apache::Session::Lock::File;
 use GraphViz;
-use Apache2::SiteControl;
 use strict;
 
 my $logger = Netdot->log->get_logger("Netdot::UI");
@@ -72,220 +69,6 @@ sub new {
 }
  
 
-#############################################################################
-
-=head2 mk_session - create state for a session across multiple pages
-    Creates a state session that can be used to store data across multiple 
-    web pages for a given session.  Returns a hash reference to store said data
-    in.  The session-id is $session->{_session_id}.  Be aware that you do not want 
-    to de-ref the hash reference (otherwise, changes made to the subsequent hash are lost).
-    
- Arguments:
-    None
-  Returns:
-    Hash reference
-  Examples:
-    $session = $ui->mk_session();
-
-=cut
-
-sub mk_session {
-    my($self) = @_;
-    my (%session, $sid);
-    my $TMP = $self->config->get('TMP');
-    tie %session, 'Apache::Session::File',
-    $sid, { Directory => "$TMP/sessions", LockDirectory => "$TMP/sessions/locks" };
-    
-    return \%session ;
-}
-
-#############################################################################
-
-=head2 get_session - fetch state for a session across multiple pages
-
-    Fetches a state session and its accompanying data.  Returns a hash ref.  
-    Requires two arguments:  the working directory and the session-id (as described above).  
-    The same warning for mksession() regarding de-referencing the returned object applies.
-    
-  Arguments:
-    Session ID
-  Returns:
-    Hash reference
-  Examples:
-    $sid = $args{sid};  # session-id must be handed off to new pages
-    $session = $ui->get_session($sid);
-
-=cut
-
-sub get_session {
-    my($self, $sid) = @_;
-    my %session;
-    my $TMP = $self->config->get('TMP');
-    tie %session, 'Apache::Session::File', 
-    $sid, { Directory => "$TMP/sessions", LockDirectory => "$TMP/sessions/locks" };
-    return \%session;
-}
-
-############################################################################
-
-=head2 rm_session
-
-    Removes specific session associated with the hash %session.
-
- Arguments:
-    - $session:  Reference to a hash containing session data
-  Returns:
-
-  Examples:
-    $ui->rm_session($session);
-
-=cut
-
-sub rm_session {
-  my( $self, $session ) = @_;
-  tied(%{$session})->delete();
-}
-
-############################################################################
-
-=head2 rmsessions
-
-    Removes state older than $age (the supplied argument) from the directory $dir.  
-    
- Arguments:
-    - $dir: Directory where session files are located
-    - $age: Seconds
-  Returns:
-    True on success, False on failure
-  Examples:
-    $dir = "/tmp";
-    $age = 3600;   # age is in seconds
-    $ui->rmsessions( $dir, $age );
-
-=cut
-
-sub rmsessions {
-    my( $self, $dir, $age ) = @_;
-    my $locker = new Apache::Session::Lock::File ;
-    $locker->clean( $dir, $age );
-}
-
-
-############################################################################
-
-=head2 form_to_db
-
-Generalized code for updating columns in different tables. 
-
-  Arguments:
-    Hash with the following format:
-    
-    Update Column1 in object with id <id> from table <Table>
-    <Table>__<id>__<Column1> => <Value>
-
-    Delete a single object with id <id> from table <Table>
-    <Table>__<id>__DELETE => null
-
-    Delete a list of objects from the same table
-    (useful when using <select multiple>)
-    <Table>___LIST__DELETE => [ <id1>, <id2>, <id3> ]
-    
-    Insert new object with columns 1,2,3 set to the specified values
-    <Table>__NEW1__<Column1> => <Value1>
-    <Table>__NEW1__<Column2> => <Value2>
-    <Table>__NEW1__<Column3> => <Value3>
-    
-    Insert another new object with columns 1,2,3 set to the specified value
-    <Table>__NEW2__<Column1> => <Value1>
-    <Table>__NEW2__<Column2> => <Value2>
-    <Table>__NEW2__<Column3> => <Value3>
-
-  Returns:
-    Returns a hash with update details on success, false on failure and error 
-    should be set.
-  Examples:
-
-    %info = $ui->form_to_db(%ARGS);
-
-=cut
-
-sub form_to_db{
-    my($self, %argv) = @_;
-    my %ret;
-
-    # Store objects, fields and values in a 3-level hash
-    my %objs;
-    foreach ( keys %argv ){
-	my $item = $_;	
-	# Some table names are preceded with "_" 
-	# to avoid problems in javascript
-	$item =~ s/^_//;
-	if ( $item =~ /^(\w+)__(\w+)__(\w+)$/ ){
-	    $objs{$1}{$2}{$3} = $argv{$_};
-	}
-    }
-    # Check that we have at least one parameter
-    $self->throw_user("Missing name/value pairs.") unless (scalar keys(%objs));
-    foreach my $table (keys %objs){
-	my %todelete;
-	
-	foreach my $id (keys %{ $objs{$table} }){
-
-	    my $act = 0; 
-
-	    # If our id is 'NEW' we want to insert a new row in the DB.
-	    # Do a regex to allow sending many NEW groups for the same table
-	    if ( $id =~ /NEW/i ){
-		my $newid;
-		my $args = \%{ $objs{$table}{$id} };
-		$self->localize_newlines($table, $args);
-		$self->check_value_lengths($table, $args);
-		$newid = $table->insert($args);
-		$ret{$table}{id}{$newid}{action} = "INSERTED";
-		$act = 1;
-	    }else{
-		foreach my $field ( keys %{ $objs{$table}{$id} } ){
-		    my $val = $objs{$table}{$id}{$field};
-		    if ( $field =~ /DELETE/i ){
-			if ( $id =~ /LIST/i ){
-			    # This comes from a <select multiple>
-			    if ( ! ref($val) ){
-				$todelete{$val} = '';
-			    }elsif( ref($val) eq "ARRAY" ){
-				map { $todelete{$_} = '' } @$val;
-			    }
-			}elsif ( $id =~ /\d+/ ){
-			    # Single object to be deleted
-			    $todelete{$id} = '';
-			}
-			$act = 1;
-		    }
-		}
-		# Now update this object
-		if ( ! $act ) {
-		    if ( my $o = $table->retrieve($id) ){
-			my $args = \%{ $objs{$table}{$id} };
-			$self->localize_newlines($table, $args);
-			$self->check_value_lengths($table, $args);
-			$o->update($args);
-			$ret{$table}{id}{$id}{action}  = "UPDATED";
-			$ret{$table}{id}{$id}{columns} = $args;
-		    }
-		}
-	    }
-	}
-	
-	# Delete marked objects (do this once per table)
-	foreach my $id ( keys %todelete ){
-	    my $o = $table->retrieve($id) || next;
-	    $o->delete();
-	    $ret{$table}{id}{$id}{action} = "DELETED";
-	}
-    }
-    return %ret;
-}
-
-
 ############################################################################
 
 =head2 form_field - Generate a HTML form field.
@@ -309,7 +92,7 @@ sub form_to_db{
     - linkPage:       Make this text a link
     - returnValOnly:  Return only the form field and no label as a string
     - shortFieldName: Whether to set the input tag name as the column name or
-                      the format used by form_to_db()
+                      the disambiguated table__id__column form (several objects per form)
     - adv_search:     uses radio button groups for true/false/unset instead of
                       checkboxes which only have true/false
     - no_help         Do not show [?] help link
@@ -515,7 +298,7 @@ sub help_link {
                      the user the option of refining their results. Defaults to
                      DEFAULT_SELECTMAX in configuration files.
    - shortFieldName: Whether to set the input tag name as the column name or
-                     the format used by form_to_db()
+                     the disambiguated table__id__column form (several objects per form)
   Returns:
     If returnAsVar, returns variable containing HTML code.  Otherwise, prints HTML code to STDOUT
     or False if failure
@@ -731,7 +514,7 @@ sub select_multiple {
 	$self->throw_fatal("Must provide join table name");
     }
  
-    # See UI::form_to_db()
+    # Disambiguated form field name (table__id__column style)
     my $select_name;
     if ( $action eq "delete" ){
 	$select_name  =  $join_table . "__LIST__DELETE";
@@ -786,7 +569,7 @@ sub select_multiple {
    - edit:           True if editing, false otherwise.
    - returnAsVar:    Whether to return output as a variable or STDOUT
    - shortFieldName: Whether to set the input tag name as the column name or
-                     the format used by form_to_db()
+                     the disambiguated table__id__column form (several objects per form)
    - adv_search:     If this is 1 then we provide a third, default radio button
                      with value unset
   Returns:
@@ -847,7 +630,7 @@ sub radio_group_boolean{
    - edit:           True if editing, false otherwise.
    - returnAsVar:    Whether to return output as a variable or STDOUT
    - shortFieldName: Whether to set the input tag name as the column name or
-                     the format used by form_to_db()
+                     the disambiguated table__id__column form (several objects per form)
 
   Examples:
     
@@ -909,7 +692,7 @@ the value from the DB (if any).
                      (requires that column value be defined)
    - returnAsVar:    default false, true if the sub should return the string instead of outputting
    - shortFieldName: Whether to set the input tag name as the column name or
-                     the format used by form_to_db()
+                     the disambiguated table__id__column form (several objects per form)
   Returns:
     If returnAsVar, returns variable containing HTML code.  Otherwise, prints HTML code to STDOUT
     or False if failure    
@@ -1017,7 +800,7 @@ sub text_field($@){
                      (requires that column value be defined)
    - returnAsVar:    default false, true if the sub should return the string instead of outputting
    - shortFieldName: Whether to set the input tag name as the column name or
-                     the format used by form_to_db()
+                     the disambiguated table__id__column form (several objects per form)
   Returns:
     If returnAsVar, returns variable containing HTML code.  Otherwise, prints HTML code to STDOUT
     or False if failure    
@@ -1078,7 +861,7 @@ sub date_field($@){
                        would be to include style="width: 150px;" and the like.
     - returnAsVar:     Default false, true if the sub should return the string instead of outputting
     - shortFieldName:  Whether to set the input tag name as the column name or
-                       the format used by form_to_db()
+                       the disambiguated table__id__column form (several objects per form)
   Returns:
     If returnAsVar, returns variable containing HTML code.  Otherwise, prints HTML code to STDOUT
     or False if failure    
@@ -1665,7 +1448,8 @@ sub build_backbone_graph_html {
 sub build_ip_tree_graph {
     my ($self, %argv) = @_;
     my ($list, $filename) = @argv{'list', 'filename'};
-    
+    my $web_path = $argv{web_path} // '/';
+
     # These should match whatever is on the stylesheet
     my %colors = (
 	Subnet    => '#ff6666',
@@ -1700,7 +1484,7 @@ sub build_ip_tree_graph {
 	    label     => $lbl,
 	    shape     => "record",
 	    fillcolor => $colors{$ip->status->name},
-	    URL       => "ip.html?id=".$ip->id,
+	    URL       => $web_path . "management/ipblock/" . $ip->id,
 	    );
 	
 	if ( my $parent = $ip->parent ){
@@ -1716,7 +1500,7 @@ sub build_ip_tree_graph {
 		    name   => $parent->get_label,
 		    label  => $lbl,
 		    shape  => "record",
-		    URL    => "ip.html?id=".$parent->id,
+		    URL    => $web_path . "management/ipblock/" . $parent->id,
 		    );
 		$seen{$parent->id} = 1;
 	    }
@@ -2354,263 +2138,6 @@ sub rrd_graph{
     my $img  = $argv{web_path} . $graph_path;
     return "<img src=\"$img\" border=\"0\">";
 }
-
-############################################################################
-
-=head2 get_current_user - Return current user object
-
-  Arguments:
-    $r = Apache request object
-  Returns:
-    Apache2::SiteControl::User object
-  Examples:
-    $ui->get_current_user($r)
-
-=cut
-
-sub get_current_user{
-    my ($self, $r) = @_;
-    return Apache2::SiteControl->getCurrentUser($r);
-}
-
-############################################################################
-
-=head2 get_permission_manager - Return PermissionManager object
-
-  Arguments:
-    $r = Apache request object
-  Returns:
-    Apache2::SiteControl::PermissionManager object
-  Examples:
-    $ui->get_permission_manager($r)
-
-=cut
-
-sub get_permission_manager{
-    my ($self, $r) = @_;
-    return Apache2::SiteControl->getPermissionManager($r);
-}
-
-
-############################################################################
-
-=head2 get_user_person - Get Person object associated with SiteControl user
-
-
-  Arguments:
-    $user  = Apache2::SiteControl::User object
-  Returns:
-    Person object
-  Examples:
-    my $person = $self->get_user_person($user);
-
-=cut
-
-sub get_user_person {
-    my ($self, $user) = @_;
-
-    my $username = $user->getUsername() || 
-	$self->throw_user("Cannot get username for given user object");
-
-    my $person;
-    if ( $person = Person->search(username=>$username)->first ){
-	return $person;
-    }elsif ( my $default_user_type = $self->config->get('DEFAULT_REMOTE_AUTHED_USER_TYPE') ){
-
-	# If it's "none", do not attempt to create a Person
-	$self->throw_user("Username $username not found")
-	    if ( $default_user_type =~ /^none$/i );
-
-	if ( $default_user_type =~ /^User|Operator|Admin$/i ){
-	    if ( my $type = UserType->search(name=>$default_user_type)->first ){
-		$person = Person->insert({lastname=>$username, username=>$username, user_type=>$type});
-		return $person;
-	    }
-	}else{
-	    $self->throw_user("Unrecognized value for DEFAULT_REMOTE_AUTHED_USER_TYPE config option");
-	}
-    }
-    $self->throw_user("Username $username not found");
-    
-}
-
-############################################################################
-
-=head2 set_user_type
-
-    Store user type as an attribute of Apache2::SiteControl::User
-    objects, which are then evaluated by the various SiteControl rules that
-    control what users can do.  
-
-  Arguments:
-    $user = Apache2::SiteControl::User object
-    $r    = Apache request object
-  Returns:
-    True
-  Examples:
-    $ui->set_user_type($user, $r)
-
-=cut
-
-sub set_user_type{
-    my ($self, $r, $user) = @_;
-
-    $self->throw_fatal("Missing required arguments: user object and/or Apache request object")
-	unless ( $user && $r);
-
-    my $person = $self->get_user_person($user);
-
-    my $user_type = $person->get_user_type();
-    $user->setAttribute($r, 'USER_TYPE', $user_type);
-
-    return 1;
-}
-
-############################################################################
-
-=head2 get_allowed_objects
-
-    Retrieve list of objects for which user has access.
-
-  Arguments:
-    $r     = Apache request object
-    $user  = Apache2::SiteControl::User object
-  Returns:
-    Hashref with key=Object class, 
-                 value=Hashref with key=Object id, value=access right
-  Examples:
-    $ui->get_allowed_objects($r, $user)
-
-=cut
-
-sub get_allowed_objects{
-    my ($self, $r, $user) = @_;
-
-    $self->throw_fatal("Netdot::UI::get_allowed_objects: Missing required arguments")
-	unless ( $r, $user );
-    
-    if ( !defined $user->getAttribute('ALLOWED_OBJECTS') ){
-	my $person  = $self->get_user_person($user);
-	my $objects = $person->get_allowed_objects();
-	# Set as user attribute to avoid querying DB again
-	# This means that users will have to re-login when their
-	# access rights change.
-	$user->setAttribute($r, 'ALLOWED_OBJECTS', $objects);
-    }
-    my $aohref = $user->getAttribute('ALLOWED_OBJECTS');
-    return $aohref;
-}
-
-############################################################################
-
-=head2 get_access_names - Mapping of accessrights and their display names 
-
-=cut
-
-sub get_access_names {
-    my ($self) = @_;
-
-    my %anames = (
-    'view'      => 'View',
-    'edit'      => 'Edit',
-    'delete'    => 'Delete',
-    'choose_ip' => 'Choose IP',
-    'none'      => 'None',
-    );
-    return %anames;
-}
-
-############################################################################
-
-=head2 url_encode
-
-  Arguments:
-  Returns:
-  Examples:
-
-=cut
-
-sub url_encode {
-    my ($self, $url) = @_;
-    $url =~ s/([\W])/"%" . uc(sprintf("%2.2x",ord($1)))/eg;
-    return $url;
-}
-
-############################################################################
-
-=head2 url_decode
-
-  Arguments:
-  Returns:
-  Examples:
-
-=cut
-
-sub url_decode {
-    my ($self, $url) = @_;
-    $url =~ tr/+/ /;
-    $url =~ s/%([a-fA-F0-9]{2,2})/chr(hex($1))/eg;
-    $url =~ s/<!--(.|\n)*-->//g;
-    return $url;
-}
-
-############################################################################
-
-=head2 localize_newlines - On text input, convert CRLF and CR into just LF
-
-  Arguments: table, args hashref
-  Returns: True
-  Examples: $ui->localize_newlines($table,\%args);
-
-=cut
-
-sub localize_newlines {
-    my($self, $table, $args) = @_;
-    foreach my $c ( keys %$args ){
-	my $mcol;
-	eval {
-	    $mcol = $table->meta_data->get_column($c);
-	};
-	next if ( $@ =~ /does not exist/ );
-	my $type = $mcol->sql_type;
-	if ( $type eq 'blob' || $type eq 'text' ){
-	    $args->{$c} =~ s/\r\n/\n/g;
-	    $args->{$c} =~ s/\r/\n/g;
-	}
-    }
-    1;
-}
-
-############################################################################
-
-=head2 check_value_lengths
-
-  Arguments: table, args hashref
-  Returns: True
-  Examples: $ui->check_value_lenghts(\%args);
-
-=cut
-
-sub check_value_lengths {
-    my($self, $table, $args) = @_;
-    foreach my $c ( keys %$args ){
-	my $mcol;
-	eval {
-	    $mcol = $table->meta_data->get_column($c);
-	};
-	next if ( $@ =~ /does not exist/ );
-	my $val = $args->{$c};
-	next unless defined $val;
-	my $type = $mcol->sql_type || next;
-	if ( $type eq 'varchar' && defined($mcol->length) 
-	     && ($mcol->length =~ /^\d+$/o) && (length($val) > $mcol->length) ){
-	    $self->throw_user("Value for field '$c' (max " . $mcol->length . 
-			      ") is too long: '$val'");
-	}
-    }
-    1;
-}
-
 
 =head1 AUTHORS
 

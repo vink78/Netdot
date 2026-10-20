@@ -298,8 +298,7 @@ function jsrsError( contextID, str ){
 }
 
 function jsrsEscapeQQ( thing ){
-  return thing.replace(/'"'/g, '\\"');        alert(parms);
-
+   return thing.replace(/'"'/g, '\\"');
 }
 
 function jsrsUnescape( str ){

@@ -14,19 +14,16 @@
 
 */
 
-.empty000000 {
-
-}
-
-
 body {
     padding: 0;
-    background-color: #FFFFFF;
-    color: #000000;
+    background-color: #f4f7f3;
+    color: #1a1a1a;
     height: 100%;
     font-size: 13px;
-    font-family: verdana, arial, sans-serif;
-    margin: 5px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.45;
 }
 
 /* Makes over wide pres grow scroll bars */
@@ -58,21 +55,31 @@ table.tablebackground {
     background-color: #ffffee; 
 }
 
-table.sortable thead tr th {
+table.datatable thead tr th {
 /*  background-color: #ddeedd; */
   background-color: #aaccaa;
   text-align: left;
   font-weight: bold;
 }
 
-table.sortable tbody tr:nth-child(2n) td {
+table.datatable tbody tr:nth-child(2n) td {
   background-color: #f0f7e9;
   color: #000000;
 }
-table.sortable tbody tr:nth-child(2n+1) td {
+table.datatable tbody tr:nth-child(2n+1) td {
   background: #ffffee;
   color: #000000;
 }
+
+table.datatable thead th {
+  white-space: nowrap;
+}
+/* Sort affordance (pointer cursor) is set in the modern layer on
+   table.sortable thead th only. */
+table.sortable thead th.ts-asc  { background-color: #93b893; }
+table.sortable thead th.ts-desc { background-color: #93b893; }
+table.sortable thead th.ts-asc::after  { content: " \25B4"; font-size: 0.7em; }
+table.sortable thead th.ts-desc::after { content: " \25BE"; font-size: 0.7em; }
 
 tr {
     text-align: left;
@@ -91,9 +98,6 @@ tr.rowtitle3 {
 }
 tr.submissionrow { 
     background-color: #FFFFFF; 
-}
-tr.formtabletitle { 
-    background-color: #ddeedd;
 }
 
 
@@ -116,34 +120,52 @@ th {
     background-color: #aaccaa;
 }
 
-
+/* ============ Header (modern) ============ */
 #header {
-    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 22px;
+    background: #ffffff;
+    border-bottom: 1px solid #ddeedd;
+    box-shadow: 0 1px 2px rgba(0,40,0,.04);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
-#header .headleft {
-    float: left;
+#header .brand img {
+    height: 40px;
+    display: block;
 }
 #header .headright {
-    background-color: transparent;
-    float: right;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 0.85em;
+    color: #003300;
 }
-#header hr {
-    border: none;
-    background-color: #aaccaa; /* for mozilla */
-/*    color: #aaccaa;            /* for ie */
-    margin-top: 10px;
-    clear: both;
-    height: 1px;
-    width: 100%;
+#header .hdr-time {
+    color: #6b7a6b;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .02em;
 }
-#header form {
-    display: inline;
+#header .hdr-user {
+    font-weight: 600;
 }
-#header a:link, #header a:visited {
+#header .hdr-btn {
+    color: #006600;
     text-decoration: none;
+    border: 1px solid #aaccaa;
+    border-radius: 7px;
+    padding: 4px 12px;
+    background: #ffffee;
+    font-weight: 500;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
-#header a:active, #header a:hover {
-    text-decoration: underline;
+#header .hdr-btn:hover {
+    background: #aaccaa;
+    color: #ffffff;
+    border-color: #aaccaa;
+    text-decoration: none;
 }
 
 
@@ -251,6 +273,54 @@ th {
 #navbar ul#subnavigation li a:hover.subnav_selected {
 	color: #006600;
 }
+
+/* Top-level sections + hover dropdown of their sub-menus (2-level nav). */
+#navbar ul#navigation li.navsec {
+    position: relative;
+    display: inline-block;
+}
+#navbar ul#navigation li.navsec > a {
+    display: block;
+}
+#navbar ul#navigation li.navsec .navsubmenu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 170px;
+    background: #aaccaa;
+    border: 1px solid #000000;
+    border-top: none;
+    list-style: none;
+    z-index: 1000;
+    font-size: 1em;
+}
+#navbar ul#navigation li.navsec:hover .navsubmenu {
+    display: block;
+}
+#navbar ul#navigation li.navsec .navsubmenu li {
+    display: block;
+    list-style: none;
+    border-bottom: 1px dotted #000000;
+}
+#navbar ul#navigation li.navsec .navsubmenu li:last-child {
+    border-bottom: none;
+}
+#navbar ul#navigation li.navsec .navsubmenu li a {
+    display: block;
+    padding: 4px 12px;
+    color: #003300;
+    text-decoration: none;
+    background: #aaccaa;
+    white-space: nowrap;
+}
+#navbar ul#navigation li.navsec .navsubmenu li a:hover {
+    background: #99bb99;
+    text-decoration: underline;
+    color: #000000;
+}
 	
 
 
@@ -260,12 +330,28 @@ html>body, html>body #contents {
     height: auto;
 }
 #content {
-    clear: left;
+    clear: both;
+    padding: 18px 22px 48px;
+}
+#content h1 {
+    font-size: 1.5em;
+    font-weight: 700;
+    margin: 0 0 0.4em;
+    letter-spacing: -0.01em;
+}
+#content h2 {
+    font-size: 1.15em;
+    font-weight: 700;
+    margin: 1.4em 0 0.5em;
 }
 #content h3 {
-    font-size: 1.2em;
-    background-color: #c2bed8;
-    width: 100%;
+    font-size: 1.15em;
+    font-weight: 600;
+    background: none;
+    width: auto;
+    margin: 1em 0 0.4em;
+    border-bottom: 2px solid #ddeedd;
+    padding-bottom: 4px;
 }
 
 
@@ -361,138 +447,10 @@ html>body, html>body #contents {
     width: 50%; 
 }
 
-.container {
-    clear: both;
-    background-color: #ffffee;
-    border: 3px #ddeedd solid;
-    margin-bottom: 5px;
-}
-
-.containerheadleft {
-    float: left;
-    background-color: #ddeedd;
-    font: bold 0.9em tahoma, verdana, sans-serif;
-}
-
-/* For partitioning container bodies into sections.  See its use for
-comment sections */
-div.containerseparator { 
-    background-color: #ddeedd;
-    font: bold 0.9em tahoma, verdana, sans-serif;
-}
-
-/* For simple (doesn't work with nested width 100% tables) two column
-layout without tables. Looks a little strange if the window is small.
-*/
-
-/* You *must* follow with cleared content to force the floated
-elements to be considered "in the flow" (i.e. to get any enclosing
-divs to respect the containment and not pull their borders up leaving
-the contained divs floating in space).  Using an empty 
-
-<div style="clear: both"></div> 
-
-works just fine. */
-div.left { float: left; margin: 4px; margin-right: 0px }
-div.right { float: right; margin: 4px; margin-left: 0px }
-/* Put an empty div of this class under any left right pair */
-div.clear { clear: both }
-
-.containerheadright {
-    text-align: right;
-    background-color: #ddeedd;
-    font-size: 0.9em;
-}
-
-.containerhead {
-    background-color: #ddeedd;
-    font: bold 0.9em tahoma, verdana, sans-serif;
-}
-
-.containerbody {
-    clear: both;
-}
-
-.containeroutside {
-    width: 99.5%; 
-    clear: both;
-    background-color: #ffffee;
-    border: 3px #aaccaa solid;
-    float: left;
-}
-
-.containerheadleftoutside {
-    float: left;
-    background-color: #aaccaa;
-    font: 1em tahoma, verdana, sans-serif;
-    padding: 2px;
-}
-
-.containerheadrightoutside {
-    text-align: right;
-    background-color: #aaccaa;
-    font-size: 0.9em;
-    padding: 2px;
-}
-
-.containerheadoutside {
-    background-color: #aaccaa;
-    font: bold 0.9em tahoma, verdana, sans-serif;
-    padding: 2px;
-}
-
-.containerbodyoutside {
-    clear: both;
-    padding: 4px;
-}
-
-
-
-  .formtablec1	    { background-color: #ffffee; text-align: right}
-  .formtablec2	    { background-color: #f0f7e9; text-align: left; vertical-align: bottom; }
-  .formtabletitle   { background-color: #aaccaa; text-align: left; font-weight: bold; }
-  .datatabler1      { background-color: #ffffee; }
-  .datatabler2      { background-color: #f0f7e9; }
-
-  .datatabler1_ipb  { background-color: #ffffee; font-size: 8pt; }
-  .datatabler2_ipb  { background-color: #f0f7e9; font-size: 8pt; }
-
 
 
   .small      { font-size: 8pt; }
 
-  .containertable {
-     border-collapse: collapse;
-  }
-
-  .containertable_cell {
-     font-size: 6pt;
-     padding: 0px;
-     margin: 0px;
-     border: 1px #FFFFFF solid;
-  }
-
-
-  .datatabler1_con  { 
-    background-color: #ffffee; 
-    font-size: 8pt; 
-    padding: 0px;
-    margin: 0px;
-  }
-  .datatabler2_con  { 
-    background-color: #f0f7e9; 
-    font-size: 8pt; 
-    padding: 0px;
-    margin: 0px;
-  }
-
-/*
- * Prefer addresses to be centered in the ipblock view of a subnet.
- */
-table > * > tr > td.datatabler1_ipb div,
-table > * > tr > td.datatabler2_ipb div {
-    text-align: center;
-}
 
     .ipaddr_disabled { background-color: #cccccc; }
     .ipaddr_disabled_2 { background-color: #dddddd; }
@@ -510,6 +468,29 @@ table > * > tr > td.datatabler2_ipb div {
     .ipaddr_container_2 { background-color: #eedd66; }
     .ipaddr_discovered { background-color: #9999ff; }
     .ipaddr_discovered_2 { background-color: #0000ee; }
+    .ipaddr-range-selected { background-color: #44aaff !important; opacity: 0.85; }
+    .nd-range-mode .ipaddr:not(.ipaddr_disabled) { cursor: crosshair; }
+    .nd-range-mode .ipaddr:not(.ipaddr_disabled):hover { outline: 2px solid #2277cc; }
+
+    .nd-range-panel {
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+        background: #fff; border: 1px solid #ccc; border-radius: 6px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.25); padding: 1em; z-index: 10000;
+        width: 320px; font-size: 0.9em;
+    }
+    .nd-range-panel h4 { margin: 0 0 0.5em; font-size: 1.05em; cursor: move; user-select: none;
+        display: flex; justify-content: space-between; align-items: center; }
+    .nd-range-panel h4 .nd-range-close { cursor: pointer; font-size: 1.2em; color: #888; }
+    .nd-range-panel h4 .nd-range-close:hover { color: #333; }
+    .nd-range-panel label { display: block; margin: 0.35em 0 0.1em; font-weight: 600; }
+    .nd-range-panel input, .nd-range-panel select {
+        width: 100%; padding: 0.25em 0.4em; border: 1px solid #ccc; border-radius: 4px;
+        font-size: 0.95em; box-sizing: border-box;
+    }
+    .nd-range-panel .nd-range-row { display: flex; gap: 0.5em; }
+    .nd-range-panel .nd-range-row > div { flex: 1; }
+    .nd-range-panel .nd-range-actions { margin-top: 0.6em; display: flex; gap: 0.4em; }
+    .nd-range-panel .nd-range-info { color: #555; margin-bottom: 0.5em; font-size: 0.9em; }
 
 
     .ipaddr_disabled:hover { background-color: #eeeeee; }
@@ -567,14 +548,6 @@ hr
 }
 #footer a:active, #header a:hover {
     text-decoration: underline;
-}
-
-
-#loginform {
-    width: 320px;
-}
-#loginform table.logintable {
-    width: 200px;
 }
 
 
@@ -643,13 +616,6 @@ hr
 
   .searchbox        { background-color: #CCCCCC; }
 
-  .tabletitle       { background-color: #c2bed8; text-align: left}
-
-
-  .formtablebg	    { background-color: #ffffee; text-align: left}
-
-  .formtabletl	    { background-color: #6ab1f0; text-align: left}
-
 
 
   
@@ -664,6 +630,199 @@ hr
   .red { background-color: red;}
 
 
+/*
+ * Responsive layout (mobile / tablette)
+ * Toutes les regles ci-dessous ne s'appliquent qu'aux petites
+ * tailles d'ecran; la mise en page desktop reste inchantee.
+ */
+
+/* Une table trop large fait defiler la zone de contenu au lieu de
+   deborder de l'ecran. */
+ #content {
+     overflow-x: auto;
+     -webkit-overflow-scrolling: touch;
+ }
+
+/* Boite de login: largeur fixe, centree horizontalement, descendue sous l'en-tete */
+.loginbox {
+    max-width: 340px;
+    margin: 4em auto 0;
+    padding: 0 5px;
+}
+.loginbox .containerbody { padding: 16px; }
+.loginbox .loginhint {
+    margin: 0 0 14px;
+    font-size: 0.88em;
+    color: #557755;
+}
+.loginbox form .field {
+    display: block;
+    margin: 0 0 12px;
+}
+.loginbox form .field > span {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 600;
+    color: #003300;
+    font-size: 0.9em;
+}
+.loginbox form input[type=text],
+.loginbox form input[type=password] {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 10px;
+    border: 1px solid #aaccaa;
+    border-radius: 8px;
+    font-size: 0.95em;
+    font-family: inherit;
+}
+.loginbox form .btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 4px;
+    padding: 9px;
+}
+.loginbox a.btn {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 4px;
+    padding: 9px;
+    text-align: center;
+    text-decoration: none;
+}
+
+/* Tables de donnees (generic/data_table): defilement horizontal propre */
+.tablescroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Graphes topologiques generes (img/graphs/*.png): ne jamais deborder.
+   S'aligne sur le graphe backbone qui porte deja max-width:100%. */
+img[src*="img/graphs"] {
+    max-width: 100%;
+    height: auto;
+}
+
+@media (max-width: 1024px) {
+    #sectiontools fieldset.large { width: 100%; }
+}
+
+@media (max-width: 768px) {
+    body {
+        margin: 0;
+        font-size: 15px;
+    }
+    td, th {
+        font-size: 14px;
+    }
+
+    /* En-tete: permet le retour a la ligne + image redimensionnee */
+    #header {
+        height: auto;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+    #header .headleft,
+    #header .headright {
+        float: none;
+    }
+    #header .headright {
+        margin-left: auto;
+    }
+    #header img {
+        max-width: 100%;
+        height: auto;
+    }
+    #header hr {
+        flex-basis: 100%;
+        width: 100%;
+    }
+    #header form input[type=text] {
+        max-width: 100%;
+    }
+
+    /* Navigation: deux lignes empilees, defilables horizontalement */
+    #navbar {
+        height: auto;
+        margin-bottom: 8px;
+    }
+    #navbar ul#navigation {
+        position: static;
+        white-space: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    #navbar ul#navigation > a {
+        float: none;
+        display: inline-block;
+    }
+    #navbar ul#subnavigation {
+        position: static;
+        top: auto;
+        left: auto;
+        white-space: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    #navbar ul#subnavigation li a,
+    #navbar ul#subnavigation li span {
+        float: none;
+        display: inline-block;
+    }
+
+    /* Outils de section: empiles pleine largeur au lieu de flotter */
+    #sectiontools fieldset {
+        float: none;
+        width: auto;
+        margin-right: 0;
+    }
+    #sectiontools fieldset.large,
+    #sectiontools fieldset.medium,
+    #sectiontools fieldset.small {
+        width: auto;
+    }
+    #sectiontools form p label {
+        float: none;
+        width: auto;
+        display: block;
+        margin-bottom: 2px;
+    }
+    #sectiontools input,
+    #sectiontools select {
+        max-width: 100%;
+    }
+
+    /* Vues/formulaires et tableaux multi-colonnes (generic/attribute_table,
+       generic/wrapping_table): empiler les colonnes qui etaient cote a cote
+       sur une seule colonne. */
+    .tablestack > table > tbody > tr > td {
+        display: block;
+        width: 100%;
+    }
+    .tablestack > table > tbody > tr > td > table {
+        width: 100%;
+    }
+
+    /* Champs de formulaire du contenu: ne jamais deborder de l'ecran */
+    #content input,
+    #content select,
+    #content textarea {
+        max-width: 100%;
+    }
+
+    /* Conteneurs / notes: ne jamais deborder de l'ecran */
+    .note {
+        width: auto;
+        max-width: 100%;
+    }
+}
+
+
 /* note on float css hack:
 In Firefox, a div block containing an input tag doesn't stretch
 its width when the input tag is too big for the block.
@@ -671,4 +830,540 @@ The result is the tag explodes out of the containing
 block, messing up the borders and background.
 Note, IE doesn't have this problem.
 */
+
+/* ============================================================
+   MODERN DESIGN LAYER (2026)
+   Overrides the legacy rules above using equal-or-higher
+   specificity + later cascade order. Palette + logo kept:
+   #aaccaa / #ddeedd / #ffffee / #f0f7e9 / #006600.
+   ============================================================ */
+
+/* ---------- Navbar (sticky, modern) ---------- */
+#navbar {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    height: auto;
+    background: #ffffff;
+    border-top: none;
+    border-bottom: 1px solid #aaccaa;
+    box-shadow: 0 2px 6px rgba(0,40,0,.05);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 0.92em;
+    margin-bottom: 0;
+}
+#navbar ul#navigation {
+    position: static;
+    width: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    margin: 0;
+    padding: 0 10px;
+    list-style: none;
+}
+#navbar ul#navigation li { display: inline-block; list-style: none; }
+#navbar ul#navigation li > a {
+    display: block;
+    float: none;
+    padding: 13px 15px;
+    margin: 0;
+    text-align: left;
+    text-decoration: none;
+    color: #003300;
+    background: transparent;
+    border-bottom: 3px solid transparent;
+    font-weight: 500;
+    transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+#navbar ul#navigation li > a:hover {
+    color: #006600;
+    background: #f0f7e9;
+    border-bottom-color: transparent;
+}
+#navbar ul#navigation li.active > a {
+    color: #006600;
+    font-weight: 700;
+    border-bottom-color: #006600;
+}
+#navbar ul#navigation li.navsec { position: relative; }
+#navbar ul#navigation li.navsec .navsubmenu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin: 0;
+    padding: 6px 0;
+    min-width: 200px;
+    background: #ffffff;
+    border: 1px solid #aaccaa;
+    border-top: 2px solid #006600;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 12px 28px rgba(0,40,0,.16);
+    list-style: none;
+    z-index: 1000;
+    font-size: 0.95em;
+}
+#navbar ul#navigation li.navsec:hover .navsubmenu,
+#navbar ul#navigation li.navsec:focus-within .navsubmenu {
+    display: block;
+    animation: navdrop .13s ease;
+}
+@keyframes navdrop {
+    from { opacity: 0; transform: translateY(-5px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+#navbar ul#navigation li.navsec .navsubmenu li {
+    display: block;
+    list-style: none;
+    border-bottom: none;
+}
+#navbar ul#navigation li.navsec .navsubmenu li a {
+    display: block;
+    float: none;
+    padding: 9px 16px;
+    margin: 0;
+    text-align: left;
+    text-decoration: none;
+    color: #003300;
+    background: transparent;
+    white-space: nowrap;
+    transition: background .12s ease, color .12s ease;
+}
+#navbar ul#navigation li.navsec .navsubmenu li a:hover {
+    background: #f0f7e9;
+    color: #006600;
+    text-decoration: none;
+}
+#navbar ul#navigation li.navsec .navsubmenu li.active a {
+    color: #006600;
+    font-weight: 700;
+    background: #f0f7e9;
+}
+
+/* ---------- Modern data tables ---------- */
+table.datatable {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #aaccaa;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,40,0,.05), 0 6px 18px rgba(0,40,0,.05);
+}
+table.datatable thead th {
+    background: #ddeedd;
+    color: #003300;
+    font-weight: 700;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    text-align: left;
+    padding: 11px 14px;
+    border-bottom: 2px solid #aaccaa;
+    cursor: default;
+    white-space: nowrap;
+}
+/* Column-sort affordance (pointer cursor) only on opted-in LIST tables
+   (table.sortable). Detail/field tables keep the look but are not sortable. */
+table.sortable thead th { cursor: pointer; }
+table.sortable thead th.ts-asc,
+table.sortable thead th.ts-desc {
+    background: #aaccaa;
+    color: #ffffff;
+}
+table.datatable tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid #eaf2e8;
+    color: #1a1a1a;
+    background: #ffffff;
+}
+table.datatable tbody tr:nth-child(2n) td { background: #fbfdfb; }
+table.datatable tbody tr:hover td { background: #eef6ec; }
+table.datatable tbody tr:last-child td { border-bottom: none; }
+
+/* Round the outer corners of the cells so the square header/footer cell
+   backgrounds don't poke out past the rounded table border (visual "double
+   border" artifact on the first/last column). */
+table.datatable thead th:first-child           { border-top-left-radius: 11px; }
+table.datatable thead th:last-child            { border-top-right-radius: 11px; }
+table.datatable tbody tr:last-child td:first-child { border-bottom-left-radius: 11px; }
+table.datatable tbody tr:last-child td:last-child  { border-bottom-right-radius: 11px; }
+
+/* Detail (attribute) table: key/value rows */
+table.datatable.detail {
+    border: 1px solid #aaccaa;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,40,0,.04), 0 6px 18px rgba(0,40,0,.05);
+}
+table.datatable.detail tbody th {
+    width: 220px;
+    background: #f0f7e9;
+    color: #003300;
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid #eaf2e8;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.88em;
+}
+table.datatable.detail tbody td {
+    background: #ffffff;
+    padding: 10px 14px;
+    border-bottom: 1px solid #eaf2e8;
+}
+table.datatable.detail tbody tr:hover th { background: #ddeedd; }
+table.datatable.detail tbody tr:last-child th,
+table.datatable.detail tbody tr:last-child td { border-bottom: none; }
+table.datatable.detail tbody tr:first-child th { border-top-left-radius: 11px; }
+table.datatable.detail tbody tr:first-child td { border-top-right-radius: 11px; }
+table.datatable.detail tbody tr:last-child th  { border-bottom-left-radius: 11px; }
+table.datatable.detail tbody tr:last-child td  { border-bottom-right-radius: 11px; }
+
+/* ---------- Modern cards (.container) ---------- */
+.container {
+    clear: both;
+    background: #ffffff;
+    border: 1px solid #aaccaa;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,40,0,.04), 0 6px 18px rgba(0,40,0,.05);
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+.containerhead {
+    background: #ddeedd;
+    padding: 9px 14px;
+    font-weight: 700;
+    font-size: 0.9em;
+    color: #003300;
+    border-bottom: 1px solid #aaccaa;
+}
+.containerbody {
+    clear: both;
+    padding: 12px 14px;
+    background: #ffffff;
+}
+
+/* .cardrow: a responsive row of equal-width .container cards (side by side,
+   wrapping on narrow screens). For multi-block forms (e.g. Export). */
+.cardrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.cardrow > .container {
+    flex: 1 1 240px;
+    margin-bottom: 0;
+}
+
+/* .containerbody.flat: a flush field table (datatable.detail) fills the card
+   body edge-to-edge. The card provides the outer chrome, so the nested table
+   drops its own border/radius/shadow and per-cell corner rounding. */
+.containerbody.flat { padding: 0; }
+.containerbody.flat > table.datatable.detail {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+.containerbody.flat > table.datatable.detail tbody th,
+.containerbody.flat > table.datatable.detail tbody td {
+    border-radius: 0;
+}
+
+/* Multi-column field tables: rows carry several label/value pairs (c2 = 2,
+   c4 = 4), matching the old compact layout. Narrow the label column so the
+   pairs fit per row; c1 (Comments) keeps the default 220px label width. */
+table.datatable.detail.c2 tbody th { width: 200px; }
+table.datatable.detail.c4 tbody th { width: 150px; }
+
+/* ---------- Modern tabs (.tabbar) ---------- */
+.tabbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 0.4em 0 1.1em;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #ddeedd;
+}
+.tabbar .tab {
+    display: inline-block;
+    padding: 6px 15px;
+    border-radius: 9px 9px 0 0;
+    text-decoration: none;
+    color: #003300;
+    background: #f0f7e9;
+    border: 1px solid #aaccaa;
+    border-bottom: none;
+    font-weight: 500;
+    font-size: 0.9em;
+    margin-bottom: -2px;
+    transition: background .14s ease, color .14s ease;
+}
+.tabbar .tab:hover {
+    background: #ddeedd;
+    color: #006600;
+    text-decoration: none;
+}
+.tabbar .tab.active {
+    background: #ffffff;
+    color: #006600;
+    font-weight: 700;
+    border-color: #aaccaa;
+}
+.tabbar-sm .tab {
+    padding: 4px 12px;
+    font-size: 0.84em;
+    border-radius: 8px;
+    margin-bottom: 0;
+    border: 1px solid #aaccaa;
+}
+.tabbar-sm {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+/* Tabbed card: the tab bar sits on top of a single card that encloses the
+   active view's content. Inner tables and section-cards are flattened so the
+   .tabcard provides the single frame (no card-in-card). */
+.tabcard {
+    background: #ffffff;
+    border: 1px solid #aaccaa;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,40,0,.04), 0 6px 18px rgba(0,40,0,.05);
+    margin: 0 0 16px;
+    overflow: hidden;
+}
+.tabcard > .tabbar {
+    margin: 0;
+    padding: 10px 12px 0;
+    border-bottom: 1px solid #aaccaa;
+    background: #ffffff;
+}
+.tabcard > .tabbar .tab { margin-bottom: -1px; }
+.tabcard .tabcard-body { padding: 14px; }
+/* Flatten inner content so the tabcard is the single frame. */
+.tabcard .datatable,
+.tabcard table.datatable.detail { border: none; border-radius: 0; box-shadow: none; }
+.tabcard .container { border: none; box-shadow: none; border-radius: 0; }
+.tabcard .container.boxed {
+    border: 1px solid #aaccaa;
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(0,40,0,.04), 0 6px 18px rgba(0,40,0,.05);
+}
+
+/* Detail-page tab panes: only the active one is shown (toggled by tabs.js). */
+.tab-pane[hidden] {
+    display: none;
+}
+.tab-pane {
+    margin-top: 0.2em;
+}
+
+/* ---------- Modern buttons ---------- */
+.btn,
+input[type=submit],
+input[type=button] {
+    font-family: inherit;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #006600;
+    background: #ffffee;
+    border: 1px solid #aaccaa;
+    border-radius: 8px;
+    padding: 5px 14px;
+    cursor: pointer;
+    transition: background .14s ease, color .14s ease, border-color .14s ease;
+}
+.btn:hover,
+input[type=submit]:hover,
+input[type=button]:hover {
+    background: #aaccaa;
+    color: #ffffff;
+    border-color: #aaccaa;
+    text-decoration: none;
+}
+
+/* ---------- Content links: underline on hover only ---------- */
+#content a { text-decoration: none; }
+#content a:hover { text-decoration: underline; }
+
+/* ---------- Transient status box (netdot.js: edit/API feedback) ---------- */
+.nd-status {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%) translateY(20px);
+    background: #333333;
+    color: #ffffff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.9em;
+    opacity: 0;
+    transition: opacity .25s ease, transform .25s ease;
+    z-index: 9999;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .2);
+    pointer-events: none;
+}
+.nd-status.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.nd-status.ok   { background: #2e7d32; }
+.nd-status.err  { background: #c62828; }
+
+/* ---------- Modal confirm dialog (netdot.js: destructive-action confirm) ---------- */
+/* A <div>-based prompt, not a native confirm(): native dialogs trigger the
+   browser's anti-dialog "don't ask again" permission prompt. A div avoids it.
+   Carries an optional checkbox so the choice is made in a single dialog. */
+.nd-modal-ov {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.nd-modal {
+    background: #ffffff;
+    color: #222222;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, .35);
+    padding: 20px 22px;
+    width: 400px;
+    max-width: calc(100vw - 32px);
+    font-size: 0.95em;
+    line-height: 1.45;
+}
+.nd-modal-msg { white-space: pre-line; }
+.nd-modal-check {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    margin: 1em 0 0.2em;
+    font-size: 0.92em;
+    color: #444;
+}
+.nd-modal-check input { margin-top: 2px; flex: 0 0 auto; }
+.nd-modal-field { margin: 0.8em 0 0.2em; font-size: 0.92em; color: #444; }
+.nd-modal-input {
+    display: block;
+    margin-top: 5px;
+    padding: 5px 8px;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
+    font-size: 0.95em;
+    background: #ffffff;
+}
+.nd-add-btn {
+    float: right;
+    margin: -2px 0 0 0.8em;
+    padding: 2px 9px;
+    font-size: 0.78em;
+    background: #e6f4ea;
+    color: #1e7e34;
+    border: 1px solid #bfe3c8;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.nd-add-btn:hover { background: #1e7e34; color: #ffffff; }
+.nd-modal-select {
+    display: block;
+    margin-top: 5px;
+    padding: 5px 8px;
+    border: 1px solid #cccccc;
+    border-radius: 6px;
+    font-size: 0.95em;
+    background: #ffffff;
+}
+.nd-modal-row {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 1.3em;
+}
+.nd-modal .nd-modal-ok { background: #fdecea; color: #c62828; border-color: #f0b3ac; }
+.nd-modal .nd-modal-ok:hover { background: #c62828; color: #ffffff; border-color: #c62828; }
+.nd-modal .nd-modal-create { background: #e6f4ea; color: #1e7e34; border-color: #bfe3c8; }
+.nd-modal .nd-modal-create:hover { background: #1e7e34; color: #ffffff; border-color: #1e7e34; }
+
+/* ---------- Bulk edit (dedicated page management/bulk_edit) ----------
+   A field picker (.nd-bulk-fields) + a full-width editable table (it can hold
+   ~20 columns). The table sits in a bordered, scrolling box; the Name column
+   is sticky. */
+.nd-bulk-body {
+    overflow: auto;
+    margin: 0.4em 0 0.2em;
+    padding: 0.5em 0.6em;
+    border: 1px solid #e2e2e2;
+    border-radius: 6px;
+}
+/* The table carries the `datatable` class too: it inherits the modern data-table
+   look (bordered rounded box, #ddeedd uppercase header, row borders, zebra +
+   hover rows). Only what the editable bulk table needs on top: min-width on the
+   cells (a wide table grows past the viewport and the body scrolls horizontally
+   instead of squashing columns) and the sticky Name column. */
+.nd-bulk-table { min-width: 100%; }
+.nd-bulk-table th, .nd-bulk-table td {
+    min-width: 150px;
+    font-size: 0.88em;
+    vertical-align: middle;
+}
+.nd-bulk-table td:first-child, .nd-bulk-table th:first-child {
+    min-width: 220px; position: sticky; left: 0; background: #ffffff; z-index: 1;
+    border-right: 1px solid #eaf2e8;
+}
+.nd-bulk-table th:first-child { background: #ddeedd; z-index: 2; }
+.nd-bulk-table input[type=text],
+.nd-bulk-table input[type=date],
+.nd-bulk-table select,
+.nd-bulk-table textarea {
+    font-size: 0.85em;
+    padding: 2px 5px;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    width: 100%;
+    box-sizing: border-box;
+    background: #ffffff;
+}
+.nd-bulk-fields { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.nd-bulk-fields label { font-size: 0.9em; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+/* (specificity raised so it wins over the table.datatable zebra) */
+.nd-bulk-table tbody tr.nd-bulk-apply th,
+.nd-bulk-table tbody tr.nd-bulk-apply td { background: #fffbe6; }
+
+/* ---------- Busy overlay (netdot.js: slow writes, e.g. recursive delete) ---------- */
+.nd-busy {
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 255, 255, .7);
+    z-index: 10001;
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.nd-busy-card {
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, .25);
+    padding: 26px 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    font-size: 0.95em;
+    color: #333333;
+}
+.nd-busy-spin {
+    width: 38px;
+    height: 38px;
+    border: 3px solid #e3e8e3;
+    border-top-color: #006600;
+    border-radius: 50%;
+    animation: nd-busy-rot .8s linear infinite;
+}
+.nd-busy-msg { font-weight: 600; }
+@keyframes nd-busy-rot { to { transform: rotate(360deg); } }
+.nd-flash { margin: 0.5em 0; padding: 0.6em 0.8em; border-radius: 4px; font-size: 0.9em; }
+.nd-flash-ok  { background: #e9f7ef; color: #1f7a3d; border: 1px solid #bfe6cf; }
+.nd-flash-err { background: #fdecea; color: #8a1f11; border: 1px solid #f5c6c0; }
+
 

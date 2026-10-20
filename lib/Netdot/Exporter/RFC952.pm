@@ -38,18 +38,21 @@ sub new{
     my ($class, %argv) = @_;
     my $self = {};
 
-    foreach my $key ( qw /RFC952_DIR RFC952_FILE DEFAULT_DNSDOMAIN RFC952_SCP_TARGET RFC952_SITENAME Git_RFC952_DIR/ ){
+    foreach my $key ( qw /RFC952_DIR RFC952_FILE DEFAULT_DNSDOMAIN RFC952_SITENAME/ ){
 	$self->{$key} = Netdot->config->get($key);
     }
 
     $self->{RFC952_FILE} || 
 	$class->throw_user("Netdot::Exporter::RFC952: RFC952_FILE not defined");
 
-    # Open output file for writing
-    $self->{filename} = $self->{RFC952_DIR}."/".$self->{RFC952_FILE};
+    # Output dirs: [0]=primary, [1..]=copies (e.g. git staging).
+    $self->{dirs} = $self->{RFC952_DIR};
 
-    # Execute remote command only there REMOTE_EXEC == 1
-    $self->{remoteexec} = Netdot->config->get('REMOTE_EXEC') || 0;
+    # Per-plugin remote export: REMOTE_PLUGIN{RFC952} = { DIR, SERVER, RELOAD, ENABLE }.
+    $self->{REMOTE} = (Netdot->config->get('REMOTE_PLUGIN') || {})->{RFC952} || {};
+
+    # Open output file for writing (primary output dir).
+    $self->{filename} = $self->{RFC952_DIR}->[0]."/".$self->{RFC952_FILE};
 
     bless $self, $class;
 
@@ -302,9 +305,19 @@ sub generate_configs {
 
     $logger->info("Netdot::Exporter::RFC952: Configuration written to file: ".$self->{filename});
 
-    system ('/bin/cp '.$self->{filename}.' '.$self->{Git_RFC952_DIR}.'/');
-    if ($self->{remoteexec} == 1) {
-	system ("/usr/bin/scp ".$self->{filename}.' '.$self->{RFC952_SCP_TARGET});
+    my @copies = @{ $self->{dirs} };
+    shift @copies;
+    system ('/bin/cp '.$self->{filename}.' '.$_.'/') for @copies;
+    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{DIR}) {
+	system ("/usr/bin/scp ".$self->{filename}.' '.$self->{REMOTE}{SERVER}.":".$self->{REMOTE}{DIR});
+    }
+    if ($self->{REMOTE}{ENABLE} && $self->{REMOTE}{SERVER} && $self->{REMOTE}{RELOAD}) {
+	open (FOO, "/usr/bin/ssh $self->{REMOTE}{SERVER} '$self->{REMOTE}{RELOAD}' |");
+	while (<FOO>) {
+	    chomp;
+	    $logger->info( $_ );
+	}
+	close (FOO);
     }
 }
 
@@ -456,5 +469,5 @@ Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 =cut
 
-#Be sure to return 1
+# Make sure to return 1
 1;
