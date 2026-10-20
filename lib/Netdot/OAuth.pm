@@ -179,6 +179,7 @@ sub _finish ($c, $res) {
     # the Netdot username is the LDAP uid -- resolve it (Netdot::LDAP uses the
     # NetdotLDAP* config + the attribute-reader account). Login is refused
     # when the lookup fails (no Person with an email username).
+    my $ldap;
     if ( ( Netdot->config->get('NetdotOAuthEmailToLDAP') // '' ) eq 'yes' ) {
         my $email = $username =~ /\@/ ? $username : ( $claims->{email} // '' );
         require Netdot::Mojo::AuthShim;
@@ -190,19 +191,39 @@ sub _finish ($c, $res) {
         return Mojo::Promise->reject( "No LDAP user with mail=$email (see the server log)." )
             unless $uid;
         $username = $uid;
+        # The id_token carries no reliable name/phone claims (Entra omits
+        # given/family_name): fetch the mapped Person attributes
+        # (givenName/sn/mail/telephoneNumber by default) from the directory
+        # for the Person auto-fill. Best-effort: a lookup failure only
+        # skips the LDAP fill (the claims still apply).
+        my $a = eval { Netdot::LDAP::attrs_from_email( $shim, $email ) };
+        $ldap  = ref $a eq 'HASH' ? $a : {};
     }
-    _upsert_person( $c, $claims, $username );
+    _upsert_person( $c, $claims, $username, $ldap );
     return Mojo::Promise->resolve( $username );
 }
 
-# Fill Person fields from the id_token claims, mirroring
-# Netdot::LDAP::_upsert_person_from_ldap: look up the Person by username,
-# create it if absent (username + lastname seeded; Person->insert defaults the
-# user type to 'User'), then fill firstname/lastname/email from the claims --
-# ONLY into empty columns (existing values are never overwritten).
-# Best-effort: failures are logged but never block a successful login.
-sub _upsert_person ($c, $claims, $username) {
+# Fill Person fields from the mapped LDAP attributes (EmailToLDAP flow) or
+# the id_token claims, mirroring Netdot::LDAP::_upsert_person_from_ldap: look
+# up the Person by username, create it if absent (username + lastname seeded;
+# Person->insert defaults the user type to 'User'), then fill firstname/
+# lastname/email (+ the other mapped columns, e.g. office) from the LDAP
+# entry first, the claims second -- ONLY into empty columns (existing values
+# are never overwritten). Best-effort: failures are logged but never block a
+# successful login.
+sub _upsert_person ($c, $claims, $username, $ldap) {
     my $log = $c->app->log;
+    # Per-column value sources: the mapped LDAP attributes (when fetched)
+    # first, then the JWT claims (Entra omits given/family_name, so the LDAP
+    # entry usually wins).
+    my %val = (
+        firstname => $claims->{given_name},
+        lastname  => $claims->{family_name},
+        email     => $claims->{email},
+    );
+    if ( ref $ldap eq 'HASH' ) {
+        $val{$_} = $ldap->{$_} for keys %$ldap;
+    }
     my $person = eval { Person->search( username => $username )->first };
     if ($@) {
         $log->info( "oauth login: Person lookup FAILED for $username: $@" );
@@ -215,20 +236,14 @@ sub _upsert_person ($c, $claims, $username) {
             $log->info( "oauth login: Person auto-create FAILED for $username: $@" );
             return;
         }
-        %need = ( firstname => 1, lastname => 1, email => 1 );
+        %need = ( map { $_ => 1 } keys %val );
     }
     else {
-        $need{$_} = 1 for grep { !defined $person->$_ || $person->$_ eq '' }
-            qw(firstname lastname email);
+        $need{$_} = 1 for grep { !defined $person->$_ || $person->$_ eq '' } keys %val;
     }
     return unless %need;
     my %upd;
-    $upd{firstname} = $claims->{given_name}
-        if $need{firstname} && length( $claims->{given_name} // '' );
-    $upd{lastname} = $claims->{family_name}
-        if $need{lastname} && length( $claims->{family_name} // '' );
-    $upd{email} = $claims->{email}
-        if $need{email} && length( $claims->{email} // '' );
+    $upd{$_} = $val{$_} for grep { defined $val{$_} && length $val{$_} } keys %need;
     return unless %upd;
     eval { $person->update( \%upd ) };
     $log->info( "oauth login: Person field update FAILED for $username: $@" ) if $@;

@@ -376,6 +376,76 @@ sub uid_from_email {
 
 ############################################################################
 
+=head2 attrs_from_email - Mapped Person attributes from the LDAP entry of an email
+
+Arguments:  Apache request object (or Netdot::Mojo::AuthShim), email address
+Returns:    A hashref of Person-column => value (the _ldap_attr_map columns
+            present in the entry) or 0
+Description: Sibling of uid_from_email for the OAuth (EmailToLDAP) flow: the
+             provider's id_token carries no reliable name/phone claims, so the
+             Person auto-fill reads the mapped attributes (givenName/sn/mail/
+             telephoneNumber by default) from the directory instead. Same
+             connect/bind/search policy as uid_from_email (reader account,
+             NetdotLDAPSearchBase, mail=<email>), requesting the mapped
+             attributes. Fails closed like uid_from_email: a bad email shape,
+             a bind/search error, or an ambiguous (multiple) answer yield 0.
+
+=cut
+
+sub attrs_from_email {
+    my ( $r, $email ) = @_;
+    # Same shape check as uid_from_email (also rejects filter metacharacters).
+    return 0 unless defined $email && $email =~ /\A[A-Za-z0-9._%+-]+\@[A-Za-z0-9.-]+\z/;
+
+    my @pairs = _ldap_attr_map( $r );
+    return 0 unless @pairs;
+
+    my $ldap = _connect( $r ) or return 0;
+
+    # Same read-only reader policy as uid_from_email.
+    my $reader_dn = $r->dir_config( 'NetdotLDAPAttrReaderDN' );
+    my $reader_pw = $r->dir_config( 'NetdotLDAPAttrReaderPass' );
+    if ( defined $reader_dn && length $reader_dn
+         && defined $reader_pw && length $reader_pw ) {
+        my $rb = eval { $ldap->bind( $reader_dn, password => $reader_pw ) };
+        unless ( $rb && ! $rb->code ) {
+            $r->log_error( "netdot-auth LDAP: attrs_from_email: reader bind failed for $reader_dn: ",
+                           ( $rb ? $rb->code . " (" . $rb->error . ")" : $@ // "no result" ) );
+            return 0;
+        }
+    }
+
+    my $res = eval {
+        $ldap->search(
+            base   => ( $r->dir_config( 'NetdotLDAPSearchBase' ) // '' ),
+            scope  => 'subtree',
+            filter => "(mail=$email)",
+            attrs  => [ map { $_->[0] } @pairs ],
+        );
+    };
+    if ( my $e = $@ ) {
+        $r->log_error( "netdot-auth LDAP: attrs_from_email: search error for $email: $e" );
+        return 0;
+    }
+    unless ( $res && $res->code() == 0 && $res->count() == 1 ) {
+        $r->log_error( "netdot-auth LDAP: attrs_from_email: search failed or ambiguous for $email: ",
+                       ( $res ? $res->code() . " (" . $res->error() . ")" : "no result" ) );
+        return 0;
+    }
+
+    # First value per mapped attribute (multi-valued -> comma-joined, like
+    # _upsert_person_from_ldap).
+    my $entry = $res->entry(0);
+    my %out;
+    for my $p (@pairs) {
+        my @vals = $entry->get_value( $p->[0] );
+        $out{ $p->[1] } = join( ', ', @vals ) if @vals;
+    }
+    return { %out };
+}
+
+############################################################################
+
 =head2 _upsert_person_from_ldap - Fill Person fields from the LDAP entry
 
 After a successful LDAP bind, read the mapped attributes from the user's LDAP
