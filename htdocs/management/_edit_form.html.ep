@@ -8,12 +8,16 @@
 % #   CREATE (nd_create=1): always visible, POSTs to $api_path, then redirects
 % #     to $nd_redirect + <new id> (netdot.js initForms' data-nd-redirect).
 % # Create-mode knobs (stashed only by the generic list page's "New <type>" box).
+% # nd_row (stashed by the relation tables' per-row forms): no fixed form id and
+% # no self-hiding (the row's visibility is managed by the row toggle, netdot.js
+% # initRowEdits), the cancel button is class-based (.nd-row-cancel).
 % # Read via $c->stash so the partial stays valid when rendered without them
 % # (detail pages): a bare stash var would fail the template's `use strict`.
 % my $nd_create   = $c->stash('nd_create');
 % my $nd_method   = $c->stash('nd_method');
 % my $nd_redirect = $c->stash('nd_redirect');
 % my $nd_label    = $c->stash('nd_label');
+% my $nd_row      = $c->stash('nd_row');
 % if ( $can_edit && @$fields ) {
 %   my @fl     = @$fields;
 %   # hidden fields (relation "Add" forms: the parent FK, fixed to the page's
@@ -23,14 +27,18 @@
 %   my $create = $nd_create ? 1 : 0;
 %   my $method = $nd_method || 'PATCH';
 %   my $label  = $nd_label  || 'Save';
+% if ($nd_row) {
+<form class="nd-row-editform"
+% } else {
 <form id="<%= $create ? 'nd-create' : 'nd-edit' %>"
+% }
       data-nd-api="<%= $api_path %>"
       data-nd-method="<%= $method %>"
 % if ( $create && $nd_redirect ) {
       data-nd-redirect="<%= $nd_redirect %>"
 % }
       data-nd-api-base="<%= $c->web_prefix %>/api"
-% unless ($create) {
+% unless ( $create || $nd_row ) {
       style="display:none"
 % }
 >
@@ -91,7 +99,11 @@
   <p style="margin-top:0.8em">
     <button type="submit" class="btn"><%= $label %></button>
 % unless ($create) {
+%   if ($nd_row) {
+    <button type="button" class="btn nd-row-cancel" style="margin-left:0.6em">Cancel</button>
+%   } else {
     <button type="button" class="btn" id="nd-edit-cancel" style="margin-left:0.6em">Cancel</button>
+%   }
 % }
   </p>
 </form>

@@ -63,7 +63,8 @@ sub show ($c) {
     my $api_path = $can_edit ? $c->web_prefix . '/api/zone/' . $id : '';
     my $count = _record_count( $o );
     my $apex  = _apex_records( $o, $id );
-    my $relations = Netdot::Mojo::Detail::build_relations( $o, $perpage, $offset );
+    my $relations = Netdot::Mojo::Detail::build_relations( $o, $perpage, $offset,
+                                                           $c->current_person );
     my $recent  = _recent_changes( $o );
     my $pending = _pending_changes( $o );
     # Bulk import (legacy view=bulk_import): Admin-only, as in Mason

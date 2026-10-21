@@ -75,10 +75,13 @@ sub build_attrs {
 #   - large target (RR, Ipblock, ...): options = undef (the form renders a
 #     keyword search box that queries the API; the dropdown is never dumped).
 # FK targets that are not a registered type are skipped (field stays read-only).
-# Drives the form for every generic detail page (Controller::Show).
+# Drives the form for every generic detail page (Controller::Show) and the
+# per-row forms of the relation tables (Detail::build_relations shares a
+# $memo hashref across all rows of a page so each FK target is counted /
+# fetched once, not once per row).
 =head2 build_edit_fields - Editable field specs of an object
 
-Arguments:  object, class (name or object)
+Arguments:  object, class (name or object), optional $memo hashref
 Returns:    [ {name, tag, kind, ...}, ... ] for the in-place edit form: the
             class's "all"-view columns that are non-sensitive. Scalar columns
             carry {name, tag, kind (text|number|textarea|checkbox|date),
@@ -89,11 +92,15 @@ Returns:    [ {name, tag, kind, ...}, ... ] for the in-place edit form: the
             queries the API instead of dumping a dropdown). FK targets that
             are not a registered type, and system-managed timestamps, are
             skipped (they stay read-only in the attributes table).
+Description: $memo caches the FK target lookups ([count, options] per target
+             registry key) so a page that builds the specs of many rows of
+             the same class (the relation tables) pays each count_all /
+             retrieve_all once.
 
 =cut
 
 sub build_edit_fields {
-    my ( $obj, $class ) = @_;
+    my ( $obj, $class, $memo ) = @_;
     my @fields;
     my $maxselect = eval { Netdot->config->get('DEFAULT_SELECTMAX') } || 100;
     for my $cd ( @{ Netdot::Mojo::Registry::display_columns( $class ) } ) {
@@ -108,12 +115,19 @@ sub build_edit_fields {
             my $cur_id  = eval { int( $obj->$col // 0 ) };
             $cur_id     = 0 unless defined $cur_id && $cur_id > 0;
             my $cur_obj = $cur_id ? eval { $obj->$col } : undef;
-            my $count   = eval { $tclass->count_all } // 0;
-            my $options;
-            if ( $count <= $maxselect ) {
-                my @all = eval { $tclass->retrieve_all };    # list context (no "||" — it scalarizes)
-                @all    = sort { _fk_label( $a ) cmp _fk_label( $b ) } @all;
-                $options = [ map { { id => $_->id, label => _fk_label( $_ ) } } @all ];
+            my ( $count, $options );
+            if ( $memo && exists $memo->{$target} ) {
+                ( $count, $options ) = @{ $memo->{$target} };
+            }
+            else {
+                $count   = eval { $tclass->count_all } // 0;
+                $options = undef;
+                if ( $count <= $maxselect ) {
+                    my @all = eval { $tclass->retrieve_all };    # list context (no "||" — it scalarizes)
+                    @all    = sort { _fk_label( $a ) cmp _fk_label( $b ) } @all;
+                    $options = [ map { { id => $_->id, label => _fk_label( $_ ) } } @all ];
+                }
+                $memo->{$target} = [ $count, $options ] if $memo;
             }
             push @fields, {
                 name      => $col,
@@ -456,23 +470,57 @@ sub relation_adds {
 # clickable cells). Rows paginated via $offset; $per is the page size.
 =head2 build_relations - has_many relation tables of a detail page
 
-Arguments:  object, perpage, offset
+Arguments:  object, perpage, offset, person (optional: the logged-in
+            Netdot::Model::Person — enables the row write affordances)
 Returns:    [ {title, cols, rows, total, per, offset, start, last_item,
-            csv_rel}, ... ]: one table per non-empty relation (like the old
-            Mason view.html "View" section). Rows are fetched ordered +
-            paginated in SQL (see relation_objects); columns come from the
-            related class's brief view; the leading label column links to
-            the related object's detail page (FK columns link to their
-            target).
+            csv_rel, ids, table, related, can_del, can_edit, edit_rows,
+            can_remove, remove_kind, remove_fk, n_children}, ... ]: one
+            table per non-empty relation (like the old Mason view.html
+            "View" section). Rows are fetched ordered + paginated in SQL
+            (see relation_objects); columns come from the related class's
+            brief view; the leading label column links to the related
+            object's detail page (FK columns link to their target).
+Description: Row write affordances (when $person is given): each row carries
+            its id (ids, parallel to rows) and the relation carries the
+            related table name (table, for the API URL) plus:
+              can_edit / edit_rows — the in-table row edit form (per-row
+            field specs, FK option lookups shared across the page); 0 for
+            the types in NOEDIT_REL below;
+              can_del — the row Delete control (DELETE /api/<table>/<id>);
+              can_remove / remove_kind / remove_fk — the row Remove control:
+            breaking the link to the page's object while keeping the related
+            object. remove_kind 'row' (the row IS the link — a join / role
+            table: Remove deletes the row, the linked objects are kept) or
+            'fk' (the row is a real object carrying a nullable direct parent
+            FK: Remove sets the FK to NULL); '' when the parent FK is NOT
+            NULL (only Delete can break the link). The API re-checks the
+            per-object right at write time (fail-closed).
 
 =cut
 
+# Related types whose rows are NOT offered the in-table row edit form: the
+# types with a dedicated write UI (Device / Ipblock — the row links to the
+# dedicated detail page that carries the proper editors), the structured
+# rights rows (UserRight / GroupRight — their writes go through the dedicated
+# rights UI / API payloads, not a plain field form) and the deprecated cable
+# classes (out of port scope). Their rows still get the row Remove / Delete
+# controls when the person may write / delete the type.
+my %NOEDIT_REL = map { $_ => 1 } qw(
+    Device Ipblock
+    UserRight GroupRight
+    Circuit HorizontalCable BackboneCable
+);
+
 sub build_relations {
-    my ($obj, $per, $offset) = @_;
+    my ( $obj, $per, $offset, $person ) = @_;
     $offset = 0 unless defined $offset && $offset > 0;
 
     my %linksfrom;
     eval { %linksfrom = ref($obj)->meta_data->get_links_from };
+
+    # FK option lookups shared by the per-row edit forms of every relation on
+    # the page (one count_all / retrieve_all per target class, not per row).
+    my %fk_memo;
 
     my @relations;
     for my $rel ( sort keys %linksfrom ) {
@@ -496,8 +544,61 @@ sub build_relations {
         my %islabel;
         eval { %islabel = map { $_ => 1 } $related->meta_data->get_labels } unless $show_label;
 
+        # Row write affordances (when a person was passed): the person's
+        # class-level right on the related type (same gate as the list pages
+        # and the relation "Add" forms); the API re-checks the per-object
+        # right at write time (fail-closed).
+        my $tclass   = "Netdot::Model::$related";
+        my $ttable   = eval { $tclass->table };
+        $ttable      = '' unless $ttable;
+        my $can_del  = $person && $ttable
+                 ? Netdot::Mojo::Permissions->has_action( $tclass, $person, 'delete' )
+                 : 0;
+        my $can_edit = $person && $ttable && !$NOEDIT_REL{$related}
+                 ? Netdot::Mojo::Permissions->has_action( $tclass, $person, 'edit' )
+                 : 0;
+
+        # Row "Remove" affordance: break the link to the page's object while
+        # keeping the related object. Two shapes:
+        #   'row' — the row IS the link (a join / role table: deleting it keeps
+        #           the linked objects);
+        #   'fk'  — the row is a real object carrying a nullable direct parent
+        #           FK (the FK is set to NULL). A NOT NULL parent FK can only
+        #           be broken by deleting the row (the Delete control).
+        # Gated like the other row affordances (class-level right on the
+        # related type: 'delete' for a row delete, 'edit' for an FK update);
+        # the API re-checks per-object at write time. Ipblock->children is
+        # excluded (parent => NULL would create a second tree root).
+        my $tmeta     = eval { $tclass->meta_data };
+        my $fk_col    = $rtables->{$related};
+        my $is_join   = eval { $tmeta && $tmeta->is_join } ? 1 : 0;
+        my $remove_kind = '';
+        my $remove_fk   = '';
+        if ( $is_join || $related eq 'Contact' ) {
+            $remove_kind = 'row';
+        }
+        elsif ( defined $fk_col && !ref $fk_col
+                && !( $related eq 'Ipblock' && $fk_col eq 'parent' ) ) {
+            my $fk_null = eval { $tmeta->get_column( $fk_col )->is_nullable }
+                          ? 1 : 0;
+            if ($fk_null) {
+                $remove_kind = 'fk';
+                $remove_fk   = $fk_col;
+            }
+        }
+        my $can_remove = $remove_kind && $person
+            ? Netdot::Mojo::Permissions->has_action(
+                $tclass, $person, $remove_kind eq 'row' ? 'delete' : 'edit' )
+            : 0;
+
         my @rows;
+        my @edit_rows;
+        my @n_children;    # child-block counts for the Delete confirm option
         for my $o2 (@page) {
+            push @edit_rows,
+                 $can_edit ? build_edit_fields( $o2, $tclass, \%fk_memo ) : undef;
+            push @n_children,
+                 $related eq 'Ipblock' ? ( eval { scalar( $o2->children ) } // 0 ) : 0;
             my @cells;
             if ($show_label) {
                 my ( $lt, $lh ) = @{ Netdot::Mojo::Registry::link_for($o2) };
@@ -535,6 +636,17 @@ sub build_relations {
             start     => $total ? $offset + 1 : 0,
             last_item => $offset + scalar( @page ),
             csv_rel   => $rel,
+            # Row write affordances (see the sub description).
+            ids         => [ map { eval { $_->id } // 0 } @page ],
+            table       => $ttable,
+            related     => $related,
+            can_del     => $can_del,
+            can_edit    => $can_edit,
+            edit_rows   => \@edit_rows,
+            can_remove  => $can_remove,
+            remove_kind => $remove_kind,
+            remove_fk   => $remove_fk,
+            n_children  => \@n_children,
         };
     }
     return \@relations;

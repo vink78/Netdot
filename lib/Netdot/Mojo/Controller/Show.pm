@@ -136,7 +136,8 @@ sub show ($c) {
     my $perpage = eval { $obj->config->get('DEFAULT_PERPAGE') };
     $perpage    = 50 unless $perpage && $perpage > 0;
 
-    my $relations = Netdot::Mojo::Detail::build_relations( $obj, $perpage, $offset );
+    my $relations = Netdot::Mojo::Detail::build_relations( $obj, $perpage, $offset,
+                                                           $c->current_person );
 
     # Generic relation "Add" forms (editors only): one create form per
     # addable has_many relation, rendered in the relation's tab (see
@@ -165,6 +166,17 @@ sub show ($c) {
             start     => 0,
             last_item => 0,
             csv_rel   => $a->{rel},
+            # No rows -> no row write affordances.
+            ids         => [],
+            table       => '',
+            related     => $a->{related},
+            can_del     => 0,
+            can_edit    => 0,
+            edit_rows   => [],
+            can_remove  => 0,
+            remove_kind => '',
+            remove_fk   => '',
+            n_children  => [],
         };
     }
     @$relations = sort { $a->{csv_rel} cmp $b->{csv_rel} } @$relations;
