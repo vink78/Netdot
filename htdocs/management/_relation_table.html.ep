@@ -1,0 +1,83 @@
+% # Shared has_many relation table of the generic detail pages (Detail::
+% # build_relations spec in $r): the header, the read-only rows and the row
+% # write affordances — an Edit control that reveals the row's in-table form
+% # (nd_row _edit_form, PATCH /api/<table>/<id>; netdot.js initRowEdits +
+% # initForms), a Remove control that breaks the link while keeping the
+% # related object (row delete for join / role rows, parent-FK null for
+% # direct FK rows — netdot.js initRowRemoves) and a Delete control (the
+% # .nd-rec-delete handler, DELETE /api/<table>/<id>; Device / Ipblock rows
+% # carry the dedicated confirm options). The API re-checks the per-object
+% # right at write time. Used by detail.html.ep, zone.html.ep and
+% # contactlist.html.ep.
+% my $row_act = ( $r->{can_edit} || $r->{can_del} || $r->{can_remove} ) ? 1 : 0;
+<table class="datatable">
+  <thead>
+    <tr>
+    % for my $h ( @{ $r->{cols} } ) {
+    <th><%= $h %></th>
+    % }
+    % if ($row_act) {
+    <th></th>
+    % }
+    </tr>
+  </thead>
+  <tbody>
+    % my $ri = 0;
+    % for my $row ( @{ $r->{rows} } ) {
+    %   my $rid = ( defined $r->{ids} && $r->{ids}[$ri] ) ? $r->{ids}[$ri] : undef;
+    <tr class="nd-row-ro">
+      % for my $cell ( @$row ) {
+      % my ($t, $h) = @$cell;
+      <td>
+        % if ($h) {
+        <a href="<%= $h %>"><%= $t %></a>
+        % } else {
+        <%= $t // '' %>
+        % }
+      </td>
+      % }
+      % if ( $row_act && $rid ) {
+      <td class="nd-row-act">
+        % if ( $r->{can_edit} ) {
+        <button type="button" class="btn nd-row-edit">Edit</button>
+        % }
+        % if ( $r->{can_remove} ) {
+        <button type="button" class="btn nd-row-remove"
+                data-nd-remove="<%= $r->{remove_kind} %>"
+        % if ( $r->{remove_kind} eq 'row' ) {
+                data-nd-del="<%= $c->web_prefix . '/api/' . $r->{table} . '/' . $rid %>"
+        % } else {
+                data-nd-api="<%= $c->web_prefix . '/api/' . $r->{table} . '/' . $rid %>"
+                data-nd-fk="<%= $r->{remove_fk} %>"
+        % }
+                data-nd-type="<%= lc( $r->{related} ) %>"
+                style="margin-left:0.4em">Remove</button>
+        % }
+        % if ( $r->{can_del} && $r->{remove_kind} ne 'row' ) {
+        <button type="button" class="btn nd-rec-delete"
+                data-nd-del="<%= $c->web_prefix . '/api/' . $r->{table} . '/' . $rid %>"
+        % if ( $r->{related} eq 'Device' ) {
+                data-nd-device="1"
+        % }
+        % if ( $r->{related} eq 'Ipblock' ) {
+                data-nd-ipblock="1" data-nd-children="<%= $r->{n_children}[$ri] %>"
+        % }
+                style="margin-left:0.4em">Delete</button>
+        % }
+      </td>
+      % }
+    </tr>
+    % if ( $r->{can_edit} && $rid && defined $r->{edit_rows} && $r->{edit_rows}[$ri] ) {
+    <tr class="nd-row-form" style="display:none">
+      <td colspan="<%= scalar( @{ $r->{cols} } ) + 1 %>">
+        <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                                  can_edit => 1, fields => $r->{edit_rows}[$ri],
+                                  api_path => $c->web_prefix . '/api/' . $r->{table} . '/' . $rid,
+                                  nd_method => 'PATCH', nd_row => 1 ) %>
+      </td>
+    </tr>
+    % }
+    % $ri++;
+    % }
+  </tbody>
+</table>

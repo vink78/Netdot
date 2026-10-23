@@ -101,31 +101,9 @@
   % my $rlink = sub { my $off = shift; return $dbase . '?rel=' . $rel . ( ( defined $off && $off > 0 ) ? '&offset=' . $off : '' ); };
   <div class="tab-pane" data-rel="<%= $rel %>"<%= ($multi && $active ne $rel) ? ' hidden' : '' %>>
     % if ( $r->{total} ) {
-    <table class="datatable">
-      <thead>
-        <tr>
-        % for my $h ( @{ $r->{cols} } ) {
-        <th><%= $h %></th>
-        % }
-        </tr>
-      </thead>
-      <tbody>
-        % for my $row ( @{ $r->{rows} } ) {
-        <tr>
-          % for my $cell ( @$row ) {
-          % my ($t, $h) = @$cell;
-          <td>
-            % if ($h) {
-            <a href="<%= $h %>"><%= $t %></a>
-            % } else {
-            <%= $t // '' %>
-            % }
-          </td>
-          % }
-        </tr>
-        % }
-      </tbody>
-    </table>
+    % # Relation table + row write affordances (Edit / Remove / Delete per
+    % # row — shared partial, see _relation_table.html.ep).
+    <%= $c->render_to_string( template => 'management/_relation_table', layout => 0, r => $r ) %>
     % } else {
     <p>No attribute.</p>
     % }

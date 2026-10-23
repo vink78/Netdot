@@ -45,6 +45,11 @@
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px">Contacts (<%= scalar @$contacts %>)</h2>
   % if (@$contacts) {
+  % # Row write affordances: Edit reveals the row's in-table form (PATCH
+  % # /api/contact/<id>). A contact row is the role link itself (a Person is
+  % # not deleted), so the row control is a Remove (DELETE /api/contact/<id>;
+  % # netdot.js initRowRemoves); the API re-checks the per-object right.
+  % my $row_act = ( $contact_can_edit || $contact_can_del ) ? 1 : 0;
   <table class="datatable">
     <thead>
       <tr>
@@ -54,11 +59,14 @@
         <th>Pager</th>
         <th>Voice</th>
         <th>Escalation</th>
+        % if ($row_act) {
+        <th></th>
+        % }
       </tr>
     </thead>
     <tbody>
       % for my $r (@$contacts) {
-      <tr>
+      <tr class="nd-row-ro">
         <td>
           % if ($r->{person}[1]) {
           <a href="<%= $r->{person}[1] %>"><%= $r->{person}[0] %></a>
@@ -71,7 +79,31 @@
         <td><%= $r->{notify_pager} %></td>
         <td><%= $r->{notify_voice} %></td>
         <td><%= $r->{escalation_level} %></td>
+        % if ( $row_act && $r->{id} ) {
+        <td class="nd-row-act">
+          % if ( $contact_can_edit ) {
+          <button type="button" class="btn nd-row-edit">Edit</button>
+          % }
+          % if ( $contact_can_del ) {
+          <button type="button" class="btn nd-row-remove"
+                  data-nd-remove="row"
+                  data-nd-del="<%= $c->web_prefix . '/api/contact/' . $r->{id} %>"
+                  data-nd-type="contact"
+                  style="margin-left:0.4em">Remove</button>
+          % }
+        </td>
+        % }
       </tr>
+      % if ( $contact_can_edit && $r->{id} && $r->{edit_fields} ) {
+      <tr class="nd-row-form" style="display:none">
+        <td colspan="<%= $row_act ? 7 : 6 %>">
+          <%= $c->render_to_string( template => 'management/_edit_form', layout => 0,
+                                    can_edit => 1, fields => $r->{edit_fields},
+                                    api_path => $c->web_prefix . '/api/contact/' . $r->{id},
+                                    nd_method => 'PATCH', nd_row => 1 ) %>
+        </td>
+      </tr>
+      % }
       % }
     </tbody>
   </table>
@@ -94,33 +126,11 @@
 </div>
 
 % for my $r (@$relations) {
+% # Relation table + row write affordances (Edit / Remove / Delete per row —
+% # shared partial, see _relation_table.html.ep).
 <div style="margin:1.2em 0 0.5em 0">
   <h2 style="font-size:1.05em; border-bottom:1px solid #ddeedd; padding-bottom:2px"><%= $r->{title} %></h2>
-  <table class="datatable">
-    <thead>
-      <tr>
-      % for my $h ( @{ $r->{cols} } ) {
-      <th><%= $h %></th>
-      % }
-      </tr>
-    </thead>
-    <tbody>
-      % for my $row ( @{ $r->{rows} } ) {
-      <tr>
-        % for my $cell ( @$row ) {
-        % my ($t, $h) = @$cell;
-        <td>
-          % if ($h) {
-          <a href="<%= $h %>"><%= $t %></a>
-          % } else {
-          <%= $t // '' %>
-          % }
-        </td>
-        % }
-      </tr>
-      % }
-    </tbody>
-  </table>
+  <%= $c->render_to_string( template => 'management/_relation_table', layout => 0, r => $r ) %>
   <p style="font-size:0.85em; margin:0.3em 0 0 0">
     % if ( $r->{total} > $r->{per} ) {
     Results: [<%= $r->{start} %>-<%= $r->{last_item} %>] of <%= $r->{total} %>&nbsp;

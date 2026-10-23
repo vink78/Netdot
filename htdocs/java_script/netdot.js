@@ -208,6 +208,75 @@
   }
 
   // Per-record Edit / Cancel toggle (related records on the RR host page): each
+  // Relation-row "Remove" buttons: break the link to the page's object while
+  // keeping the related object. data-nd-remove="row": the row IS the link
+  // (a join / role row) — DELETE it; the linked objects are kept.
+  // data-nd-remove="fk": the row is a real object carrying a nullable parent
+  // FK — PATCH that FK to null; the object is kept.
+  function initRowRemoves() {
+    var rms = document.querySelectorAll('.nd-row-remove');
+    for (var i = 0; i < rms.length; i++) {
+      rms[i].addEventListener('click', function () {
+        var btn  = this;
+        var kind = btn.getAttribute('data-nd-remove');
+        var type = btn.getAttribute('data-nd-type') || 'record';
+        var msg = kind === 'row'
+          ? 'Remove this ' + type + ' from the list? The linked objects will be kept.'
+          : 'Remove this ' + type + ' from the list? It will be kept.';
+        ndConfirm({ message: msg }).then(function (r) {
+          if (!r.ok) { return; }
+          btn.disabled = true;
+          spinner(true, 'Removing…');
+          var req;
+          if (kind === 'row') {
+            req = api('DELETE', btn.getAttribute('data-nd-del'));
+          } else {
+            var body = {};
+            body[btn.getAttribute('data-nd-fk')] = null;
+            req = api('PATCH', btn.getAttribute('data-nd-api'), body);
+          }
+          req.then(function (res) {
+            spinner(false);
+            if (res.ok) {
+              status(true, 'Removed');
+              setTimeout(function () { location.reload(); }, 700);
+            } else {
+              status(false, errMsg(res), 8000);
+              btn.disabled = false;
+            }
+          });
+        });
+      });
+    }
+  }
+
+  // In-table row editors (relation tables of the detail pages): the row's
+  // [Edit] hides the read-only row and reveals the form row right below it
+  // (a <tr class="nd-row-form"> carrying an nd API form — initForms handles
+  // the PATCH and reloads on success); [Cancel] restores the read-only row.
+  function initRowEdits() {
+    var edits = document.querySelectorAll('.nd-row-edit');
+    for (var i = 0; i < edits.length; i++) {
+      edits[i].addEventListener('click', function () {
+        var ro = this.closest('tr');
+        var form = ro && ro.nextElementSibling;
+        if (form && form.classList.contains('nd-row-form')) {
+          ro.style.display = 'none';
+          form.style.display = '';
+        }
+      });
+    }
+    var cancels = document.querySelectorAll('.nd-row-cancel');
+    for (var j = 0; j < cancels.length; j++) {
+      cancels[j].addEventListener('click', function () {
+        var form = this.closest('tr');
+        var ro = form && form.previousElementSibling;
+        if (ro && ro.classList.contains('nd-row-ro')) { ro.style.display = ''; }
+        if (form) { form.style.display = 'none'; }
+      });
+    }
+  }
+
   // .nd-rec holds a readonly table (.nd-rec-ro) + a hidden form (.nd-rec-form).
   function initRecToggles() {
     var toggles = document.querySelectorAll('.nd-rec-toggle');
@@ -1755,6 +1824,8 @@
     initZoneImport();
     initRecToggles();
     initRecDeletes();
+    initRowRemoves();
+    initRowEdits();
     initAddForm();
     initFkSearch();
     initCreateBlocks();

@@ -5,6 +5,7 @@ use Mojo::Base 'Mojolicious::Controller', -signatures;
 use Netdot;
 use Netdot::Model;
 use Netdot::Mojo::Registry;
+use Netdot::Mojo::Permissions;
 use Netdot::Mojo::Detail;
 
 # Detail page for a Contact List (port of generic/contactlist.html).
@@ -59,7 +60,17 @@ sub show ($c) {
     my $can_edit = $c->perm( 'edit', $o );
     my $fields   = $can_edit ? Netdot::Mojo::Detail::build_edit_fields( $o, 'ContactList' ) : [];
     my $api_path = $can_edit ? $c->web_prefix . '/api/contactlist/' . $id : '';
-    my $contacts = _contacts( $o );
+
+    # Row write affordances of the dedicated Contacts section (same gate as the
+    # generic relation tables; the API re-checks per-object at write time):
+    # class-level right on the Contact type (a ContactList grant covers its
+    # roles).
+    my $contact_can_edit =
+        Netdot::Mojo::Permissions->has_action( 'Contact', $c->current_person, 'edit' );
+    my $contact_can_del =
+        Netdot::Mojo::Permissions->has_action( 'Contact', $c->current_person, 'delete' );
+
+    my $contacts = _contacts( $o, $contact_can_edit );
 
     # Contact "Add" form (port of the legacy contactlist.html [add] link on the
     # Contacts section): the generic create-field spec for the `contacts`
@@ -71,7 +82,8 @@ sub show ($c) {
           @{ Netdot::Mojo::Detail::relation_adds( $o, $c->current_person ) } )[0];
 
     # Generic has_many tables, minus the specially-rendered `contacts` relation.
-    my $relations = Netdot::Mojo::Detail::build_relations( $o, $perpage, $offset );
+    my $relations = Netdot::Mojo::Detail::build_relations( $o, $perpage, $offset,
+                                                           $c->current_person );
     $relations = [ grep { $_->{csv_rel} ne 'contacts' } @$relations ];
 
     $c->render(
@@ -86,31 +98,42 @@ sub show ($c) {
         api_path  => $api_path,
         contacts  => $contacts,
         contact_add => $contact_add,
+        contact_can_edit => $contact_can_edit,
+        contact_can_del  => $contact_can_del,
         relations => $relations,
     );
 }
 
-# Contact roles of this list, sorted by the person's label. Each row: the linked
-# Person plus the role's contact type and notify/escalation fields.
+# Contact roles of this list, sorted by the person's label. Each row: the
+# role's id (the row Delete/Save target, /api/contact/<id>), the linked Person
+# plus the role's contact type and notify/escalation fields, and — when row
+# editing is offered — the role's per-row edit-field spec (Detail::
+# build_edit_fields, FK option lookups shared across the rows).
 sub _contacts {
-    my ($o) = @_;
+    my ( $o, $with_edit ) = @_;
     my @roles = eval { $o->contacts };
     @roles = sort { _p_label($a) cmp _p_label($b) } @roles;
 
+    my %fk_memo;    # FK option lookups shared across the rows
     my @rows;
     for my $r (@roles) {
         my $person   = eval { $r->person };
         my $plabel   = eval { $person->get_label } // '';
         my $phref    = $person ? Netdot::Mojo::Registry::set_uri( '/management/person/' . $person->id ) : '';
         my $ct       = eval { $r->contacttype };
-        push @rows, {
+        my %row = (
+            id               => eval { $r->id } // 0,
             person           => [ $plabel, $phref ],
             contacttype      => eval { $ct->name } // '',
             notify_email     => _str( $r, 'notify_email' ),
             notify_pager     => _str( $r, 'notify_pager' ),
             notify_voice     => _str( $r, 'notify_voice' ),
             escalation_level => _str( $r, 'escalation_level' ),
-        };
+        );
+        $row{edit_fields} = $with_edit
+            ? Netdot::Mojo::Detail::build_edit_fields( $r, 'Contact', \%fk_memo )
+            : undef;
+        push @rows, \%row;
     }
     return \@rows;
 }
