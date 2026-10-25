@@ -1,0 +1,14 @@
+Netdot 2.0 is now deployed as {{ include "netdot.fullname" . }}.
+
+Application URL:  http://<node-or-service-host>:{{ .Values.service.port }}/
+{{- if .Values.ingress.enabled }}
+               or: https://{{ .Values.ingress.host }}/
+{{- end }}
+
+First boot: the pod waits for the database at
+{{ .Values.database.host }}:{{ .Values.database.port }} and initializes it
+(database, application account, schema, seed data). Watch the pod logs
+for the "Database initialized successfully" line.
+
+Log in at /login. See the manual (Authentication section) for the first
+user and for LDAP / OpenID Connect configuration.

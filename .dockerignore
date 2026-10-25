@@ -1,0 +1,12 @@
+# The build context is only used for the docker/ files in the published
+# Dockerfile (the source is cloned from the public repository inside the
+# build); keep the context small and free of local state when building
+# from a development tree. The Makefiles of tmp/ and var/ are part of the
+# source and must stay.
+.git
+etc/Site.conf
+*.log
+TODO*
+tmp/*
+var/*
+!var/Makefile

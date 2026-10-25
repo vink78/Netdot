@@ -1,0 +1,9 @@
+apiVersion: v2
+name: netdot
+description: >-
+  Netdot 2.0 — network documentation, automated layer-2 topology
+  discovery and IPAM (Mojolicious web app + JSON API). The database is
+  external; the chart deploys the application only.
+type: application
+version: 0.1.0
+appVersion: "2.0.0"

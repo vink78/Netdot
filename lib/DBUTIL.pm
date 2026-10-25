@@ -55,9 +55,10 @@ use vars qw( @ISA @EXPORT $dbh );
 
 use Exporter ();
 @ISA = qw(Exporter);
-@EXPORT = qw( dbconnect dbdisconnect processdata build_statements init_db drop_db
-generate_schema_from_metadata generate_schema_file insert_schema create_db _yesno
-initacls_mysql initacls_pg insert_default_data insert_oui db_query );
+@EXPORT = qw( dbconnect dbdisconnect processdata build_statements init_db
+init_schema_only drop_db generate_schema_from_metadata generate_schema_file
+insert_schema create_db _yesno initacls_mysql initacls_pg insert_default_data
+insert_oui db_query );
 
 ##################################################
 
@@ -197,6 +198,25 @@ sub init_db {
     }
     &insert_default_data();
     print "Database initialized successfully\n";
+}
+
+##################################################
+
+=head2 init_schema_only - Apply the schema and seed data only
+
+    The database and the application account are assumed to already exist
+    (pre-provisioned by the DBA). This only generates the schema file and
+    loads the schema and the seed data, connecting as the application
+    account (the config's DBA keys are mapped to it). Use it when the
+    initializer must not create the database or the account.
+
+=cut
+
+sub init_schema_only {
+    &generate_schema_file();
+    &insert_schema();
+    &insert_default_data();
+    print "Schema and default data inserted successfully\n";
 }
 
 ##################################################

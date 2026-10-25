@@ -74,6 +74,10 @@ my @DEPS = (
     {cpan=>'AnyEvent', apt=>'libanyevent-perl', rpm=>'perl-AnyEvent'},
     {cpan=>'Coro', apt=>'libcoro-perl', rpm=>'perl-Coro'},
     {cpan=>'Date::Parse', apt=>'libtimedate-perl', rpm=>'perl-TimeDate'},
+    # Data::Dump is used at runtime (DBUTIL, Netdot.pm, Model/Device,
+    # Model/PhysAddr) but is only a Recommends of libwww-perl, so a
+    # --no-install-recommends install misses it.
+    {cpan=>'Data::Dump', apt=>'libdata-dump-perl', rpm=>'perl-Data-Dump'},
     ) ;
 
 if ( $action eq 'test' ){

@@ -1,0 +1,21 @@
+# Netdot Site.conf template for container deployments.
+#
+# The entrypoint (docker/entrypoint.sh) substitutes the <<...>> markers
+# from environment variables and writes the result to
+# /usr/local/netdot/etc/Site.conf — unless a Site.conf is already present
+# (mount one to override anything). It overlays etc/Default.conf at the
+# key level (lib/Netdot/Config.pm).
+#
+# The database and the application account are pre-provisioned by the DBA.
+# The first-boot initializer runs as the application account, so the legacy
+# DBA keys are mapped to DB_NETDOT_USER / DB_NETDOT_PASS by the entrypoint.
+my $config = {
+DB_TYPE         => '<<DB_TYPE>>',
+DB_HOST         => '<<DB_HOST>>',
+DB_PORT         => '<<DB_PORT>>',
+DB_DBA          => '<<DB_DBA>>',
+DB_DBA_PASSWORD => '<<DB_DBA_PASSWORD>>',
+DB_DATABASE     => '<<DB_DATABASE>>',
+DB_NETDOT_USER  => '<<DB_NETDOT_USER>>',
+DB_NETDOT_PASS  => '<<DB_NETDOT_PASS>>',
+}
