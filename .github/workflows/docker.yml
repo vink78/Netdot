@@ -44,5 +44,7 @@ jobs:
             ghcr.io/vink78/netdot:latest
           build-args: |
             NETDOT_VERSION=v2.0.0-dev-${{ steps.shortsha.outputs.sha }}
-          cache-from: type=ghcr,scope=netdot
-          cache-to: type=ghcr,mode=max,scope=netdot
+          # type=registry (rather than the newer type=ghcr) so the cache
+          # also works with older BuildKit versions.
+          cache-from: type=registry,ref=ghcr.io/vink78/netdot-buildx-cache:latest
+          cache-to: type=registry,ref=ghcr.io/vink78/netdot-buildx-cache:latest,mode=max
