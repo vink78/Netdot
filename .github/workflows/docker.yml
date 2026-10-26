@@ -24,6 +24,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The MIBs are vendored into the image from the build context (the
+      # Dockerfile cannot git-clone on the GHCR-hosted runners); the ref is
+      # pinned here for reproducible builds.
+      - name: Check out netdisco-mibs (pinned release tag)
+        uses: actions/checkout@v4
+        with:
+          repository: netdisco/netdisco-mibs
+          ref: 4.065
+          fetch-depth: 1
+          path: netdisco-mibs
+
       - id: shortsha
         run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 

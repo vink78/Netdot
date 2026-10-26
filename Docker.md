@@ -18,6 +18,11 @@ Tag the image after the commit you build from, so each test build is
 traceable (no git tag needed per commit):
 
 ```bash
+# The image vendors the netdisco-mibs tree; clone it into the build
+# context first (the CI workflow does the same, at the pinned ref):
+git clone --depth 1 --branch 4.065 \
+    https://github.com/netdisco/netdisco-mibs netdisco-mibs
+
 V=v2.0.0-dev-$(git rev-parse --short HEAD)
 docker build --build-arg NETDOT_VERSION=$V -t netdot:$V .
 ```
@@ -68,6 +73,11 @@ The simplest isolated test: `docker compose` starts a companion MariaDB and
 the application on the same Docker network (the app uses `DB_HOST=db`):
 
 ```bash
+# The image build needs the netdisco-mibs tree in the build context
+# (one-time, see "Build the image"):
+git clone --depth 1 --branch 4.065 \
+    https://github.com/netdisco/netdisco-mibs netdisco-mibs
+
 docker compose up -d        # → http://localhost:3000/
 ```
 

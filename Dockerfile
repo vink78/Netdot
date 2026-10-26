@@ -27,22 +27,20 @@
 
 # ---- Vendor MIBs for SNMP discovery (netdisco-mibs, same source as the
 # ---- apt-install step of bin/perldeps.pl) ------------------------------
-# The ref is pinned to a release tag for reproducible builds — bump it
-# intentionally. Strip the top-level dot-entries (.git, .github, ...) before
-# copying so only the MIB data lands in the image (~300 Mo).
-ARG MIBS_REF=4.065
+# The MIB tree is provided in the build context as ./netdisco-mibs, pinned
+# to a release tag by the ref in .github/workflows/docker.yml (CI) — the
+# build containers of the GHCR-hosted runners cannot git-clone from
+# github.com, so the checkout happens at the runner level. For local
+# builds, clone it into the build context first (same ref):
+#
+#   git clone --depth 1 --branch 4.065 \
+#       https://github.com/netdisco/netdisco-mibs netdisco-mibs
 FROM debian:trixie-slim AS mibs
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        ca-certificates git \
-    && git clone --depth 1 --branch ${MIBS_REF} \
-         https://github.com/netdisco/netdisco-mibs /tmp/netdisco-mibs \
-    && find /tmp/netdisco-mibs -mindepth 1 -maxdepth 1 -name '.*' \
-         -exec rm -rf {} + \
-    && mkdir -p /usr/local/netdisco/mibs \
-    && cp -r /tmp/netdisco-mibs/. /usr/local/netdisco/mibs/ \
-    && rm -rf /tmp/netdisco-mibs \
-    && apt-get purge -y --auto-remove git \
-    && rm -rf /var/lib/apt/lists/*
+COPY netdisco-mibs/ /usr/local/netdisco/mibs/
+# The checkout carries the repository dot-entries (.git, .github, ...);
+# keep only the MIB data (~300 Mo).
+RUN find /usr/local/netdisco/mibs -mindepth 1 -maxdepth 1 -name '.*' \
+     -exec rm -rf {} +
 
 # ---- Build the application from the build context (working tree) --------
 FROM debian:trixie-slim AS build

@@ -1,8 +1,13 @@
 # Netdot 2.0 — local two-container stack: MariaDB + application.
 #
 # The image is built from the directory that contains this file (the
-# working tree) via the root Dockerfile. Optionally tag the image after
-# the current commit for traceability:
+# working tree) via the root Dockerfile; the build needs the netdisco-mibs
+# tree in the build context (one-time, see Docker.md):
+#
+#   git clone --depth 1 --branch 4.065 \
+#       https://github.com/netdisco/netdisco-mibs netdisco-mibs
+#
+# Optionally tag the image after the current commit for traceability:
 #
 #   NETDOT_VERSION=v2.0.0-dev-$(git rev-parse --short HEAD) docker compose up -d
 #   # then browse http://localhost:3000/

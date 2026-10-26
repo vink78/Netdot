@@ -15,3 +15,7 @@ var/pollstats.rrd
 htdocs/img/graphs/*.png
 export/*
 tmp/*
+
+# netdisco-mibs is cloned into the build context for the Docker image
+# (see the mibs stage of the Dockerfile and Docker.md); local clone only.
+netdisco-mibs/
