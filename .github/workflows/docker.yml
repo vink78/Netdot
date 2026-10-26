@@ -1,0 +1,48 @@
+# Build and publish the Netdot 2.0 application image.
+#
+# The Actions checkout is a clean tree, so each image is reproducible per
+# commit. The netdisco-mibs ref is pinned in the Dockerfile (MIBS_REF) for
+# the same reason.
+#
+# Tags: v2.0.0-dev-<shortsha> (per commit) and latest (tracks dev). The
+# 2.0 work lives on the dev branch, so that is the branch this workflow
+# triggers on (the repository default branch is still master).
+name: docker
+
+on:
+  push:
+    branches: [dev]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: shortsha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/vink78/netdot:v2.0.0-dev-${{ steps.shortsha.outputs.sha }}
+            ghcr.io/vink78/netdot:latest
+          build-args: |
+            NETDOT_VERSION=v2.0.0-dev-${{ steps.shortsha.outputs.sha }}
+          cache-from: type=ghcr,scope=netdot
+          cache-to: type=ghcr,mode=max,scope=netdot

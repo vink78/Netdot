@@ -27,13 +27,15 @@
 
 # ---- Vendor MIBs for SNMP discovery (netdisco-mibs, same source as the
 # ---- apt-install step of bin/perldeps.pl) ------------------------------
-# Strip the top-level dot-entries (.git, .github, ...) before copying so
-# only the MIB data lands in the image (~300 Mo; the shallow .git alone is
-# ~38 Mo and would otherwise be baked in).
+# The ref is pinned to a release tag for reproducible builds — bump it
+# intentionally. Strip the top-level dot-entries (.git, .github, ...) before
+# copying so only the MIB data lands in the image (~300 Mo).
+ARG MIBS_REF=4.065
 FROM debian:trixie-slim AS mibs
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates git \
-    && git clone --depth 1 https://github.com/netdisco/netdisco-mibs /tmp/netdisco-mibs \
+    && git clone --depth 1 --branch ${MIBS_REF} \
+         https://github.com/netdisco/netdisco-mibs /tmp/netdisco-mibs \
     && find /tmp/netdisco-mibs -mindepth 1 -maxdepth 1 -name '.*' \
          -exec rm -rf {} + \
     && mkdir -p /usr/local/netdisco/mibs \
