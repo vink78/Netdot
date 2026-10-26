@@ -51,8 +51,8 @@ There are two deployment modes, depending on who provides the database:
   the database, applies the schema + seed data (first boot), runs the
   upgrade (outdated version), or does nothing (up to date).
 
-The **Helm chart supports the external mode only** (it deploys the
-application only).
+The Helm chart supports both modes: an embedded trial database by default
+(see the Helm chart section below), or an external database.
 
 ### Networking primer — where is the database?
 
@@ -128,29 +128,42 @@ docker run -d --name netdot -p 3000:3000 \
 # → http://localhost:3000/
 ```
 
-### Helm chart (Kubernetes, external database only)
+### Helm chart (Kubernetes)
 
-A chart for Kubernetes lives in [helm/netdot](helm/netdot). It deploys the
-**application only**, against any reachable MySQL/MariaDB; the DBA
-pre-provisions the database and the application account. Same image, same
-entrypoint, same first-boot behaviour as the `docker run` path:
+A chart for Kubernetes lives in [helm/netdot](helm/netdot). By default it
+deploys the application **and an embedded trial MariaDB** (`trialDatabase`),
+so a plain install works with zero external services; the database data is
+ephemeral (emptyDir), for the same trial semantics as the compose stack.
+Same image, same entrypoint, same first-boot behaviour as the `docker run`
+path.
 
 ```bash
+# Trial mode (default): application + embedded MariaDB.
+helm install netdot helm/netdot
+
+# External database: point database.* at your MySQL/MariaDB (pre-provisioned
+# by the DBA: database + application account with the privileges to apply
+# and upgrade the schema).
 helm install netdot helm/netdot \
-    --set image.repository=<your-registry>/netdot \
-    --set image.tag=v2.0.0-dev-<shortsha> \
+    --set trialDatabase.enabled=false \
     --set database.host=<db-host> \
+    --set database.port=3306 \
     --set database.password=<app-password>
 ```
+
+The defaults pull `ghcr.io/vink78/netdot:latest` (published by the
+repository CI, tracking the dev branch); pin a `v2.0.0-dev-<shortsha>` tag
+for a stable trial.
 
 `values.yaml` is the complete, commented reference; the configuration
 surface:
 
 | Values key(s) | Purpose |
 |---------------|---------|
-| `image.*` | Image repository / tag / pull policy. |
+| `image.*` | Image repository / tag / pull policy (default: `ghcr.io/vink78/netdot:latest`). |
 | `netdotname`, `adminEmail`, `nocEmail`, `defaultContactList` | The commonly-configured Netdot settings, rendered into the generated Site.conf (defaults mirror `etc/Default.conf`). |
-| `database.*` (`host`, `port`, `database`, `user`, `password`) | External database + application account (pre-provisioned by the DBA). |
+| `trialDatabase.*` (`enabled`, `image.*`, `maxAllowedPacket`, `resources`) | The embedded trial MariaDB (enabled by default). |
+| `database.*` (`type`, `host`, `port`, `database`, `user`, `password`) | The database the app connects to: the embedded trial database (where `host`/`port` are ignored) or, with `trialDatabase.enabled: false`, your external MySQL/MariaDB. `database`/`user`/`password` are used in both modes. |
 | `ldap.*` | LDAP authentication (empty `server` = local authentication only). |
 | `oauth.*` | OAuth2 / OpenID Connect (disabled by default). |
 | `extraConfig` | Any other `etc/Default.conf` variable, verbatim Perl (e.g. `WEB_BASE_URL: "'https://netdot.example.org'"`). |
@@ -163,7 +176,7 @@ Notes:
   rendered as `'yes'`/`'no'` in the Site.conf.
 * The generated Site.conf lives in a Kubernetes Secret. The deployment
   carries a checksum annotation over the Site.conf-affecting values
-  (`database`, `netdotname`, `adminEmail`, `nocEmail`,
+  (`trialDatabase`, `database`, `netdotname`, `adminEmail`, `nocEmail`,
   `defaultContactList`, `ldap`, `oauth`, `extraConfig`), so changing any of
   them rolls the pods.
 

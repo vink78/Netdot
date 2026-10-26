@@ -13,10 +13,11 @@ spec:
     metadata:
       labels:
         {{- include "netdot.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: app
       annotations:
         # Recreate the pod when the generated Site.conf (database + base
         # configuration) changes.
-        checksum/site-conf: {{ pick .Values "database" "netdotname" "adminEmail" "nocEmail" "defaultContactList" "ldap" "oauth" "extraConfig" | toYaml | sha256sum }}
+        checksum/site-conf: {{ pick .Values "trialDatabase" "database" "netdotname" "adminEmail" "nocEmail" "defaultContactList" "ldap" "oauth" "extraConfig" | toYaml | sha256sum }}
     spec:
       securityContext:
         fsGroup: {{ .Values.securityContext.fsGroup }}
@@ -38,9 +39,9 @@ spec:
             - name: DB_TYPE
               value: {{ .Values.database.type | quote }}
             - name: DB_HOST
-              value: {{ .Values.database.host | quote }}
+              value: "{{ if .Values.trialDatabase.enabled }}{{ include "netdot.fullname" . }}-trialdb{{ else }}{{ .Values.database.host }}{{ end }}"
             - name: DB_PORT
-              value: {{ .Values.database.port | quote }}
+              value: "{{ if .Values.trialDatabase.enabled }}3306{{ else }}{{ .Values.database.port }}{{ end }}"
             - name: DB_DATABASE
               value: {{ .Values.database.database | quote }}
             - name: DB_NETDOT_USER

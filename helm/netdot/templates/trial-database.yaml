@@ -1,0 +1,94 @@
+# Embedded trial database (trialDatabase.enabled): a bundled MariaDB
+# mirroring the docker-compose.yml bootstrap, so `helm install` works with
+# zero external services.
+#
+# On first initialization the image itself creates the
+# `database.database` database and the `database.user` application account
+# with the password `database.password` (held in the chart secret); the app
+# entrypoint then applies the schema + seed data as that account.
+#
+# The data lives on an emptyDir: the trial instance is ephemeral by design,
+# and a re-created pod simply re-initializes the database.
+{{- if .Values.trialDatabase.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "netdot.fullname" . }}-trialdb
+  labels:
+    {{- include "netdot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  selector:
+    {{- include "netdot.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: mysql
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "netdot.fullname" . }}-trialdb
+  labels:
+    {{- include "netdot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "netdot.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: database
+  template:
+    metadata:
+      labels:
+        {{- include "netdot.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: database
+    spec:
+      # No fsGroup here: the mariadb image runs as the `mysql' user (uid
+      # 27), which writes to the world-writable emptyDir below (the app pod
+      # uses securityContext.fsGroup for its own volumes).
+      containers:
+        - name: mariadb
+          image: "{{ .Values.trialDatabase.image.repository }}:{{ .Values.trialDatabase.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          # Built-in image bootstrap: create the database and the
+          # application account (shared database.* values, password from
+          # the chart secret).
+          env:
+            - name: MARIADB_DATABASE
+              value: {{ .Values.database.database | quote }}
+            - name: MARIADB_USER
+              value: {{ .Values.database.user | quote }}
+            - name: MARIADB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "netdot.fullname" . }}
+                  key: password
+            - name: MARIADB_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "netdot.fullname" . }}
+                  key: password
+          args:
+            - --max_allowed_packet={{ .Values.trialDatabase.maxAllowedPacket }}
+          ports:
+            - name: mysql
+              containerPort: 3306
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - healthcheck.sh --connect --innodb_initialized
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+          resources:
+            {{- toYaml .Values.trialDatabase.resources | nindent 12 }}
+      volumes:
+        - name: data
+          emptyDir: {}
+{{- end }}

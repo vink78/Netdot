@@ -1,21 +1,24 @@
 # Default values for the Netdot 2.0 chart.
 #
-# The chart deploys the application only. The database is external: point
-# database.host at any reachable MySQL/MariaDB (a separate chart, an
-# operator-managed service, or a managed instance). The DBA pre-provisions
-# the database and the application account (with the privileges to apply the
-# schema); on first boot the entrypoint applies the schema + seed data as the
-# application account — see docker/entrypoint.sh.
+# The chart deploys the application and, by default, an embedded trial
+# database (trialDatabase), so a plain `helm install netdot/helm/netdot`
+# works out of the box with zero external services. For real deployments,
+# disable the trial database and point database.* at any reachable
+# MySQL/MariaDB (a separate chart, an operator-managed service, or a managed
+# instance). In that mode the DBA pre-provisions the database and the
+# application account (with the privileges to apply the schema); on first
+# boot the entrypoint applies the schema + seed data as the application
+# account — see docker/entrypoint.sh.
 
 replicaCount: 1
 
 image:
-  # Build the image from the repository root Dockerfile (it builds the
-  # working tree via `make install`), then push it to your registry. The 2.0
-  # release is in progress: tag the image after the commit it was built from
-  # (v2.0.0-dev-<shortsha> per commit).
-  repository: vink78/netdot
-  tag: v2.0.0-dev
+  # Published by the repository CI (.github/workflows/docker.yml) on every
+  # push to the dev branch and on version tags: `latest` tracks dev, and a
+  # `v2.0.0-dev-<shortsha>` tag is published per commit — pin a commit tag
+  # for a stable trial.
+  repository: ghcr.io/vink78/netdot
+  tag: latest
   pullPolicy: IfNotPresent
 
 # Hypnotoad worker count.
@@ -23,17 +26,45 @@ workers: 4
 # MOJO_LOG_LEVEL: info (default), debug, trace.
 logLevel: info
 
+# --- Trial database (embedded MariaDB) -------------------------------------
+# Makes `helm install` work with zero external services: a bundled MariaDB
+# mirroring the docker-compose.yml bootstrap. On first initialization the
+# image creates the `database.database` database and the `database.user`
+# account (password `database.password`), and the app entrypoint applies the
+# schema + seed data as that account.
+#
+# The data is ephemeral (emptyDir): when the pod goes away, the database is
+# re-initialized from scratch and the entrypoint re-applies the schema +
+# seed data. For anything that must persist, set enabled: false and point
+# `database.*` at an external MySQL/MariaDB.
+trialDatabase:
+  enabled: true
+  image:
+    repository: mariadb
+    tag: "11"
+  # max_allowed_packet for the IPAM features (see the manual).
+  maxAllowedPacket: "16M"
+  resources: {}
+
 # --- Database -------------------------------------------------------------
-# The container image supports mysql (MariaDB) only. The DBA pre-creates the
-# database and the application account; the application connects as that
-# account and applies the schema itself on first boot.
+# Coordinates of the MySQL/MariaDB the application connects to (the container
+# image supports mysql (MariaDB) only).
+#
+# With trialDatabase.enabled (default), the database is the embedded
+# MariaDB: `database`/`user`/`password` describe it and `host`/`port` are
+# ignored (the embedded service, port 3306, is used).
+#
+# With trialDatabase.enabled: false, point `host`/`port` at the external
+# database; the DBA pre-creates the database and the application account,
+# and the application connects as that account and applies the schema itself
+# on first boot.
 database:
   type: mysql
   host: change-me
   port: 3306
   database: netdot
-  # Application account (pre-provisioned by the DBA); used by the app and by
-  # the first-boot initializer.
+  # Application account; used by the app, by the first-boot initializer, and
+  # (in trial mode) to create the account in the embedded database.
   user: netdot_user
   password: change-me
 

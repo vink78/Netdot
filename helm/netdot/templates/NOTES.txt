@@ -1,14 +1,28 @@
 Netdot 2.0 is now deployed as {{ include "netdot.fullname" . }}.
 
-Application URL:  http://<node-or-service-host>:{{ .Values.service.port }}/
-{{- if .Values.ingress.enabled }}
-               or: https://{{ .Values.ingress.host }}/
+{{- if .Values.trialDatabase.enabled }}
+Trial mode: an embedded MariaDB ({{ include "netdot.fullname" . }}-trialdb)
+runs alongside the application. Its data is ephemeral (emptyDir); for a
+persistent database, redeploy with trialDatabase.enabled=false and
+database.* pointing at your MySQL/MariaDB.
+{{- else }}
+The application connects to the external database
+{{ .Values.database.host }}:{{ .Values.database.port }} (the DBA must have
+pre-provisioned the database and the application account).
 {{- end }}
 
-First boot: the pod waits for the database at
-{{ .Values.database.host }}:{{ .Values.database.port }} and initializes it
-(database, application account, schema, seed data). Watch the pod logs
-for the "Database initialized successfully" line.
+First boot: the pod waits for the database to be ready, then applies the
+schema + seed data (watch the pod logs for "first boot -- applying the
+schema" / "database schema up to date").
 
-Log in at /login. See the manual (Authentication section) for the first
-user and for LDAP / OpenID Connect configuration.
+Reach the app and log in at /login — the seeded credentials are
+admin/admin; change the password after the first login:
+
+    kubectl port-forward service/{{ include "netdot.fullname" . }} 3000:{{ .Values.service.port }}
+{{- if .Values.ingress.enabled }}
+
+Or through the ingress: https://{{ .Values.ingress.host }}/
+{{- end }}
+
+See the manual (Authentication section) for LDAP / OpenID Connect
+configuration.
