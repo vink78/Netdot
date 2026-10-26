@@ -152,8 +152,8 @@ helm install netdot helm/netdot \
 ```
 
 The defaults pull `ghcr.io/vink78/netdot:latest` (published by the
-repository CI, tracking the dev branch); pin a `v2.0.0-dev-<shortsha>` tag
-for a stable trial.
+repository CI on pushes to master, tracking the master branch); pin a
+`v2.0.0-dev-<shortsha>` tag for a stable trial.
 
 `values.yaml` is the complete, commented reference; the configuration
 surface:

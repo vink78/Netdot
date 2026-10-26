@@ -14,9 +14,9 @@ replicaCount: 1
 
 image:
   # Published by the repository CI (.github/workflows/docker.yml) on every
-  # push to the dev branch and on version tags: `latest` tracks dev, and a
-  # `v2.0.0-dev-<shortsha>` tag is published per commit — pin a commit tag
-  # for a stable trial.
+  # push to master and on version tags: `latest` tracks master, and a
+  # `v2.0.0-dev-<shortsha>` tag is published per master commit — pin a
+  # commit tag for a stable trial.
   repository: ghcr.io/vink78/netdot
   tag: latest
   pullPolicy: IfNotPresent

@@ -1,17 +1,16 @@
 # Build and publish the Netdot 2.0 application image.
 #
 # The Actions checkout is a clean tree, so each image is reproducible per
-# commit. The netdisco-mibs ref is pinned in the Dockerfile (MIBS_REF) for
-# the same reason.
+# commit. The netdisco-mibs ref is pinned in this workflow (the pinned
+# release-tag checkout step) for the same reason.
 #
-# Tags: v2.0.0-dev-<shortsha> (per commit) and latest (tracks dev). The
-# 2.0 work lives on the dev branch, so that is the branch this workflow
-# triggers on (the repository default branch is still master).
+# Images are published on pushes to master and on v* tags — merging dev
+# into master is what publishes a new image (release control).
 name: docker
 
 on:
   push:
-    branches: [dev]
+    branches: [master]
     tags: ["v*"]
 
 permissions:
