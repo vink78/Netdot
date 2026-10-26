@@ -12,6 +12,11 @@ $CONFIG{ACTION} = $ARGV[0] || "";
 
 if ($CONFIG{ACTION} eq 'initdb' ) {
     &init_db();
+}elsif ($CONFIG{ACTION} eq 'initschema' ) {
+    # The database and the application account are pre-provisioned by the
+    # DBA; this only applies the schema and the seed data (as the app
+    # account, which the config's DBA keys map to).
+    &init_schema_only();
 }elsif ($CONFIG{ACTION} eq 'dropdb' ) {
     &drop_db();
 }elsif ($CONFIG{ACTION} eq 'generate') {

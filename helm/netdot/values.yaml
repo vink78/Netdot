@@ -1,0 +1,171 @@
+# Default values for the Netdot 2.0 chart.
+#
+# The chart deploys the application and, by default, an embedded trial
+# database (trialDatabase), so a plain `helm install netdot/helm/netdot`
+# works out of the box with zero external services. For real deployments,
+# disable the trial database and point database.* at any reachable
+# MySQL/MariaDB (a separate chart, an operator-managed service, or a managed
+# instance). In that mode the DBA pre-provisions the database and the
+# application account (with the privileges to apply the schema); on first
+# boot the entrypoint applies the schema + seed data as the application
+# account — see docker/entrypoint.sh.
+
+replicaCount: 1
+
+image:
+  # Published by the repository CI (.github/workflows/docker.yml) on every
+  # push to master and on version tags: `latest` tracks master, and a
+  # `v2.0.0-dev-<shortsha>` tag is published per master commit — pin a
+  # commit tag for a stable trial.
+  repository: ghcr.io/vink78/netdot
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# Hypnotoad worker count.
+workers: 4
+# MOJO_LOG_LEVEL: info (default), debug, trace.
+logLevel: info
+
+# --- Trial database (embedded MariaDB) -------------------------------------
+# Makes `helm install` work with zero external services: a bundled MariaDB
+# mirroring the docker-compose.yml bootstrap. On first initialization the
+# image creates the `database.database` database and the `database.user`
+# account (password `database.password`), and the app entrypoint applies the
+# schema + seed data as that account.
+#
+# The data is ephemeral (emptyDir): when the pod goes away, the database is
+# re-initialized from scratch and the entrypoint re-applies the schema +
+# seed data. For anything that must persist, set enabled: false and point
+# `database.*` at an external MySQL/MariaDB.
+trialDatabase:
+  enabled: true
+  image:
+    repository: mariadb
+    tag: "11"
+  # max_allowed_packet for the IPAM features (see the manual).
+  maxAllowedPacket: "16M"
+  resources: {}
+
+# --- Database -------------------------------------------------------------
+# Coordinates of the MySQL/MariaDB the application connects to (the container
+# image supports mysql (MariaDB) only).
+#
+# With trialDatabase.enabled (default), the database is the embedded
+# MariaDB: `database`/`user`/`password` describe it and `host`/`port` are
+# ignored (the embedded service, port 3306, is used).
+#
+# With trialDatabase.enabled: false, point `host`/`port` at the external
+# database; the DBA pre-creates the database and the application account,
+# and the application connects as that account and applies the schema itself
+# on first boot.
+database:
+  type: mysql
+  host: change-me
+  port: 3306
+  database: netdot
+  # Application account; used by the app, by the first-boot initializer, and
+  # (in trial mode) to create the account in the embedded database.
+  user: netdot_user
+  password: change-me
+
+# --- Base configuration (rendered into Site.conf) -------------------------
+# The commonly-configured Netdot settings, rendered into the generated
+# Site.conf. Defaults mirror etc/Default.conf. Any other Default.conf
+# variable can be set verbatim in `extraConfig` below. Netdot's yes/no
+# switches use YAML true/false here and are rendered as 'yes'/'no'.
+
+# The name of the machine or virtual host where Netdot is located.
+netdotname: netdot.localdomain
+
+# Email of the person/group that administers Netdot (maintenance output,
+# From line of generated e-mails).
+adminEmail: netdot-admin@localdomain
+
+# Email of the group that receives Netdot's informational messages (device
+# update/validation reports, ...).
+nocEmail: noc@localdomain
+
+# Contact list assigned by default when inserting Devices and other objects.
+# The Contact List must exist in the DB.
+defaultContactList: 'Network Services Contacts'
+
+# LDAP authentication (Mojolicious simple bind).
+ldap:
+  # LDAP server to query. Empty = local (database) authentication only.
+  server: ""
+  version: 3
+  # LDAP bind user template (substituted with the login name).
+  userDN: "uid=<username>"
+  # Search base for the bind user.
+  searchBase: ""
+  requireTLS: false
+  # Fall back to the local database when the LDAP server is unreachable.
+  failToLocal: true
+  proxy: false
+  # Connect + operation timeout (seconds).
+  timeout: 4
+  # Advanced (set verbatim in `extraConfig`): NetdotLDAPAttrMap,
+  # NetdotLDAPAttrReaderDN, NetdotLDAPAttrReaderPass.
+
+# OAuth2 / OpenID Connect authentication (e.g. Microsoft Entra ID).
+oauth:
+  enabled: false
+  # Label of the login-page button.
+  label: "Microsoft Entra ID"
+  clientId: ""
+  clientSecret: ""
+  # OpenID configuration URL (discovery endpoint).
+  wellKnown: "https://login.microsoftonline.com/<tenant>/v2.0/.well-known/openid-configuration"
+  # Space-separated scope list.
+  scope: "openid profile email"
+  # id_token claim used as the Netdot username.
+  userClaim: "preferred_username"
+  # Resolve the token's email to the LDAP uid (ldapsearch) instead of using
+  # the claim value as-is.
+  emailToLDAP: false
+
+# Extra Site.conf entries, verbatim Perl — the value of each entry is a Perl
+# fragment (quote strings). Any Default.conf variable can be set here, e.g.:
+#   WEB_BASE_URL: "'https://netdot.example.org'"
+#   SESSION_SECURE: "1"
+#   TRUSTED_PROXY_IPS: "[ '10.0.0.1' ]"
+extraConfig: {}
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false
+  className: ""
+  host: netdot.example.org
+  annotations: {}
+  # tls:
+  #   - hosts: [netdot.example.org]
+  #     secretName: netdot-tls
+  tls: []
+
+# The session / scratch dir (/usr/local/netdot/tmp) is always an ephemeral
+# emptyDir (sessions are ephemeral by nature).
+#
+# The export dir (/usr/local/netdot/export) is read-write; persist it on a
+# PVC to collect the generated exports (Nagios, BIND, RANCID, ...) across pod
+# restarts.
+exportPersistence:
+  enabled: false
+  size: 1Gi
+  accessModes:
+    - ReadWriteOnce
+  # "-" for the cluster default StorageClass.
+  storageClass: ""
+
+# fsGroup matching the `netdot' user of the image (uid/gid 1000); makes the
+# writable volumes group-writable for the server.
+securityContext:
+  fsGroup: 1000
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+resources: {}

@@ -1,0 +1,60 @@
+# Build and publish the Netdot 2.0 application image.
+#
+# The Actions checkout is a clean tree, so each image is reproducible per
+# commit. The netdisco-mibs ref is pinned in this workflow (the pinned
+# release-tag checkout step) for the same reason.
+#
+# Images are published on pushes to master and on v* tags — merging dev
+# into master is what publishes a new image (release control).
+name: docker
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The MIBs are vendored into the image from the build context (the
+      # Dockerfile cannot git-clone on the GHCR-hosted runners); the ref is
+      # pinned here for reproducible builds.
+      - name: Check out netdisco-mibs (pinned release tag)
+        uses: actions/checkout@v4
+        with:
+          repository: netdisco/netdisco-mibs
+          ref: 4.065
+          fetch-depth: 1
+          path: netdisco-mibs
+
+      - id: shortsha
+        run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/vink78/netdot:v2.0.0-dev-${{ steps.shortsha.outputs.sha }}
+            ghcr.io/vink78/netdot:latest
+          build-args: |
+            NETDOT_VERSION=v2.0.0-dev-${{ steps.shortsha.outputs.sha }}
+          # type=registry (rather than the newer type=ghcr) so the cache
+          # also works with older BuildKit versions.
+          cache-from: type=registry,ref=ghcr.io/vink78/netdot-buildx-cache:latest
+          cache-to: type=registry,ref=ghcr.io/vink78/netdot-buildx-cache:latest,mode=max

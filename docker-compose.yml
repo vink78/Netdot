@@ -1,0 +1,66 @@
+# Netdot 2.0 — local two-container stack: MariaDB + application.
+#
+# The image is built from the directory that contains this file (the
+# working tree) via the root Dockerfile; the build needs the netdisco-mibs
+# tree in the build context (one-time, see Docker.md):
+#
+#   git clone --depth 1 --branch 4.065 \
+#       https://github.com/netdisco/netdisco-mibs netdisco-mibs
+#
+# Optionally tag the image after the current commit for traceability:
+#
+#   NETDOT_VERSION=v2.0.0-dev-$(git rev-parse --short HEAD) docker compose up -d
+#   # then browse http://localhost:3000/
+#
+# First boot: MariaDB creates the database and the application account
+# (built-in behaviour of the image), then the app container waits for the
+# database and applies the schema + seed data as the application account.
+# Subsequent boots are no-ops. In a standard environment the DBA
+# pre-provisions the database and the account. The credentials below are
+# defaults for a local trial — override them via the environment or a .env
+# file for anything longer-lived.
+services:
+  db:
+    image: mariadb:11
+    # The IPAM features need a larger packet buffer (see the manual).
+    command: ["--max_allowed_packet=16M"]
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-netdot_root}
+      # Creates the `netdot` database and the `netdot_user` application
+      # account (with the privileges the application needs to apply the
+      # schema) on first initialization.
+      MARIADB_DATABASE: netdot
+      MARIADB_USER: netdot_user
+      MARIADB_PASSWORD: ${NETDOT_DB_PASSWORD:-netdot_pass}
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+
+  netdot:
+    build:
+      context: .
+      args:
+        # Optional: embedded in the image LABEL (see Dockerfile). Also used
+        # as the local image tag when set, for traceability to a commit.
+        NETDOT_VERSION: ${NETDOT_VERSION:-}
+    image: netdot:${NETDOT_VERSION:-dev}
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NETDOT_LISTEN: http://0.0.0.0:3000
+      NETDOT_WORKERS: "4"
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_DATABASE: netdot
+      DB_NETDOT_USER: netdot_user
+      DB_NETDOT_PASS: ${NETDOT_DB_PASSWORD:-netdot_pass}
+    ports:
+      - "3000:3000"
+
+volumes:
+  dbdata:

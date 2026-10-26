@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "netdot.fullname" . }}
+  labels:
+    {{- include "netdot.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "netdot.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "netdot.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: app
+      annotations:
+        # Recreate the pod when the generated Site.conf (database + base
+        # configuration) changes.
+        checksum/site-conf: {{ pick .Values "trialDatabase" "database" "netdotname" "adminEmail" "nocEmail" "defaultContactList" "ldap" "oauth" "extraConfig" | toYaml | sha256sum }}
+    spec:
+      securityContext:
+        fsGroup: {{ .Values.securityContext.fsGroup }}
+      containers:
+        - name: netdot
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # The entrypoint uses these to wait for the database and to
+          # decide whether to run the first-boot initialization
+          # (Site.conf, mounted below, carries the same values for
+          # initdb and the application).
+          env:
+            - name: NETDOT_LISTEN
+              value: "http://0.0.0.0:3000"
+            - name: NETDOT_WORKERS
+              value: {{ .Values.workers | quote }}
+            - name: MOJO_LOG_LEVEL
+              value: {{ .Values.logLevel }}
+            - name: DB_TYPE
+              value: {{ .Values.database.type | quote }}
+            - name: DB_HOST
+              value: "{{ if .Values.trialDatabase.enabled }}{{ include "netdot.fullname" . }}-trialdb{{ else }}{{ .Values.database.host }}{{ end }}"
+            - name: DB_PORT
+              value: "{{ if .Values.trialDatabase.enabled }}3306{{ else }}{{ .Values.database.port }}{{ end }}"
+            - name: DB_DATABASE
+              value: {{ .Values.database.database | quote }}
+            - name: DB_NETDOT_USER
+              value: {{ .Values.database.user | quote }}
+            - name: DB_NETDOT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "netdot.fullname" . }}
+                  key: password
+          ports:
+            - name: http
+              containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /login
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /login
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          volumeMounts:
+            - name: site-conf
+              mountPath: /usr/local/netdot/etc/Site.conf
+              subPath: Site.conf
+              readOnly: true
+            - name: tmp
+              mountPath: /usr/local/netdot/tmp
+            - name: export
+              mountPath: /usr/local/netdot/export
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: site-conf
+          secret:
+            secretName: {{ include "netdot.fullname" . }}
+        # Sessions / scratch: always ephemeral (local).
+        - name: tmp
+          emptyDir: {}
+        # Generated exports: read-write, optionally persisted on a PVC.
+        - name: export
+          {{- if .Values.exportPersistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "netdot.fullname" . }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

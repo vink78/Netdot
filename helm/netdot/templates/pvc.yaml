@@ -1,0 +1,21 @@
+{{- if .Values.exportPersistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "netdot.fullname" . }}
+  labels:
+    {{- include "netdot.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- toYaml .Values.exportPersistence.accessModes | nindent 4 }}
+  {{- if .Values.exportPersistence.storageClass }}
+  {{- if (eq "-" .Values.exportPersistence.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .Values.exportPersistence.storageClass }}
+  {{- end }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.exportPersistence.size }}
+{{- end }}

@@ -1,0 +1,10 @@
+apiVersion: v2
+name: netdot
+description: >-
+  Netdot 2.0 — network documentation, automated layer-2 topology
+  discovery and IPAM (Mojolicious web app + JSON API). Deploys the
+  application with an embedded trial MariaDB by default (zero external
+  services), or against an external MySQL/MariaDB.
+type: application
+version: 0.1.0
+appVersion: "2.0.0"

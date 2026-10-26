@@ -89,6 +89,47 @@ end-to-end on Debian 13.
 The [manual](doc/manual/netdot-manual.pdf) covers the complete setup:
 database preparation, configuration items, first login and operation.
 
+### Docker and Kubernetes
+
+The container image is published to GHCR by the repository's CI on every
+push to `master` and on version tags — `ghcr.io/vink78/netdot`, with
+`latest` tracking `master` and a `v2.0.0-dev-<shortsha>` tag per master
+commit (pin the latter for a stable trial).
+
+**Try it** — both trial stacks below boot a self-contained instance with
+an embedded MariaDB (on first boot the entrypoint applies the schema +
+seed data). Seeded login: `admin`/`admin` — change the password after the
+first login.
+
+Kubernetes (Helm chart, zero external services):
+
+```bash
+git clone https://github.com/vink78/Netdot.git && cd Netdot
+helm install netdot helm/netdot
+kubectl port-forward service/netdot-netdot 3000:3000
+# → http://localhost:3000/
+```
+
+Docker (local two-container stack, MariaDB + application):
+
+```bash
+git clone https://github.com/vink78/Netdot.git && cd Netdot
+# one-time: the image vendors the netdisco-mibs tree
+git clone --depth 1 --branch 4.065 \
+    https://github.com/netdisco/netdisco-mibs netdisco-mibs
+docker compose up -d
+# → http://localhost:3000/
+```
+
+For a real deployment, point the stack at an external MySQL/MariaDB
+(pre-provisioned by the DBA: database + application account with the
+privileges to apply and upgrade the schema). The `Dockerfile` builds the
+image from the working tree via `make install` (Debian 13 base, no
+reverse proxy inside the image — put your load balancer in front). See
+[Docker.md](Docker.md) for both paths: the chart's configuration surface
+(base settings, `extraConfig`, `exportPersistence`, LDAP/OIDC) and the
+image build.
+
 ## The JSON API
 
 The JSON API is the single write path of the application and the
