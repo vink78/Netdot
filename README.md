@@ -1,6 +1,8 @@
 # Netdot 2.0
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](gpl.txt)
+[![Docker](https://img.shields.io/badge/-Docker-2496ED?logo=docker&logoColor=white)](Docker.md)
+[![Kubernetes](https://img.shields.io/badge/-Kubernetes-326CE5?logo=kubernetes&logoColor=white)](Docker.md)
 
 **Netdot is an open source network documentation tool** — it discovers
 your layer-2 fabric automatically, manages the IP address space, and
@@ -91,10 +93,14 @@ database preparation, configuration items, first login and operation.
 
 ### Docker and Kubernetes
 
+[![Docker build](https://github.com/vink78/Netdot/actions/workflows/docker.yml/badge.svg)](https://github.com/vink78/Netdot/actions/workflows/docker.yml)
+[![Image](https://img.shields.io/badge/ghcr.io/vink78/netdot-latest-blue.svg)](https://github.com/users/vink78/packages/container/netdot/versions)
+
 The container image is published to GHCR by the repository's CI on every
 push to `master` and on version tags — `ghcr.io/vink78/netdot`, with
-`latest` tracking `master` and a `v2.0.0-dev-<shortsha>` tag per master
-commit (pin the latter for a stable trial).
+`latest` tracking `master`, a `v2.0.0-dev-<shortsha>` tag per master
+commit (pin the latter for a stable trial), and one image per `v*` tag
+(e.g. `v2.0.0`) for releases.
 
 **Try it** — both trial stacks below boot a self-contained instance with
 an embedded MariaDB (on first boot the entrypoint applies the schema +
