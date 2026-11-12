@@ -5,7 +5,9 @@
 # release-tag checkout step) for the same reason.
 #
 # Images are published on pushes to master and on v* tags — merging dev
-# into master is what publishes a new image (release control).
+# into master is what publishes a new image (release control). A tag
+# build publishes the tag name itself (e.g. ghcr.io/vink78/netdot:v2.0.0)
+# and does not move latest.
 name: docker
 
 on:
@@ -46,14 +48,23 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: docker/build-push-action@v6
+        env:
+          # A push to master publishes v2.0.0-dev-<shortsha>; a v* tag
+          # publishes the tag name itself (releases are cut by tagging).
+          IMAGE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v2.0.0-dev-{0}', steps.shortsha.outputs.sha) }}
         with:
           context: .
           push: true
+          # No attestations: single-platform builds push one plain
+          # manifest per tag (an index + attestation manifest would add
+          # untagged versions to the GHCR versions page).
+          provenance: false
+          sbom: false
           tags: |
-            ghcr.io/vink78/netdot:v2.0.0-dev-${{ steps.shortsha.outputs.sha }}
-            ghcr.io/vink78/netdot:latest
+            ghcr.io/vink78/netdot:${{ env.IMAGE_TAG }}
+            ${{ github.ref == 'refs/heads/master' && 'ghcr.io/vink78/netdot:latest' || '' }}
           build-args: |
-            NETDOT_VERSION=v2.0.0-dev-${{ steps.shortsha.outputs.sha }}
+            NETDOT_VERSION=${{ env.IMAGE_TAG }}
           # type=registry (rather than the newer type=ghcr) so the cache
           # also works with older BuildKit versions.
           cache-from: type=registry,ref=ghcr.io/vink78/netdot-buildx-cache:latest

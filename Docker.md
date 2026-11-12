@@ -168,7 +168,7 @@ surface:
 | `oauth.*` | OAuth2 / OpenID Connect (disabled by default). |
 | `extraConfig` | Any other `etc/Default.conf` variable, verbatim Perl (e.g. `WEB_BASE_URL: "'https://netdot.example.org'"`). |
 | `exportPersistence.*` (`enabled`, `size`, `accessModes`, `storageClass`) | Persist the export dir on a PVC; the session dir (`tmp/`) is always an ephemeral `emptyDir`. |
-| `ingress.*` | Optional ingress (disabled by default). |
+| `ingress.*` (`enabled`, `className`, `host`, `annotations`, `tls`) | Optional ingress (disabled by default); `tls` is a list of `{hosts: [...], secretName}` entries, where the secret holds the certificate and key (`kubernetes.io/tls`, e.g. created by cert-manager via the `cert-manager.io/cluster-issuer` annotation). |
 
 Notes:
 
