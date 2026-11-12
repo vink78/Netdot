@@ -21,15 +21,18 @@ permissions:
 
 jobs:
   image:
-    runs-on: ubuntu-latest
+    # Pinned (not ubuntu-latest, which is mid-migration 24.04 -> 26.04)
+    # so the runner image does not move under the build — same
+    # reproducibility goal as the pinned refs above.
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The MIBs are vendored into the image from the build context (the
       # Dockerfile cannot git-clone on the GHCR-hosted runners); the ref is
       # pinned here for reproducible builds.
       - name: Check out netdisco-mibs (pinned release tag)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: netdisco/netdisco-mibs
           ref: 4.065
@@ -39,15 +42,15 @@ jobs:
       - id: shortsha
         run: echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         env:
           # A push to master publishes v2.0.0-dev-<shortsha>; a v* tag
           # publishes the tag name itself (releases are cut by tagging).
